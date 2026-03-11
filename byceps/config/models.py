@@ -4,7 +4,7 @@ byceps.config.models
 
 Configuration models
 
-:Copyright: 2014-2025 Jochen Kupperschmidt
+:Copyright: 2014-2026 Jochen Kupperschmidt
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+
+from byceps.services.site.models import SiteID
 
 
 class AppMode(Enum):
@@ -49,7 +51,6 @@ class BycepsConfig:
     testing: bool
     timezone: str
     secret_key: str
-    apps: AppsConfig
     database: DatabaseConfig
     development: DevelopmentConfig
     discord: DiscordConfig | None
@@ -63,10 +64,10 @@ class BycepsConfig:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
-class AppsConfig:
-    admin: AdminAppConfig | None
-    api: ApiAppConfig | None
-    sites: list[SiteAppConfig]
+class WebAppsConfig:
+    admin: AdminWebAppConfig | None
+    api: ApiWebAppConfig | None
+    sites: list[SiteWebAppConfig]
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -80,12 +81,12 @@ class WebAppConfig(AppConfig):
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
-class AdminAppConfig(WebAppConfig):
+class AdminWebAppConfig(WebAppConfig):
     pass
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
-class ApiAppConfig(WebAppConfig):
+class ApiWebAppConfig(WebAppConfig):
     pass
 
 
@@ -95,8 +96,8 @@ class CliAppConfig(AppConfig):
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
-class SiteAppConfig(WebAppConfig):
-    site_id: str
+class SiteWebAppConfig(WebAppConfig):
+    site_id: SiteID
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
