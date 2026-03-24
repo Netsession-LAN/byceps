@@ -38,6 +38,8 @@ def _generate_entries(config: BycepsConfig) -> Iterator[tuple[str, Any]]:
 
     yield 'SECRET_KEY', config.secret_key
 
+    yield 'NETSESSION_TOURNEY_ENABLED', config.netsession_tourney_enabled
+
     yield 'SQLALCHEMY_DATABASE_URI', assemble_database_uri(config.database)
 
 

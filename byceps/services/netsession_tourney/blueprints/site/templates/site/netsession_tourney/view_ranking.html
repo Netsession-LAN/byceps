@@ -1,0 +1,288 @@
+﻿{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% set page_title = [tournament.title, _('Ranking')] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <section class="ns-tourney-panel">
+    {%- if has_ranking_data %}
+    <p class="ns-tourney-meta">
+      <strong>
+        {%- if is_final_ranking -%}
+        {{ _('Endranking') }}
+        {%- else -%}
+        {{ _('Vorläufiges Ranking') }}
+        {%- endif -%}
+      </strong>
+      <br>
+      <span class="dimmed">
+        {%- if is_final_ranking -%}
+        {{ _('Alle gewerteten Matches dieses Turniers sind abgeschlossen.') }}
+        {%- else -%}
+        {{ _('Das Ranking basiert auf den bisher gewerteten Matches und kann sich noch ändern.') }}
+        {%- endif -%}
+      </span>
+    </p>
+    {%- endif %}
+    {%- if ranking_rows %}
+      {%- if is_ffa_scoring_tournament %}
+      <div class="ns-tourney-match-ffa-table-wrap">
+        <table class="itemlist is-vcentered is-wide ns-tourney-match-ffa-table ns-tourney-ranking-ffa-table">
+          <thead>
+            <tr>
+              <th class="ns-tourney-match-ffa-table-place-cell">{{ _('Rang') }}</th>
+              <th class="ns-tourney-match-ffa-table-participant-cell"><span class="ns-tourney-mobile-long-label">{{ ranking_subject_label }}</span><span class="ns-tourney-mobile-short-label">{{ _('Teiln.') }}</span></th>
+              <th class="ns-tourney-ranking-ffa-table-score-cell"><span class="ns-tourney-mobile-long-label">{{ _('Gesamtpunkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('GP') }}</span></th>
+              <th class="ns-tourney-ranking-ffa-table-score-cell"><span class="ns-tourney-mobile-long-label">{{ _('Rangpunkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('RP') }}</span></th>
+              <th class="ns-tourney-match-ffa-table-kills-cell"><span class="ns-tourney-mobile-long-label">{{ _('Kills') }}</span><span class="ns-tourney-mobile-short-label">{{ _('K') }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {%- for row in ranking_rows %}
+            {%- set participant = row.participant %}
+            {%- set participant_user = users_by_id.get(participant.user_id) if participant.user_id else none %}
+            {%- set participant_avatar_url = none %}
+            {%- if participant.type.value == 'team' and participant.logo_url %}
+              {%- set participant_avatar_url = participant.logo_url %}
+            {%- elif participant_user and participant_user.avatar_url %}
+              {%- set participant_avatar_url = participant_user.avatar_url %}
+            {%- endif %}
+            <tr class="ns-tourney-ranking-ffa-table-row{% if row.rank == 1 %} is-winner{% endif %}">
+              <td class="ns-tourney-match-ffa-table-place-cell" data-label="{{ _('Rang') }}">
+                <span class="ns-tourney-match-ffa-place-badge">{{ row.rank }}</span>
+              </td>
+              <td class="ns-tourney-match-ffa-table-participant-cell" data-label="{{ ranking_subject_label }}">
+                <div class="ns-tourney-match-ffa-table-participant">
+                  <span class="ns-tourney-ranking-participant-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+                    {%- if participant_avatar_url %}
+                    <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                    {%- endif %}
+                  </span>
+                  <div class="ns-tourney-match-ffa-table-participant-main">
+                    <strong class="ns-tourney-match-ffa-table-participant-name">
+                      {%- if participant.type.value == 'team' %}
+                      <a class="disguised" href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+                      {%- elif participant.user_id %}
+                      <a class="disguised" href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+                      {%- else %}
+                      {{ participant.name }}
+                      {%- endif %}
+                    </strong>
+                    <small class="ns-tourney-match-ffa-table-participant-meta">{{ _('Seed') }} {{ participant.seed if participant.seed is not none else '-' }}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="ns-tourney-ranking-ffa-table-score-cell" data-label="{{ _('Gesamtpunkte') }}"><strong>{{ row.total_points }}</strong></td>
+              <td class="ns-tourney-ranking-ffa-table-score-cell" data-label="{{ _('Rangpunkte') }}"><strong>{{ row.points }}</strong></td>
+              <td class="ns-tourney-match-ffa-table-kills-cell" data-label="{{ _('Kills') }}"><strong>{{ row.kills }}</strong></td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+        <p class="ns-tourney-mobile-legend">
+          <strong>{{ _('Legende') }}:</strong>
+          {{ _('Teiln.') }} = {{ ranking_subject_label }},
+          {{ _('GP') }} = {{ _('Gesamtpunkte') }},
+          {{ _('RP') }} = {{ _('Rangpunkte') }},
+          {{ _('K') }} = {{ _('Kills') }}
+        </p>
+      </div>
+      {%- elif is_flatout2_tournament %}
+      <div class="ns-tourney-match-ffa-table-wrap">
+        <table class="itemlist is-vcentered is-wide ns-tourney-match-ffa-table ns-tourney-ranking-ffa-table">
+          <thead>
+            <tr>
+              <th class="ns-tourney-match-ffa-table-place-cell">{{ _('Rang') }}</th>
+              <th class="ns-tourney-match-ffa-table-participant-cell"><span class="ns-tourney-mobile-long-label">{{ ranking_subject_label }}</span><span class="ns-tourney-mobile-short-label">{{ _('Teiln.') }}</span></th>
+              <th class="ns-tourney-ranking-ffa-table-score-cell"><span class="ns-tourney-mobile-long-label">{{ _('Siege') }}</span><span class="ns-tourney-mobile-short-label">{{ _('S') }}</span></th>
+              <th class="ns-tourney-ranking-ffa-table-score-cell"><span class="ns-tourney-mobile-long-label">{{ _('Matches') }}</span><span class="ns-tourney-mobile-short-label">{{ _('M') }}</span></th>
+              <th class="ns-tourney-ranking-ffa-table-score-cell"><span class="ns-tourney-mobile-long-label">{{ _('Bester Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('BR') }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {%- for row in ranking_rows %}
+            {%- set participant = row.participant %}
+            {%- set participant_user = users_by_id.get(participant.user_id) if participant.user_id else none %}
+            {%- set participant_avatar_url = none %}
+            {%- if participant.type.value == 'team' and participant.logo_url %}
+              {%- set participant_avatar_url = participant.logo_url %}
+            {%- elif participant_user and participant_user.avatar_url %}
+              {%- set participant_avatar_url = participant_user.avatar_url %}
+            {%- endif %}
+            <tr class="ns-tourney-ranking-ffa-table-row{% if row.rank == 1 %} is-winner{% endif %}">
+              <td class="ns-tourney-match-ffa-table-place-cell" data-label="{{ _('Rang') }}">
+                <span class="ns-tourney-match-ffa-place-badge">{{ row.rank }}</span>
+              </td>
+              <td class="ns-tourney-match-ffa-table-participant-cell" data-label="{{ ranking_subject_label }}">
+                <div class="ns-tourney-match-ffa-table-participant">
+                  <span class="ns-tourney-ranking-participant-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+                    {%- if participant_avatar_url %}
+                    <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                    {%- endif %}
+                  </span>
+                  <div class="ns-tourney-match-ffa-table-participant-main">
+                    <strong class="ns-tourney-match-ffa-table-participant-name">
+                      {%- if participant.type.value == 'team' %}
+                      <a class="disguised" href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+                      {%- elif participant.user_id %}
+                      <a class="disguised" href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+                      {%- else %}
+                      {{ participant.name }}
+                      {%- endif %}
+                    </strong>
+                    <small class="ns-tourney-match-ffa-table-participant-meta">{{ _('Seed') }} {{ participant.seed if participant.seed is not none else '-' }}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="ns-tourney-ranking-ffa-table-score-cell" data-label="{{ _('Siege') }}"><strong>{{ row.wins }}</strong></td>
+              <td class="ns-tourney-ranking-ffa-table-score-cell" data-label="{{ _('Matches') }}"><strong>{{ row.played }}</strong></td>
+              <td class="ns-tourney-ranking-ffa-table-score-cell" data-label="{{ _('Bester Rang') }}"><strong>{{ row.best_placement if row.best_placement is not none else '-' }}</strong></td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+        <p class="ns-tourney-mobile-legend">
+          <strong>{{ _('Legende') }}:</strong>
+          {{ _('Teiln.') }} = {{ ranking_subject_label }},
+          {{ _('S') }} = {{ _('Siege') }},
+          {{ _('M') }} = {{ _('Matches') }},
+          {{ _('BR') }} = {{ _('Bester Rang') }}
+        </p>
+      </div>
+      {%- elif is_swiss_tournament %}
+      <table class="itemlist is-vcentered ns-tourney-ranking-table ns-tourney-ranking-table--swiss">
+        <thead>
+          <tr>
+            <th>{{ _('Rang') }}</th>
+            <th>{{ ranking_subject_label }}</th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('Siege') }}</span><span class="ns-tourney-mobile-short-label">{{ _('S') }}</span></span></th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('Niederlagen') }}</span><span class="ns-tourney-mobile-short-label">{{ _('N') }}</span></span></th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('Buchholz') }}</span><span class="ns-tourney-mobile-short-label">{{ _('BH') }}</span></span></th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('Gegnerbilanz') }}</span><span class="ns-tourney-mobile-short-label">{{ _('OWS') }}</span></span></th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('SoS-Stufe 2') }}</span><span class="ns-tourney-mobile-short-label">{{ _('SoS2') }}</span></span></th>
+            <th><span class="ns-tourney-ranking-heading"><span class="ns-tourney-mobile-long-label">{{ _('Runden-Diff.') }}</span><span class="ns-tourney-mobile-short-label">{{ _('RD') }}</span></span></th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in ranking_rows %}
+          {%- set participant = row.participant %}
+          {%- set participant_user = users_by_id.get(participant.user_id) if participant.user_id else none %}
+          {%- set participant_avatar_url = none %}
+          {%- if participant.type.value == 'team' and participant.logo_url %}
+            {%- set participant_avatar_url = participant.logo_url %}
+          {%- elif participant_user and participant_user.avatar_url %}
+            {%- set participant_avatar_url = participant_user.avatar_url %}
+          {%- endif %}
+          <tr>
+            <td><strong>{{ row.rank }}</strong></td>
+            <td class="ns-tourney-ranking-participant-cell">
+              <span class="ns-tourney-ranking-participant">
+                <span class="ns-tourney-ranking-participant-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+                  {%- if participant_avatar_url %}
+                  <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                  {%- endif %}
+                </span>
+                {%- if participant.type.value == 'team' %}
+                <a
+                  class="ns-tourney-ranking-participant-link"
+                  href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}"
+                >
+                  {{ participant.name }}
+                </a>
+                {%- elif participant.user_id %}
+                <a
+                  class="ns-tourney-ranking-participant-link"
+                  href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}"
+                >
+                  {{ participant.name }}
+                </a>
+                {%- else %}
+                <span class="ns-tourney-ranking-participant-name">{{ participant.name }}</span>
+                {%- endif %}
+              </span>
+            </td>
+            <td>{{ row.wins }}</td>
+            <td>{{ row.losses }}</td>
+            <td>{{ row.buchholz }}</td>
+            <td>{{ row.opponent_wl_sum }}</td>
+            <td>{{ row.second_order_sos }}</td>
+            <td>{{ '%+d'|format(row.round_diff) }}</td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend ns-tourney-mobile-legend--swiss-ranking">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('S') }} = {{ _('Siege') }},
+        {{ _('N') }} = {{ _('Niederlagen') }},
+        {{ _('BH') }} = {{ _('Buchholz') }},
+        {{ _('OWS') }} = {{ _('Gegner-W/L-Summe') }},
+        {{ _('SoS2') }} = {{ _('SoS 2. Ordnung') }},
+        {{ _('RD') }} = {{ _('Rundendifferenz') }},
+        {{ _('Tiebreaker') }}: {{ _('erst Record, dann Buchholz, dann Gegner-W/L-Summe, dann SoS 2. Ordnung, bei echtem 2er-Gleichstand Direktvergleich, danach RD und gewonnene Runden') }}.
+        {{ _('Walkovers zählen für den Record, aber nicht für SoS oder RD.') }}
+      </p>
+      {%- else %}
+      <table class="itemlist is-vcentered ns-tourney-ranking-table">
+        <thead>
+          <tr>
+            <th>{{ _('Rang') }}</th>
+            <th>{{ ranking_subject_label }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in ranking_rows %}
+          {%- set participant = row.participant %}
+          {%- set participant_user = users_by_id.get(participant.user_id) if participant.user_id else none %}
+          {%- set participant_avatar_url = none %}
+          {%- if participant.type.value == 'team' and participant.logo_url %}
+            {%- set participant_avatar_url = participant.logo_url %}
+          {%- elif participant_user and participant_user.avatar_url %}
+            {%- set participant_avatar_url = participant_user.avatar_url %}
+          {%- endif %}
+          <tr>
+            <td><strong>{{ row.rank }}</strong></td>
+            <td class="ns-tourney-ranking-participant-cell">
+              <span class="ns-tourney-ranking-participant">
+                <span class="ns-tourney-ranking-participant-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+                  {%- if participant_avatar_url %}
+                  <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                  {%- endif %}
+                </span>
+                {%- if participant.type.value == 'team' %}
+                <a
+                  class="ns-tourney-ranking-participant-link"
+                  href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}"
+                >
+                  {{ participant.name }}
+                </a>
+                {%- elif participant.user_id %}
+                <a
+                  class="ns-tourney-ranking-participant-link"
+                  href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}"
+                >
+                  {{ participant.name }}
+                </a>
+                {%- else %}
+                <span class="ns-tourney-ranking-participant-name">{{ participant.name }}</span>
+                {%- endif %}
+              </span>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      {%- endif %}
+    {%- else %}
+    <p class="dimmed">{{ _('Noch kein Ranking verfügbar. Es erscheint nach dem ersten gewerteten Match.') }}</p>
+    {%- endif %}
+  </section>
+{% endblock %}

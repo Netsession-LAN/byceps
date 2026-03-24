@@ -1,0 +1,50 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'admin/netsession_tourney/logo/_subtabs.html' import render_logo_subtabs %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'logos' %}
+{% set page_title = [_('Discord-Forum-Bild bearbeiten'), party.title] %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.discord_forum_image_index', party_id=party.id), _('Discord-Forum-Bilder')) }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Discord-Forum-Bilder'), 'url': url_for('.discord_forum_image_index', party_id=party.id)},
+      {'label': _('Discord-Forum-Bild bearbeiten'), 'url': none},
+    ],
+    party.title,
+    _('Discord-Forum-Bild bearbeiten'),
+    _('Pflege die interne Bezeichnung und prüfe die Vorschau für den Discord-Forum-Thread direkt im Kontext.')
+  ) }}
+  {{ render_logo_subtabs(party, current_logo_subtab) }}
+
+  <form action="{{ url_for('.discord_forum_image_update', image_asset_id=logo_asset.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Bild') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Pflege die interne Bezeichnung des Discord-Forum-Bilds und prüfe die Vorschau direkt im Kontext.') }}</p>
+          </div>
+        </div>
+        <div class="ns-admin-form-callout">
+          <span class="ns-tourney-admin-logo-preview ns-tourney-admin-logo-preview--banner">
+            <img src="{{ logo_asset.url_path }}" alt="{{ logo_asset.label }}" style="max-height: 80px; max-width: 220px; border-radius: 8px;">
+          </span>
+        </div>
+        {{ render_field(form.label, _('Interne Bezeichnung des Bilds für die Auswahl im Discord-Tab.'), autofocus='autofocus') }}
+        <div class="ns-admin-form-callout"><code>{{ logo_asset.url_path }}</code></div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+      <a href="{{ url_for('.discord_forum_image_index', party_id=party.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

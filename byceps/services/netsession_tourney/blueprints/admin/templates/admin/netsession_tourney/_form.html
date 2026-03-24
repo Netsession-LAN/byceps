@@ -1,0 +1,241 @@
+{% from 'admin/netsession_tourney/_field_macros.html' import render_admin_multiselect, render_check_field, render_field %}
+
+<div class="ns-admin-form-shell">
+  <section class="box ns-admin-form-section">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Basis') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Die wichtigsten Stammdaten für das Turnier.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-form-grid">
+      {{ render_field(form.slug, _('Eindeutiger URL-Teil des Turniers, zum Beispiel cs2-5on5. Nach Erstellung möglichst nicht mehr ändern.'), autofocus='autofocus') }}
+      {{ render_field(form.title, _('Sichtbarer Haupttitel des Turniers.')) }}
+      {{ render_field(form.subtitle, _('Optionaler Untertitel, zum Beispiel Modus, Skill-Bracket oder Hinweis.')) }}
+      {{ render_field(form.category_id, _('Kategorie für Sortierung und Darstellung in der User-Ansicht.')) }}
+      {{ render_field(form.game, _('Spiel oder Disziplin, zum Beispiel CS2, Valorant oder FIFA.')) }}
+      {{ render_check_field(form.visible_on_site, _('Wenn aktiv, ist das Turnier in der User-UI sichtbar und direkt aufrufbar. Wenn deaktiviert, ist es für normale User komplett verborgen.')) }}
+    </div>
+  </section>
+
+  <section class="box ns-admin-form-section">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Branding') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Logos, Sponsoring und Regelanzeige für das Frontend.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-form-grid">
+      {{ render_field(form.tournament_logo_url, _('Turnierlogos werden über Logos > Turnierlogos verwaltet.')) }}
+      {{ render_check_field(form.is_sponsored, _('Wenn aktiv, wird unter dem Titel in der User-Ansicht Sponsored by mit Sponsor-Logo angezeigt.')) }}
+      <div id="ns-sponsor-logo-field">
+        {{ render_field(form.sponsor_logo_url, _('Sponsor-Logos werden über Logos > Turnier-Sponsor-Logos verwaltet.')) }}
+      </div>
+      {{ render_field(form.rules_template_slug, _('Optionales Regeltemplate für die Anzeige der Turnierregeln im Frontend.')) }}
+    </div>
+  </section>
+
+  <section class="box ns-admin-form-section">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Format') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Spielmodus, Registrierungslogik und Admin-Zuständigkeiten.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-form-grid">
+      {{ render_field(form.mode, _('Grundmodus des Turniers: Duel oder FFA.')) }}
+      {{ render_field(form.registration_mode, _('Legt fest, ob Solo-Teilnahme, Team-Captain-Flow oder gemischte Registrierung genutzt wird.')) }}
+      <div id="ns-team-size-field"{% if form.registration_mode.data == 'solo' %} style="display: none;"{% endif %}>
+        {{ render_field(form.team_size, _('Teamgröße pro Team. Bei solo wird automatisch 1 gesetzt, sonst wähle 1 bis 20.')) }}
+      </div>
+      <div id="ns-substitute-count-field"{% if form.registration_mode.data == 'solo' %} style="display: none;"{% endif %}>
+        {{ render_field(form.substitute_count, _('Zusätzliche Ersatzspieler pro Team. Bei solo wird automatisch 0 gesetzt.')) }}
+      </div>
+      {{ render_field(form.participant_limit, _('Maximale Anzahl Teilnehmer oder Teams in diesem Turnier.')) }}
+      {{ render_field(form.coin_cost, _('Wie viele Coins eine einzelne Turnieranmeldung kostet. Bei Teamturnieren greift zusätzlich die Einstellung Wer zahlt.')) }}
+      {{ render_field(form.coin_refund_policy, _('Legt fest, bis wann Coins bei einer Abmeldung zurückgegeben werden. Bei Runde 1 endet die Rückgabe erst, wenn alle Matches der ersten Runde abgeschlossen sind.')) }}
+      <div id="ns-coin-charge-mode-field"{% if form.registration_mode.data == 'solo' %} style="display: none;"{% endif %}>
+        {{ render_field(form.coin_charge_mode, _('Bei Teamturnieren: zahlt nur der Captain oder jedes Teammitglied separat.')) }}
+      </div>
+      {{ render_admin_multiselect(form.admin_user_ids, _('Zuständige Turnier-Admins. Nur User mit der passenden Permission sind verfügbar.')) }}
+    </div>
+
+    <details class="ns-admin-inline-note">
+      <summary>{{ _('Erlaubte Kombinationen') }}</summary>
+      <div class="ns-admin-inline-note-body">
+        <div><strong>{{ _('Duel') }}:</strong> {{ _('solo, team_captain_managed, team_preformed_only, mixed') }}</div>
+        <div><strong>{{ _('FFA') }}:</strong> {{ _('solo, team_captain_managed, team_preformed_only, mixed') }}</div>
+        <div class="mt"><strong>{{ _('Duel Stage-Typen') }}:</strong> {{ _('single_elimination, double_elimination, double_elimination_double_grand_final, round_robin_groups, league, swiss') }}</div>
+        <div><strong>{{ _('FFA Stage-Typen') }}:</strong> {{ _('ffa_simple, ffa_single_elimination, ffa_flatout2_single_elimination') }}</div>
+      </div>
+    </details>
+
+    <p id="ns-registration-mode-hint" class="ns-admin-inline-hint"></p>
+  </section>
+
+  <section class="box ns-admin-form-section">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Zeitplan') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Start, Registrierung, Roster-Lock und Check-in.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-form-grid">
+      {{ render_field(form.starts_at, _('Geplanter Turnierstart. Wird für Anzeige und Scheduling genutzt.')) }}
+      {{ render_field(form.registration_deadline, _('Bis zu diesem Zeitpunkt sind neue Registrierungen erlaubt.')) }}
+      {{ render_field(form.roster_lock_at, _('Ab diesem Zeitpunkt sind Team-Kader nicht mehr änderbar.')) }}
+      {{ render_field(form.checkin_open_at, _('Start des Check-in-Fensters. Erst ab dann kann eingecheckt werden.')) }}
+      {{ render_field(form.checkin_close_at, _('Ende des Check-in-Fensters. Danach entscheidet Admin über fehlenden Check-in.')) }}
+      {{ render_check_field(form.registration_open, _('Wenn aktiv, können sich berechtigte User registrieren.')) }}
+    </div>
+  </section>
+</div>
+
+<script>
+  (() => {
+    const form =
+      document.currentScript?.closest('form[data-ns-admin-tourney-form]') ||
+      document.querySelector('form[data-ns-admin-tourney-form]');
+    if (!form) {
+      return;
+    }
+
+    const modeField = form.querySelector('select[name="mode"]');
+    const registrationModeField = form.querySelector(
+      'select[name="registration_mode"]'
+    );
+    const teamSizeField = form.querySelector('select[name="team_size"]');
+    const teamSizeWrap = form.querySelector('#ns-team-size-field');
+    const substituteCountField = form.querySelector(
+      'select[name="substitute_count"]'
+    );
+    const substituteCountWrap = form.querySelector(
+      '#ns-substitute-count-field'
+    );
+    const coinChargeModeField = form.querySelector('select[name="coin_charge_mode"]');
+    const coinChargeModeWrap = form.querySelector('#ns-coin-charge-mode-field');
+    const sponsoredField = form.querySelector('input[name="is_sponsored"]');
+    const sponsorLogoField = form.querySelector('#ns-sponsor-logo-field');
+    const hint = form.querySelector('#ns-registration-mode-hint');
+    const adminMultiselect = form.querySelector('[data-admin-multiselect]');
+    const adminSummary = form.querySelector('[data-admin-summary]');
+    const adminTags = form.querySelector('[data-admin-tags]');
+    const adminCheckboxes = adminMultiselect
+      ? Array.from(
+          adminMultiselect.querySelectorAll('input[type="checkbox"]')
+        )
+      : [];
+
+    if (
+      !modeField ||
+      !registrationModeField ||
+      !teamSizeField ||
+      !substituteCountField
+    ) {
+      return;
+    }
+
+    const adminEmptyText = {{ _('Admins auswählen')|tojson }};
+    const adminSingleText = {{ _('1 Admin ausgewählt')|tojson }};
+    const adminMultipleSuffix = {{ _('Admins ausgewählt')|tojson }};
+    const ffaHintText = {{ _('Hinweis: Bei FFA sind Solo- und Team-Registrierungen erlaubt. Bei solo wird Teamgröße automatisch auf 1 fixiert und Ersatzspieler auf 0.')|tojson }};
+    const duelHintText = {{ _('Hinweis: Bei Duel sind Solo- und Team-Registrierungen erlaubt. Bei solo wird Teamgröße automatisch auf 1 fixiert und Ersatzspieler auf 0.')|tojson }};
+
+    const updateFormState = () => {
+      const selectedMode = modeField.value;
+      const selectedRegistrationMode = registrationModeField.value;
+
+      Array.from(teamSizeField.options).forEach((option) => {
+        option.disabled =
+          selectedRegistrationMode === 'solo' && option.value !== '1';
+      });
+
+      Array.from(substituteCountField.options).forEach((option) => {
+        option.disabled =
+          selectedRegistrationMode === 'solo' && option.value !== '0';
+      });
+
+      if (selectedRegistrationMode === 'solo') {
+        teamSizeField.value = '1';
+        substituteCountField.value = '0';
+        if (coinChargeModeField) {
+          coinChargeModeField.value = 'all_members';
+        }
+      }
+
+      if (teamSizeWrap) {
+        teamSizeWrap.style.display =
+          selectedRegistrationMode === 'solo' ? 'none' : '';
+      }
+
+      if (substituteCountWrap) {
+        substituteCountWrap.style.display =
+          selectedRegistrationMode === 'solo' ? 'none' : '';
+      }
+
+      if (coinChargeModeWrap) {
+        coinChargeModeWrap.style.display =
+          selectedRegistrationMode === 'solo' ? 'none' : '';
+      }
+
+      if (hint) {
+        hint.textContent =
+          selectedMode === 'ffa'
+            ? ffaHintText
+            : duelHintText;
+      }
+    };
+
+    const updateSponsorVisibility = () => {
+      if (!sponsoredField || !sponsorLogoField) {
+        return;
+      }
+
+      sponsorLogoField.style.display = sponsoredField.checked ? '' : 'none';
+    };
+
+    const updateAdminSummary = () => {
+      if (!adminSummary || !adminTags) {
+        return;
+      }
+
+      const selected = adminCheckboxes
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.dataset.label || checkbox.value);
+
+      adminSummary.textContent =
+        selected.length === 0
+          ? adminEmptyText
+          : selected.length === 1
+            ? adminSingleText
+            : `${selected.length} ${adminMultipleSuffix}`;
+
+      adminTags.replaceChildren();
+
+      selected.forEach((label) => {
+        const tag = document.createElement('span');
+        tag.className = 'ns-admin-selected-tag';
+        tag.textContent = label;
+        adminTags.appendChild(tag);
+      });
+    };
+
+    modeField.addEventListener('change', updateFormState);
+    registrationModeField.addEventListener('input', updateFormState);
+    registrationModeField.addEventListener('change', updateFormState);
+    if (sponsoredField) {
+      sponsoredField.addEventListener('change', updateSponsorVisibility);
+    }
+    adminCheckboxes.forEach((checkbox) =>
+      checkbox.addEventListener('change', updateAdminSummary)
+    );
+
+    updateFormState();
+    updateSponsorVisibility();
+    updateAdminSummary();
+  })();
+</script>

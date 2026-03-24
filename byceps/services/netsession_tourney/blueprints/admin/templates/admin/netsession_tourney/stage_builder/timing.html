@@ -1,0 +1,58 @@
+﻿{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Timing')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Stage Builder'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage Builder'),
+    _('Schritt 3 von 4: Lege optionale Timing-Parameter fest, die auf die erzeugten Stages übernommen werden.'),
+    '3/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Timing')},
+      {'label': _('Übernahme'), 'value': _('für Vorrunde und Hauptturnier')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/stage_builder/_steps.html' %}
+
+  <form action="{{ url_for('.stage_builder_wizard_timing_submit', party_id=party.id, tournament_id=tournament.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Timing') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Diese Angaben steuern die automatische Rundenterminierung, ändern aber nicht die Builder-Logik selbst.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_field(form.match_duration_minutes, _('Optionale Matchdauer in Minuten.')) }}
+          {{ render_field(form.max_matches_per_round, _('Optionales Limit paralleler Matches pro Runde.')) }}
+          {{ render_field(form.break_between_rounds_minutes, _('Pause zwischen zwei Runden in Minuten.')) }}
+        </div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.stage_builder_wizard_preliminary', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Weiter') }}</button>
+    </div>
+  </form>
+{% endblock %}

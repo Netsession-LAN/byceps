@@ -1,0 +1,256 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Turnier erstellen'), _('Prüfen')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.index', party_id=party.id), _('Netsession Turniere')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': _('Turnier erstellen'), 'url': none},
+      {'label': _('Prüfen'), 'url': none},
+    ],
+    party.title,
+    _('Turnier erstellen'),
+    _('Schritt 4 von 4: Prüfe alle Angaben vor dem Erstellen des Turniers.'),
+    '4/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Prüfen')},
+      {'label': _('Fokus'), 'value': _('Kontrolle vor dem Anlegen')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/wizard/_steps.html' %}
+
+  <div class="ns-admin-form-shell">
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Format') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Modus, Teamstruktur und verantwortliche Admins.') }}</p>
+        </div>
+      </div>
+
+      <dl class="ns-admin-review-grid">
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Kategorie') }}</dt>
+          <dd class="ns-admin-review-value">{{ selected_category.title if selected_category else '-' }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Modus') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.mode }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Registration mode') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.registration_mode }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Team size') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.team_size }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Ersatzspieler') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.substitute_count }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Team/participant count limit') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.participant_limit|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Coin-Kosten') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.coin_cost|default(0) }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Rückgabe') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.coin_refund_policy == 'until_end_of_round_1' -%}
+              {{ _('bis einschließlich Runde 1') }}
+            {%- else -%}
+              {{ _('bis Turnierende') }}
+            {%- endif -%}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Wer zahlt?') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.coin_charge_mode == 'all_members' -%}
+              {{ _('Alle Teammitglieder zahlen') }}
+            {%- else -%}
+              {{ _('Captain zahlt') }}
+            {%- endif -%}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item ns-admin-review-item--wide">
+          <dt class="ns-admin-review-label">{{ _('Admins') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if selected_admin_users %}
+              {{ selected_admin_users|map(attribute='screen_name')|join(', ') }}
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Basisdaten') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Titel, URLs, Branding und sichtbare Zusatzdaten.') }}</p>
+        </div>
+      </div>
+
+      <dl class="ns-admin-review-grid">
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Title') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.title }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Slug') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.slug }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Subtitle') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.subtitle|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Game') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.game|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Regeltemplate') }}</dt>
+          <dd class="ns-admin-review-value">{{ selected_rules_template.title if selected_rules_template else state.rules_page_slug|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Gesponsert') }}</dt>
+          <dd class="ns-admin-review-value">{{ _('ja') if state.is_sponsored else _('nein') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Logo') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.logo_url -%}
+              <a class="ns-admin-review-link" href="{{ state.logo_url }}" target="_blank" rel="noopener">{{ state.logo_url }}</a>
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Sponsor-Logo') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.is_sponsored and state.sponsor_logo_url -%}
+              <a class="ns-admin-review-link" href="{{ state.sponsor_logo_url }}" target="_blank" rel="noopener">{{ state.sponsor_logo_url }}</a>
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Zeiten') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Start, Registrierung und Check-in im Überblick.') }}</p>
+        </div>
+      </div>
+
+      <dl class="ns-admin-review-grid">
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Start') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.starts_at|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Visible on site') }}</dt>
+          <dd class="ns-admin-review-value">{{ 'yes' if state.visible_on_site else 'no' }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Registration open') }}</dt>
+          <dd class="ns-admin-review-value">{{ 'yes' if state.registration_open else 'no' }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Registration deadline') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.registration_deadline|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Roster lock') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.roster_lock_at|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Check-in opens') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.checkin_open_at|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Check-in closes') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.checkin_close_at|fallback('-') }}</dd>
+        </div>
+      </dl>
+    </section>
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Discord-Forum') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Optionale Discord-Forum-Konfiguration für den direkten Start des Turnier-Threads.') }}</p>
+        </div>
+      </div>
+
+      <dl class="ns-admin-review-grid">
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Discord-Forum aktiviert') }}</dt>
+          <dd class="ns-admin-review-value">{{ _('ja') if state.discord_enabled else _('nein') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Forum-Channel-ID') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.discord_forum_channel_id|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Discord-Forum-Bild') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.discord_forum_image_url -%}
+              <a class="ns-admin-review-link" href="{{ state.discord_forum_image_url }}" target="_blank" rel="noopener">{{ state.discord_forum_image_url }}</a>
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Forum-Tag-IDs') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.discord_applied_tag_ids -%}
+              {{ state.discord_applied_tag_ids|join(', ') }}
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item ns-admin-review-item--wide">
+          <dt class="ns-admin-review-label">{{ _('Discord-Forum-Events') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.discord_event_mask -%}
+              {{ state.discord_event_mask|join(', ') }}
+            {%- else -%}
+              -
+            {%- endif %}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+
+  <form action="{{ url_for('.create_wizard_review_submit', party_id=party.id) }}" method="post">
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.create_wizard_schedule', party_id=party.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Turnier erstellen') }}</button>
+    </div>
+  </form>
+{% endblock %}

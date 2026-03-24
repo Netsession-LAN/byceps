@@ -1,0 +1,216 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% from 'macros/user.html' import render_user_avatar %}
+{% from 'macros/icons.html' import render_icon %}
+{% set page_title = [player.name, tournament.title] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, crumb_label=_('Spieler/innen'), show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <section class="ns-tourney-panel mt ns-tourney-player-panel">
+    <div class="ns-tourney-player-header">
+      <div class="ns-tourney-player-avatar-wrap">
+        {{ render_user_avatar(player_user, size=96) }}
+      </div>
+      <div class="ns-tourney-player-header-main">
+        <h2 class="ns-tourney-player-title">{{ player.name }}</h2>
+      </div>
+    </div>
+
+    <div class="ns-tourney-player-links">
+      <a href="{{ url_for('user_profile.view', user_id=player_user.id) }}" class="ns-tourney-player-meta-link">
+        {{ render_icon('user') }} {{ _('Profil') }}
+      </a>
+
+      {%- if seat_data and seat_data.url %}
+      <a href="{{ seat_data.url }}" target="_blank" rel="noopener noreferrer" class="ns-tourney-player-meta-link">
+        {{ render_icon('seating-area') }} {{ seat_data.label }}
+      </a>
+      {%- elif seat_data %}
+      <span class="ns-tourney-player-meta-link is-static">
+        {{ render_icon('seating-area') }} {{ seat_data.label }}
+      </span>
+      {%- endif %}
+    </div>
+  </section>
+
+  <section class="ns-tourney-panel mt">
+    <h2>{{ _('Turnierverlauf') }}</h2>
+    {%- if player_history %}
+    {%- if is_ffa_scoring_tournament %}
+    <div class="ns-tourney-team-history-ffa-table-wrap">
+      <table class="itemlist is-vcentered is-wide ns-tourney-team-history-ffa-table">
+        <thead>
+          <tr>
+            <th>{{ _('Match') }}</th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ingame-Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('IG-Rang') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Punkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Pkte') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Gesamtpunkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Gesamt') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in player_history %}
+          {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+          <tr
+            class="ns-tourney-team-history-row"
+            data-href="{{ match_url }}"
+            tabindex="0"
+            role="link"
+            aria-label="{{ row.match_label }}"
+          >
+            <td>
+              <a href="{{ match_url }}">{{ row.match_label }}</a>
+            </td>
+            <td>
+              {{ row.placement if row.placement is not none else '-' }}
+            </td>
+            <td>
+              {{ row.points }}
+            </td>
+            <td>
+              <strong>{{ row.total_points }}</strong>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('IG-Rang') }} = {{ _('Ingame-Rang') }},
+        {{ _('Pkte') }} = {{ _('Punkte') }},
+        {{ _('Gesamt') }} = {{ _('Gesamtpunkte') }}
+      </p>
+    </div>
+    {%- elif is_flatout2_tournament %}
+    <div class="ns-tourney-team-history-ffa-table-wrap">
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Hinweis') }}:</strong>
+        {{ _('Top 3 qualifizieren sich pro Heat für die nächste Runde.') }}
+      </p>
+      <table class="itemlist is-vcentered is-wide ns-tourney-team-history-ffa-table">
+        <thead>
+          <tr>
+            <th>{{ _('Match') }}</th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ingame-Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('IG-Rang') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Status') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Status') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ergebnis') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Erg.') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in player_history %}
+          {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+          <tr
+            class="ns-tourney-team-history-row"
+            data-href="{{ match_url }}"
+            tabindex="0"
+            role="link"
+            aria-label="{{ row.match_label }}"
+          >
+            <td>
+              <a href="{{ match_url }}">{{ row.match_label }}</a>
+            </td>
+            <td>
+              {{ row.placement if row.placement is not none else '-' }}
+            </td>
+            <td>
+              {%- if row.placement is not none and row.placement <= 3 %}
+              <strong>{{ _('Qualifiziert') }}</strong>
+              {%- elif row.placement is not none %}
+              {{ _('Ausgeschieden') }}
+              {%- else %}
+              -
+              {%- endif %}
+            </td>
+            <td>
+              <strong>{{ row.score_display }}</strong>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('IG-Rang') }} = {{ _('Ingame-Rang') }},
+        {{ _('Erg.') }} = {{ _('Ergebnis') }}
+      </p>
+    </div>
+    {%- else %}
+    <table class="itemlist is-vcentered is-wide ns-tourney-team-history-table">
+      <tbody>
+      {%- for row in player_history %}
+        {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+        <tr
+          class="ns-tourney-team-history-row"
+          data-href="{{ match_url }}"
+          tabindex="0"
+          role="link"
+          aria-label="{{ row.match_label }}"
+        >
+          <td>
+            <a href="{{ match_url }}">
+              {{ row.match_label }}
+            </a>
+          </td>
+          <td class="ns-tourney-team-history-team ns-tourney-team-history-team--left{% if row.left_is_own_team %} ns-tourney-team-history-own{% endif %}">
+            <span{% if row.left_is_bye %} class="ns-tourney-bye-label"{% endif %}>{{ row.left_team_name }}</span>
+          </td>
+          <td class="ns-tourney-team-history-score-cell">
+            <span class="ns-tourney-team-history-score ns-tourney-team-history-score--{{ row.outcome }}">
+              {%- if row.score_left is not none and row.score_right is not none -%}
+                {{ row.score_left }} : {{ row.score_right }}
+              {%- else -%}
+                {{ row.score_display }}
+              {%- endif -%}
+            </span>
+          </td>
+          <td class="ns-tourney-team-history-team ns-tourney-team-history-team--right{% if row.right_is_own_team %} ns-tourney-team-history-own{% endif %}">
+            <span{% if row.right_is_bye %} class="ns-tourney-bye-label"{% endif %}>{{ row.right_team_name }}</span>
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- endif %}
+    {%- else %}
+    <p class="dimmed">{{ _('Noch keine Spiele im Turnierverlauf.') }}</p>
+    {%- endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const rows = document.querySelectorAll('.ns-tourney-team-history-row[data-href]');
+      const activateRow = (row) => {
+        const href = row.dataset.href;
+        if (href) {
+          window.location.href = href;
+        }
+      };
+
+      rows.forEach((row) => {
+        row.addEventListener('click', (event) => {
+          if (event.target.closest('a, button, input, textarea, select, label')) {
+            return;
+          }
+          activateRow(row);
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            activateRow(row);
+          }
+        });
+      });
+    })();
+  </script>
+{% endblock %}

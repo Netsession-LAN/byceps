@@ -1,0 +1,113 @@
+{% from 'macros/subnav.html' import render_subnav, render_subnav_item %}
+{% set ns_tourney_icons_url = url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') %}
+
+
+{% macro render_global_subnav(current_page) -%}
+{%- call render_subnav() -%}
+  {{
+    render_subnav_item(
+      url_for('netsession_tourney.index'),
+      _('Turniere'),
+      'ns_tourney_index',
+      current_page
+    )
+  }}
+  {{
+    render_subnav_item(
+      url_for('netsession_tourney.timetable'),
+      _('Zeitplan'),
+      'ns_tourney_timetable',
+      current_page
+    )
+  }}
+  {{
+    render_subnav_item(
+      url_for('netsession_tourney.open_matches'),
+      _('Offene Spiele'),
+      'ns_tourney_open_matches',
+      current_page
+    )
+  }}
+{%- endcall -%}
+{%- endmacro %}
+
+
+{% macro render_tournament_subnav(tournament, current_page, show_bracket_tab=True, show_rules_tab=None, show_preliminaries_tab=False) -%}
+{%- set render_rules_tab = show_rules_tab if show_rules_tab is not none else tournament.rules_page_slug -%}
+{%- call render_subnav() -%}
+  {{
+    render_tournament_subnav_item(
+      url_for('netsession_tourney.view_overview', slug=tournament.slug),
+      _('Informationen'),
+      'info',
+      'overview',
+      current_page
+    )
+  }}
+  {%- if render_rules_tab %}
+    {{
+      render_tournament_subnav_item(
+        url_for('netsession_tourney.view_rules', slug=tournament.slug),
+        _('Regeln'),
+        'rules',
+        'rules',
+        current_page
+      )
+    }}
+  {%- endif %}
+  {%- if show_preliminaries_tab %}
+    {{
+      render_tournament_subnav_item(
+        url_for('netsession_tourney.view_preliminaries', slug=tournament.slug),
+        _('Vorrunden'),
+        'tasks',
+        'preliminaries',
+        current_page
+      )
+    }}
+  {%- endif %}
+  {%- if show_bracket_tab %}
+    {{
+      render_tournament_subnav_item(
+        url_for('netsession_tourney.view_bracket', slug=tournament.slug),
+        _('Turnierbaum'),
+        'tree',
+        'bracket',
+        current_page
+      )
+    }}
+  {%- endif %}
+  {{
+    render_tournament_subnav_item(
+      url_for('netsession_tourney.view_matches', slug=tournament.slug),
+      _('Match-Übersicht'),
+      'tasks',
+      'matches',
+      current_page
+    )
+  }}
+  {{
+    render_tournament_subnav_item(
+      url_for('netsession_tourney.view_ranking', slug=tournament.slug),
+      _('Ranking'),
+      'ranking',
+      'ranking',
+      current_page
+    )
+  }}
+{%- endcall -%}
+{%- endmacro %}
+
+
+{% macro render_tournament_subnav_item(url, label, icon_id, id, current_page_id) -%}
+  {%- with is_current = (id == current_page_id) -%}
+    <li>
+      <a class="tabs-tab{% if is_current %} tabs-tab--current{% endif %}" href="{{ url }}"{% if is_current %} aria-current="page"{% endif %}>
+        <svg class="icon ns-tourney-subnav-icon" aria-hidden="true" focusable="false">
+          <use href="{{ ns_tourney_icons_url }}#{{ icon_id }}"></use>
+        </svg>
+        <span>{{ label }}</span>
+      </a>
+    </li>
+  {%- endwith -%}
+{%- endmacro %}

@@ -22,6 +22,7 @@ from byceps.config.models import (
 def test_convert_config():
     expected = {
         'LOCALE': 'de',
+        'NETSESSION_TOURNEY_ENABLED': True,
         'PROPAGATE_EXCEPTIONS': True,
         'REDIS_URL': 'redis://127.0.0.1:6379/0',
         'SECRET_KEY': '<RANDOM-BYTES>',
@@ -61,6 +62,7 @@ def test_convert_config():
         metrics=MetricsConfig(
             enabled=True,
         ),
+        netsession_tourney_enabled=True,
         payment_gateways=PaymentGatewaysConfig(
             paypal=None,
             stripe=None,

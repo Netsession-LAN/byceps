@@ -65,6 +65,7 @@ def test_parse_config():
                 metrics=MetricsConfig(
                     enabled=True,
                 ),
+                netsession_tourney_enabled=True,
                 payment_gateways=PaymentGatewaysConfig(
                     paypal=PaypalConfig(
                         enabled=True,
@@ -115,6 +116,7 @@ def test_parse_config():
 
     toml = """\
     locale = "de"
+    netsession_tourney_enabled = true
     propagate_exceptions = true
     secret_key = "<RANDOM-BYTES>"
     timezone = "Europe/Berlin"
@@ -211,6 +213,7 @@ def test_parse_config_defaults():
                 metrics=MetricsConfig(
                     enabled=False,
                 ),
+                netsession_tourney_enabled=False,
                 payment_gateways=PaymentGatewaysConfig(
                     paypal=None,
                     stripe=None,

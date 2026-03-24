@@ -1,0 +1,40 @@
+{% macro render_page_header(breadcrumbs, eyebrow, title, text=None, badge_label=None, badge_class=None, summary_items=None) -%}
+  <p class="dimmed mb ns-admin-breadcrumbs">
+    {%- for item in breadcrumbs %}
+      {%- if not loop.first %}<span>&rsaquo;</span>{% endif -%}
+      {%- if item.url -%}
+      <a href="{{ item.url }}">{{ item.label }}</a>
+      {%- else -%}
+      <span>{{ item.label }}</span>
+      {%- endif -%}
+    {%- endfor %}
+  </p>
+
+  <section class="box ns-admin-page-hero block">
+    <div class="ns-admin-page-hero-header">
+      <div class="ns-admin-page-hero-title-block">
+        {%- if eyebrow %}
+        <div class="ns-admin-page-hero-eyebrow">{{ eyebrow }}</div>
+        {%- endif %}
+        <h1 class="title">{{ title }}</h1>
+        {%- if text %}
+        <p class="ns-admin-page-hero-text">{{ text }}</p>
+        {%- endif %}
+      </div>
+      {%- if badge_label %}
+      <span class="ns-admin-stage-status-badge{% if badge_class %} {{ badge_class }}{% endif %}">{{ badge_label }}</span>
+      {%- endif %}
+    </div>
+
+    {%- if summary_items %}
+    <div class="ns-admin-page-hero-summary">
+      {%- for item in summary_items %}
+      <div class="ns-admin-page-hero-item">
+        <span class="ns-admin-page-hero-label">{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </div>
+      {%- endfor %}
+    </div>
+    {%- endif %}
+  </section>
+{%- endmacro %}

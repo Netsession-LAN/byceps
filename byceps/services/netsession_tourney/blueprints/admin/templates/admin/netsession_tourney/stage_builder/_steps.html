@@ -1,0 +1,17 @@
+﻿<ol class="ns-admin-wizard-steps">
+  {%- for step in wizard_steps -%}
+  <li class="ns-admin-wizard-step">
+    {%- if wizard_step == step.id -%}
+    <span class="ns-admin-wizard-step-link is-current">{{ step.number }}. {{ step.label }}</span>
+    {%- elif step.id == 'main' -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.stage_builder_wizard_main', party_id=party.id, tournament_id=tournament.id) }}">{{ step.number }}. {{ step.label }}</a>
+    {%- elif step.id == 'preliminary' -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.stage_builder_wizard_preliminary', party_id=party.id, tournament_id=tournament.id) }}">{{ step.number }}. {{ step.label }}</a>
+    {%- elif step.id == 'timing' -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.stage_builder_wizard_timing', party_id=party.id, tournament_id=tournament.id) }}">{{ step.number }}. {{ step.label }}</a>
+    {%- else -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.stage_builder_wizard_review', party_id=party.id, tournament_id=tournament.id) }}">{{ step.number }}. {{ step.label }}</a>
+    {%- endif -%}
+  </li>
+  {%- endfor -%}
+</ol>

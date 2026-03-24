@@ -96,6 +96,12 @@ def _validate_apps_config(
 
 _TOPLEVEL_FIELDS = [
     Field('locale', required=True),
+    Field(
+        'netsession_tourney_enabled',
+        type_=ValueType.Boolean,
+        required=False,
+        default=False,
+    ),
     Field('propagate_exceptions', required=False, default=None),
     Field('secret_key', required=True),
     Field('timezone', required=True),

@@ -60,6 +60,7 @@ class BycepsConfig:
     payment_gateways: PaymentGatewaysConfig | None
     redis: RedisConfig
     smtp: SmtpConfig
+    netsession_tourney_enabled: bool = False
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

@@ -1,0 +1,70 @@
+{% from 'site/netsession_tourney/_subnav.html' import render_tournament_subnav %}
+
+
+{% macro render_tournament_header(
+  tournament,
+  current_tournament_page,
+  crumb_label=None,
+  show_tournament_subnav=True,
+  show_bracket_tab=True,
+  show_rules_tab=None,
+  show_preliminaries_tab=False
+) -%}
+<header class="ns-tourney-header block">
+  <nav class="breadcrumbs is-compact ns-tourney-breadcrumbs">
+    <ol>
+      <li><a href="{{ url_for('netsession_tourney.index') }}">{{ _('Turniere') }}</a></li>
+      <li><a href="{{ url_for('netsession_tourney.view_overview', slug=tournament.slug) }}">{{ tournament.title }}</a></li>
+      {%- if crumb_label %}
+      <li>{{ crumb_label }}</li>
+      {%- endif %}
+    </ol>
+  </nav>
+
+  <div class="ns-tourney-header-main-row">
+    <div class="ns-tourney-header-logo-wrap">
+      {%- if tournament.logo_url %}
+      <img
+        src="{{ tournament.logo_url }}"
+        alt="{{ _('Logo') }} {{ tournament.title }}"
+        class="ns-tourney-header-logo"
+        loading="lazy"
+      >
+      {%- else %}
+      <div class="ns-tourney-header-logo ns-tourney-header-logo--placeholder" aria-hidden="true"></div>
+      {%- endif %}
+    </div>
+    <div class="ns-tourney-header-main">
+      <h1 class="title ns-tourney-header-title">{{ tournament.title }}</h1>
+      {%- if tournament.subtitle %}
+      <p class="ns-tourney-meta">{{ tournament.subtitle }}</p>
+      {%- endif %}
+      {%- if tournament.is_sponsored %}
+      <p class="ns-tourney-sponsor-meta ns-tourney-sponsor-meta--detail">
+        <span class="ns-tourney-sponsor-label">{{ _('Sponsored by') }}</span>
+        {%- if tournament.sponsor_logo_url %}
+        {%- if tournament.sponsor_logo_target_url %}
+        <a href="{{ tournament.sponsor_logo_target_url }}" target="_blank" rel="noopener">
+        {%- endif %}
+        <img
+          src="{{ tournament.sponsor_logo_url }}"
+          alt="{{ _('Sponsor') }}"
+          class="ns-tourney-sponsor-logo"
+          loading="lazy"
+        >
+        {%- if tournament.sponsor_logo_target_url %}
+        </a>
+        {%- endif %}
+        {%- endif %}
+      </p>
+      {%- endif %}
+    </div>
+  </div>
+
+  {%- if show_tournament_subnav %}
+  <div class="ns-tourney-header-tabs">
+    {{ render_tournament_subnav(tournament, current_tournament_page, show_bracket_tab=show_bracket_tab, show_rules_tab=show_rules_tab, show_preliminaries_tab=show_preliminaries_tab) }}
+  </div>
+  {%- endif %}
+</header>
+{%- endmacro %}

@@ -102,6 +102,11 @@ def _create_app(
 
     _configure(app, byceps_config, app_config)
 
+    app.config.setdefault('NETSESSION_TOURNEY_ENABLED', False)
+    app.byceps_feature_states['netsession_tourney'] = bool(
+        app.config['NETSESSION_TOURNEY_ENABLED']
+    )
+
     app_mode = app.byceps_app_mode
 
     # Throw an exception when an undefined name is referenced in a template.
@@ -206,6 +211,7 @@ def _get_config_from_environment() -> dict[str, Any]:
     data = {}
 
     for key in (
+        'NETSESSION_TOURNEY_ENABLED',
         'REDIS_URL',
         'SESSION_COOKIE_SECURE',
         'SQLALCHEMY_DATABASE_URI',

@@ -6,6 +6,9 @@ locale = "en"
 #     $ docker compose run --rm byceps-apps uv run byceps generate-secret-key
 secret_key = ""
 timezone = "Europe/Berlin"
+# Feature flag for Netsession tourney module
+# (can be overridden via environment variable `NETSESSION_TOURNEY_ENABLED=true`).
+netsession_tourney_enabled = false
 
 [apps]
 admin = { server_name = "admin.byceps.example" }

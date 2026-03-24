@@ -1,0 +1,154 @@
+﻿{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Prüfen')] %}
+{% set stage_type_labels = {
+  'single_elimination': 'Single Elimination',
+  'double_elimination': 'Double Elimination',
+  'double_elimination_double_grand_final': 'Double Elimination + Double Grand Final',
+  'ffa_single_elimination': 'FFA Single Elimination',
+  'ffa_flatout2_single_elimination': 'FlatOut 2',
+  'round_robin_groups': 'Round Robin Groups',
+  'swiss': 'Swiss',
+} %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {% set is_ffa_builder = tournament.mode.value == 'ffa' %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Stage Builder'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage Builder'),
+    _('Schritt 4 von 4: Prüfe die geplante Struktur und die aktuelle Builder-Vorschau vor dem Anlegen der Stages.'),
+    '4/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Prüfen')},
+      {'label': _('Fokus'), 'value': _('Struktur und aktuelle Vorschau')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/stage_builder/_steps.html' %}
+
+  <div class="ns-admin-form-shell">
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Geplanter Stage-Plan') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Diese Stages werden angelegt. Die konkrete Vorrundenverteilung wird später aus den Ready-Teilnehmern berechnet.') }}</p>
+        </div>
+      </div>
+
+      <dl class="ns-admin-review-grid">
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Generierungsbasis') }}</dt>
+          <dd class="ns-admin-review-value">{{ _('Ready-Teilnehmer') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Main Stage Typ') }}</dt>
+          <dd class="ns-admin-review-value">{{ stage_type_labels.get(state.main_stage_type, state.main_stage_type) }}</dd>
+        </div>
+        {% if is_ffa_builder %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Main Stage Größe') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.main_stage_size }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Spieler pro Heat') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.max_players_per_match|fallback('-') }}</dd>
+        </div>
+        {% else %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Main Stage Größe') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.main_stage_size }}</dd>
+        </div>
+        {% endif %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Vorrunde') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.use_preliminary -%}
+              {{ stage_type_labels.get(state.preliminary_type, state.preliminary_type) }}
+            {%- else -%}
+              {{ _('keine') }}
+            {%- endif -%}
+          </dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Match duration') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.match_duration_minutes|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Maximum matches per round') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.max_matches_per_round|fallback('-') }}</dd>
+        </div>
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Break between rounds') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.break_between_rounds_minutes|fallback(0) }}</dd>
+        </div>
+        {% if not is_ffa_builder and state.use_preliminary and state.preliminary_type == 'round_robin_groups' %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Round-Robin-Strategie') }}</dt>
+          <dd class="ns-admin-review-value">
+            {%- if state.round_robin_builder_mode == 'manual_group_count' -%}
+              {{ _('Expertenoption: Gruppenzahl manuell') }}
+            {%- else -%}
+              {{ _('Empfohlener Standard') }}
+            {%- endif -%}
+          </dd>
+        </div>
+        {% if state.round_robin_builder_mode == 'manual_group_count' %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Gruppenzahl') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.round_robin_group_count }}</dd>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% if not is_ffa_builder and state.use_preliminary and state.preliminary_type == 'swiss' %}
+        <div class="ns-admin-review-item">
+          <dt class="ns-admin-review-label">{{ _('Swiss-Schwelle') }}</dt>
+          <dd class="ns-admin-review-value">{{ state.swiss_threshold }}/{{ state.swiss_threshold }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </section>
+
+    {% if stage_builder_preview_summary %}
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ stage_builder_preview_summary.title }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Diese Vorschau verwendet die aktuelle Anzahl Ready-Teilnehmer im Turnier. Genau diese Werte fehlten bisher vor dem Generieren.') }}</p>
+          </div>
+        </div>
+
+        {% if stage_builder_preview_summary.error|default %}
+        <div class="flash-message error">{{ stage_builder_preview_summary.error|default('') }}</div>
+        {% else %}
+        <div class="ns-admin-inline-note-body">
+          {% for line in stage_builder_preview_summary.lines %}
+          <div>{{ line }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+
+  <form action="{{ url_for('.stage_builder_wizard_review_submit', party_id=party.id, tournament_id=tournament.id) }}" method="post">
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.stage_builder_wizard_timing', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Stage-Plan erzeugen') }}</button>
+    </div>
+  </form>
+{% endblock %}

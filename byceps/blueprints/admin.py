@@ -85,6 +85,11 @@ def register_admin_blueprints(
         ('services.whereabouts.blueprints.admin', '/whereabouts'),
     ]
 
+    if app.config.get('NETSESSION_TOURNEY_ENABLED', False):
+        blueprints.append(
+            ('services.netsession_tourney.blueprints.admin', '/ns-tourneys')
+        )
+
     if metrics_enabled:
         blueprints.append(('services.metrics.blueprints.metrics', '/metrics'))
 

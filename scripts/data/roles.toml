@@ -313,6 +313,17 @@ assigned_permissions = [
 ]
 
 [[roles]]
+id = 'netsession_tourney_admin'
+title = 'Netsession-Turniere verwalten'
+assigned_permissions = [
+    'netsession_tourney.admin',
+    'netsession_tourney.manage',
+    'netsession_tourney.participate',
+    'netsession_tourney.report_result',
+    'netsession_tourney.view',
+]
+
+[[roles]]
 id = 'user_admin'
 title = 'Benutzer verwalten'
 assigned_permissions = [

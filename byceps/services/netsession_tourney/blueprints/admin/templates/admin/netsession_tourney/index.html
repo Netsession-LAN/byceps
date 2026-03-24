@@ -1,0 +1,59 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set page_title = [_('Netsession Turniere'), party.title] %}
+
+{% block body %}
+  <div class="row row--space-between block">
+    <h1 class="title">{{ _('Netsession Turniere') }} {{ render_extra_in_heading(tournaments|length) }}</h1>
+    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    <a class="button" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Turnier erstellen') }}</span></a>
+    {%- endif %}
+  </div>
+
+  {%- if tournaments %}
+  <table class="itemlist is-vcentered is-wide ns-admin-tourney-index-table">
+    <thead>
+      <tr>
+        <th>{{ _('Titel') }}</th>
+        <th>{{ _('Kategorie') }}</th>
+        <th>{{ _('Teamgröße') }}</th>
+        <th>{{ _('Teilnehmer') }}</th>
+        <th>{{ _('Beginn') }}</th>
+        <th>{{ _('Status') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for tournament in tournaments %}
+      <tr>
+        <td>
+          <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id) }}" class="disguised ns-admin-tourney-index-link">
+            <span class="ns-admin-tourney-index-title">{{ tournament.title }}</span>
+            <small class="ns-admin-tourney-index-subtitle">{{ tournament.subtitle|fallback('') }}</small>
+          </a>
+        </td>
+        <td>{{ categories_by_id[tournament.category_id].title if tournament.category_id in categories_by_id else '-' }}</td>
+        <td>
+          {{ tournament.team_size|fallback('-') }}
+          {%- if tournament.registration_mode.value != 'solo' and tournament.substitute_count %}
+            (+{{ tournament.substitute_count }})
+          {%- endif %}
+        </td>
+        <td>
+          {{ active_participant_counts_by_tournament_id.get(tournament.id, 0) }}
+          {%- if tournament.participant_limit %}
+            / {{ tournament.participant_limit }}
+          {%- endif %}
+        </td>
+        <td>{% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}</td>
+        <td>{{ tournament.status.value }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('Keine Turniere vorhanden.') }}</div>
+  {%- endif %}
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_datalist %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_help %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [participant.name, tournament.title] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='participants'), _('Zurück zu Teilnehmern')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {%- set is_team = participant.type.value == 'team' %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Teilnehmer'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='participants')},
+      {'label': participant.name, 'url': none},
+    ],
+    tournament.title,
+    participant.name,
+    _('Teamdetails, Rollen und Admin-Aktionen zentral an einer Stelle verwalten.') if is_team else _('Teilnehmerstatus und Admin-Aktionen zentral an einer Stelle verwalten.'),
+    participant.status.value,
+    none,
+    [
+      {'label': _('Typ'), 'value': participant.type.value|replace('_', ' ')|title},
+      {'label': _('Status'), 'value': participant.status.value|replace('_', ' ')|title},
+      {'label': _('Teamkapitän') if is_team else _('Teilnehmer'), 'value': users_by_id.get(participant.manager_user_id).screen_name if participant.manager_user_id and users_by_id.get(participant.manager_user_id) else '-'},
+      {'label': _('Aktive Teilnehmer'), 'value': active_participant_count},
+    ]
+  ) }}
+
+  {%- if is_team %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Teammitglieder') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Teamkapitän, Player und Ersatzspieler sauber verwalten.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-team-roster-meta">
+      <div class="ns-admin-team-roster-meta-item">
+        <span class="ns-admin-team-roster-meta-label">{{ _('Teamgröße') }}</span>
+        <strong>{{ tournament.team_size|fallback('-') }}</strong>
+      </div>
+      <div class="ns-admin-team-roster-meta-item">
+        <span class="ns-admin-team-roster-meta-label">{{ _('Ersatzspieler') }}</span>
+        <strong>{{ tournament.substitute_count|fallback(0) }}</strong>
+      </div>
+      <div class="ns-admin-team-roster-meta-item">
+        <span class="ns-admin-team-roster-meta-label">{{ _('Aktuell im Team') }}</span>
+        <strong>{{ members|count }}</strong>
+      </div>
+    </div>
+
+    {%- if members %}
+    <div class="ns-admin-table-wrap">
+      <table class="itemlist ns-admin-team-roster-table">
+        <thead>
+          <tr>
+            <th>{{ _('Spieler') }}</th>
+            <th>{{ _('Rolle') }}</th>
+            <th>{{ _('Aktionen') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for member in members %}
+          {%- set user = users_by_id.get(member.user_id) %}
+          <tr>
+            <td class="ns-admin-team-roster-player">
+              {{ (user.screen_name if user and user.screen_name else member.user_id)|string }}
+            </td>
+            <td>
+              <span class="ns-admin-team-member-role-badge{% if member.role.value == 'captain' %} is-captain{% elif member.role.value == 'substitute' %} is-substitute{% endif %}">
+                {%- if member.role.value == 'captain' -%}
+                  {{ _('Teamkapitän') }}
+                {%- elif member.role.value == 'substitute' -%}
+                  {{ _('Ersatzspieler') }}
+                {%- else -%}
+                  {{ _('Player') }}
+                {%- endif -%}
+              </span>
+            </td>
+            <td>
+              {%- if g.user.has_permission('netsession_tourney.manage') and member.role.value != 'captain' %}
+              <div class="ns-admin-team-member-actions">
+                <form action="{{ url_for('.team_captain_set', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post">
+                  <input type="hidden" name="return_to" value="participant">
+                  <input type="hidden" name="member_user_id" value="{{ member.user_id }}">
+                  <button type="submit" class="button is-outlined">{{ _('Zu Teamkapitän machen') }}</button>
+                </form>
+                <form action="{{ url_for('.team_member_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, member_user_id=member.user_id, return_to='participant') }}" method="post" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Teammitglied entfernen willst?')|tojson }});">
+                  <button type="submit" class="button is-outlined color-danger">{{ _('Entfernen') }}</button>
+                </form>
+              </div>
+              {%- else -%}
+              <span class="dimmed">{{ _('Keine Aktion') }}</span>
+              {%- endif %}
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- else %}
+    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Teammitglieder vorhanden.') }}</div>
+    {%- endif %}
+
+    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    <div class="ns-admin-form-divider"></div>
+    <div class="ns-admin-team-roster-footer">
+      <div>
+        <div class="ns-admin-field-head">
+          <h3 class="ns-admin-form-section-title">{{ _('Player hinzufügen') }}</h3>
+          {{ render_help(_('Fügt einen User direkt über seinen Anzeigenamen in dieses Team ein.')) }}
+        </div>
+        <p class="ns-admin-form-section-text">{{ _('User per Anzeigename direkt dem Team hinzufügen.') }}</p>
+      </div>
+      <form action="{{ url_for('.team_member_add', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-inline-form ns-admin-card-form">
+        <input type="hidden" name="return_to" value="participant">
+        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" list="ns-admin-team-member-screen-names" required>
+        <button type="submit" class="button">{{ _('Hinzufügen') }}</button>
+      </form>
+      {{ form_datalist('ns-admin-team-member-screen-names', suggested_screen_names) }}
+    </div>
+    {%- endif %}
+  </section>
+  {%- endif %}
+
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <div class="ns-admin-form-shell block">
+    <div class="ns-admin-action-grid">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <div class="ns-admin-field-head">
+              <h3 class="ns-admin-form-section-title">{{ _('Status') }}</h3>
+              {{ render_help(_('Ändert den administrativen Teilnehmerstatus dieses Eintrags direkt im Turnier.')) }}
+            </div>
+            <p class="ns-admin-form-section-text">{{ _('Teilnehmerstatus direkt anpassen.') }}</p>
+          </div>
+        </div>
+        <form action="{{ url_for('.participant_set_status', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-inline-form ns-admin-card-form">
+          <input type="hidden" name="return_to" value="participant">
+          <select class="form-control" name="status">
+            {%- for value, label in status_form.status.choices %}
+            <option value="{{ value }}"{% if participant.status.value == value %} selected{% endif %}>{{ label }}</option>
+            {%- endfor %}
+          </select>
+          <button type="submit" class="button">{{ _('Aktualisieren') }}</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="ns-admin-action-grid">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <div class="ns-admin-field-head">
+              <h3 class="ns-admin-form-section-title">{{ _('Disqualifizieren') }}</h3>
+              {{ render_help(_('Begründungscode und Kommentar werden protokolliert und für Audit sowie Kommunikation verwendet.')) }}
+            </div>
+            <p class="ns-admin-form-section-text">{{ _('Begründungscode auswählen und Kommentar für Audit und Kommunikation hinterlegen.') }}</p>
+          </div>
+        </div>
+        <form action="{{ url_for('.participant_disqualify', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+          <input type="hidden" name="return_to" value="participant">
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label">{{ _('Begründungscode') }}</label>
+              {{ render_help(_('Wähle den administrativen Grundcode für die Disqualifikation.')) }}
+            </div>
+            <select class="form-control" name="reason_code" required>
+              {%- for value, label in participant_disqualify_form.reason_code.choices %}
+              <option value="{{ value }}"{% if participant_disqualify_form.reason_code.data == value %} selected{% endif %}>{{ label }}</option>
+              {%- endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+              {{ render_help(_('Pflichtbegründung für Audit, Teamkommunikation und spätere Nachvollziehbarkeit.')) }}
+            </div>
+            <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" required></textarea>
+          </div>
+          <div class="ns-admin-form-actions">
+            <button type="submit" class="button">{{ _('Disqualifizieren') }}</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <div class="ns-admin-field-head">
+              <h3 class="ns-admin-form-section-title">{{ _('Teilnehmer entfernen') }}</h3>
+              {{ render_help(_('Entfernt den Teilnehmer administrativ aus dem Turnier. Der Kommentar ist Pflicht und bleibt im Verlauf sichtbar.')) }}
+            </div>
+            <p class="ns-admin-form-section-text">{{ _('Entfernt den Teilnehmer administrativ aus dem Turnier und protokolliert den Kommentar.') }}</p>
+          </div>
+        </div>
+        <form action="{{ url_for('.participant_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-stacked-form ns-admin-card-form" onsubmit="return confirm({{ _('Bist du sicher, dass du diesen Teilnehmer entfernen willst?')|tojson }});">
+          <input type="hidden" name="return_to" value="participant">
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+              {{ render_help(_('Pflichtbegründung für das administrative Entfernen aus dem Turnier.')) }}
+            </div>
+            <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" required></textarea>
+          </div>
+          <div class="ns-admin-form-actions">
+            <button type="submit" class="button color-danger">{{ _('Teilnehmer entfernen') }}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+  {%- endif %}
+{% endblock %}

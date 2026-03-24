@@ -1,0 +1,147 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_admin_multiselect, render_check_field, render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Turnier erstellen'), _('Basisdaten')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.index', party_id=party.id), _('Netsession Turniere')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': _('Turnier erstellen'), 'url': none},
+      {'label': _('Basisdaten'), 'url': none},
+    ],
+    party.title,
+    _('Turnier erstellen'),
+    _('Schritt 2 von 4: Vergib Titel, URL, Logos und weitere sichtbare Stammdaten. Optional kannst du direkt den Discord-Forum-Thread vorbereiten.'),
+    '2/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Basisdaten')},
+      {'label': _('Fokus'), 'value': _('Titel, Slug, Logos und Regeln')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/wizard/_steps.html' %}
+
+  <form action="{{ url_for('.create_wizard_details_submit', party_id=party.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Basisdaten') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Diese Informationen sind im Admin und später auf der Turnierseite sichtbar.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_field(form.title, _('Sichtbarer Haupttitel des Turniers.'), autofocus='autofocus') }}
+          {{ render_field(form.slug, _('Eindeutiger URL-Teil des Turniers, zum Beispiel cs2-5on5. Nach Erstellung möglichst nicht mehr ändern.')) }}
+          {{ render_field(form.subtitle, _('Optionaler Untertitel, zum Beispiel Modus, Skill-Bracket oder Hinweis.')) }}
+          {{ render_field(form.game, _('Spiel oder Disziplin, zum Beispiel CS2, Valorant oder FIFA.')) }}
+          {{ render_field(form.tournament_logo_url, _('Turnierlogos werden über Logos > Turnierlogos verwaltet.')) }}
+          {{ render_check_field(form.is_sponsored, _('Wenn aktiv, wird unter dem Titel in der User-Ansicht Sponsored by mit Sponsor-Logo angezeigt.')) }}
+          <div id="ns-sponsor-logo-field">
+            {{ render_field(form.sponsor_logo_url, _('Sponsor-Logos werden über Logos > Turnier-Sponsor-Logos verwaltet.')) }}
+          </div>
+          {{ render_field(form.rules_template_slug, _('Optionales Regeltemplate für die Anzeige der Turnierregeln im Frontend.')) }}
+        </div>
+      </section>
+
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Discord-Forum') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Optional: Lege den Discord-Forum-Thread direkt beim Erstellen des Turniers an. Der Thread wird nach dem Anlegen sofort eingerichtet.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_check_field(form.discord_enabled, _('Erstellt direkt nach dem Anlegen automatisch einen Discord-Forum-Thread für dieses Turnier.')) }}
+          <div id="ns-discord-forum-fields">
+            <div class="ns-admin-form-grid">
+              {{ render_field(form.forum_channel_id, _('Discord-Forum-Channel-ID, in dem der Bot den Turnier-Thread anlegt.')) }}
+              {{ render_field(form.discord_forum_image_url, _('Großes Discord-Bild für den Startpost des Turnier-Threads.')) }}
+              {{ render_field(form.applied_tag_ids, _('Kommagetrennte Liste von Tag-IDs, die beim Erstellen des Discord-Forum-Threads gesetzt werden.')) }}
+              {{ render_admin_multiselect(form.event_mask, _('Wähle die Turnier-Events aus, die zusätzlich in den Discord-Forum-Thread gepostet werden sollen.')) }}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.create_wizard_format', party_id=party.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Weiter') }}</button>
+    </div>
+  </form>
+
+  <script>
+    (() => {
+      const formElement = document.querySelector('form');
+      if (!formElement) {
+        return;
+      }
+
+      const titleInput = formElement.querySelector('input[name="title"]');
+      const slugInput = formElement.querySelector('input[name="slug"]');
+      if (!titleInput || !slugInput) {
+        return;
+      }
+
+      const slugify = (value) => {
+        return value
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .substring(0, 60);
+      };
+
+      let autoMode = !slugInput.value;
+
+      const updateSlug = () => {
+        if (!autoMode) {
+          return;
+        }
+        slugInput.value = slugify(titleInput.value);
+      };
+
+      titleInput.addEventListener('input', updateSlug);
+      slugInput.addEventListener('input', () => {
+        const generated = slugify(titleInput.value);
+        autoMode = !slugInput.value || slugInput.value === generated;
+      });
+
+      updateSlug();
+
+      const sponsoredField = formElement.querySelector('input[name="is_sponsored"]');
+      const sponsorLogoField = document.getElementById('ns-sponsor-logo-field');
+      if (sponsoredField && sponsorLogoField) {
+        const updateSponsorVisibility = () => {
+          sponsorLogoField.style.display = sponsoredField.checked ? '' : 'none';
+        };
+        sponsoredField.addEventListener('change', updateSponsorVisibility);
+        updateSponsorVisibility();
+      }
+
+      const discordEnabledField = formElement.querySelector('input[name="discord_enabled"]');
+      const discordForumFields = document.getElementById('ns-discord-forum-fields');
+      if (discordEnabledField && discordForumFields) {
+        const updateDiscordVisibility = () => {
+          discordForumFields.style.display = discordEnabledField.checked ? '' : 'none';
+        };
+        discordEnabledField.addEventListener('change', updateDiscordVisibility);
+        updateDiscordVisibility();
+      }
+    })();
+  </script>
+{% endblock %}

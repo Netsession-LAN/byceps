@@ -1,0 +1,185 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field, render_check_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% from 'macros/forms.html' import form_datalist %}
+{% set current_page_party = party %}
+{% set current_tab = 'coins' %}
+{% set page_title = [_('Coins'), _('Netsession Turniere')] %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': _('Coins'), 'url': none},
+    ],
+    party.title,
+    _('Coins'),
+    _('Globale Coin-Einstellungen, Ticket-Kategorie-Werte und manuelle Korrekturen pro User.'),
+    'coins',
+    'status-draft',
+    [
+      {'label': _('Coinsystem'), 'value': _('aktiv') if settings.enabled else _('inaktiv')},
+      {'label': _('Default'), 'value': settings.default_coin_amount},
+    ]
+  ) }}
+
+  <div class="ns-admin-form-shell">
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('Grundregeln') }}</h2>
+          <p class="ns-admin-form-section-text">Aktiviert Coins global und legt fest, wie viele Coins ein Ticket standardm&auml;&szlig;ig verleiht. Kategorie-Werte &uuml;berschreiben den Default. Mehrere Tickets stapeln sich nicht.</p>
+        </div>
+      </div>
+
+      <form action="{{ url_for('.coins_update', party_id=party.id) }}" method="post">
+        <div class="ns-admin-form-grid">
+          {{ render_check_field(settings_form.enabled, 'Wenn deaktiviert, werden Coins in Admin- und User-UI komplett ausgeblendet und bei Registrierungen nicht gepr&uuml;ft.') }}
+          {{ render_field(settings_form.default_coin_amount, 'Default-Coins f&uuml;r einen User mit g&uuml;ltigem Ticket, falls f&uuml;r seine Ticket-Kategorie kein eigener Wert gesetzt ist.') }}
+        </div>
+
+        <div class="ns-admin-coin-category-list">
+          {%- for category in ticket_categories %}
+          <div class="ns-admin-coin-category-row">
+            <div class="ns-admin-coin-category-main">
+              <strong>{{ category.title }}</strong>
+              <small class="dimmed">{{ _('Ticket-Kategorie') }}</small>
+            </div>
+            <label class="ns-admin-coin-category-input">
+              <span>{{ _('Coins') }}</span>
+              <input
+                type="number"
+                min="0"
+                class="form-control ns-admin-number-input"
+                name="category_coin_{{ category.id }}"
+                value="{{ category_amounts_by_id.get(category.id, settings.default_coin_amount) }}"
+              >
+            </label>
+          </div>
+          {%- else %}
+          <p class="dimmed">{{ _('Keine Ticket-Kategorien vorhanden.') }}</p>
+          {%- endfor %}
+        </div>
+
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h2 class="ns-admin-form-section-title">{{ _('User-Korrektur') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Suche einen User und korrigiere sein Coin-Konto manuell. Die Basis aus Tickets bleibt davon getrennt.') }}</p>
+        </div>
+      </div>
+
+      <form action="{{ url_for('.coins_index', party_id=party.id) }}" method="get" class="ns-admin-coin-search-form">
+        <div class="ns-admin-form-grid">
+          <div class="form-control-block">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label" for="screen_name">{{ _('User suchen') }}</label>
+            </div>
+            <input
+              type="text"
+              id="screen_name"
+              name="screen_name"
+              list="ns-admin-coin-screen-names"
+              class="form-control"
+              value="{{ searched_screen_name }}"
+              placeholder="{{ _('Screen-Name eingeben') }}"
+            >
+          </div>
+        </div>
+        <div class="ns-admin-form-actions ns-admin-coin-search-actions">
+          <button type="submit" class="button">{{ _('Suchen') }}</button>
+        </div>
+      </form>
+      {{ form_datalist('ns-admin-coin-screen-names', suggested_screen_names) }}
+
+      {%- if searched_screen_name and selected_user is none %}
+      <p class="dimmed">{{ _('Kein passender User gefunden.') }}</p>
+      {%- endif %}
+
+      {%- if selected_user and selected_user_balance %}
+      <div class="ns-admin-coin-user-panel">
+        <div class="ns-admin-coin-user-summary">
+          <div class="ns-admin-coin-user-main">
+            <strong>{{ selected_user.screen_name }}</strong>
+            <small class="dimmed">{{ selected_user.id }}</small>
+          </div>
+          <div class="ns-admin-coin-balance-grid">
+            <div>
+              <span class="data-label">{{ _('Ticketbasis') }}</span>
+              <strong>{{ selected_user_balance.ticket_coin_amount }}</strong>
+            </div>
+            <div>
+              <span class="data-label">{{ _('Manuell') }}</span>
+              <strong>{{ selected_user_balance.manual_adjustment_amount }}</strong>
+            </div>
+            <div>
+              <span class="data-label">{{ _('Turniere') }}</span>
+              <strong>{{ selected_user_balance.registration_delta_amount }}</strong>
+            </div>
+            <div>
+              <span class="data-label">Verf&uuml;gbar</span>
+              <strong>{{ selected_user_balance.available_coins }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <form action="{{ url_for('.coins_adjust', party_id=party.id) }}" method="post" class="ns-admin-coin-adjust-form">
+          <input type="hidden" name="screen_name" value="{{ selected_user.screen_name }}">
+          <div class="ns-admin-form-grid ns-admin-coin-adjust-grid">
+            {{ render_field(adjustment_form.plus_amount, _('Coins manuell gutschreiben. Nur eines der beiden Felder verwenden.')) }}
+            {{ render_field(adjustment_form.minus_amount, _('Coins manuell abziehen. Nur eines der beiden Felder verwenden.')) }}
+            {{ render_field(adjustment_form.note, 'Optionaler kurzer Grund f&uuml;r die manuelle Korrektur.') }}
+          </div>
+          <div class="ns-admin-form-actions ns-admin-coin-adjust-actions">
+            <button type="submit" class="button color-primary">{{ _('Coins anpassen') }}</button>
+          </div>
+        </form>
+
+        {%- if recent_coin_entries %}
+        <div class="ns-admin-coin-ledger">
+          <h3>{{ _('Letzte Buchungen') }}</h3>
+          <div class="ns-admin-table-wrap">
+            <table class="itemlist is-vcentered is-wide ns-admin-coin-ledger-table">
+              <thead>
+                <tr>
+                  <th>{{ _('Zeit') }}</th>
+                  <th>{{ _('Art') }}</th>
+                  <th>{{ _('Betrag') }}</th>
+                  <th>{{ _('Notiz') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {%- for entry in recent_coin_entries %}
+                <tr>
+                  <td>{{ entry.created_at|datetimeformat }}</td>
+                  <td>
+                    {%- if entry.kind.value == 'admin_adjustment' -%}
+                      {{ _('Manuelle Korrektur') }}
+                    {%- elif entry.kind.value == 'tournament_registration_charge' -%}
+                      {{ _('Turnieranmeldung') }}
+                    {%- elif entry.kind.value == 'tournament_registration_refund' -%}
+                      R&uuml;ckgabe
+                    {%- else -%}
+                      {{ entry.kind.value }}
+                    {%- endif -%}
+                  </td>
+                  <td class="ns-admin-coin-ledger-amount">{{ '%+d'|format(entry.amount_delta) }}</td>
+                  <td>{{ entry.note if entry.note else '-' }}</td>
+                </tr>
+                {%- endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {%- endif %}
+      </div>
+      {%- endif %}
+    </section>
+  </div>
+{% endblock %}

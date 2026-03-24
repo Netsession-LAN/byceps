@@ -1,0 +1,48 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% set page_title = [tournament.title, _('Team anmelden')] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, 'overview', crumb_label=_('Team anmelden'), show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <section class="ns-tourney-grid two-cols ns-tourney-team-registration-grid">
+    <section class="ns-tourney-panel">
+      <h2 class="ns-tourney-team-registration-title">{{ _('Team erstellen') }}</h2>
+      <p class="dimmed ns-tourney-team-registration-copy">{{ _('Erstelle ein neues Team und melde es direkt für dieses Turnier an. Das Team-Logo kannst du danach in den Einstellungen setzen.') }}</p>
+
+      <form action="{{ url_for('netsession_tourney.create_team', slug=tournament.slug) }}" method="post" enctype="multipart/form-data" class="ns-tourney-inline-form">
+        <label class="form-label" for="name">{{ _('Teamname') }}</label>
+        <input id="name" class="form-control" type="text" name="name" maxlength="120" required autofocus>
+
+        <div class="button-row ns-tourney-team-registration-actions">
+          <button type="submit" class="button color-primary">{{ _('Team erstellen') }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="ns-tourney-panel">
+      <h2 class="ns-tourney-team-registration-title">{{ _('Invite-Code eingeben') }}</h2>
+      <p class="dimmed ns-tourney-team-registration-copy">{{ _('Wenn bereits ein Team existiert, kannst du hier mit dem Invite-Code beitreten.') }}</p>
+
+      <form action="{{ url_for('netsession_tourney.join_team', slug=tournament.slug) }}" method="post" class="ns-tourney-inline-form">
+        <label class="form-label" for="invite_code">{{ _('Invite-Code') }}</label>
+        <input id="invite_code" class="form-control" type="text" name="invite_code" maxlength="32" required>
+
+        <div class="button-row ns-tourney-team-registration-actions">
+          <button type="submit" class="button color-primary">{{ _('Mit Team verbinden') }}</button>
+        </div>
+      </form>
+    </section>
+  </section>
+
+  <div class="button-row mt">
+    <a href="{{ url_for('netsession_tourney.view_overview', slug=tournament.slug) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+  </div>
+{% endblock %}

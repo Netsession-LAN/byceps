@@ -1,0 +1,34 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Turnier erstellen'), party.title] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.index', party_id=party.id), _('Netsession Turniere')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': _('Turnier erstellen'), 'url': none},
+    ],
+    party.title,
+    _('Turnier erstellen'),
+    _('Lege Stammdaten, Branding, Format und Zeitplan in einem sauberen Admin-Flow fest.'),
+    _('Neu'),
+    'status-draft'
+  ) }}
+
+  <form action="{{ url_for('.create', party_id=party.id) }}" method="post" enctype="multipart/form-data" data-ns-admin-tourney-form>
+    {% include 'admin/netsession_tourney/_form.html' %}
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Erstellen') }}</button>
+      <a href="{{ url_for('.index', party_id=party.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

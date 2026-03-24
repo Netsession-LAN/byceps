@@ -1,0 +1,40 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Turnier bearbeiten'), tournament.title] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.index', party_id=party.id), _('Netsession Turniere')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id)},
+      {'label': _('Turnier bearbeiten'), 'url': none},
+    ],
+    tournament.title,
+    _('Turnier bearbeiten'),
+    _('Passe Sichtbarkeit, Branding, Turnierformat und Scheduling an, ohne die Gesamtstruktur aus dem Blick zu verlieren.'),
+    tournament.status.value,
+    'status-' ~ tournament.status.value,
+    [
+      {'label': _('Modus'), 'value': tournament.mode.value|replace('_', ' ')|title},
+      {'label': _('Registrierung'), 'value': tournament.registration_mode.value|replace('_', ' ')|title},
+      {'label': _('Teilnehmerlimit'), 'value': tournament.participant_limit|fallback('-')},
+    ]
+  ) }}
+
+  <form action="{{ url_for('.update', party_id=party.id, tournament_id=tournament.id) }}" method="post" enctype="multipart/form-data" data-ns-admin-tourney-form>
+    {% include 'admin/netsession_tourney/_form.html' %}
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+      <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

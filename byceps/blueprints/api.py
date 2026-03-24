@@ -27,6 +27,11 @@ def register_api_blueprints(app: Flask) -> None:
         ('services.whereabouts.blueprints.api', '/whereabouts'),
     ]
 
+    if app.config.get('NETSESSION_TOURNEY_ENABLED', False):
+        blueprints.append(
+            ('services.netsession_tourney.blueprints.api', '/ns-tourneys')
+        )
+
     register_blueprints(api_v1, blueprints)
 
     app.register_blueprint(api_v1, url_prefix='/v1')

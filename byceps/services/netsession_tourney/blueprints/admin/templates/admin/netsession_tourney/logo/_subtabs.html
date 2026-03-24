@@ -1,0 +1,25 @@
+{% macro render_logo_subtabs(party, current_logo_subtab) -%}
+<ol class="tabs mb">
+  <li>
+    {%- if current_logo_subtab == 'tournament' -%}
+    <span class="tabs-tab tabs-tab--current">{{ _('Turnierlogos') }}</span>
+    {%- else -%}
+    <a class="tabs-tab" href="{{ url_for('.tournament_logo_index', party_id=party.id) }}">{{ _('Turnierlogos') }}</a>
+    {%- endif -%}
+  </li>
+  <li>
+    {%- if current_logo_subtab == 'sponsor' -%}
+    <span class="tabs-tab tabs-tab--current">{{ _('Turnier-Sponsor-Logos') }}</span>
+    {%- else -%}
+    <a class="tabs-tab" href="{{ url_for('.sponsor_logo_index', party_id=party.id) }}">{{ _('Turnier-Sponsor-Logos') }}</a>
+    {%- endif -%}
+  </li>
+  <li>
+    {%- if current_logo_subtab == 'discord_forum' -%}
+    <span class="tabs-tab tabs-tab--current">{{ _('Discord-Forum-Bilder') }}</span>
+    {%- else -%}
+    <a class="tabs-tab" href="{{ url_for('.discord_forum_image_index', party_id=party.id) }}">{{ _('Discord-Forum-Bilder') }}</a>
+    {%- endif -%}
+  </li>
+</ol>
+{%- endmacro %}

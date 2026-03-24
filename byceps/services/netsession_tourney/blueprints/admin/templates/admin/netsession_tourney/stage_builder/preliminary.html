@@ -1,0 +1,139 @@
+﻿{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_check_field, render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Vorrunde')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {% set is_ffa_builder = tournament.mode.value == 'ffa' %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Stage Builder'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage Builder'),
+    _('Schritt 2 von 4: Lege fest, ob und wie bei Bedarf eine Vorrunde vorgeschaltet wird.') if not is_ffa_builder else _('Schritt 2 von 4: Lege fest, ob vor der Main Stage eine FFA-Vorrunde gespielt werden soll.'),
+    '2/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Vorrunde')},
+      {'label': _('V1-Formate'), 'value': _('Round Robin Groups oder Swiss') if not is_ffa_builder else _('FFA Single Elimination oder FlatOut 2')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/stage_builder/_steps.html' %}
+
+  <form action="{{ url_for('.stage_builder_wizard_preliminary_submit', party_id=party.id, tournament_id=tournament.id) }}" method="post" data-ns-stage-builder-preliminary-form>
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Vorrunde') }}</h2>
+            <p class="ns-admin-form-section-text">
+              {%- if not is_ffa_builder -%}
+              {{ _('Round Robin Groups qualifiziert in V1 gleichmäßig pro Gruppe. Swiss qualifiziert in V1 als Gesamtranking ins Hauptturnier.') }}
+              {%- else -%}
+              {{ _('Die FFA-Vorrunde spielt die Ready-Teilnehmer zunächst auf die gewählte Main-Stage-Zielgröße herunter. Danach qualifizieren sich exakt so viele Teilnehmer ins Hauptturnier.') }}
+              {%- endif -%}
+            </p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_check_field(form.use_preliminary, _('Wenn deaktiviert, plant der Builder ausschließlich das Hauptturnier.') if not is_ffa_builder else _('Wenn deaktiviert, startet das FFA-Turnier direkt mit der Main Stage.')) }}
+          <div data-preliminary-field>
+            {{ render_field(form.preliminary_type, _('Wähle das Vorrundenformat, das später aus den Ready-Teilnehmern konkret aufgebaut werden soll.') if not is_ffa_builder else _('Für FFA wird hier die Stage-Familie der Vorrunde festgelegt. Die Heat-Größe bleibt identisch zur Main Stage.')) }}
+          </div>
+          {%- if not is_ffa_builder %}
+          <div data-round-robin-field>
+            {{ render_field(form.round_robin_builder_mode, _('Standard: möglichst nah an verbreiteten E-Sports-Formaten. Expertenoption nur verwenden, wenn du bewusst von diesem Standard abweichen willst.')) }}
+          </div>
+          <div data-round-robin-expert-field>
+            {{ render_field(form.round_robin_group_count, _('Expertenoption: Lege die Gruppenzahl direkt fest. Die Qualifikation pro Gruppe wird daraus automatisch berechnet.')) }}
+          </div>
+          <div data-swiss-field>
+            {{ render_field(form.swiss_threshold, _('Nur für Swiss-Vorrunden. 2/3/4 bedeutet jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird automatisch daraus abgeleitet.')) }}
+          </div>
+          {%- endif %}
+        </div>
+        {%- if is_ffa_builder %}
+        <div class="ns-admin-inline-note-body">
+          <div>{{ _('Die Zielgröße der Main Stage kommt aus Schritt 1. Genau diese Anzahl qualifiziert sich aus der Vorrunde weiter.') }}</div>
+          <div>{{ _('Für FlatOut 2 bleibt auch in der Vorrunde die Regel „Top 3 je Heat“ aktiv.') }}</div>
+        </div>
+        {%- endif %}
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.stage_builder_wizard_main', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Weiter') }}</button>
+    </div>
+  </form>
+
+  <script>
+    (() => {
+      const form = document.querySelector('[data-ns-stage-builder-preliminary-form]');
+      if (!form) {
+        return;
+      }
+
+      const usePreliminaryField = form.querySelector('input[name="use_preliminary"]');
+      const preliminaryTypeField = form.querySelector('select[name="preliminary_type"]');
+      const roundRobinModeField = form.querySelector('select[name="round_robin_builder_mode"]');
+      const preliminaryFields = Array.from(form.querySelectorAll('[data-preliminary-field]'));
+      const roundRobinFields = Array.from(form.querySelectorAll('[data-round-robin-field]'));
+      const roundRobinExpertFields = Array.from(form.querySelectorAll('[data-round-robin-expert-field]'));
+      const swissFields = Array.from(form.querySelectorAll('[data-swiss-field]'));
+
+      const updateVisibility = () => {
+        const usePreliminary = !!usePreliminaryField?.checked;
+        preliminaryFields.forEach((element) => {
+          element.style.display = usePreliminary ? '' : 'none';
+          element.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.disabled = !usePreliminary;
+          });
+        });
+
+        const useRoundRobin = usePreliminary && preliminaryTypeField?.value === 'round_robin_groups';
+        roundRobinFields.forEach((element) => {
+          element.style.display = useRoundRobin ? '' : 'none';
+          element.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.disabled = !useRoundRobin;
+          });
+        });
+
+        const useRoundRobinExpert = useRoundRobin && roundRobinModeField?.value === 'manual_group_count';
+        roundRobinExpertFields.forEach((element) => {
+          element.style.display = useRoundRobinExpert ? '' : 'none';
+          element.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.disabled = !useRoundRobinExpert;
+          });
+        });
+
+        const useSwiss = usePreliminary && preliminaryTypeField?.value === 'swiss';
+        swissFields.forEach((element) => {
+          element.style.display = useSwiss ? '' : 'none';
+          element.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.disabled = !useSwiss;
+          });
+        });
+      };
+
+      usePreliminaryField?.addEventListener('change', updateVisibility);
+      preliminaryTypeField?.addEventListener('change', updateVisibility);
+      roundRobinModeField?.addEventListener('change', updateVisibility);
+      updateVisibility();
+    })();
+  </script>
+{% endblock %}

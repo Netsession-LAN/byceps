@@ -1,0 +1,461 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% from 'macros/forms.html' import form_datalist %}
+{% from 'macros/user.html' import render_user_avatar_and_link %}
+{% set page_title = [team.name, tournament.title] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, crumb_label=_('Teams'), show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  {% set can_open_manage_page = can_manage_team and tournament.status.value in ['draft', 'live'] %}
+  {% set can_edit_team_identity = can_manage_team and tournament.status.value == 'draft' %}
+  {% set can_edit_team_logo = can_manage_team and tournament.status.value in ['draft', 'live'] %}
+  {% set can_manage_members = can_manage_team and tournament.status.value == 'draft' %}
+  {% set can_toggle_ready = can_manage_team and tournament.status.value in ['draft', 'live'] %}
+  {% set manage_page = manage_page|default(false) %}
+  {% set is_ready = team.status.value == 'ready' %}
+  {% set max_team_member_count = tournament.team_size + (tournament.substitute_count or 0) if tournament.team_size is not none else none %}
+
+  <section class="ns-tourney-panel mt ns-tourney-team-panel">
+    <div class="ns-tourney-team-header">
+      <div class="ns-tourney-team-logo-wrap">
+      {%- if team.logo_url %}
+        <img src="{{ team.logo_url }}" alt="{{ team.name }}" class="ns-tourney-team-logo" loading="lazy">
+      {%- else %}
+        <span class="ns-tourney-team-logo ns-tourney-team-logo--placeholder"></span>
+      {%- endif %}
+      </div>
+      <div class="ns-tourney-team-header-main">
+        <h2 class="ns-tourney-team-title">{{ team.name }}</h2>
+        <p class="dimmed">
+          {{ _('Status') }}:
+          <span class="ns-tourney-team-status-badge{% if is_ready %} is-ready{% else %} is-not-ready{% endif %}">
+            {{ _('Bereit') if is_ready else _('Nicht bereit') }}
+          </span>
+        </p>
+      </div>
+    </div>
+
+    {%- if can_open_manage_page and manage_page %}
+    <div class="ns-tourney-team-settings">
+      <div class="ns-tourney-team-settings-head">
+        <h3>{{ _('Team-Einstellungen') }}</h3>
+      </div>
+
+      <form
+        id="ns-tourney-team-update-form"
+        action="{{ url_for('netsession_tourney.update_team', slug=tournament.slug, participant_id=team.id) }}"
+        method="post"
+        enctype="multipart/form-data"
+      ></form>
+
+      <div class="ns-tourney-team-settings-grid">
+        <div class="ns-tourney-team-settings-column ns-tourney-team-settings-column--left">
+          {%- if can_edit_team_identity %}
+          <label class="form-label" for="name">{{ _('Teamname') }}</label>
+          <input
+            id="name"
+            class="form-control"
+            type="text"
+            name="name"
+            maxlength="120"
+            required
+            value="{{ team.name }}"
+            form="ns-tourney-team-update-form"
+          >
+
+          {%- if team_invite_code %}
+          <p class="form-label">{{ _('Invite-Code') }}</p>
+          <div class="ns-tourney-team-invite-row">
+            <div class="ns-tourney-team-invite-box"><code>{{ team_invite_code }}</code></div>
+            <form
+              action="{{ url_for('netsession_tourney.regenerate_team_invite_code', slug=tournament.slug, participant_id=team.id) }}"
+              method="post"
+              class="ns-tourney-team-inline-action"
+            >
+              <button type="submit" class="button is-outlined ns-tourney-team-secondary-button ns-tourney-team-edit-button">
+                {{ _('Invite-Code ändern') }}
+              </button>
+            </form>
+          </div>
+          {%- endif %}
+          {%- else %}
+          <input type="hidden" name="name" value="{{ team.name }}" form="ns-tourney-team-update-form">
+          <div class="ns-tourney-stage-summary">
+            <strong>{{ _('Turnier ist live.') }}</strong>
+            <div>{{ _('Teamname und Teammitglieder können nicht mehr verändert werden, weil das Turnier live ist.') }}</div>
+            <div>{{ _('Du kannst weiterhin das Teambild aktualisieren.') }}</div>
+          </div>
+          {%- endif %}
+        </div>
+
+        <div class="ns-tourney-team-settings-column ns-tourney-team-settings-column--right">
+          {%- if can_edit_team_logo %}
+          <label class="form-label" for="logo_file">{{ _('Teambild') }}</label>
+          <input
+            id="logo_file"
+            class="form-control"
+            type="file"
+            name="logo_file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            maxlength="150000"
+            form="ns-tourney-team-update-form"
+          >
+          <p class="ns-tourney-team-logo-hints">
+            {{ _('Erlaubte Formate') }}: JPEG, PNG, WEBP<br>
+            {{ _('Maximale Bildgröße') }}: 512 × 512 {{ _('Pixel') }}<br>
+            {{ _('Maximale Dateigröße') }}: 150 KB<br>
+            {{ _('Falls das Bild nicht quadratisch ist, wird es zugeschnitten.') }}
+          </p>
+          {%- endif %}
+        </div>
+      </div>
+
+      <div class="ns-tourney-team-ready-row ns-tourney-team-ready-row--edit">
+        <div class="ns-tourney-team-ready-actions">
+          <button
+            type="submit"
+            class="button color-primary ns-tourney-team-save-button"
+            form="ns-tourney-team-update-form"
+          >
+            {{ _('Speichern') }}
+          </button>
+          <a
+            class="button is-outlined ns-tourney-team-secondary-button ns-tourney-team-edit-button"
+            href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=team.id) }}"
+          >
+            {{ _('Abbrechen') }}
+          </a>
+        </div>
+      </div>
+
+      {%- if can_manage_members and (max_team_member_count is none or members|length < max_team_member_count) %}
+      <form
+        action="{{ url_for('netsession_tourney.add_team_member', slug=tournament.slug, participant_id=team.id) }}"
+        method="post"
+        class="ns-tourney-inline-form ns-tourney-team-add-member-form"
+      >
+        <label class="form-label" for="screen_name">{{ _('Anzeigename') }}</label>
+        <input id="screen_name" class="form-control" type="text" name="screen_name" maxlength="40" list="ns-tourney-screen-names" required>
+        {{ form_datalist('ns-tourney-screen-names', suggested_screen_names) }}
+        <button type="submit" class="button is-compact ns-tourney-team-secondary-button">{{ _('Spieler hinzufügen') }}</button>
+      </form>
+      {%- endif %}
+
+    </div>
+    {%- elif can_open_manage_page %}
+    <div class="ns-tourney-team-quick-controls">
+      {%- if can_edit_team_identity and team_invite_code %}
+      <p class="form-label">{{ _('Invite-Code') }}</p>
+      <div class="ns-tourney-team-invite-box"><code>{{ team_invite_code }}</code></div>
+      {%- endif %}
+
+      <div class="ns-tourney-team-ready-row ns-tourney-team-ready-row--quick">
+        {%- if can_toggle_ready %}
+        <form
+          action="{{ url_for('netsession_tourney.set_team_ready_state', slug=tournament.slug, participant_id=team.id) }}"
+          method="post"
+        >
+          <input type="hidden" name="ready" value="{{ 'false' if is_ready else 'true' }}">
+          <button type="submit" class="button ns-tourney-team-ready-button{% if is_ready %} is-ready{% else %} is-not-ready{% endif %}">
+            {{ _('Nicht bereit markieren') if is_ready else _('Bereit markieren') }}
+          </button>
+        </form>
+        {%- endif %}
+
+        <a
+          class="button is-outlined ns-tourney-team-secondary-button ns-tourney-team-edit-button"
+          href="{{ url_for('netsession_tourney.edit_team', slug=tournament.slug, participant_id=team.id) }}"
+        >
+          {{ _('Team Einstellungen') }}
+        </a>
+      </div>
+    </div>
+    {%- endif %}
+
+    <h3>{{ _('Aufstellung') }} ({{ members|length }}{% if max_team_member_count %} / {{ max_team_member_count }}{% endif %})</h3>
+    {%- if members %}
+    <table class="itemlist is-vcentered is-wide ns-tourney-team-roster-table">
+      <thead>
+        <tr>
+          <th>{{ _('Rolle') }}</th>
+          <th>{{ _('Benutzer') }}</th>
+          <th>{{ _('Sitzplatz') }}</th>
+          {%- if can_manage_members %}
+          <th>{{ _('Aktion') }}</th>
+          {%- endif %}
+        </tr>
+      </thead>
+      <tbody>
+      {%- for member in members %}
+        {%- set member_user = users_by_id.get(member.user_id) %}
+        <tr>
+          <td>
+            {%- if member.role.value == 'captain' -%}
+              <span class="ns-tourney-team-role-icon-wrap" title="{{ _('Teamkapitän') }}" aria-label="{{ _('Teamkapitän') }}">
+                <svg class="icon ns-tourney-team-role-icon" aria-hidden="true" focusable="false">
+                  <use href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') }}#crown"></use>
+                </svg>
+              </span>
+            {%- else -%}
+              <span class="ns-tourney-team-role-icon-wrap" title="{{ _('Mitspieler') }}" aria-label="{{ _('Mitspieler') }}">
+                <svg class="icon ns-tourney-team-role-icon" aria-hidden="true" focusable="false">
+                  <use href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') }}#controller"></use>
+                </svg>
+              </span>
+            {%- endif -%}
+          </td>
+          <td>
+            {%- if member_user %}
+              {{ render_user_avatar_and_link(member_user, size=20) }}
+            {%- else %}
+              {{ member.user_id }}
+            {%- endif %}
+          </td>
+          <td>
+            {%- set seat_data = seat_data_by_user_id.get(member.user_id) %}
+            {%- if seat_data and seat_data.url %}
+              <a href="{{ seat_data.url }}" target="_blank" rel="noopener noreferrer">{{ seat_data.label }}</a>
+            {%- elif seat_data %}
+              {{ seat_data.label }}
+            {%- else %}
+              -
+            {%- endif %}
+          </td>
+          {%- if can_manage_members %}
+          <td>
+            {%- if member.role.value != 'captain' %}
+            <div class="ns-tourney-team-actions">
+              <form
+                action="{{ url_for('netsession_tourney.assign_team_captain', slug=tournament.slug, participant_id=team.id, member_user_id=member.user_id) }}"
+                method="post"
+                class="inline"
+              >
+                <button
+                  type="submit"
+                  class="button is-compact is-outlined ns-tourney-team-action-icon"
+                  title="{{ _('Kapitän machen') }}"
+                  aria-label="{{ _('Kapitän machen') }}"
+                >
+                  <svg class="icon" aria-hidden="true" focusable="false">
+                    <use href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') }}#crown"></use>
+                  </svg>
+                </button>
+              </form>
+              <form
+                action="{{ url_for('netsession_tourney.remove_team_member', slug=tournament.slug, participant_id=team.id, member_user_id=member.user_id) }}"
+                method="post"
+                class="inline"
+              >
+                <button
+                  type="submit"
+                  class="button is-compact is-outlined color-danger ns-tourney-team-action-icon"
+                  title="{{ _('Entfernen') }}"
+                  aria-label="{{ _('Entfernen') }}"
+                >
+                  <svg class="icon" aria-hidden="true" focusable="false">
+                    <use href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') }}#delete"></use>
+                  </svg>
+                </button>
+              </form>
+            </div>
+            {%- else %}
+              -
+            {%- endif %}
+          </td>
+          {%- endif %}
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <p class="dimmed">{{ _('Keine Teammitglieder vorhanden.') }}</p>
+    {%- endif %}
+  </section>
+
+  <section class="ns-tourney-panel mt">
+    <h2>{{ _('Turnierverlauf') }}</h2>
+    {%- if team_history %}
+    {%- if is_ffa_scoring_tournament %}
+    <div class="ns-tourney-team-history-ffa-table-wrap">
+      <table class="itemlist is-vcentered is-wide ns-tourney-team-history-ffa-table">
+        <thead>
+          <tr>
+            <th>{{ _('Match') }}</th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ingame-Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('IG-Rang') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Punkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Pkte') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Gesamtpunkte') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Gesamt') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in team_history %}
+          {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+          <tr
+            class="ns-tourney-team-history-row"
+            data-href="{{ match_url }}"
+            tabindex="0"
+            role="link"
+            aria-label="{{ row.match_label }}"
+          >
+            <td>
+              <a href="{{ match_url }}">{{ row.match_label }}</a>
+            </td>
+            <td>
+              {{ row.placement if row.placement is not none else '-' }}
+            </td>
+            <td>
+              {{ row.points }}
+            </td>
+            <td>
+              <strong>{{ row.total_points }}</strong>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('IG-Rang') }} = {{ _('Ingame-Rang') }},
+        {{ _('Pkte') }} = {{ _('Punkte') }},
+        {{ _('Gesamt') }} = {{ _('Gesamtpunkte') }}
+      </p>
+    </div>
+    {%- elif is_flatout2_tournament %}
+    <div class="ns-tourney-team-history-ffa-table-wrap">
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Hinweis') }}:</strong>
+        {{ _('Top 3 qualifizieren sich pro Heat für die nächste Runde.') }}
+      </p>
+      <table class="itemlist is-vcentered is-wide ns-tourney-team-history-ffa-table">
+        <thead>
+          <tr>
+            <th>{{ _('Match') }}</th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ingame-Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('IG-Rang') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Status') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Status') }}</span></th>
+            <th><span class="ns-tourney-mobile-long-label">{{ _('Ergebnis') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Erg.') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in team_history %}
+          {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+          <tr
+            class="ns-tourney-team-history-row"
+            data-href="{{ match_url }}"
+            tabindex="0"
+            role="link"
+            aria-label="{{ row.match_label }}"
+          >
+            <td>
+              <a href="{{ match_url }}">{{ row.match_label }}</a>
+            </td>
+            <td>
+              {{ row.placement if row.placement is not none else '-' }}
+            </td>
+            <td>
+              {%- if row.placement is not none and row.placement <= 3 %}
+              <strong>{{ _('Qualifiziert') }}</strong>
+              {%- elif row.placement is not none %}
+              {{ _('Ausgeschieden') }}
+              {%- else %}
+              -
+              {%- endif %}
+            </td>
+            <td>
+              <strong>{{ row.score_display }}</strong>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('IG-Rang') }} = {{ _('Ingame-Rang') }},
+        {{ _('Erg.') }} = {{ _('Ergebnis') }}
+      </p>
+    </div>
+    {%- else %}
+    <table class="itemlist is-vcentered is-wide ns-tourney-team-history-table">
+      <tbody>
+      {%- for row in team_history %}
+        {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+        <tr
+          class="ns-tourney-team-history-row"
+          data-href="{{ match_url }}"
+          tabindex="0"
+          role="link"
+          aria-label="{{ row.match_label }}"
+        >
+          <td>
+            <a href="{{ match_url }}">
+              {{ row.match_label }}
+            </a>
+          </td>
+          <td class="ns-tourney-team-history-team ns-tourney-team-history-team--left{% if row.left_is_own_team %} ns-tourney-team-history-own{% endif %}">
+            <span{% if row.left_is_bye %} class="ns-tourney-bye-label"{% endif %}>{{ row.left_team_name }}</span>
+          </td>
+          <td class="ns-tourney-team-history-score-cell">
+            <span class="ns-tourney-team-history-score ns-tourney-team-history-score--{{ row.outcome }}">
+              {%- if row.score_left is not none and row.score_right is not none -%}
+                {{ row.score_left }} : {{ row.score_right }}
+              {%- else -%}
+                {{ row.score_display }}
+              {%- endif -%}
+            </span>
+          </td>
+          <td class="ns-tourney-team-history-team ns-tourney-team-history-team--right{% if row.right_is_own_team %} ns-tourney-team-history-own{% endif %}">
+            <span{% if row.right_is_bye %} class="ns-tourney-bye-label"{% endif %}>{{ row.right_team_name }}</span>
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- endif %}
+    {%- else %}
+    <p class="dimmed">{{ _('Noch keine Spiele im Turnierverlauf.') }}</p>
+    {%- endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const rows = document.querySelectorAll('.ns-tourney-team-history-row[data-href]');
+      const isInteractiveTarget = (target) =>
+        target instanceof Element
+        && Boolean(target.closest('a, button, input, select, textarea, label, form'));
+
+      for (const row of rows) {
+        row.addEventListener('click', (event) => {
+          if (isInteractiveTarget(event.target)) {
+            return;
+          }
+
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+
+          event.preventDefault();
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+      }
+    })();
+  </script>
+{% endblock %}

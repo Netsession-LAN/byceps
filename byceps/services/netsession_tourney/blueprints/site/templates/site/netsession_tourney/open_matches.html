@@ -1,0 +1,95 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_subnav.html' import render_global_subnav %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% set page_title = _('Offene Spiele') %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_global_subnav_page|default(current_page)) }}
+{%- else %}
+{{ render_global_subnav(current_global_subnav_page|default(current_page)) }}
+{%- endif %}
+{% endblock %}
+
+{% block body %}
+  <h1 class="title">{{ _('Offene Spiele') }}</h1>
+
+  <div class="ns-tourney-panel ns-tourney-open-matches">
+    {%- if rows %}
+    <table class="itemlist is-vcentered is-wide ns-tourney-open-matches-table">
+      <thead>
+        <tr>
+          <th>{{ _('Spiel') }}</th>
+          <th>{{ _('Turnier') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Geplant') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for row in rows %}
+        <tr
+          class="ns-tourney-open-matches-row{% if row.is_my_match %} is-personal{% endif %}"
+          data-match-url="{{ row.url }}"
+          tabindex="0"
+          role="link"
+          aria-label="{{ row.match_label }}"
+        >
+          <td>
+            <div class="ns-tourney-open-matches-match">
+              <div class="ns-tourney-open-matches-match-head">
+                <strong class="ns-tourney-open-matches-match-label">{{ row.match_label }}</strong>
+                {%- if row.is_my_match %}
+                <span class="ns-tourney-open-matches-personal-badge">{{ _('Mein Match') }}</span>
+                {%- endif %}
+              </div>
+              <div class="ns-tourney-open-matches-match-participants">{{ row.participants_label }}</div>
+            </div>
+          </td>
+          <td>
+            <div class="ns-tourney-open-matches-tournament">
+              <strong class="ns-tourney-open-matches-tournament-title">{{ row.tournament_title }}</strong>
+              <div class="ns-tourney-open-matches-tournament-stage">{{ row.stage_name }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="ns-tourney-open-matches-state {{ row.state_class_name }}">{{ row.state_label }}</span>
+          </td>
+          <td>
+            <span class="ns-tourney-open-matches-scheduled{% if not row.is_scheduled %} is-unscheduled{% endif %}">
+              {{ row.scheduled_label }}
+            </span>
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <p class="dimmed">{{ _('Derzeit keine offenen Spiele.') }}</p>
+    {%- endif %}
+  </div>
+
+  {%- if rows %}
+  <script>
+    (() => {
+      document.querySelectorAll('[data-match-url]').forEach((row) => {
+        row.addEventListener('click', () => {
+          window.location.href = row.dataset.matchUrl;
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+
+          event.preventDefault();
+          window.location.href = row.dataset.matchUrl;
+        });
+      });
+    })();
+  </script>
+  {%- endif %}
+{% endblock %}

@@ -3,6 +3,7 @@ FROM python:3.13-trixie
 # Install Debian dependencies.
 # A final `apt-get clean` is part of the Debian base image.
 RUN apt-get install --no-install-recommends --update --yes \
+        libcairo2 \
         locales-all \
     && \
     rm -rf /var/lib/apt/lists/*

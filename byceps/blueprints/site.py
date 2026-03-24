@@ -66,4 +66,9 @@ def register_site_blueprints(
         ('services.user_profile.blueprints.site', '/users'),
     ]
 
+    if app.config.get('NETSESSION_TOURNEY_ENABLED', False):
+        blueprints.append(
+            ('services.netsession_tourney.blueprints.site', '/ns-tourneys')
+        )
+
     register_blueprints(app, blueprints)

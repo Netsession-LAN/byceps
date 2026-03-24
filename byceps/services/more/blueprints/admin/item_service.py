@@ -8,7 +8,7 @@ byceps.services.more.blueprints.admin.item_service
 
 from dataclasses import dataclass
 
-from flask import g, url_for
+from flask import current_app, g, url_for
 from flask_babel import gettext
 
 from byceps.services.brand.models import Brand
@@ -194,6 +194,19 @@ def get_party_items(party: Party) -> list[MoreItem]:
             icon='trophy',
             url=url_for('tourney_tourney_admin.index', party_id=party.id),
             required_permission='tourney.view',
+        ),
+        MoreItem(
+            label=gettext('Netsession Tournaments'),
+            icon='trophy',
+            url=(
+                url_for('netsession_tourney_admin.index', party_id=party.id)
+                if current_app.config.get('NETSESSION_TOURNEY_ENABLED', False)
+                else ''
+            ),
+            required_permission='netsession_tourney.view',
+            precondition=current_app.config.get(
+                'NETSESSION_TOURNEY_ENABLED', False
+            ),
         ),
     ]
 

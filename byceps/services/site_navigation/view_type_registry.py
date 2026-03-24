@@ -82,6 +82,24 @@ _VIEW_TYPES = [
         label=lazy_gettext('Galleries'),
         current_page_id='gallery',
     ),
+    ViewType(
+        name='netsession_tourney',
+        endpoint='netsession_tourney.index',
+        label=lazy_gettext('Tournaments'),
+        current_page_id='ns_tourney_index',
+    ),
+    ViewType(
+        name='netsession_tourney_timetable',
+        endpoint='netsession_tourney.timetable',
+        label=lazy_gettext('Tournament timetable'),
+        current_page_id='ns_tourney_timetable',
+    ),
+    ViewType(
+        name='netsession_tourney_open_matches',
+        endpoint='netsession_tourney.open_matches',
+        label=lazy_gettext('Open tournament matches'),
+        current_page_id='ns_tourney_open_matches',
+    ),
 ]
 
 

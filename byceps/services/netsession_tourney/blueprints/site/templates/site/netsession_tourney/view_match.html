@@ -1,0 +1,349 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/user.html' import render_user_avatar, render_user_link %}
+{% set page_title = [tournament.title, match_label] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, crumb_label=match_label, show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <section class="ns-tourney-panel ns-tourney-match-panel mt{% if is_skipped_double_grand_final %} is-struck{% endif %}">
+    <h2 class="ns-tourney-match-title">{{ match_label }}</h2>
+    <p class="ns-tourney-match-subtitle">
+      {{ stage.settings.get('builder_display_title') or (_('Runde') ~ ' ' ~ match.round_no) }}
+      {%- if match.scheduled_at %}
+        ({{ match.scheduled_at|dateformat }}, {{ match.scheduled_at|timeformat('short') }}
+        {%- if match_end_at %} - {{ match_end_at|dateformat }}, {{ match_end_at|timeformat('short') }}{% endif %})
+      {%- endif %}
+    </p>
+    {%- if is_skipped_double_grand_final %}
+    <p class="ns-tourney-match-subtitle">{{ _('Dieses Match wurde gestrichen, da kein Bracket-Reset erforderlich ist.') }}</p>
+    {%- endif %}
+
+    {%- if not is_ffa_scoring_match and not is_flatout2_match %}
+    <div class="ns-tourney-match-duel">
+      {%- for slot in slots %}
+        {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+        {%- set is_bye_slot = slot.id in bye_slot_ids %}
+        {%- set is_participant_bracket_ready = participant and participant.status.value in ['ready', 'checked_in', 'locked'] %}
+        {%- set participant_avatar_url = none %}
+        {%- if participant and participant.type.value == 'team' and participant.logo_url %}
+          {%- set participant_avatar_url = participant.logo_url %}
+        {%- elif participant and participant.user_id %}
+          {%- set participant_user = users_by_id.get(participant.user_id) %}
+          {%- if participant_user and participant_user.avatar_url %}
+            {%- set participant_avatar_url = participant_user.avatar_url %}
+          {%- endif %}
+        {%- endif %}
+        <article class="ns-tourney-match-party-card{% if result and result.winner_slot == slot.slot_no %} is-winner{% endif %}">
+          {%- if not is_bye_slot %}
+          <span class="ns-tourney-match-party-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+            {%- if participant_avatar_url %}
+            <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant and participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+            {%- endif %}
+          </span>
+          {%- endif %}
+          <h3 class="ns-tourney-match-party-card-name">
+            {%- if participant %}
+              {%- if participant.type.value == 'team' %}
+              <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+              {%- elif participant.user_id %}
+              <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+              {%- else %}
+              {{ participant.name }}
+              {%- endif %}
+            {%- elif is_bye_slot %}
+              <span class="ns-tourney-bye-label">{{ _('Freilos') }}</span>
+            {%- else %}
+              {{ _('TBD') }}
+            {%- endif %}
+          </h3>
+          <p class="ns-tourney-match-party-card-status">
+            {%- if is_bye_slot -%}
+            <span class="dimmed"></span>
+            {%- elif participant -%}
+            <span class="ns-tourney-team-status-badge{% if is_participant_bracket_ready %} is-ready{% else %} is-not-ready{% endif %}">
+              {{ _('Bereit') if is_participant_bracket_ready else _('Nicht bereit') }}
+            </span>
+            {%- elif not is_bye_slot -%}
+            <span class="dimmed">{{ _('TBD') }}</span>
+            {%- else -%}
+            <span class="dimmed"></span>
+            {%- endif %}
+          </p>
+          <div class="ns-tourney-match-party-card-score">{{ slot_scores.get(slot.slot_no, '-') }}</div>
+        </article>
+        {%- if not loop.last %}
+        <div class="ns-tourney-match-vs-separator">vs</div>
+    {%- endif %}
+      {%- endfor %}
+    </div>
+    {%- else %}
+    {%- if is_flatout2_match %}
+    <p class="ns-tourney-match-subtitle">
+      {{ _('Top 3 qualifizieren sich für die nächste Runde.') }}
+    </p>
+    {%- endif %}
+    {%- if is_flatout2_match and current_host_name %}
+    <div class="ns-tourney-match-host-callout">
+      <span class="ns-tourney-match-host-callout-label">{{ _('Host dieses Matches') }}</span>
+      <strong>{{ current_host_name }}</strong>
+    </div>
+    {%- endif %}
+    {%- if is_flatout2_match and flatout2_round_races %}
+    <div class="ns-tourney-stage-summary">
+      {%- for race in flatout2_round_races %}
+      <div>
+        <strong>{{ _('Rennen') }} {{ loop.index }}:</strong>
+        {{ race.mode_label }} - {{ race.track or _('Keine Strecke gesetzt') }} - {{ race.vehicle or _('Kein Fahrzeug gesetzt') }}
+      </div>
+      {%- endfor %}
+    </div>
+    {%- endif %}
+    <div class="ns-tourney-match-ffa-table-wrap">
+      <table class="itemlist is-vcentered is-wide ns-tourney-match-ffa-table">
+        <thead>
+          <tr>
+            <th class="ns-tourney-match-ffa-table-place-cell"><span class="ns-tourney-mobile-long-label">{{ _('Match-Ranking') if is_flatout2_match else _('Ingame-Rang') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Rang') }}</span></th>
+            <th class="ns-tourney-match-ffa-table-participant-cell"><span class="ns-tourney-mobile-long-label">{{ _('Teilnehmer') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Teiln.') }}</span></th>
+            {%- if not is_flatout2_match %}
+            <th class="ns-tourney-match-ffa-table-kills-cell">{{ _('Kills') }}</th>
+            {%- else %}
+            <th class="ns-tourney-match-ffa-table-kills-cell">{{ _('Punkte') }}</th>
+            {%- endif %}
+            <th class="ns-tourney-match-ffa-table-status-cell"><span class="ns-tourney-mobile-long-label">{{ _('Status') }}</span><span class="ns-tourney-mobile-short-label">{{ _('Stat.') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for row in ffa_match_rows %}
+          <tr class="ns-tourney-match-ffa-table-row{% if row.is_winner %} is-winner{% endif %}">
+            <td class="ns-tourney-match-ffa-table-place-cell" data-label="{{ _('Match-Ranking') if is_flatout2_match else _('Ingame-Rang') }}">
+              <span class="ns-tourney-match-ffa-place-badge">{{ row.placement if row.placement is not none else '-' }}</span>
+            </td>
+            <td class="ns-tourney-match-ffa-table-participant-cell" data-label="{{ _('Teilnehmer') }}">
+              <div class="ns-tourney-match-ffa-table-participant">
+                <span class="ns-tourney-match-overview-team-avatar{% if not row.image_url %} is-placeholder{% endif %}">
+                  {%- if row.image_url %}
+                  <img src="{{ row.image_url }}" alt="{{ row.image_alt or _('Logo') }}" loading="lazy">
+                  {%- endif %}
+                </span>
+                <div class="ns-tourney-match-ffa-table-participant-main">
+                  <strong class="ns-tourney-match-ffa-table-participant-name">
+                    {%- if row.participant and row.participant.type.value == 'team' %}
+                    <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=row.participant.id) }}" class="disguised">{{ row.name }}</a>
+                    {%- elif row.participant and row.participant.user_id %}
+                    <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=row.participant.id) }}" class="disguised">{{ row.name }}</a>
+                    {%- else %}
+                    {{ row.name }}
+                    {%- endif %}
+                  </strong>
+                  {%- if is_flatout2_match and row.participant and current_host_participant_id == row.participant.id|string %}
+                  <div class="ns-tourney-match-ffa-table-participant-meta ns-tourney-match-ffa-table-participant-meta--host">{{ _('Host') }}</div>
+                  {%- endif %}
+                </div>
+              </div>
+            </td>
+            {%- if not is_flatout2_match %}
+            <td class="ns-tourney-match-ffa-table-kills-cell" data-label="{{ _('Kills') }}">
+              <strong>{{ row.kills }}</strong>
+            </td>
+            {%- else %}
+            <td class="ns-tourney-match-ffa-table-kills-cell" data-label="{{ _('Punkte') }}">
+              <strong>{{ row.points if row.placement is not none else '-' }}</strong>
+            </td>
+            {%- endif %}
+            <td class="ns-tourney-match-ffa-table-status-cell" data-label="{{ _('Status') }}">
+              {%- if row.is_winner %}
+              <span class="ns-tourney-match-ffa-status-badge is-winner">{{ _('Sieger') }}</span>
+              {%- elif is_flatout2_match and row.placement is not none and row.placement <= 3 %}
+              <span class="ns-tourney-match-ffa-status-badge is-winner">{{ _('Qualifiziert') }}</span>
+              {%- elif row.placement is not none %}
+              <span class="ns-tourney-match-ffa-status-badge">{{ _('Erfasst') }}</span>
+              {%- else %}
+              <span class="dimmed">-</span>
+              {%- endif %}
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+      <p class="ns-tourney-mobile-legend">
+        <strong>{{ _('Legende') }}:</strong>
+        {{ _('Rang') }} = {{ _('Match-Ranking') if is_flatout2_match else _('Ingame-Rang') }},
+        {{ _('Teiln.') }} = {{ _('Teilnehmer') }},
+        {%- if is_flatout2_match %}{{ _('Punkte') }}, {% endif %}
+        {{ _('Stat.') }} = {{ _('Status') }}
+      </p>
+    </div>
+    {%- endif %}
+  </section>
+
+  {%- if can_report and not has_bye_slot %}
+  <section class="ns-tourney-panel ns-tourney-match-report-panel mt">
+    <h3>{{ _('Ergebnis übermitteln') }}</h3>
+    {%- if slots|length == 2 and slots[0].participant_id and slots[1].participant_id %}
+    <form action="{{ url_for('netsession_tourney.report_match_result', slug=tournament.slug, match_id=match.id) }}" method="post" class="ns-tourney-match-report-form">
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <div class="ns-tourney-match-report-grid">
+        {%- for slot in slots %}
+          {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+          {%- set score_field_id = 'slot-1-points' if loop.index0 == 0 else 'slot-2-points' %}
+          {%- set score_field_name = 'slot_1_points' if loop.index0 == 0 else 'slot_2_points' %}
+          <div class="form-field">
+            <label class="form-label" for="{{ score_field_id }}">
+              {{ participant.name if participant else _('TBD') }}
+            </label>
+            <input
+              id="{{ score_field_id }}"
+              class="form-control"
+              type="number"
+              min="0"
+              max="999"
+              name="{{ score_field_name }}"
+              value="{{ slot_scores.get(slot.slot_no, '') }}"
+              required
+            >
+          </div>
+        {%- endfor %}
+      </div>
+      <button type="submit" class="button color-primary">{{ _('Ergebnis übermitteln') }}</button>
+    </form>
+    {%- else %}
+    <p class="dimmed">{{ _('Ergebnis kann erst gemeldet werden, wenn beide Slots belegt sind.') }}</p>
+    {%- endif %}
+  </section>
+  {%- endif %}
+
+  <section class="ns-tourney-panel ns-tourney-match-chat-panel mt">
+    <h3>{{ _('Verlauf & Chat') }}</h3>
+
+    {%- if activity_items %}
+    <div class="user-comments ns-tourney-match-chat-list">
+      {%- for item in activity_items %}
+      {%- if item.kind == 'event' %}
+      {%- set entry = item.entry %}
+      <div class="event-row ns-tourney-match-event">
+        <div class="event-column">
+          <span class="event-icon-container">{{ render_icon('announce') }}</span>
+        </div>
+        <div class="event-column">
+          <div class="ns-tourney-match-event-description">{{ format_timeline_action(entry) }}</div>
+          <div class="ns-tourney-match-event-meta">
+            {{ entry.created_at|dateformat }}, {{ entry.created_at|timeformat('short') }}
+            {%- if entry.actor_user_id and users_by_id.get(entry.actor_user_id) %}
+              {{ _('von') }} {{ render_user_link(users_by_id.get(entry.actor_user_id)) }}
+            {%- endif %}
+          </div>
+        </div>
+      </div>
+      {%- else %}
+      {%- set message = item.message %}
+      {%- set author = users_by_id.get(message.actor_user_id) %}
+      {%- set author_team = chat_team_by_actor_user_id.get(message.actor_user_id) %}
+      <article class="user-comment ns-tourney-match-chat-comment" id="match-chat-message-{{ message.id }}">
+        <aside class="user-comment-aside">
+          {%- if author %}
+          {{ render_user_avatar(author, size=96) }}
+          {%- endif %}
+        </aside>
+        <div class="user-comment-main">
+          <header>
+            <div class="user-comment-meta-top">
+              <span class="user-link">
+                {%- if author %}
+                  {%- if author_team %}
+                <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=author_team.id) }}">{{ author_team.name }}</a>
+                / {{ render_user_link(author) }}
+                  {%- else %}
+                {{ render_user_link(author) }}
+                  {%- endif %}
+                {%- else %}
+                {{ _('Unbekannter Benutzer') }}
+                {%- endif %}
+              </span>
+              <a href="#match-chat-message-{{ message.id }}" class="user-comment-permalink">
+                {{ message.created_at|dateformat }}, {{ message.created_at|timeformat('short') }}
+              </a>
+            </div>
+          </header>
+          <div class="body">{{ message.body }}</div>
+        </div>
+      </article>
+      {%- endif %}
+      {%- endfor %}
+    </div>
+    {%- else %}
+    <p class="dimmed">{{ _('Noch keine Einträge.') }}</p>
+    {%- endif %}
+
+    {%- if can_chat %}
+    <article class="user-comment mt">
+      <aside class="user-comment-aside">
+        <div class="creator">
+          {%- if g.user.authenticated %}
+          {{ render_user_avatar(g.user.as_user(), size=96) }}
+          {%- endif %}
+        </div>
+      </aside>
+      <div class="user-comment-main">
+        <div class="body">
+          <form action="{{ url_for('netsession_tourney.post_match_chat', slug=tournament.slug, match_id=match.id) }}" method="post" class="board-posting-create-form-inline ns-tourney-match-chat-form">
+            <div class="form-field">
+              <label class="form-label" for="body">{{ _('Nachricht') }}</label>
+              <textarea id="body" class="form-control collapsible collapsed" name="body" maxlength="2000" required></textarea>
+              <div class="collapsible-neighbor">
+                <p class="form-caption">
+                  <a href="https://de.wikipedia.org/wiki/BBCode" target="_blank" rel="noopener noreferrer">BBCode</a>
+                  {{ _('wird unterstützt.') }}
+                </p>
+                <div class="button-row">
+                  <button type="submit" class="button color-primary">{{ _('Hinzufügen') }}</button>
+                  <button type="button" class="button cancel is-outlined">{{ _('Abbrechen') }}</button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </article>
+    {%- elif g.user.authenticated %}
+    <p class="dimmed">{{ _('Nur Admins und Teilnehmer dieses Matches können hier schreiben.') }}</p>
+    {%- else %}
+    <p class="dimmed">{{ _('Bitte einloggen, um den Match-Chat zu nutzen.') }}</p>
+    {%- endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const textarea = document.querySelector(
+        '.ns-tourney-match-chat-form textarea.collapsible'
+      );
+      if (!textarea) {
+        return;
+      }
+
+      textarea.addEventListener('focus', () => {
+        textarea.classList.remove('collapsed');
+      });
+
+      const cancelButton = textarea.form?.querySelector('button.cancel');
+      if (!cancelButton) {
+        return;
+      }
+
+      cancelButton.addEventListener('click', () => {
+        textarea.classList.add('collapsed');
+      });
+    })();
+  </script>
+{% endblock %}

@@ -1,0 +1,1882 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% set page_title = [tournament.title, _('Bracket')] %}
+{% set netsession_tourney_icons_url = url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  <section class="ns-tourney-bracket-view">
+    {{ render_tournament_header(tournament, current_tournament_page, show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+    <div class="ns-tourney-panel ns-tourney-bracket">
+      <div class="ns-tourney-bracket-controls">
+        <button
+          type="button"
+          class="button ns-tourney-bracket-fullscreen-toggle"
+          data-action="toggle-bracket-fullscreen"
+          aria-pressed="false"
+          aria-label="{{ _('Vollbild umschalten') }}"
+          title="{{ _('Vollbild umschalten') }}"
+          hidden
+        >
+          <span class="icon-expand" aria-hidden="true">
+            <svg class="icon"><use xlink:href="{{ netsession_tourney_icons_url }}#expand"></use></svg>
+          </span>
+          <span class="icon-compress" aria-hidden="true">
+            <svg class="icon"><use xlink:href="{{ netsession_tourney_icons_url }}#compress"></use></svg>
+          </span>
+        </button>
+      </div>
+      {%- if is_ffa_single_elimination_tournament %}
+      {%- if ffa_single_elimination_bracket_sections %}
+      {%- if ffa_single_elimination_bracket_sections|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for bracket_section in ffa_single_elimination_bracket_sections %}
+        <li>
+          <a class="tabs-tab" href="#bracket-section-ffa-se-{{ loop.index }}">
+            {{ bracket_section.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}
+          </a>
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      {%- for bracket_section in ffa_single_elimination_bracket_sections %}
+      <section id="bracket-section-ffa-se-{{ loop.index }}" class="ns-tourney-bracket-section">
+        {%- if bracket_section.title %}
+        <h2 class="title ns-tourney-bracket-section-title">{{ bracket_section.title }}</h2>
+        {%- endif %}
+        {%- if bracket_section.presentation|default('ffa') == 'flatout2' %}
+        <div class="ns-tourney-bracket-canvas">
+          <div class="ns-tourney-bracket-stage ns-tourney-bracket-stage--flatout2 is-density-comfortable" data-bracket-section="{{ bracket_section.key }}">
+          {%- for round in bracket_section.rounds %}
+          {%- set round_index = loop.index0 %}
+          <section
+            class="ns-tourney-bracket-round is-depth-{{ loop.index }}{% if loop.first %} is-first-round{% endif %}{% if loop.last %} is-last-round{% endif %}"
+            data-round-index="{{ round_index }}"
+          >
+            <header class="ns-tourney-bracket-round-head">
+              <h2 class="ns-tourney-bracket-round-title">
+                {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+              </h2>
+              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+            </header>
+            {%- for item in round.matches %}
+            {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
+            <article
+              class="ns-tourney-bracket-match-card ns-tourney-bracket-match-card--ffa-summary"
+              {% if item.match is defined and item.match %}data-match-id="{{ item.match.id }}"{% endif %}
+              data-round-index="{{ round_index }}"
+              data-round-match-index="{{ item.round_match_index }}"
+              {% if match_url %}data-match-url="{{ match_url }}"{% endif %}
+              data-match-label="{{ item.match_label }}"
+              {% if match_url %}role="link" tabindex="0"{% endif %}
+            >
+              <div class="ns-tourney-bracket-match-meta">
+                {%- if match_url %}
+                <a href="{{ match_url }}" class="disguised ns-tourney-bracket-match-label">
+                  {{ item.match_label }}
+                </a>
+                {%- else %}
+                <span class="ns-tourney-bracket-match-label">{{ item.match_label }}</span>
+                {%- endif %}
+                <span class="ns-tourney-bracket-match-state">
+                  {%- if item.is_placeholder|default(false) %}
+                  {{ _('TBA') }}
+                  {%- else %}
+                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {%- endif %}
+                </span>
+              </div>
+              <div class="ns-tourney-bracket-ffa-summary">
+                {%- if item.is_placeholder|default(false) %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">{{ _('TBA') }}</strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Bis zu %(count)s Teilnehmer', count=item.slot_capacity) }}</span>
+                {%- else %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">
+                  {{ item.participant_count }} / {{ item.slot_capacity }}
+                </strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Teilnehmer') }}</span>
+                {%- endif %}
+              </div>
+            </article>
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+        {%- else %}
+        <div class="ns-tourney-bracket-canvas">
+          <div class="ns-tourney-bracket-stage is-density-comfortable" data-bracket-section="{{ bracket_section.key }}">
+            <svg class="ns-tourney-bracket-lines" aria-hidden="true"></svg>
+          {%- for round in bracket_section.rounds %}
+          {%- set round_index = loop.index0 %}
+          <section
+            class="ns-tourney-bracket-round is-depth-{{ loop.index }}{% if loop.first %} is-first-round{% endif %}{% if loop.last %} is-last-round{% endif %}"
+            data-round-index="{{ round_index }}"
+          >
+            <header class="ns-tourney-bracket-round-head">
+              <h2 class="ns-tourney-bracket-round-title">
+                {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+              </h2>
+              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+            </header>
+            {%- for item in round.matches %}
+            {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
+            <article
+              class="ns-tourney-bracket-match-card ns-tourney-bracket-match-card--ffa-summary"
+              {% if item.match is defined and item.match %}data-match-id="{{ item.match.id }}"{% endif %}
+              data-round-index="{{ round_index }}"
+              data-round-match-index="{{ item.round_match_index }}"
+              {% if match_url %}data-match-url="{{ match_url }}"{% endif %}
+              data-match-label="{{ item.match_label }}"
+              {% if match_url %}role="link" tabindex="0"{% endif %}
+            >
+              <div class="ns-tourney-bracket-match-meta">
+                {%- if match_url %}
+                <a href="{{ match_url }}" class="disguised ns-tourney-bracket-match-label">
+                  {{ item.match_label }}
+                </a>
+                {%- else %}
+                <span class="ns-tourney-bracket-match-label">{{ item.match_label }}</span>
+                {%- endif %}
+                <span class="ns-tourney-bracket-match-state">
+                  {%- if item.is_placeholder|default(false) %}
+                  {{ _('TBA') }}
+                  {%- else %}
+                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {%- endif %}
+                </span>
+              </div>
+              <div class="ns-tourney-bracket-ffa-summary">
+                {%- if item.is_placeholder|default(false) %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">{{ _('TBA') }}</strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Bis zu %(count)s Teilnehmer', count=item.slot_capacity) }}</span>
+                {%- else %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">
+                  {{ item.participant_count }} / {{ item.slot_capacity }}
+                </strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Teilnehmer') }}</span>
+                {%- endif %}
+              </div>
+              <div class="ns-tourney-bracket-slots ns-tourney-bracket-slots--hidden" aria-hidden="true">
+                {%- for source_match_id in item.source_match_ids %}
+                <div
+                  class="ns-tourney-bracket-slot ns-tourney-bracket-slot--connector-only"
+                  data-slot-no="{{ loop.index }}"
+                  data-source-match-id="{{ source_match_id }}"
+                ></div>
+                {%- endfor %}
+              </div>
+            </article>
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+        {%- endif %}
+      </section>
+      {%- endfor %}
+      {%- else %}
+      <p class="dimmed">{{ _('Kein Bracket vorhanden. Bitte im Admin Match-Generierung ausführen.') }}</p>
+      {%- endif %}
+      {%- elif is_ffa_scoring_tournament %}
+      {%- if ffa_match_sections %}
+      {%- if ffa_match_sections|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for section in ffa_match_sections %}
+        <li>
+          <a class="tabs-tab" href="#bracket-section-ffa-{{ loop.index }}">
+            {{ section.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}
+          </a>
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      <div class="ns-tourney-match-overview-ffa-list">
+        {%- for section in ffa_match_sections %}
+          <section id="bracket-section-ffa-{{ loop.index }}">
+          {%- if section.title %}
+          <h2 class="title ns-tourney-bracket-section-title">{{ section.title }}</h2>
+          {%- endif %}
+          {%- for round in section.rounds %}
+          <h3 class="ns-tourney-match-overview-round-title">
+            {{ _('Runde') }} {{ round.display_round_no|default(round.round_no) }}
+            {%- if round.time_range_label %}
+            <span class="ns-tourney-match-overview-round-time">({{ round.time_range_label }})</span>
+            {%- endif %}
+          </h3>
+          {%- for row in round.rows %}
+            {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+          <article class="ns-tourney-match-overview-ffa-card{% if row.is_struck %} is-struck{% endif %}">
+            <header class="ns-tourney-match-overview-ffa-head">
+              <div class="ns-tourney-match-overview-ffa-head-main">
+                <a href="{{ match_url }}" class="ns-tourney-match-overview-match-link">{{ row.match_label }}</a>
+                <span class="ns-tourney-match-overview-ffa-meta">{{ row.participants|length }} {{ _('Teilnehmer') }}</span>
+              </div>
+              <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                {{ row.score_display }}
+              </span>
+            </header>
+            <ol class="ns-tourney-match-overview-ffa-standings">
+              {%- for participant in row.participants %}
+              <li class="ns-tourney-match-overview-ffa-row{% if participant.is_winner %} is-winner{% endif %}">
+                <span class="ns-tourney-match-overview-ffa-rank">{{ participant.placement or loop.index }}</span>
+                <span class="ns-tourney-match-overview-team-avatar{% if not participant.image_url %} is-placeholder{% endif %}">
+                  {%- if participant.image_url %}
+                  <img src="{{ participant.image_url }}" alt="{{ participant.image_alt or _('Team-Logo') }}" loading="lazy">
+                  {%- endif %}
+                </span>
+                <span class="ns-tourney-match-overview-ffa-name">
+                  {%- if participant.participant and participant.participant.type.value == 'team' %}
+                  <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.participant.id) }}" class="disguised">{{ participant.name }}</a>
+                  {%- elif participant.participant and participant.participant.user_id %}
+                  <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.participant.id) }}" class="disguised">{{ participant.name }}</a>
+                  {%- else %}
+                  {{ participant.name }}
+                  {%- endif %}
+                </span>
+                {%- if row.show_kills %}
+                <span class="ns-tourney-match-overview-ffa-kills">{{ participant.kills }} {{ _('Kills') }}</span>
+                {%- endif %}
+              </li>
+              {%- endfor %}
+            </ol>
+          </article>
+          {%- endfor %}
+          {%- endfor %}
+          </section>
+        {%- endfor %}
+      </div>
+      {%- else %}
+      <p class="dimmed">{{ _('Kein FFA-Match vorhanden. Bitte im Admin Match-Generierung ausführen.') }}</p>
+      {%- endif %}
+      {%- else %}
+      {%- if is_swiss_tournament %}
+      {%- if swiss_bracket_sections %}
+      {%- if swiss_bracket_sections|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for bracket_section in swiss_bracket_sections %}
+        <li>
+          <a class="tabs-tab" href="#bracket-section-swiss-{{ loop.index }}">
+            {{ bracket_section.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}
+          </a>
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      {%- for bracket_section in swiss_bracket_sections %}
+      <section id="bracket-section-swiss-{{ loop.index }}" class="ns-tourney-bracket-section">
+        {%- if bracket_section.title %}
+        <h2 class="title ns-tourney-bracket-section-title">{{ bracket_section.title }}</h2>
+        {%- endif %}
+        <div class="ns-tourney-swiss-board">
+          <div class="ns-tourney-swiss-stage">
+          <svg class="ns-tourney-swiss-lines" aria-hidden="true"></svg>
+          {%- for round in bracket_section.rounds %}
+          <section class="ns-tourney-swiss-column{% if round.is_sidecar %} is-sidecar{% endif %}">
+            <header class="ns-tourney-swiss-column-head">
+              <h3 class="ns-tourney-swiss-column-title">{{ round.display_title }}</h3>
+            </header>
+            <div class="ns-tourney-swiss-column-body">
+              {%- for block in round.blocks %}
+              {%- if block.kind == 'pool' %}
+              {%- set pool = block.item %}
+              <article
+                class="ns-tourney-swiss-pool ns-tourney-swiss-pool--{{ pool.tone }}"
+                data-swiss-node-id="{{ pool.id }}"
+                data-swiss-row-position="{{ pool.row_position }}"
+                data-swiss-winner-target-id="{{ pool.winner_target_id }}"
+                data-swiss-loser-target-id="{{ pool.loser_target_id }}"
+              >
+                <header class="ns-tourney-swiss-pool-head">
+                  <span class="ns-tourney-swiss-pool-label">{{ pool.label }}</span>
+                  <span class="ns-tourney-swiss-pool-meta">{{ pool.participant_count }} {{ _('Teams') }}</span>
+                </header>
+                <div class="ns-tourney-swiss-pool-body">
+                  {%- for item in pool.matches %}
+                  {%- set top_slot = item.slots[0] if item.slots|length > 0 else none %}
+                  {%- set bottom_slot = item.slots[1] if item.slots|length > 1 else none %}
+                  {%- set top_participant = top_slot.participant if top_slot else none %}
+                  {%- set bottom_participant = bottom_slot.participant if bottom_slot else none %}
+                  {%- set top_slot_image_url = none %}
+                  {%- if top_participant and top_participant.type.value == 'team' and top_participant.logo_url %}
+                    {%- set top_slot_image_url = top_participant.logo_url %}
+                  {%- elif top_participant and top_participant.user_id %}
+                    {%- set top_slot_user = users_by_id.get(top_participant.user_id) %}
+                    {%- if top_slot_user and top_slot_user.avatar_url %}
+                      {%- set top_slot_image_url = top_slot_user.avatar_url %}
+                    {%- endif %}
+                  {%- endif %}
+                  {%- set bottom_slot_image_url = none %}
+                  {%- if bottom_participant and bottom_participant.type.value == 'team' and bottom_participant.logo_url %}
+                    {%- set bottom_slot_image_url = bottom_participant.logo_url %}
+                  {%- elif bottom_participant and bottom_participant.user_id %}
+                    {%- set bottom_slot_user = users_by_id.get(bottom_participant.user_id) %}
+                    {%- if bottom_slot_user and bottom_slot_user.avatar_url %}
+                      {%- set bottom_slot_image_url = bottom_slot_user.avatar_url %}
+                    {%- endif %}
+                  {%- endif %}
+                  <a
+                    class="ns-tourney-swiss-match{% if item.result %} is-completed{% endif %}"
+                    href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}"
+                    title="{{ item.match_label }}"
+                  >
+                    <div class="ns-tourney-swiss-match-meta">
+                      <span class="ns-tourney-swiss-match-label">{{ item.match_label }}</span>
+                      <span class="ns-tourney-swiss-match-state">{{ item.match.state.value|replace('_', ' ')|title }}</span>
+                    </div>
+                    <div class="ns-tourney-swiss-match-slots">
+                      <span
+                        class="ns-tourney-swiss-match-slot{% if item.result and item.result.winner_slot == 1 %} is-winner{% endif %}"
+                        {% if top_participant %}data-participant-id="{{ top_participant.id }}"{% endif %}
+                      >
+                        {%- if top_slot and top_slot.is_bye %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
+                        {%- elif not top_participant %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        {%- else %}
+                        <span class="ns-tourney-bracket-slot-main">
+                          <span class="ns-tourney-bracket-avatar{% if not top_slot_image_url %} is-placeholder{% endif %}">
+                            {%- if top_slot_image_url %}
+                            <img src="{{ top_slot_image_url }}" alt="{{ _('Team-Logo') if top_participant and top_participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                            {%- endif %}
+                          </span>
+                          <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 1 %} ns-tourney-bracket-name--winner{% endif %}">
+                            {{ top_participant.name if top_participant else _('TBD') }}
+                          </span>
+                        </span>
+                        <span class="ns-tourney-bracket-slot-right">
+                          {%- if top_slot and top_slot.points %}
+                          <span class="ns-tourney-bracket-points">{{ top_slot.points }}</span>
+                          {%- endif %}
+                        </span>
+                        {%- endif %}
+                      </span>
+                      <span
+                        class="ns-tourney-swiss-match-slot{% if item.result and item.result.winner_slot == 2 %} is-winner{% endif %}"
+                        {% if bottom_participant %}data-participant-id="{{ bottom_participant.id }}"{% endif %}
+                      >
+                        {%- if bottom_slot and bottom_slot.is_bye %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
+                        {%- elif not bottom_participant %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        {%- else %}
+                        <span class="ns-tourney-bracket-slot-main">
+                          <span class="ns-tourney-bracket-avatar{% if not bottom_slot_image_url %} is-placeholder{% endif %}">
+                            {%- if bottom_slot_image_url %}
+                            <img src="{{ bottom_slot_image_url }}" alt="{{ _('Team-Logo') if bottom_participant and bottom_participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                            {%- endif %}
+                          </span>
+                          <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 2 %} ns-tourney-bracket-name--winner{% endif %}">
+                            {{ bottom_participant.name if bottom_participant else _('TBD') }}
+                          </span>
+                        </span>
+                        <span class="ns-tourney-bracket-slot-right">
+                          {%- if bottom_slot and bottom_slot.points %}
+                          <span class="ns-tourney-bracket-points">{{ bottom_slot.points }}</span>
+                          {%- endif %}
+                        </span>
+                        {%- endif %}
+                      </span>
+                    </div>
+                  </a>
+                  {%- endfor %}
+                </div>
+              </article>
+              {%- else %}
+              {%- set outcome = block.item %}
+              <article
+                class="ns-tourney-swiss-outcome ns-tourney-swiss-outcome--{{ outcome.tone }}"
+                data-swiss-node-id="{{ outcome.id }}"
+                data-swiss-row-position="{{ outcome.row_position }}"
+              >
+                <header class="ns-tourney-swiss-outcome-head">{{ outcome.label }}</header>
+                <div class="ns-tourney-swiss-outcome-body">
+                  {%- if outcome.participants %}
+                  <div class="ns-tourney-swiss-outcome-list">
+                    {%- for row in outcome.participants %}
+                    <div
+                      class="ns-tourney-swiss-outcome-entry"
+                      data-participant-id="{{ row.participant.id }}"
+                    >
+                      <span class="ns-tourney-bracket-slot-main">
+                        <span class="ns-tourney-bracket-avatar{% if not row.image_url %} is-placeholder{% endif %}">
+                          {%- if row.image_url %}
+                          <img src="{{ row.image_url }}" alt="{{ row.image_alt }}" loading="lazy">
+                          {%- endif %}
+                        </span>
+                        <span class="ns-tourney-bracket-name">{{ row.participant.name }}</span>
+                      </span>
+                      <span class="ns-tourney-bracket-slot-right">
+                        <span class="ns-tourney-bracket-points">{{ row.points }}</span>
+                      </span>
+                    </div>
+                    {%- endfor %}
+                    {%- for _ in range(outcome.pending_count) %}
+                    <div class="ns-tourney-swiss-outcome-entry is-tbd">
+                      <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                    </div>
+                    {%- endfor %}
+                  </div>
+                  {%- else %}
+                  {{ outcome.count }} {{ _('Teams') }}
+                  {%- endif %}
+                </div>
+              </article>
+              {%- endif %}
+              {%- endfor %}
+            </div>
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+      </section>
+      {%- endfor %}
+      {%- else %}
+      <p class="dimmed">{{ _('Kein Swiss-Bracket vorhanden. Bitte im Admin Pairings generieren.') }}</p>
+      {%- endif %}
+      {%- elif builder_stage_bracket_sections %}
+      {%- for section in builder_stage_bracket_sections %}
+      {%- set section_match_labels_by_id = section.match_labels_by_id|default(match_labels_by_id) %}
+      <section class="ns-tourney-bracket-section">
+        {%- if section.title %}
+        <h2 class="title ns-tourney-bracket-section-title">{{ section.title }}</h2>
+        {%- endif %}
+
+        {%- if section.kind == 'summary' %}
+        <div class="ns-tourney-stage-summary">
+          {%- for line in section.lines %}
+          <div>{{ line }}</div>
+          {%- endfor %}
+        </div>
+        {%- elif section.presentation|default('duel') == 'ffa' %}
+        <div class="ns-tourney-bracket-canvas">
+          <div class="ns-tourney-bracket-stage is-density-comfortable" data-bracket-section="{{ section.key }}">
+            <svg class="ns-tourney-bracket-lines" aria-hidden="true"></svg>
+          {%- for round in section.rounds %}
+          {%- set round_index = loop.index0 %}
+          <section
+            class="ns-tourney-bracket-round is-depth-{{ loop.index }}{% if loop.first %} is-first-round{% endif %}{% if loop.last %} is-last-round{% endif %}"
+            data-round-index="{{ round_index }}"
+          >
+            <header class="ns-tourney-bracket-round-head">
+              <h2 class="ns-tourney-bracket-round-title">
+                {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+              </h2>
+              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+            </header>
+            {%- for item in round.matches %}
+            {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
+            <article
+              class="ns-tourney-bracket-match-card ns-tourney-bracket-match-card--ffa-summary"
+              {% if item.match is defined and item.match %}data-match-id="{{ item.match.id }}"{% endif %}
+              data-round-index="{{ round_index }}"
+              data-round-match-index="{{ item.round_match_index }}"
+              {% if match_url %}data-match-url="{{ match_url }}"{% endif %}
+              data-match-label="{{ item.match_label }}"
+              {% if match_url %}role="link" tabindex="0"{% endif %}
+            >
+              <div class="ns-tourney-bracket-match-meta">
+                {%- if match_url %}
+                <a href="{{ match_url }}" class="disguised ns-tourney-bracket-match-label">
+                  {{ item.match_label }}
+                </a>
+                {%- else %}
+                <span class="ns-tourney-bracket-match-label">{{ item.match_label }}</span>
+                {%- endif %}
+                <span class="ns-tourney-bracket-match-state">
+                  {%- if item.is_placeholder|default(false) %}
+                  {{ _('TBA') }}
+                  {%- else %}
+                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {%- endif %}
+                </span>
+              </div>
+              <div class="ns-tourney-bracket-ffa-summary">
+                {%- if item.is_placeholder|default(false) %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">{{ _('TBA') }}</strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Bis zu %(count)s Teilnehmer', count=item.slot_capacity) }}</span>
+                {%- else %}
+                <strong class="ns-tourney-bracket-ffa-summary-count">
+                  {{ item.participant_count }} / {{ item.slot_capacity }}
+                </strong>
+                <span class="ns-tourney-bracket-ffa-summary-label">{{ _('Teilnehmer') }}</span>
+                {%- endif %}
+              </div>
+              <div class="ns-tourney-bracket-slots ns-tourney-bracket-slots--hidden" aria-hidden="true">
+                {%- for source_match_id in item.source_match_ids %}
+                <div
+                  class="ns-tourney-bracket-slot ns-tourney-bracket-slot--connector-only"
+                  data-slot-no="{{ loop.index }}"
+                  data-source-match-id="{{ source_match_id }}"
+                ></div>
+                {%- endfor %}
+              </div>
+            </article>
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+        {%- else %}
+        <div class="ns-tourney-bracket-canvas">
+          <div class="ns-tourney-bracket-stage is-density-comfortable" data-bracket-section="{{ section.key }}">
+            <svg class="ns-tourney-bracket-lines" aria-hidden="true"></svg>
+          {%- for round in section.rounds %}
+          {%- set round_index = loop.index0 %}
+          <section
+            class="ns-tourney-bracket-round is-depth-{{ loop.index }}{% if loop.first %} is-first-round{% endif %}{% if loop.last %} is-last-round{% endif %}"
+            data-round-index="{{ round_index }}"
+          >
+            <header class="ns-tourney-bracket-round-head">
+              <h2 class="ns-tourney-bracket-round-title">
+                {{ _('Finale') if loop.last else (_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+              </h2>
+              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+            </header>
+            {%- for item in round.matches %}
+            {%- set result = results_by_match_id.get(item.match.id) %}
+            {%- set match_label = section_match_labels_by_id.get(item.match.id, _('Match') ~ ' #' ~ item.match.match_no|string) %}
+            {%- set is_skipped_double_grand_final = item.match.id in skipped_double_grand_final_match_ids %}
+            <article
+              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}"
+              data-match-id="{{ item.match.id }}"
+              data-round-index="{{ round_index }}"
+              data-round-match-index="{{ loop.index0 }}"
+              data-match-url="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}"
+              data-match-label="{{ match_label }}"
+              data-no-connectors="{{ 'true' if match_label == 'Consolation Final' else 'false' }}"
+              role="link"
+              tabindex="0"
+            >
+              <div class="ns-tourney-bracket-match-meta">
+                <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
+                  {{ match_label|replace('_', ' ') }}
+                </a>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
+              </div>
+              <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
+              {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
+              {%- for slot in item.slots %}
+              {%- set participant = slot.participant %}
+              {%- set slot_image_url = none %}
+              {%- if participant and participant.type.value == 'team' and participant.logo_url %}
+                {%- set slot_image_url = participant.logo_url %}
+              {%- elif participant and participant.user_id %}
+                {%- set slot_user = users_by_id.get(participant.user_id) %}
+                {%- if slot_user and slot_user.avatar_url %}
+                  {%- set slot_image_url = slot_user.avatar_url %}
+                {%- endif %}
+              {%- endif %}
+              <div
+                class="ns-tourney-bracket-slot{% if slot.is_bye %} is-bye{% endif %}"
+                data-slot-no="{{ slot.slot_no }}"
+                {% if slot.source_match_id %}data-source-match-id="{{ slot.source_match_id }}"{% endif %}
+                {% if participant %}data-participant-id="{{ participant.id }}"{% endif %}
+              >
+                <span class="ns-tourney-bracket-slot-main">
+                  {%- if slot.is_bye %}
+                  <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">
+                    {{ _('Freilos') }}
+                  </span>
+                  {%- elif not participant %}
+                  <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">
+                    {{ _('TBD') }}
+                  </span>
+                  {%- else %}
+                  <span class="ns-tourney-bracket-avatar{% if not slot_image_url %} is-placeholder{% endif %}">
+                    {%- if slot_image_url %}
+                    <img src="{{ slot_image_url }}" alt="{{ _('Team-Logo') if participant and participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                    {%- endif %}
+                  </span>
+                  <span class="ns-tourney-bracket-name{% if result and result.winner_slot == slot.slot_no %} ns-tourney-bracket-name--winner{% endif %}">
+                    <span class="ns-tourney-bracket-name-text">
+                    {%- if participant and participant.type.value == 'team' %}
+                      <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+                    {%- elif participant and participant.user_id %}
+                      <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+                    {%- endif %}
+                    </span>
+                    {%- if participant and participant.seed %}
+                    <span class="ns-tourney-bracket-seed">#{{ participant.seed }}</span>
+                    {%- endif %}
+                  </span>
+                  {%- endif %}
+                </span>
+                <span class="ns-tourney-bracket-slot-right">
+                  {%- if slot_scores.get(slot.slot_no) is not none %}
+                  <span class="ns-tourney-bracket-points">{{ slot_scores.get(slot.slot_no) }}</span>
+                  {%- endif %}
+                </span>
+              </div>
+              {%- endfor %}
+              </div>
+            </article>
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+        {%- endif %}
+      </section>
+      {%- endfor %}
+      {%- elif is_round_based_duel_tournament %}
+      {%- if round_based_match_sections %}
+      {%- if round_based_match_sections|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for section in round_based_match_sections %}
+        <li>
+          <a class="tabs-tab" href="#bracket-section-rounds-{{ loop.index }}">
+            {{ section.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}
+          </a>
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      {%- for section in round_based_match_sections %}
+      <section id="bracket-section-rounds-{{ loop.index }}" class="ns-tourney-match-overview-section{% if not loop.first %} mt{% endif %}">
+        {%- if section.title %}
+        <h2 class="ns-tourney-match-overview-section-title">{{ section.title }}</h2>
+        {%- endif %}
+
+        {%- for round in section.rounds %}
+        <h3 class="ns-tourney-match-overview-round-title">
+          {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+          {%- if round.time_range_label %}
+          <span class="ns-tourney-match-overview-round-time">({{ round.time_range_label }})</span>
+          {%- endif %}
+        </h3>
+
+        <div class="ns-tourney-match-overview-table-wrap">
+          <table class="itemlist is-vcentered is-wide ns-tourney-match-overview-table">
+            <tbody>
+            {%- for row in round.rows %}
+              {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+              <tr
+                class="ns-tourney-match-overview-row{% if row.is_struck %} is-struck{% endif %}"
+                data-href="{{ match_url }}"
+                tabindex="0"
+                role="link"
+                aria-label="{{ row.match_label }}"
+              >
+                <td class="ns-tourney-match-overview-match-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-match-link" href="{{ match_url }}">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--left">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--left" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-team-name{% if row.left.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.left.name }}</span>
+                    {%- if row.left.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.left.image_url %} is-placeholder{% endif %}">
+                      {%- if row.left.image_url %}
+                      <img src="{{ row.left.image_url }}" alt="{{ row.left.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-trophy{% if row.left.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-score-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                      {{ row.score_display }}
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--right">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--right" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-trophy{% if row.right.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                    {%- if row.right.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.right.image_url %} is-placeholder{% endif %}">
+                      {%- if row.right.image_url %}
+                      <img src="{{ row.right.image_url }}" alt="{{ row.right.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-team-name{% if row.right.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.right.name }}</span>
+                  </a>
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+        {%- endfor %}
+      </section>
+      {%- endfor %}
+      {%- else %}
+      <p class="dimmed">{{ _('Keine Spiele vorhanden.') }}</p>
+      {%- endif %}
+      {%- else %}
+      {%- if bracket %}
+      {%- for bracket_section in bracket_sections %}
+      <section id="bracket-section-main-{{ loop.index }}" class="ns-tourney-bracket-section">
+        {%- if bracket_section.title %}
+        <h2 class="title ns-tourney-bracket-section-title">{{ bracket_section.title }}</h2>
+        {%- endif %}
+        <div class="ns-tourney-bracket-canvas">
+          <div class="ns-tourney-bracket-stage is-density-comfortable" data-bracket-section="{{ bracket_section.key }}">
+            <svg class="ns-tourney-bracket-lines" aria-hidden="true"></svg>
+          {%- for round in bracket_section.rounds %}
+          {%- set round_index = loop.index0 %}
+          <section
+            class="ns-tourney-bracket-round is-depth-{{ loop.index }}{% if loop.first %} is-first-round{% endif %}{% if loop.last %} is-last-round{% endif %}"
+            data-round-index="{{ round_index }}"
+          >
+            <header class="ns-tourney-bracket-round-head">
+              <h2 class="ns-tourney-bracket-round-title">
+                {{ _('Finale') if loop.last else (_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+              </h2>
+              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+            </header>
+            {%- for item in round.matches %}
+            {%- set result = results_by_match_id.get(item.match.id) %}
+            {%- set match_label = match_labels_by_id.get(item.match.id, _('Match') ~ ' #' ~ item.match.match_no|string) %}
+            {%- set is_skipped_double_grand_final = item.match.id in skipped_double_grand_final_match_ids %}
+            <article
+              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}"
+              data-match-id="{{ item.match.id }}"
+              data-round-index="{{ round_index }}"
+              data-round-match-index="{{ loop.index0 }}"
+              data-match-url="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}"
+              data-match-label="{{ match_label }}"
+              data-no-connectors="{{ 'true' if match_label == 'Consolation Final' else 'false' }}"
+              role="link"
+              tabindex="0"
+            >
+              <div class="ns-tourney-bracket-match-meta">
+                <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
+                  {{ match_label|replace('_', ' ') }}
+                </a>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
+              </div>
+              <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
+              {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
+              {%- for slot in item.slots %}
+              {%- set participant = slot.participant %}
+              {%- set slot_image_url = none %}
+              {%- if participant and participant.type.value == 'team' and participant.logo_url %}
+                {%- set slot_image_url = participant.logo_url %}
+              {%- elif participant and participant.user_id %}
+                {%- set slot_user = users_by_id.get(participant.user_id) %}
+                {%- if slot_user and slot_user.avatar_url %}
+                  {%- set slot_image_url = slot_user.avatar_url %}
+                {%- endif %}
+              {%- endif %}
+              <div
+                class="ns-tourney-bracket-slot{% if slot.is_bye %} is-bye{% endif %}"
+                data-slot-no="{{ slot.slot_no }}"
+                {% if slot.source_match_id %}data-source-match-id="{{ slot.source_match_id }}"{% endif %}
+                {% if slot.participant %}data-participant-id="{{ slot.participant.id }}"{% endif %}
+              >
+                <span class="ns-tourney-bracket-slot-main">
+                  {%- if slot.is_bye %}
+                  <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">
+                    {{ _('Freilos') }}
+                  </span>
+                  {%- elif not participant %}
+                  <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">
+                    {{ _('TBD') }}
+                  </span>
+                  {%- else %}
+                  <span class="ns-tourney-bracket-avatar{% if not slot_image_url %} is-placeholder{% endif %}">
+                    {%- if slot_image_url %}
+                    <img src="{{ slot_image_url }}" alt="{{ _('Team-Logo') if participant and participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+                    {%- endif %}
+                  </span>
+                  <span class="ns-tourney-bracket-name{% if result and result.winner_slot == slot.slot_no %} ns-tourney-bracket-name--winner{% endif %}">
+                    <span class="ns-tourney-bracket-name-text">
+                    {%- if participant and participant.type.value == 'team' %}
+                    <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+                    {%- elif participant and participant.user_id %}
+                    <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}" class="disguised">{{ participant.name }}</a>
+                    {%- endif %}
+                    </span>
+                    {%- if participant and participant.seed %}
+                    <span class="ns-tourney-bracket-seed">#{{ participant.seed }}</span>
+                    {%- endif %}
+                  </span>
+                  {%- endif %}
+                </span>
+                <span class="ns-tourney-bracket-slot-right">
+                  {%- if slot_scores.get(slot.slot_no) %}
+                  <span class="ns-tourney-bracket-points">{{ slot_scores.get(slot.slot_no) }}</span>
+                  {%- endif %}
+                </span>
+              </div>
+              {%- endfor %}
+              </div>
+            </article>
+            {%- endfor %}
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+      </section>
+      {%- endfor %}
+      {%- else %}
+      <p class="dimmed">{{ _('Kein Bracket vorhanden. Bitte im Admin Pairings generieren.') }}</p>
+      {%- endif %}
+      {%- endif %}
+      {%- endif %}
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const rows = document.querySelectorAll('.ns-tourney-match-overview-row[data-href]');
+      const isInteractiveTarget = (target) =>
+        target instanceof Element
+        && Boolean(target.closest('a, button, input, select, textarea, label, form'));
+
+      for (const row of rows) {
+        row.addEventListener('click', (event) => {
+          if (isInteractiveTarget(event.target)) {
+            return;
+          }
+
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+
+          event.preventDefault();
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+      }
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const bracketView = document.querySelector('.ns-tourney-bracket-view');
+      if (!bracketView) {
+        return;
+      }
+
+      const bracket = bracketView.querySelector('.ns-tourney-bracket');
+      if (!bracket) {
+        return;
+      }
+
+      const fullscreenToggle = bracket.querySelector(
+        '[data-action="toggle-bracket-fullscreen"]'
+      );
+      const canvases = Array.from(
+        bracket.querySelectorAll('.ns-tourney-bracket-canvas')
+      );
+      const swissBoards = Array.from(
+        bracket.querySelectorAll('.ns-tourney-swiss-board')
+      );
+      if (!canvases.length && !swissBoards.length) {
+        return;
+      }
+
+      const isBracketExpanded = () =>
+        bracketView.classList.contains('is-expanded');
+      const updateFullscreenUi = () => {
+        if (!fullscreenToggle) {
+          return;
+        }
+
+        const expanded = isBracketExpanded();
+        bracket.classList.toggle('is-fullscreen', expanded);
+        fullscreenToggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+      };
+      const setBracketExpanded = (expanded) => {
+        bracketView.classList.toggle('is-expanded', expanded);
+        document.body.classList.toggle('ns-tourney-bracket-expanded', expanded);
+        updateFullscreenUi();
+        window.dispatchEvent(new Event('resize'));
+      };
+      if (fullscreenToggle) {
+        fullscreenToggle.hidden = false;
+        fullscreenToggle.addEventListener('click', (event) => {
+          event.preventDefault();
+          setBracketExpanded(!isBracketExpanded());
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && isBracketExpanded()) {
+            setBracketExpanded(false);
+          }
+        });
+        updateFullscreenUi();
+      }
+
+      let highlightedParticipantId = null;
+      const clearHighlights = () => {
+        bracket
+          .querySelectorAll(
+            '.ns-tourney-bracket-slot.is-highlighted, .ns-tourney-swiss-match-slot.is-highlighted, .ns-tourney-swiss-outcome-entry.is-highlighted'
+          )
+          .forEach((slot) => {
+            slot.classList.remove('is-highlighted');
+          });
+      };
+      const highlightParticipantPath = (participantId) => {
+        clearHighlights();
+        if (!participantId) {
+          return;
+        }
+        bracket
+          .querySelectorAll(
+            `.ns-tourney-bracket-slot[data-participant-id="${participantId}"], .ns-tourney-swiss-match-slot[data-participant-id="${participantId}"], .ns-tourney-swiss-outcome-entry[data-participant-id="${participantId}"]`
+          )
+          .forEach((slot) => {
+            slot.classList.add('is-highlighted');
+          });
+      };
+      const setParticipantHighlight = (participantId) => {
+        const normalized = participantId || null;
+        if (normalized === highlightedParticipantId) {
+          return;
+        }
+        highlightedParticipantId = normalized;
+        if (!normalized) {
+          clearHighlights();
+          return;
+        }
+        highlightParticipantPath(normalized);
+      };
+
+      canvases.forEach((canvas) => {
+      const stage = canvas.querySelector('.ns-tourney-bracket-stage');
+      const svg = canvas.querySelector('.ns-tourney-bracket-lines');
+      const rounds = stage ? Array.from(stage.querySelectorAll('.ns-tourney-bracket-round')) : [];
+      if (!stage || !rounds.length) {
+        return;
+      }
+
+      const isFlatout2Bracket = stage.classList.contains(
+        'ns-tourney-bracket-stage--flatout2'
+      );
+
+      const getPxVar = (name, fallback) => {
+        const value = Number.parseFloat(
+          getComputedStyle(stage).getPropertyValue(name)
+        );
+        return Number.isFinite(value) ? value : fallback;
+      };
+
+      const buildCardsByRound = () => {
+        const cardsByRound = new Map();
+        const cardsById = new Map();
+
+        stage.querySelectorAll('.ns-tourney-bracket-match-card').forEach((card) => {
+          if (card.dataset.matchId) {
+            cardsById.set(card.dataset.matchId, card);
+          }
+
+          const roundIndex = Number.parseInt(card.dataset.roundIndex || '-1', 10);
+          if (!Number.isFinite(roundIndex) || roundIndex < 0) {
+            return;
+          }
+
+          if (!cardsByRound.has(roundIndex)) {
+            cardsByRound.set(roundIndex, []);
+          }
+          cardsByRound.get(roundIndex).push(card);
+        });
+
+        cardsByRound.forEach((cards) => {
+          cards.sort((a, b) => {
+            const aIndex = Number.parseInt(a.dataset.roundMatchIndex || '0', 10);
+            const bIndex = Number.parseInt(b.dataset.roundMatchIndex || '0', 10);
+            return aIndex - bIndex;
+          });
+        });
+
+        return { cardsByRound, cardsById };
+      };
+
+      const buildConnections = (cardsByRound, cardsById) => {
+        const connections = [];
+        const connectionKeys = new Set();
+
+        const pushConnection = ({
+          sourceMatchId,
+          targetMatchId,
+          sourceCard,
+          targetCard,
+          targetSlot,
+        }) => {
+          if (!sourceMatchId || !targetMatchId || !sourceCard || !targetCard) {
+            return;
+          }
+          if (sourceMatchId === targetMatchId) {
+            return;
+          }
+
+          const sourceRoundIndex = Number.parseInt(
+            sourceCard.dataset.roundIndex || '-1',
+            10
+          );
+          const targetRoundIndex = Number.parseInt(
+            targetCard.dataset.roundIndex || '-1',
+            10
+          );
+          if (
+            Number.isFinite(sourceRoundIndex)
+            && Number.isFinite(targetRoundIndex)
+            && sourceRoundIndex >= targetRoundIndex
+          ) {
+            return;
+          }
+
+          const slotNo = targetSlot
+            ? Number.parseInt(targetSlot.dataset.slotNo || '0', 10)
+            : 0;
+          const key = `${sourceMatchId}|${targetMatchId}|${slotNo}`;
+          if (connectionKeys.has(key)) {
+            return;
+          }
+          connectionKeys.add(key);
+
+          connections.push({
+            sourceMatchId,
+            targetMatchId,
+            sourceCard,
+            targetCard,
+            targetSlot,
+          });
+        };
+
+        cardsByRound.forEach((cards, roundIndex) => {
+          cards.forEach((targetCard, targetIndex) => {
+            if (targetCard.dataset.noConnectors === 'true') {
+              return;
+            }
+
+            const targetMatchId = targetCard.dataset.matchId;
+            if (!targetMatchId) {
+              return;
+            }
+
+            const targetSlots = Array.from(
+              targetCard.querySelectorAll('.ns-tourney-bracket-slot')
+            );
+            const explicitSourceSlots = targetSlots.filter((slot) => slot.dataset.sourceMatchId);
+
+            if (explicitSourceSlots.length) {
+              let hasValidExplicitConnections = false;
+              explicitSourceSlots.forEach((slot) => {
+                const sourceMatchId = slot.dataset.sourceMatchId;
+                const sourceCard = sourceMatchId
+                  ? cardsById.get(sourceMatchId) || null
+                  : null;
+                const beforeCount = connections.length;
+                pushConnection({
+                  sourceMatchId,
+                  targetMatchId,
+                  sourceCard,
+                  targetCard,
+                  targetSlot: slot,
+                });
+                if (connections.length > beforeCount) {
+                  hasValidExplicitConnections = true;
+                }
+              });
+              if (hasValidExplicitConnections) {
+                return;
+              }
+            }
+
+            if (roundIndex <= 0) {
+              return;
+            }
+
+            // Fallback for simple brackets if source links are not present.
+            const previousRoundCards = cardsByRound.get(roundIndex - 1) || [];
+            const sourceA = previousRoundCards[targetIndex * 2];
+            const sourceB = previousRoundCards[targetIndex * 2 + 1];
+
+            if (sourceA && sourceA.dataset.matchId) {
+              pushConnection({
+                sourceMatchId: sourceA.dataset.matchId,
+                targetMatchId,
+                sourceCard: sourceA,
+                targetCard,
+                targetSlot: targetSlots[0] || null,
+              });
+            }
+            if (sourceB && sourceB.dataset.matchId) {
+              pushConnection({
+                sourceMatchId: sourceB.dataset.matchId,
+                targetMatchId,
+                sourceCard: sourceB,
+                targetCard,
+                targetSlot: targetSlots[1] || targetSlots[0] || null,
+              });
+            }
+          });
+        });
+
+        return connections;
+      };
+
+      const positionCards = (cardsByRound, connections, metrics) => {
+        const { cardHeight, rowGap, titleHeight, roundPadding, headerGap } = metrics;
+        const firstRoundExtraGap = 2;
+        const baseTop = titleHeight + roundPadding + headerGap;
+        const topByCard = new Map();
+        const targetConnectionsByCard = new Map();
+
+        connections.forEach((connection) => {
+          if (!targetConnectionsByCard.has(connection.targetCard)) {
+            targetConnectionsByCard.set(connection.targetCard, []);
+          }
+          targetConnectionsByCard.get(connection.targetCard).push(connection);
+        });
+
+        const firstRoundCards = cardsByRound.get(0) || [];
+        let topCursor = baseTop;
+        firstRoundCards.forEach((card) => {
+          topByCard.set(card, topCursor);
+          topCursor += cardHeight + rowGap + firstRoundExtraGap;
+        });
+
+        for (let roundIndex = 1; roundIndex < rounds.length; roundIndex += 1) {
+          const cards = cardsByRound.get(roundIndex) || [];
+          let minTopForRound = baseTop;
+
+          cards.forEach((card, index) => {
+            const incomingConnections = targetConnectionsByCard.get(card) || [];
+            const predecessorCenters = incomingConnections
+              .map((connection) => connection.sourceCard)
+              .filter(Boolean)
+              .map((sourceCard) => topByCard.get(sourceCard))
+              .filter((value) => Number.isFinite(value))
+              .map((sourceTop) => sourceTop + (cardHeight / 2));
+
+            let proposedTop;
+            if (predecessorCenters.length > 0) {
+              const averageCenter = predecessorCenters.reduce((sum, value) => sum + value, 0) / predecessorCenters.length;
+              proposedTop = averageCenter - (cardHeight / 2);
+            } else if (index === 0) {
+              proposedTop = baseTop;
+            } else {
+              const previousCard = cards[index - 1];
+              proposedTop = (topByCard.get(previousCard) || baseTop) + cardHeight + rowGap;
+            }
+
+            if (!Number.isFinite(proposedTop)) {
+              proposedTop = baseTop;
+            }
+            if (proposedTop < minTopForRound) {
+              proposedTop = minTopForRound;
+            }
+
+            topByCard.set(card, proposedTop);
+            minTopForRound = proposedTop + cardHeight + rowGap;
+          });
+        }
+
+        return topByCard;
+      };
+
+      const positionFlatout2Cards = (cardsByRound, metrics) => {
+        const { cardHeight, rowGap, titleHeight, roundPadding, headerGap } = metrics;
+        const firstRoundExtraGap = 2;
+        const baseTop = titleHeight + roundPadding + headerGap;
+        const topByCard = new Map();
+        const firstRoundCards = cardsByRound.get(0) || [];
+
+        let topCursor = baseTop;
+        firstRoundCards.forEach((card) => {
+          topByCard.set(card, topCursor);
+          topCursor += cardHeight + rowGap + firstRoundExtraGap;
+        });
+
+        const firstRoundCount = firstRoundCards.length;
+        const firstRoundSpan =
+          firstRoundCount > 0
+            ? cardHeight
+              + ((firstRoundCount - 1) * (cardHeight + rowGap + firstRoundExtraGap))
+            : cardHeight;
+        const distributableSpan = Math.max(0, firstRoundSpan - cardHeight);
+
+        for (let roundIndex = 1; roundIndex < rounds.length; roundIndex += 1) {
+          const cards = cardsByRound.get(roundIndex) || [];
+          if (!cards.length) {
+            continue;
+          }
+
+          if (cards.length === 1) {
+            topByCard.set(cards[0], baseTop + (distributableSpan / 2));
+            continue;
+          }
+
+          const step = distributableSpan / (cards.length - 1);
+          cards.forEach((card, index) => {
+            topByCard.set(card, baseTop + (index * step));
+          });
+        }
+
+        return {
+          topByCard,
+          stageHeight: baseTop + firstRoundSpan + roundPadding,
+        };
+      };
+
+      const drawLines = (width, height, connections) => {
+        if (!svg) {
+          return;
+        }
+
+        svg.setAttribute('width', String(width));
+        svg.setAttribute('height', String(height));
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.replaceChildren();
+
+        const stageRect = stage.getBoundingClientRect();
+        const toStageRect = (element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            left: rect.left - stageRect.left,
+            top: rect.top - stageRect.top,
+            right: rect.right - stageRect.left,
+            bottom: rect.bottom - stageRect.top,
+            width: rect.width,
+            height: rect.height,
+          };
+        };
+
+        connections.forEach((connection) => {
+          const sourceCard = connection.sourceCard;
+          const targetCard = connection.targetCard;
+          if (!sourceCard || !targetCard) {
+            return;
+          }
+
+          const sourceRect = toStageRect(sourceCard);
+          const targetRect = toStageRect(targetCard);
+          const x1 = sourceRect.right;
+          const y1 = sourceRect.top + (sourceRect.height / 2);
+
+          // Draw connectors match-to-match for a clearer tournament tree.
+          // Slightly overlap into the target card so the connector visually
+          // closes flush with the card border (no tiny gap from anti-aliasing).
+          const x2 = Math.max(0, targetRect.left);
+          const y2 = targetRect.top + (targetRect.height / 2);
+
+          const xMid = x1 + Math.max(12, (x2 - x1) * 0.5);
+
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('class', 'ns-tourney-bracket-line');
+          path.dataset.sourceMatchId = connection.sourceMatchId;
+          path.dataset.targetMatchId = connection.targetMatchId;
+          path.setAttribute('d', `M ${x1} ${y1} H ${xMid} V ${y2} H ${x2}`);
+          svg.append(path);
+        });
+      };
+
+      const layoutBracket = () => {
+        const roundWidthFromCss = getPxVar('--ns-round-width', 208);
+        const roundCardGap = 20;
+        const titleHeight = getPxVar('--ns-round-title-height', 30);
+        const headerGap = getPxVar('--ns-round-header-gap', 12);
+        const roundPadding = getPxVar('--ns-round-padding', 6);
+        const cardMinHeight = getPxVar('--ns-card-min-height', 58);
+        const cardHeightByDensity = getPxVar('--ns-card-height', cardMinHeight + 28);
+        const rowGap = getPxVar('--ns-row-gap', 8);
+        const cardInset = getPxVar('--ns-card-inset', 6);
+        const cardInnerWidth = 150;
+        const roundWidth = Math.max(
+          roundWidthFromCss,
+          cardInnerWidth + (cardInset * 2)
+        );
+        const cardOffsetX = Math.max(
+          0,
+          (roundWidth - cardInnerWidth) / 2
+        );
+        const roundStride = cardInnerWidth + roundCardGap;
+
+        const cardHeight = cardHeightByDensity;
+        const baseTop = titleHeight + roundPadding + headerGap;
+        let stageHeight = baseTop + cardHeight + roundPadding;
+        const { cardsByRound, cardsById } = buildCardsByRound();
+        const connections = buildConnections(cardsByRound, cardsById);
+        const positioning = isFlatout2Bracket
+          ? positionFlatout2Cards(
+              cardsByRound,
+              { cardHeight, rowGap, titleHeight, roundPadding, headerGap }
+            )
+          : {
+              topByCard: positionCards(
+                cardsByRound,
+                connections,
+                { cardHeight, rowGap, titleHeight, roundPadding, headerGap }
+              ),
+              stageHeight: null,
+            };
+        const topByCard = positioning.topByCard;
+        if (Number.isFinite(positioning.stageHeight)) {
+          stageHeight = Math.max(stageHeight, positioning.stageHeight);
+        }
+        let maxCardRight = 0;
+
+        rounds.forEach((round, roundIndex) => {
+          const roundLeft = roundIndex * roundStride;
+          round.style.left = `${roundLeft}px`;
+          round.style.width = `${roundWidth}px`;
+
+          const cards = Array.from(
+            round.querySelectorAll('.ns-tourney-bracket-match-card')
+          );
+          const consolationCard = cards.find((card) => card.dataset.noConnectors === 'true') || null;
+          const primaryFinalCard = cards.find((card) => card !== consolationCard) || null;
+          const primaryFinalTop = primaryFinalCard ? topByCard.get(primaryFinalCard) : null;
+          let nextTop = baseTop;
+
+          cards.forEach((card) => {
+            let cardLeft = cardOffsetX;
+            if (card === consolationCard) {
+              cardLeft = cardOffsetX + roundStride;
+            }
+
+            card.style.left = `${cardLeft}px`;
+            card.style.right = 'auto';
+            card.style.width = `${cardInnerWidth}px`;
+            card.style.height = `${cardHeight}px`;
+            let top = topByCard.get(card);
+            if (card === consolationCard && Number.isFinite(primaryFinalTop)) {
+              top = primaryFinalTop;
+            }
+            if (!Number.isFinite(top)) {
+              top = nextTop;
+            }
+            card.style.top = `${top}px`;
+            nextTop = top + cardHeight + rowGap;
+            stageHeight = Math.max(stageHeight, top + cardHeight + roundPadding);
+            maxCardRight = Math.max(
+              maxCardRight,
+              roundLeft + cardLeft + cardInnerWidth + cardOffsetX
+            );
+          });
+        });
+
+        const baseStageWidth = (
+          rounds.length * cardInnerWidth
+          + Math.max(0, rounds.length - 1) * roundCardGap
+          + (roundWidth - cardInnerWidth)
+        );
+        const stageWidth = Math.max(baseStageWidth, maxCardRight);
+
+        stage.style.width = `${stageWidth}px`;
+        stage.style.height = `${stageHeight}px`;
+        rounds.forEach((round) => {
+          round.style.height = `${stageHeight}px`;
+        });
+
+        drawLines(stageWidth, stageHeight, connections);
+        if (highlightedParticipantId) {
+          highlightParticipantPath(highlightedParticipantId);
+        }
+      };
+
+      const setDensity = (density) => {
+        stage.classList.remove(
+          'is-density-ultra',
+          'is-density-compact',
+          'is-density-comfortable'
+        );
+        stage.classList.add(`is-density-${density}`);
+
+        requestAnimationFrame(layoutBracket);
+      };
+
+      if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => {
+          requestAnimationFrame(layoutBracket);
+        });
+        resizeObserver.observe(canvas);
+      }
+      window.addEventListener('resize', () => {
+        requestAnimationFrame(layoutBracket);
+      });
+
+      stage.addEventListener('pointermove', (event) => {
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+
+        const slot = event.target.closest('.ns-tourney-bracket-slot[data-participant-id]');
+        setParticipantHighlight(slot?.dataset.participantId || null);
+      });
+
+      stage.addEventListener('pointerleave', () => {
+        setParticipantHighlight(null);
+      });
+
+      stage.querySelectorAll('.ns-tourney-bracket-match-card').forEach((card) => {
+        const url = card.dataset.matchUrl;
+
+        if (!url) {
+          return;
+        }
+        card.addEventListener('click', (event) => {
+          event.preventDefault();
+          window.location.href = url;
+        });
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            window.location.href = url;
+          }
+        });
+      });
+
+      setDensity('comfortable');
+      window.setTimeout(() => requestAnimationFrame(layoutBracket), 140);
+      });
+
+      swissBoards.forEach((board) => {
+        board.addEventListener('pointermove', (event) => {
+          if (!(event.target instanceof Element)) {
+            return;
+          }
+
+          const slot = event.target.closest(
+            '.ns-tourney-swiss-match-slot[data-participant-id], .ns-tourney-swiss-outcome-entry[data-participant-id]'
+          );
+          setParticipantHighlight(slot?.dataset.participantId || null);
+        });
+
+        board.addEventListener('pointerleave', () => {
+          setParticipantHighlight(null);
+        });
+      });
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const boards = Array.from(
+        document.querySelectorAll('.ns-tourney-swiss-board')
+      );
+      if (!boards.length) {
+        return;
+      }
+
+      const layoutSwissBoard = (board) => {
+        const stage = board.querySelector('.ns-tourney-swiss-stage') || board;
+        const gap = Number.parseFloat(
+          getComputedStyle(board).getPropertyValue('--ns-swiss-block-gap')
+        ) || 12;
+        const getTopWithinStage = (element) => {
+          let top = 0;
+          let current = element;
+          while (current && current !== stage) {
+            top += current.offsetTop;
+            current = current.offsetParent;
+          }
+          return top;
+        };
+
+        const columns = Array.from(
+          stage.querySelectorAll('.ns-tourney-swiss-column')
+        );
+        const nodes = new Map();
+        const incomingIdsByTargetId = new Map();
+
+        columns.forEach((column, columnIndex) => {
+          const body = column.querySelector('.ns-tourney-swiss-column-body');
+          if (!body) {
+            return;
+          }
+
+          const blocks = Array.from(
+            body.querySelectorAll('[data-swiss-node-id]')
+          );
+          blocks.forEach((block, blockIndex) => {
+            const nodeId = block.dataset.swissNodeId;
+            nodes.set(nodeId, {
+              element: block,
+              body,
+              columnIndex,
+              blockIndex,
+            });
+          });
+        });
+
+        nodes.forEach(({ element }, nodeId) => {
+          [element.dataset.swissWinnerTargetId, element.dataset.swissLoserTargetId]
+            .filter(Boolean)
+            .forEach((targetId) => {
+              if (!incomingIdsByTargetId.has(targetId)) {
+                incomingIdsByTargetId.set(targetId, []);
+              }
+              incomingIdsByTargetId.get(targetId).push(nodeId);
+            });
+        });
+
+        const rowPositions = Array.from(nodes.values()).map(({ element }) =>
+          Number.parseFloat(element.dataset.swissRowPosition || '0')
+        );
+        const minRowPosition = Math.min(...rowPositions);
+        const maxRowPosition = Math.max(...rowPositions);
+        const maxBlockHeight = Math.max(
+          ...Array.from(nodes.values()).map(({ element }) => element.offsetHeight),
+          54
+        );
+        const naturalBoardHeight = Math.max(
+          ...columns.map((column) => {
+            const body = column.querySelector('.ns-tourney-swiss-column-body');
+            if (!body) {
+              return 0;
+            }
+            const blocks = Array.from(body.querySelectorAll('[data-swiss-node-id]'));
+            if (!blocks.length) {
+              return 0;
+            }
+            return blocks.reduce((sum, block, index) => {
+              return sum + block.offsetHeight + (index > 0 ? gap : 0);
+            }, 0);
+          }),
+          maxBlockHeight
+        );
+        const rowSpan = Math.max(1, maxRowPosition - minRowPosition);
+        const rowPitch = Math.max(
+          maxBlockHeight * 0.3,
+          naturalBoardHeight / (rowSpan + 6)
+        );
+        const baseCenter = maxBlockHeight / 2;
+        const rowCenterFor = (rowPosition) =>
+          baseCenter + ((rowPosition - minRowPosition) * rowPitch);
+        const centerByNodeId = new Map();
+
+        columns.forEach((column, columnIndex) => {
+          const body = column.querySelector('.ns-tourney-swiss-column-body');
+          if (!body) {
+            return;
+          }
+
+          const blocks = Array.from(
+            body.querySelectorAll('[data-swiss-node-id]')
+          );
+
+          const desiredBlocks = blocks.map((block, index) => {
+            const rowPosition = Number.parseFloat(
+              block.dataset.swissRowPosition || '0'
+            );
+            const incomingIds = incomingIdsByTargetId.get(block.dataset.swissNodeId) || [];
+            const incomingCenters = incomingIds
+              .map((sourceId) => centerByNodeId.get(sourceId))
+              .filter((center) => Number.isFinite(center));
+            const center = incomingCenters.length
+              ? incomingCenters.reduce((sum, value) => sum + value, 0) / incomingCenters.length
+              : rowCenterFor(rowPosition);
+            return {
+              block,
+              index,
+              rowPosition,
+              height: block.offsetHeight,
+              desiredCenter: center,
+            };
+          });
+
+          desiredBlocks.sort((a, b) => {
+            if (a.desiredCenter !== b.desiredCenter) {
+              return a.desiredCenter - b.desiredCenter;
+            }
+            if (a.rowPosition !== b.rowPosition) {
+              return a.rowPosition - b.rowPosition;
+            }
+            return a.index - b.index;
+          });
+
+          const centers = desiredBlocks.map((item) => item.desiredCenter);
+          const targetGroupMidpoint = centers.length
+            ? centers.reduce((sum, value) => sum + value, 0) / centers.length
+            : 0;
+          if (column.classList.contains('is-sidecar') && desiredBlocks.length === 2) {
+            const anchorCenter =
+              centers.reduce((sum, value) => sum + value, 0) / centers.length;
+            const upper = desiredBlocks[0];
+            const lower = desiredBlocks[1];
+            centers[0] =
+              anchorCenter - (gap / 2) - (lower.height / 2);
+            centers[1] =
+              anchorCenter + (gap / 2) + (upper.height / 2);
+          }
+          for (let pass = 0; pass < 10; pass += 1) {
+            let changed = false;
+            for (let i = 0; i < desiredBlocks.length - 1; i += 1) {
+              const current = desiredBlocks[i];
+              const next = desiredBlocks[i + 1];
+              const dynamicGap =
+                gap
+                + Math.max(
+                  0,
+                  (((current.height + next.height) / 2) - 54) * 0.16
+                );
+              const minNextCenter =
+                centers[i] +
+                (current.height / 2) +
+                dynamicGap +
+                (next.height / 2);
+              if (centers[i + 1] < minNextCenter) {
+                const overlap = minNextCenter - centers[i + 1];
+                centers[i] -= overlap / 2;
+                centers[i + 1] += overlap / 2;
+                changed = true;
+              }
+            }
+            if (!changed) {
+              break;
+            }
+          }
+
+          if (!column.classList.contains('is-sidecar') && desiredBlocks.length > 1) {
+            const minGroupTop = desiredBlocks.reduce((value, item, index) => {
+              return Math.min(value, centers[index] - (item.height / 2));
+            }, Number.POSITIVE_INFINITY);
+            const maxGroupBottom = desiredBlocks.reduce((value, item, index) => {
+              return Math.max(value, centers[index] + (item.height / 2));
+            }, Number.NEGATIVE_INFINITY);
+            const actualGroupMidpoint = (minGroupTop + maxGroupBottom) / 2;
+            const midpointDelta = targetGroupMidpoint - actualGroupMidpoint;
+            if (Number.isFinite(midpointDelta) && midpointDelta !== 0) {
+              for (let i = 0; i < centers.length; i += 1) {
+                centers[i] += midpointDelta;
+              }
+            }
+          }
+
+          const minTop = desiredBlocks.reduce((value, item, index) => {
+            return Math.min(value, centers[index] - (item.height / 2));
+          }, Number.POSITIVE_INFINITY);
+          const shift = minTop < 0 ? -minTop : 0;
+
+          desiredBlocks.forEach(({ block, height }, index) => {
+            const top = centers[index] - (height / 2) + shift;
+            block.style.top = `${Math.round(top)}px`;
+            centerByNodeId.set(
+              block.dataset.swissNodeId,
+              top + (height / 2)
+            );
+          });
+
+          const bodyHeight = blocks.reduce((maxBottom, block) => {
+            const top = Number.parseFloat(block.style.top || '0') || 0;
+            return Math.max(maxBottom, top + block.offsetHeight);
+          }, 0);
+          body.style.height = `${Math.max(128, Math.ceil(bodyHeight))}px`;
+        });
+
+        const allBlocks = Array.from(
+          stage.querySelectorAll('[data-swiss-node-id]')
+        );
+        const globalMinTop = allBlocks.reduce((minimum, block) => {
+          const top = Number.parseFloat(block.style.top || '0') || 0;
+          return Math.min(minimum, top);
+        }, Number.POSITIVE_INFINITY);
+
+        const appliedShift =
+          Number.isFinite(globalMinTop) && globalMinTop > 0 ? globalMinTop : 0;
+
+        if (appliedShift > 0) {
+          allBlocks.forEach((block) => {
+            const top = Number.parseFloat(block.style.top || '0') || 0;
+            block.style.top = `${Math.round(top - appliedShift)}px`;
+          });
+        }
+
+        columns.forEach((column) => {
+          if (!column.classList.contains('is-sidecar')) {
+            return;
+          }
+
+          const body = column.querySelector('.ns-tourney-swiss-column-body');
+          if (!body) {
+            return;
+          }
+
+          const blocks = Array.from(
+            body.querySelectorAll('[data-swiss-node-id]')
+          );
+          if (blocks.length !== 2) {
+            return;
+          }
+
+          const sourceIds = Array.from(
+            new Set(
+              blocks.flatMap((block) =>
+                incomingIdsByTargetId.get(block.dataset.swissNodeId) || []
+              )
+            )
+          );
+          const sourceCenters = sourceIds
+            .map((sourceId) => nodes.get(sourceId)?.element)
+            .filter(Boolean)
+            .map((sourceElement) => {
+              const top = getTopWithinStage(sourceElement);
+              return top + (sourceElement.offsetHeight / 2);
+            })
+            .filter((center) => Number.isFinite(center));
+          if (!sourceCenters.length) {
+            return;
+          }
+
+          const roundPrefixMatch = blocks[0].dataset.swissNodeId.match(
+            /^(swiss-round-\d+)-/
+          );
+          const explicitRoundAnchor = roundPrefixMatch
+            ? stage.querySelector(
+                `[data-swiss-node-id="${roundPrefixMatch[1]}-2-2"]`
+              )
+            : null;
+          const anchorCenterInStage = explicitRoundAnchor
+            ? getTopWithinStage(explicitRoundAnchor) +
+              (explicitRoundAnchor.offsetHeight / 2)
+            : sourceCenters.reduce((sum, value) => sum + value, 0) /
+              sourceCenters.length;
+          const bodyTopInStage = getTopWithinStage(body);
+          const anchorCenter = anchorCenterInStage - bodyTopInStage;
+          const sortedBlocks = blocks
+            .slice()
+            .sort((a, b) => {
+              const aTop = Number.parseFloat(a.style.top || '0') || 0;
+              const bTop = Number.parseFloat(b.style.top || '0') || 0;
+              return aTop - bTop;
+            });
+          const upperBlock = sortedBlocks[0];
+          const lowerBlock = sortedBlocks[1];
+          const upperTop = anchorCenter - (gap / 2) - upperBlock.offsetHeight;
+          const lowerTop = anchorCenter + (gap / 2);
+
+          upperBlock.style.top = `${Math.round(upperTop)}px`;
+          lowerBlock.style.top = `${Math.round(lowerTop)}px`;
+        });
+
+        columns.forEach((column) => {
+          const body = column.querySelector('.ns-tourney-swiss-column-body');
+          if (!body) {
+            return;
+          }
+
+          const blocks = Array.from(
+            body.querySelectorAll('[data-swiss-node-id]')
+          );
+          const bodyHeight = blocks.reduce((maxBottom, block) => {
+            const top = Number.parseFloat(block.style.top || '0') || 0;
+            return Math.max(maxBottom, top + block.offsetHeight);
+          }, 0);
+          body.style.height = `${Math.max(128, Math.ceil(bodyHeight))}px`;
+        });
+      };
+
+      const drawSwissLines = (board) => {
+        const stage = board.querySelector('.ns-tourney-swiss-stage') || board;
+        const svg = stage.querySelector('.ns-tourney-swiss-lines');
+        if (!svg) {
+          return;
+        }
+
+        const nodes = new Map();
+        const columns = Array.from(
+          stage.querySelectorAll('.ns-tourney-swiss-column')
+        );
+
+        const boardWidth = Math.max(stage.scrollWidth, stage.clientWidth);
+        const boardHeight = Math.max(stage.scrollHeight, stage.clientHeight);
+        svg.setAttribute('width', String(boardWidth));
+        svg.setAttribute('height', String(boardHeight));
+        svg.setAttribute('viewBox', `0 0 ${boardWidth} ${boardHeight}`);
+        svg.replaceChildren();
+
+        const toBoardRect = (element) => {
+          let left = 0;
+          let top = 0;
+          let current = element;
+          while (current && current !== stage) {
+            left += current.offsetLeft;
+            top += current.offsetTop;
+            current = current.offsetParent;
+          }
+          return {
+            left,
+            top,
+            right: left + element.offsetWidth,
+            bottom: top + element.offsetHeight,
+            width: element.offsetWidth,
+            height: element.offsetHeight,
+          };
+        };
+
+        columns.forEach((column, columnIndex) => {
+          column.querySelectorAll('[data-swiss-node-id]').forEach((element) => {
+            nodes.set(element.dataset.swissNodeId, { element, columnIndex });
+          });
+        });
+
+        stage.querySelectorAll('[data-swiss-winner-target-id], [data-swiss-loser-target-id]').forEach((source) => {
+          const sourceRect = toBoardRect(source);
+          const sourceNode = nodes.get(source.dataset.swissNodeId);
+          const sourceTargets = [
+            source.dataset.swissWinnerTargetId,
+            source.dataset.swissLoserTargetId,
+          ].filter(Boolean);
+
+          sourceTargets.forEach((targetId) => {
+            const targetNode = nodes.get(targetId);
+            if (!targetNode || !sourceNode) {
+              return;
+            }
+
+            const targetRect = toBoardRect(targetNode.element);
+            const x1 = sourceRect.right;
+            const y1 = sourceRect.top + (sourceRect.height / 2);
+            const x2 = targetRect.left;
+            const y2 = targetRect.top + (targetRect.height / 2);
+            const xMidRaw = Math.round(
+              x1 + ((x2 - x1) / 2)
+            );
+            const xMid = Math.max(x1 + 10, Math.min(x2 - 10, xMidRaw));
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('class', 'ns-tourney-swiss-line');
+            path.setAttribute('d', `M ${x1} ${y1} H ${xMid} V ${y2} H ${x2}`);
+            svg.append(path);
+          });
+        });
+      };
+
+      const redraw = () => {
+        boards.forEach((board) => {
+          layoutSwissBoard(board);
+          drawSwissLines(board);
+        });
+      };
+
+      window.addEventListener('resize', () => {
+        window.requestAnimationFrame(redraw);
+      });
+      window.setTimeout(() => window.requestAnimationFrame(redraw), 160);
+    })();
+  </script>
+{% endblock %}
