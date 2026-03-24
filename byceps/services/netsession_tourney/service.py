@@ -171,6 +171,7 @@ class _RoundRobinBuilderPlan:
 
 DISCORD_SUPPORTED_EVENTS = {
     'manual_announcement',
+    'match_completed',
     'stage_started',
     'tournament_canceled',
     'tournament_finished',
@@ -8341,6 +8342,22 @@ def report_result(
     db.session.commit()
     _append_notification_for_match_report(db_match, stage, actor_user_id)
     if new_state == MatchState.completed:
+        enqueue_discord_event(
+            party_id,
+            tournament_id,
+            event_name='match_completed',
+            payload=_build_discord_match_completed_payload(
+                db_tournament,
+                db_match,
+                stage,
+                db_slots,
+                db_participants_by_id,
+                winner_slot,
+                score_data,
+                ranking_data,
+            ),
+        )
+    if new_state == MatchState.completed:
         _auto_generate_builder_main_stages_from_completed_source(
             party_id=party_id,
             tournament_id=tournament_id,
@@ -10713,6 +10730,136 @@ def _build_discord_tournament_finished_payload(
     return payload
 
 
+def _build_discord_match_completed_payload(
+    db_tournament: DbNetsessionTourneyTournament,
+    db_match: DbNetsessionTourneyMatch,
+    stage: Stage,
+    db_slots: list[DbNetsessionTourneyMatchSlot],
+    db_participants_by_id: dict[ParticipantID, DbNetsessionTourneyParticipant],
+    winner_slot: int | None,
+    score_data: dict[str, Any],
+    ranking_data: dict[str, Any],
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        'stage_name': stage.name,
+        'match_label': f'Match #{db_match.match_no}',
+        'url': _build_site_match_path(db_tournament.slug, db_match.id),
+    }
+
+    result_summary = _build_discord_match_result_summary(
+        stage=stage,
+        db_slots=db_slots,
+        db_participants_by_id=db_participants_by_id,
+        winner_slot=winner_slot,
+        score_data=score_data,
+        ranking_data=ranking_data,
+    )
+    if result_summary:
+        payload['result_summary'] = result_summary
+
+    return payload
+
+
+def _build_discord_match_result_summary(
+    *,
+    stage: Stage,
+    db_slots: list[DbNetsessionTourneyMatchSlot],
+    db_participants_by_id: dict[ParticipantID, DbNetsessionTourneyParticipant],
+    winner_slot: int | None,
+    score_data: dict[str, Any],
+    ranking_data: dict[str, Any],
+) -> dict[str, Any] | None:
+    occupied_slots = [
+        db_slot
+        for db_slot in sorted(db_slots, key=lambda item: item.slot_no)
+        if db_slot.participant_id is not None
+        and db_slot.participant_id in db_participants_by_id
+    ]
+    if not occupied_slots:
+        return None
+
+    is_ffa_stage = stage.type in {
+        StageType.ffa_simple,
+        StageType.ffa_single_elimination,
+        StageType.ffa_flatout2_single_elimination,
+    }
+
+    if is_ffa_stage:
+        raw_placements = (
+            ranking_data.get('placements')
+            if isinstance(ranking_data, dict)
+            else None
+        )
+        raw_points = (
+            ranking_data.get('points')
+            if isinstance(ranking_data, dict)
+            else None
+        )
+        if not isinstance(raw_placements, dict):
+            return None
+
+        rows: list[dict[str, Any]] = []
+        for db_slot in occupied_slots:
+            participant = db_participants_by_id.get(db_slot.participant_id)
+            if participant is None:
+                continue
+
+            placement = raw_placements.get(str(db_slot.slot_no))
+            if placement is None:
+                placement = raw_placements.get(db_slot.slot_no)
+            if placement is None:
+                continue
+
+            points = None
+            if isinstance(raw_points, dict):
+                points = raw_points.get(str(db_slot.slot_no))
+                if points is None:
+                    points = raw_points.get(db_slot.slot_no)
+
+            rows.append(
+                {
+                    'position': int(placement),
+                    'participant_name': participant.name,
+                    'points': points,
+                }
+            )
+
+        if not rows:
+            return None
+
+        rows.sort(key=lambda item: (item['position'], item['participant_name']))
+        return {'format': 'ffa', 'rows': rows}
+
+    parsed_scores = _parse_match_result_slot_scores(
+        db_slots, score_data, winner_slot=winner_slot
+    )
+    rows = []
+    for db_slot in occupied_slots:
+        participant = db_participants_by_id.get(db_slot.participant_id)
+        if participant is None:
+            continue
+
+        rows.append(
+            {
+                'slot_no': db_slot.slot_no,
+                'participant_name': participant.name,
+                'score': parsed_scores.get(db_slot.slot_no),
+                'is_winner': winner_slot == db_slot.slot_no,
+            }
+        )
+
+    if not rows:
+        return None
+
+    rows.sort(
+        key=lambda item: (
+            0 if item['is_winner'] else 1,
+            item['slot_no'],
+        )
+    )
+    return {'format': 'duel', 'rows': rows}
+
+
 def _build_discord_tournament_result_summary(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> dict[str, Any] | None:
@@ -10781,6 +10928,17 @@ def _build_discord_message_payload(
             url = _build_absolute_notification_url(
                 db_tournament.party_id, custom_url
             )
+    elif event_name == 'match_completed':
+        embed_title = 'ðŸ† Match beendet'
+        description = _build_discord_match_completed_description(
+            title, payload_data
+        )
+        custom_url = str(payload_data.get('url') or '').strip()
+        if custom_url:
+            url = _build_absolute_notification_url(
+                db_tournament.party_id, custom_url
+            )
+        color = 0x3B82F6
     elif event_name == 'stage_started':
         stage_name = str(payload_data.get('stage_name') or '').strip()
         embed_title = '🚦 Stage gestartet'
@@ -10824,6 +10982,8 @@ def _build_discord_message_payload(
         fields.extend(
             _build_discord_tournament_finished_fields(payload_data)
         )
+    elif event_name == 'match_completed':
+        fields.extend(_build_discord_match_completed_fields(payload_data))
 
     embed: dict[str, Any] = {
         'author': {'name': 'Netsession Turniere'},
@@ -10918,6 +11078,114 @@ def _build_discord_tournament_finished_fields(
                 'inline': False,
             }
         )
+
+    return fields
+
+
+def _build_discord_match_completed_description(
+    tournament_title: str, payload_data: dict[str, Any]
+) -> str:
+    stage_name = str(payload_data.get('stage_name') or '').strip()
+    match_label = str(payload_data.get('match_label') or '').strip()
+    result_summary = payload_data.get('result_summary')
+
+    lines = [f'**{tournament_title}**']
+    if stage_name and match_label:
+        lines.append(f'{stage_name} · {match_label} ist abgeschlossen.')
+    elif match_label:
+        lines.append(f'{match_label} ist abgeschlossen.')
+    else:
+        lines.append('Ein Match ist abgeschlossen.')
+
+    if isinstance(result_summary, dict):
+        rows = result_summary.get('rows')
+        if isinstance(rows, list) and rows:
+            winner_name = str(rows[0].get('participant_name') or '').strip()
+            if winner_name:
+                lines.append(f'Gewonnen hat **{winner_name}**.')
+
+    return '\n'.join(lines)
+
+
+def _build_discord_match_completed_fields(
+    payload_data: dict[str, Any]
+) -> list[dict[str, Any]]:
+    fields: list[dict[str, Any]] = []
+
+    stage_name = str(payload_data.get('stage_name') or '').strip()
+    if stage_name:
+        fields.append(
+            {
+                'name': 'Stage',
+                'value': stage_name[:1024],
+                'inline': True,
+            }
+        )
+
+    match_label = str(payload_data.get('match_label') or '').strip()
+    if match_label:
+        fields.append(
+            {
+                'name': 'Match',
+                'value': match_label[:1024],
+                'inline': True,
+            }
+        )
+
+    result_summary = payload_data.get('result_summary')
+    if not isinstance(result_summary, dict):
+        return fields
+
+    rows = result_summary.get('rows')
+    if not isinstance(rows, list) or not rows:
+        return fields
+
+    if result_summary.get('format') == 'ffa':
+        ranking_lines = []
+        for row in rows[:8]:
+            participant_name = str(row.get('participant_name') or '').strip()
+            if not participant_name:
+                continue
+            try:
+                position = int(row.get('position'))
+            except (TypeError, ValueError):
+                continue
+
+            points = row.get('points')
+            line = f'{position}. {participant_name}'
+            if points is not None and str(points).strip():
+                line += f' - {points} Pkt.'
+            ranking_lines.append(line)
+
+        if ranking_lines:
+            fields.append(
+                {
+                    'name': 'Ranking',
+                    'value': '\n'.join(ranking_lines)[:1024],
+                    'inline': False,
+                }
+            )
+    else:
+        result_lines = []
+        for row in rows[:8]:
+            participant_name = str(row.get('participant_name') or '').strip()
+            if not participant_name:
+                continue
+            score = row.get('score')
+            score_suffix = (
+                f' - {score}' if score is not None and str(score).strip() else ''
+            )
+            prefix = 'W' if row.get('is_winner') else '-'
+            result_lines.append(f'{prefix} {participant_name}{score_suffix}')
+
+        if result_lines:
+            fields.append(
+                {
+                    'name': 'Ergebnis',
+                    'value': '\n'.join(result_lines)[:1024],
+                    'inline': False,
+                }
+            )
 
     return fields
 
