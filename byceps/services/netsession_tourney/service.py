@@ -10920,7 +10920,7 @@ def _build_discord_message_payload(
     description = 'Es gibt ein neues Turnier-Update.'
 
     if event_name == 'manual_announcement':
-        embed_title = '📣 Turnier-Update'
+        embed_title = 'Turnier-Update'
         description = str(payload_data.get('body') or '').strip() or description
         title = str(payload_data.get('title') or '').strip() or title
         custom_url = str(payload_data.get('url') or '').strip()
@@ -10929,7 +10929,7 @@ def _build_discord_message_payload(
                 db_tournament.party_id, custom_url
             )
     elif event_name == 'match_completed':
-        embed_title = 'ðŸ† Match beendet'
+        embed_title = 'Match beendet'
         description = _build_discord_match_completed_description(
             title, payload_data
         )
@@ -10941,7 +10941,7 @@ def _build_discord_message_payload(
         color = 0x3B82F6
     elif event_name == 'stage_started':
         stage_name = str(payload_data.get('stage_name') or '').strip()
-        embed_title = '🚦 Stage gestartet'
+        embed_title = 'Stage gestartet'
         description = (
             f'**{title}**\n{stage_name} ist gestartet.'
             if stage_name
@@ -10950,31 +10950,31 @@ def _build_discord_message_payload(
         title = stage_name or title
         color = 0xF97316
     elif event_name == 'tournament_finished':
-        embed_title = '🏁 Turnier beendet'
+        embed_title = 'Turnier beendet'
         description = _build_discord_tournament_finished_description(
             title, payload_data
         )
         color = 0x10B981
     elif event_name == 'tournament_canceled':
-        embed_title = '⛔ Turnier abgesagt'
+        embed_title = 'Turnier abgesagt'
         description = f'**{title}**\nDas Turnier wurde abgesagt.'
         color = 0xEF4444
     elif event_name == 'tournament_live':
-        embed_title = '🟢 Turnier live'
+        embed_title = 'Turnier live'
         description = f'**{title}**\nDas Turnier ist jetzt live.'
     else:
-        embed_title = '🔔 Turnier-Update'
+        embed_title = 'Turnier-Update'
         description = f'**{title}**\n{description}'
 
     fields = [
         {'name': 'Turnier', 'value': db_tournament.title[:1024], 'inline': True},
-        {'name': 'Ereignis', 'value': embed_title[2:][:1024], 'inline': True},
+        {'name': 'Ereignis', 'value': embed_title[:1024], 'inline': True},
     ]
     if url:
         fields.append(
             {
-                'name': 'Öffnen',
-                'value': f'[Turnierseite öffnen]({url})',
+                'name': 'Oeffnen',
+                'value': f'[Turnierseite oeffnen]({url})',
                 'inline': False,
             }
         )
@@ -11073,7 +11073,7 @@ def _build_discord_tournament_finished_fields(
     if remaining_lines:
         fields.append(
             {
-                'name': 'Weitere Plätze',
+                'name': 'Weitere Plaetze',
                 'value': '\n'.join(remaining_lines)[:1024],
                 'inline': False,
             }
@@ -11091,7 +11091,7 @@ def _build_discord_match_completed_description(
 
     lines = [f'**{tournament_title}**']
     if stage_name and match_label:
-        lines.append(f'{stage_name} · {match_label} ist abgeschlossen.')
+        lines.append(f'{stage_name} - {match_label} ist abgeschlossen.')
     elif match_label:
         lines.append(f'{match_label} ist abgeschlossen.')
     else:
@@ -11245,7 +11245,7 @@ def _build_discord_forum_thread_payload(
     if db_tournament.subtitle:
         description_lines.append(db_tournament.subtitle)
     description_lines.append(
-        'Der Discord-Thread für dieses Turnier wurde eingerichtet.'
+        'Der Discord-Thread fuer dieses Turnier wurde eingerichtet.'
     )
 
     fields = [
@@ -11267,14 +11267,14 @@ def _build_discord_forum_thread_payload(
         fields.append(
             {
                 'name': 'Link',
-                'value': f'[Turnierseite öffnen]({url})',
+                'value': f'[Turnierseite oeffnen]({url})',
                 'inline': False,
             }
         )
 
     embed: dict[str, Any] = {
         'author': {'name': 'Netsession Turniere'},
-        'title': f'🎮 {db_tournament.title}'[:256],
+        'title': db_tournament.title[:256],
         'description': '\n'.join(description_lines)[:4096],
         'color': 0xFF2B00,
         'fields': fields,
@@ -13079,7 +13079,7 @@ def _build_discord_dm_message_payload(
     if url:
         fields.append(
             {
-                'name': 'Öffnen',
+                'name': 'Oeffnen',
                 'value': f'[Direkt zur Seite]({url})',
                 'inline': False,
             }
@@ -13188,8 +13188,8 @@ def _build_test_discord_dm_message_payload(
         embed['url'] = url
         embed['fields'].append(
             {
-                'name': 'Öffnen',
-                'value': f'[Turnierübersicht öffnen]({url})',
+                'name': 'Oeffnen',
+                'value': f'[Turnieruebersicht oeffnen]({url})',
                 'inline': False,
             }
         )
