@@ -55,7 +55,7 @@ def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_
     assert matches_response.status_code == 200
     assert ranking_response.status_code == 200
     assert participants_response.status_code == 200
-    assert rules_response.status_code == 200
+    assert rules_response.status_code == 302  # no rules: back to overview
     assert tournament.title in detail_response.text
 
 
