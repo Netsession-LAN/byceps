@@ -2959,6 +2959,26 @@ def delete_tournament(
             tournament_id=tournament_id
         )
     )
+    # Delete rows referencing the tournament or its notifications explicitly,
+    # independent of whether the database has `ON DELETE CASCADE` on those
+    # foreign keys (tables created from the models did not).
+    notification_ids = select(DbNetsessionTourneyNotification.id).filter_by(
+        tournament_id=tournament_id
+    )
+    db.session.execute(
+        delete(DbNetsessionTourneyBrowserPushOutbox).filter(
+            DbNetsessionTourneyBrowserPushOutbox.notification_id.in_(
+                notification_ids
+            )
+        )
+    )
+    db.session.execute(
+        delete(DbNetsessionTourneyDiscordDmOutbox).filter(
+            DbNetsessionTourneyDiscordDmOutbox.notification_id.in_(
+                notification_ids
+            )
+        )
+    )
     db.session.execute(
         delete(DbNetsessionTourneyNotification).filter_by(
             tournament_id=tournament_id
@@ -2966,6 +2986,16 @@ def delete_tournament(
     )
     db.session.execute(
         delete(DbNetsessionTourneyDiscordOutbox).filter_by(
+            tournament_id=tournament_id
+        )
+    )
+    db.session.execute(
+        delete(DbNetsessionTourneyTournamentAdmin).filter_by(
+            tournament_id=tournament_id
+        )
+    )
+    db.session.execute(
+        delete(DbNetsessionTourneyTournamentPrize).filter_by(
             tournament_id=tournament_id
         )
     )

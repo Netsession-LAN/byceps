@@ -332,7 +332,7 @@ class DbNetsessionTourneyTournamentPrize(db.Model):
     id: Mapped[TournamentPrizeID] = mapped_column(db.Uuid, primary_key=True)
     tournament_id: Mapped[TournamentID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_tournaments.id'),
+        db.ForeignKey('netsession_tourney_tournaments.id', ondelete='CASCADE'),
         index=True,
     )
     position: Mapped[int]
@@ -495,11 +495,11 @@ class DbNetsessionTourneyTournamentAdmin(db.Model):
     id: Mapped[TournamentAdminID] = mapped_column(db.Uuid, primary_key=True)
     tournament_id: Mapped[TournamentID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_tournaments.id'),
+        db.ForeignKey('netsession_tourney_tournaments.id', ondelete='CASCADE'),
         index=True,
     )
     user_id: Mapped[UserID] = mapped_column(
-        db.Uuid, db.ForeignKey('users.id'), index=True
+        db.Uuid, db.ForeignKey('users.id', ondelete='CASCADE'), index=True
     )
     created_at: Mapped[datetime]
 
@@ -1178,7 +1178,7 @@ class DbNetsessionTourneyBrowserPushOutbox(db.Model):
     id: Mapped[BrowserPushOutboxID] = mapped_column(db.Uuid, primary_key=True)
     notification_id: Mapped[UUID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_notifications.id'),
+        db.ForeignKey('netsession_tourney_notifications.id', ondelete='CASCADE'),
         index=True,
     )
     status: Mapped[str] = mapped_column(db.UnicodeText, index=True)
@@ -1211,7 +1211,7 @@ class DbNetsessionTourneyDiscordDmOutbox(db.Model):
     id: Mapped[DiscordDmOutboxID] = mapped_column(db.Uuid, primary_key=True)
     notification_id: Mapped[UUID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_notifications.id'),
+        db.ForeignKey('netsession_tourney_notifications.id', ondelete='CASCADE'),
         index=True,
     )
     status: Mapped[str] = mapped_column(db.UnicodeText, index=True)

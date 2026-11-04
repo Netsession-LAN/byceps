@@ -1,13 +1,19 @@
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import select
 
 from byceps.database import db
 from byceps.services.netsession_tourney.dbmodels import (
+    DbNetsessionTourneyBrowserPushOutbox,
+    DbNetsessionTourneyDiscordDmOutbox,
     DbNetsessionTourneyMatch,
     DbNetsessionTourneyMatchResult,
     DbNetsessionTourneyMatchSlot,
+    DbNetsessionTourneyNotification,
     DbNetsessionTourneyParticipant,
+    DbNetsessionTourneyTournamentAdmin,
+    DbNetsessionTourneyTournamentPrize,
 )
 from byceps.services.ticketing import (
     ticket_creation_service,
@@ -1291,6 +1297,64 @@ def test_admin_can_delete_tournament_with_existing_data(
         party.id, tournament.id
     )
     assert not tourney_service.get_matches_for_tournament(party.id, tournament.id)
+
+
+def test_delete_tournament_removes_admins_prizes_and_notification_outboxes(
+    admin_app, party, admin_user, user
+):
+    create_result = tourney_service.create_tournament(
+        party.id,
+        'ns-delete-refs-' + generate_token().lower(),
+        'NS Delete References',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    )
+    assert create_result.is_ok()
+    tournament = create_result.unwrap()
+
+    assert tourney_service.set_tournament_admin_user_ids(
+        party.id, tournament.id, {user.id}, admin_user
+    ).is_ok()
+    assert tourney_service.create_tournament_prize(
+        tournament.id, 1, RuleTemplateBodyFormat.markdown, 'First prize'
+    ).is_ok()
+
+    now = datetime.utcnow()
+    notification_id = uuid4()
+    db.session.add(
+        DbNetsessionTourneyNotification(
+            notification_id, tournament.id, user.id, 'test', {}, now
+        )
+    )
+    db.session.flush()
+    db.session.add(
+        DbNetsessionTourneyBrowserPushOutbox(uuid4(), notification_id, now)
+    )
+    db.session.add(
+        DbNetsessionTourneyDiscordDmOutbox(uuid4(), notification_id, now)
+    )
+    db.session.commit()
+
+    delete_result = tourney_service.delete_tournament(
+        party.id, tournament.id, admin_user
+    )
+    assert delete_result.is_ok()
+
+    def _count(model, **filters):
+        return len(db.session.scalars(select(model).filter_by(**filters)).all())
+
+    assert _count(DbNetsessionTourneyTournamentAdmin, tournament_id=tournament.id) == 0
+    assert _count(DbNetsessionTourneyTournamentPrize, tournament_id=tournament.id) == 0
+    assert _count(DbNetsessionTourneyNotification, id=notification_id) == 0
+    assert (
+        _count(DbNetsessionTourneyBrowserPushOutbox, notification_id=notification_id)
+        == 0
+    )
+    assert (
+        _count(DbNetsessionTourneyDiscordDmOutbox, notification_id=notification_id)
+        == 0
+    )
 
 
 def test_admin_can_unpublish_live_tournament_without_results(
