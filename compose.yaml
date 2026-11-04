@@ -18,12 +18,15 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: byceps
+      # Netsession: set per server in `.env` (not in Git), see `.env.example`.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_USER: byceps
     networks:
       - byceps
     ports:
-      - "5432:5432"
+      # Netsession: bound to localhost by default, i.e. not reachable from
+      # outside the VM. Set POSTGRES_BIND=0.0.0.0 in `.env` to expose it.
+      - "${POSTGRES_BIND:-127.0.0.1}:5432:5432"
 
   redis:
     image: "redis:7"
@@ -107,9 +110,10 @@ services:
     depends_on:
       - byceps-apps
     environment:
-      SERVER_NAME_ADMIN: admin.byceps.example
-      SERVER_NAME_API: api.byceps.example
-      SERVER_NAME_SITE: cozylan.example
+      # Netsession: set per server in `.env`.
+      SERVER_NAME_ADMIN: ${SERVER_NAME_ADMIN:-admin.byceps.example}
+      SERVER_NAME_API: ${SERVER_NAME_API:-api.byceps.example}
+      SERVER_NAME_SITE: ${SERVER_NAME_SITE:-cozylan.example}
       UWSGI_ADDRESS: byceps-apps:5000
     ports:
       - "8080:80"
