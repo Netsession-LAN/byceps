@@ -1017,9 +1017,11 @@ def test_admin_can_remove_participant(
 
 
 def test_admin_can_add_user_participant_for_solo_tournament(
-    admin_app, party, admin_user, make_user
+    admin_app, party, admin_user, make_user, make_ticket_category
 ):
     candidate = make_user('NS_AdminAdd_' + generate_token())
+    for ticket_user in [candidate]:
+        _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
     create_result = tourney_service.create_tournament(
         party.id,
@@ -1049,10 +1051,12 @@ def test_admin_can_add_user_participant_for_solo_tournament(
 
 
 def test_admin_can_create_team_and_manage_team_members(
-    admin_app, party, admin_user, make_user
+    admin_app, party, admin_user, make_user, make_ticket_category
 ):
     captain = make_user('NS_AdminCaptain_' + generate_token())
     member = make_user('NS_AdminMember_' + generate_token())
+    for ticket_user in [captain, member]:
+        _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
     create_result = tourney_service.create_tournament(
         party.id,
@@ -1115,10 +1119,12 @@ def test_admin_can_create_team_and_manage_team_members(
 
 
 def test_admin_can_reassign_team_captain(
-    admin_app, party, admin_user, make_user
+    admin_app, party, admin_user, make_user, make_ticket_category
 ):
     captain = make_user('NS_AdminCaptainA_' + generate_token())
     new_captain = make_user('NS_AdminCaptainB_' + generate_token())
+    for ticket_user in [captain, new_captain]:
+        _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
     create_result = tourney_service.create_tournament(
         party.id,
@@ -1180,9 +1186,11 @@ def test_admin_can_reassign_team_captain(
 
 
 def test_admin_can_set_match_slot_participant_for_initial_slots_only(
-    admin_app, party, admin_user, make_user
+    admin_app, party, admin_user, make_user, make_ticket_category
 ):
     users = [make_user('NS_Slot_' + generate_token()) for _ in range(4)]
+    for ticket_user in users:
+        _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
     create_result = tourney_service.create_tournament(
         party.id,
@@ -2797,6 +2805,25 @@ def test_double_elimination_with_two_participants_gives_second_chance(
         ).is_ok()
 
     assert [match.state.value for match in matches()] == expected_states
+
+
+def test_admin_cannot_add_user_without_ticket(admin_app, party, admin_user, make_user):
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-no-ticket-' + generate_token().lower(),
+        'NS No Ticket',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    candidate = make_user('NS_NoTicket_' + generate_token())
+
+    result = tourney_service.add_user_participant_by_admin(
+        party.id, tournament.id, candidate, admin_user
+    )
+
+    assert result.is_err()
+    assert 'ticket' in result.unwrap_err().lower()
 
 
 def _assign_party_ticket_to_user(party_id, user, make_ticket_category) -> None:
