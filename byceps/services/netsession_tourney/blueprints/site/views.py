@@ -39,7 +39,7 @@ from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
 from byceps.util.l10n import get_default_locale
-from byceps.util.views import login_required, permission_required, redirect_to
+from byceps.util.views import login_required, redirect_to
 from byceps.util.uuid import generate_uuid7
 
 from ...logo_service import upload_logo_image
@@ -91,6 +91,7 @@ from ...service import (
     get_tournament_categories_for_party,
     get_tournament_prizes_for_tournament,
     get_stages_for_tournament,
+    is_stage_result_reporting_admin_only,
     get_team_members_for_participants,
     get_team_invite_code_for_manager,
     get_tournaments_for_party,
@@ -1838,16 +1839,20 @@ def view_match(slug, match_id):
         is_admin_or_referee = user.has_permission(
             'netsession_tourney.manage'
         ) or user.has_permission('netsession_tourney.admin')
-        can_report = (
-            user.has_permission('netsession_tourney.report_result')
-            and _can_user_report_match_result(
-                user.id,
-                tournament,
-                match,
-                slots,
-                participants_by_id,
-                is_admin_or_referee=is_admin_or_referee,
-            )
+        # Whether a player may report is decided per stage
+        # (`result_report_mode`) and by managing a participant of the match.
+        # Admins/referees enter results in the admin UI; the site route always
+        # reports as a participant, so the form is shown to participants only.
+        can_report = _can_user_report_match_result(
+            user.id,
+            tournament,
+            match,
+            slots,
+            participants_by_id,
+            is_admin_or_referee=False,
+            admin_only=is_stage_result_reporting_admin_only(
+                stages_by_id.get(match.stage_id)
+            ),
         )
         can_chat = can_user_access_match_chat(
             g.party.id,
@@ -2310,7 +2315,6 @@ def set_team_ready_state(slug, participant_id):
 
 @blueprint.post('/<slug>/matches/<uuid:match_id>/report')
 @login_required
-@permission_required('netsession_tourney.report_result')
 def report_match_result(slug, match_id):
     tournament = _get_tournament_or_404(slug)
     form = MatchScoreReportForm(request.form)

@@ -2624,6 +2624,106 @@ def test_stage_scheduling_uses_stage_timing_settings(
     assert round2_match2.scheduled_at == datetime(2026, 1, 10, 13, 45, 0)
 
 
+def test_swiss_stage_advances_through_all_rounds(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-swiss-flow-' + generate_token().lower(),
+        'NS Swiss Flow',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = tourney_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.swiss,
+        'Swiss',
+        {'round_count': 3},
+        admin_user,
+    ).unwrap()
+    for _ in range(4):
+        participant = make_user('NS_SwissFlow_' + generate_token())
+        _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
+        assert tourney_service.register_user(
+            party.id, tournament.id, participant
+        ).is_ok()
+    assert tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    assert tourney_service.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).is_ok()
+
+    # Used to fail with a NameError when seeding round 2.
+    _complete_ready_matches(
+        party.id, tournament.id, admin_user, excluded_match_ids=set()
+    )
+
+    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    assert max(match.round_no for match in matches) == 3
+    assert all(match.state.value == 'completed' for match in matches)
+
+
+def test_player_cannot_report_in_admin_only_stage(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-admin-only-' + generate_token().lower(),
+        'NS Admin Only',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = tourney_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'Main',
+        {'result_report_mode': 'admin_only'},
+        admin_user,
+    ).unwrap()
+    players = [make_user('NS_AdminOnly_' + generate_token()) for _ in range(2)]
+    for player in players:
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+        assert tourney_service.register_user(
+            party.id, tournament.id, player
+        ).is_ok()
+    assert tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    match = tourney_service.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()[0]
+
+    player_result = tourney_service.report_result(
+        party.id,
+        tournament.id,
+        match.id,
+        players[0].id,
+        idempotency_key='admin-only-player-' + generate_token(),
+        winner_slot=1,
+        score={'display': '1:0'},
+    )
+    assert player_result.is_err()
+    assert 'nur Admins' in player_result.unwrap_err()
+
+    admin_result = tourney_service.report_result(
+        party.id,
+        tournament.id,
+        match.id,
+        admin_user.id,
+        idempotency_key='admin-only-admin-' + generate_token(),
+        winner_slot=1,
+        score={'display': '1:0'},
+        actor_is_admin_or_referee=True,
+        admin_comment='Admin enters result.',
+    )
+    assert admin_result.is_ok()
+
+
 def _assign_party_ticket_to_user(party_id, user, make_ticket_category) -> None:
     category = make_ticket_category(
         party_id, 'NS-Ticket-' + generate_token()

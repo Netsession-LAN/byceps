@@ -8050,6 +8050,16 @@ def get_match_results(match_ids: set[MatchID]) -> dict[MatchID, MatchResult]:
     return {item.match_id: _db_match_result_to_model(item) for item in db_results}
 
 
+def is_stage_result_reporting_admin_only(stage: Stage | None) -> bool:
+    """Return `True` if only admins/referees may enter results in the stage."""
+    if stage is None:
+        return False
+    return (
+        _get_stage_result_report_mode(stage.settings)
+        == RESULT_REPORT_MODE_ADMIN_ONLY
+    )
+
+
 def _get_stage_result_report_mode(stage_settings: dict[str, Any] | None) -> str:
     if not stage_settings:
         return RESULT_REPORT_MODE_BOTH_MUST_CONFIRM
@@ -8069,7 +8079,13 @@ def _validate_actor_matches_report_mode(
     actor_slot_no: int | None,
     winner_slot: int | None,
 ) -> str | None:
-    if actor_is_admin_or_referee or tournament_mode != TournamentMode.duel:
+    if actor_is_admin_or_referee:
+        return None
+
+    if stage_result_report_mode == RESULT_REPORT_MODE_ADMIN_ONLY:
+        return 'In dieser Stage tragen nur Admins die Ergebnisse ein.'
+
+    if tournament_mode != TournamentMode.duel:
         return None
 
     if stage_result_report_mode == RESULT_REPORT_MODE_BOTH_MUST_CONFIRM:
@@ -11932,7 +11948,7 @@ def _seed_swiss_follow_up_rounds(
                 )
 
             next_state = _calculate_match_state_for_slots(
-                tournament_status=payload.tournament.status.value,
+                tournament_status=_get_tournament_status_value(tournament_id),
                 db_match_slots=db_match_slots,
             )
             db_match.state = next_state.value
@@ -11942,6 +11958,13 @@ def _seed_swiss_follow_up_rounds(
             db_match.updated_at = datetime.utcnow()
 
     return newly_ready_match_ids
+
+
+def _get_tournament_status_value(tournament_id: TournamentID) -> str:
+    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
+    if db_tournament is None:
+        raise ValueError(f'Unknown tournament ID "{tournament_id}"')
+    return db_tournament.status
 
 
 def _advance_stage_from_match(

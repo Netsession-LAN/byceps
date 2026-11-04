@@ -153,6 +153,7 @@ def _can_user_report_match_result(
     participants_by_id,
     *,
     is_admin_or_referee: bool,
+    admin_only: bool = False,
 ) -> bool:
     if tournament.status != TournamentStatus.live:
         return False
@@ -166,6 +167,9 @@ def _can_user_report_match_result(
 
     if is_admin_or_referee:
         return True
+
+    if admin_only:
+        return False
 
     if tournament.mode == TournamentMode.ffa:
         return False
