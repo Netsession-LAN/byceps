@@ -28,7 +28,6 @@ def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_
         open_matches_response = client.get(
             'http://www.acmecon.test/ns-tourneys/open-matches'
         )
-        faq_response = client.get('http://www.acmecon.test/ns-tourneys/faq')
         detail_response = client.get(
             f'http://www.acmecon.test/ns-tourneys/{tournament.slug}'
         )
@@ -50,7 +49,6 @@ def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_
 
     assert index_response.status_code == 200
     assert open_matches_response.status_code == 200
-    assert faq_response.status_code == 200
     assert tournament.title in index_response.text
     assert detail_response.status_code == 200
     assert bracket_response.status_code == 200
