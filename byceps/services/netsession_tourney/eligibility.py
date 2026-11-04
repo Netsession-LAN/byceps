@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from byceps.services.party.models import PartyID
 from byceps.services.ticketing import ticket_service
-from byceps.services.user.models.user import UserID
+from byceps.services.user.models import UserID
 from byceps.util.result import Err, Ok, Result
 
 
