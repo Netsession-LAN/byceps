@@ -1,0 +1,88 @@
+{#- Ranking table of a stage (or group), with legend.
+    Expects: ranking_rows, ranking_subject_label, ranking_stage_type,
+    users_by_id, tournament. -#}
+<aside class="ns-tourney-preliminary-ranking-panel">
+  <h3 class="ns-tourney-match-overview-round-title">{{ _('Rangliste') }}</h3>
+  {%- if ranking_rows %}
+  <table class="itemlist is-vcentered ns-tourney-ranking-table{% if ranking_stage_type == 'swiss' %} ns-tourney-ranking-table--swiss ns-tourney-ranking-table--swiss-compact{% endif %}">
+    <thead>
+      <tr>
+        <th>{{ _('Rang') }}</th>
+        <th>{{ ranking_subject_label }}</th>
+        {%- if ranking_stage_type == 'swiss' %}
+        <th>{{ _('S') }}</th>
+        <th>{{ _('N') }}</th>
+        <th>{{ _('BH') }}</th>
+        <th>{{ _('OWS') }}</th>
+        <th>{{ _('SoS2') }}</th>
+        <th>{{ _('RD') }}</th>
+        {%- else %}
+        <th>{{ _('Pkt.') }}</th>
+        <th>{{ _('RD') }}</th>
+        {%- endif %}
+      </tr>
+    </thead>
+    <tbody>
+    {%- for row in ranking_rows %}
+      {%- set participant = row.participant %}
+      {%- set participant_user = users_by_id.get(participant.user_id) if participant.user_id else none %}
+      {%- set participant_avatar_url = none %}
+      {%- if participant.type.value == 'team' and participant.logo_url %}
+        {%- set participant_avatar_url = participant.logo_url %}
+      {%- elif participant_user and participant_user.avatar_url %}
+        {%- set participant_avatar_url = participant_user.avatar_url %}
+      {%- endif %}
+      <tr>
+        <td><strong>{{ row.rank }}</strong></td>
+        <td class="ns-tourney-ranking-participant-cell">
+          <span class="ns-tourney-ranking-participant">
+            <span class="ns-tourney-ranking-participant-avatar{% if not participant_avatar_url %} is-placeholder{% endif %}">
+              {%- if participant_avatar_url %}
+              <img src="{{ participant_avatar_url }}" alt="{{ _('Team-Logo') if participant.type.value == 'team' else _('Avatar') }}" loading="lazy">
+              {%- endif %}
+            </span>
+            {%- if participant.type.value == 'team' %}
+            <a class="ns-tourney-ranking-participant-link" href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+            {%- elif participant.user_id %}
+            <a class="ns-tourney-ranking-participant-link" href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+            {%- else %}
+            <span class="ns-tourney-ranking-participant-name">{{ participant.name }}</span>
+            {%- endif %}
+          </span>
+        </td>
+        {%- if ranking_stage_type == 'swiss' %}
+        <td><strong>{{ row.wins }}</strong></td>
+        <td>{{ row.losses }}</td>
+        <td>{{ row.buchholz }}</td>
+        <td>{{ row.opponent_wl_sum }}</td>
+        <td>{{ row.second_order_sos }}</td>
+        <td>{{ '%+d'|format(row.round_diff) }}</td>
+        {%- else %}
+        <td><strong>{{ row.match_points }}</strong></td>
+        <td>{{ '%+d'|format(row.round_diff) }}</td>
+        {%- endif %}
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  <p class="ns-tourney-preliminary-ranking-legend">
+    <strong>{{ _('Legende') }}:</strong>
+    {%- if ranking_stage_type == 'swiss' %}
+    {{ _('S') }} = {{ _('Siege') }},
+    {{ _('N') }} = {{ _('Niederlagen') }},
+    {{ _('BH') }} = {{ _('Buchholz') }},
+    {{ _('OWS') }} = {{ _('Gegner-W/L-Summe') }},
+    {{ _('SoS2') }} = {{ _('SoS 2. Ordnung') }},
+    {{ _('RD') }} = {{ _('Rundendifferenz') }},
+    {{ _('Tiebreaker') }}: {{ _('erst Record, dann Buchholz, dann Gegner-W/L-Summe, dann SoS 2. Ordnung, bei echtem 2er-Gleichstand Direktvergleich, danach RD und gewonnene Runden') }}.
+    {{ _('Walkovers zählen für den Record, aber nicht für SoS oder RD.') }}
+    {%- else %}
+    {{ _('Pkt.') }} = {{ _('3 Punkte pro Sieg') }},
+    {{ _('RD') }} = {{ _('Rundendifferenz') }},
+    {{ _('Tiebreaker') }}: {{ _('Direktvergleich bei 2er-Gleichstand, danach RD') }}
+    {%- endif %}
+  </p>
+  {%- else %}
+  <p class="dimmed">{{ _('Noch keine Rangliste verfügbar.') }}</p>
+  {%- endif %}
+</aside>

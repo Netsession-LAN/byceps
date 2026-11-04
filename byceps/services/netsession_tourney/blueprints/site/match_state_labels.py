@@ -7,7 +7,7 @@ German labels for match states, shown to players.
 
 from flask_babel import gettext
 
-from ...models import MatchState
+from byceps.services.netsession_tourney.models import MatchState
 
 
 def bracket_label(state: MatchState) -> str:

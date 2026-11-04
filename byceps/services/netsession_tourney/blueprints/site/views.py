@@ -201,6 +201,8 @@ from .user_state_helpers import (
 )
 from .timetable_helpers import _build_party_timetable
 from .match_state_labels import bracket_label, open_class_name, open_label
+from .round_robin_groups_display import add_round_robin_groups
+from .stage_tabs import build_stage_tab_rows
 
 
 blueprint = create_blueprint('netsession_tourney', __name__)
@@ -1031,6 +1033,13 @@ def view_bracket(slug):
         if is_round_based_duel_tournament and not is_swiss_tournament
         else []
     )
+    add_round_robin_groups(
+        round_based_match_sections,
+        stages_by_id,
+        slots_by_match_id,
+        results_by_match_id,
+        participants_by_id,
+    )
     main_builder_display_stages = _get_builder_main_display_stages(stages)
     builder_stage_bracket_sections = (
         _build_builder_main_stage_bracket_sections(
@@ -1054,22 +1063,12 @@ def view_bracket(slug):
             builder_stage_bracket_sections,
             request.args.get('stage'),
         )
-        builder_bracket_tab_rows = [
-            {
-                'title': section['title'],
-                'url': url_for(
-                    'netsession_tourney.view_bracket',
-                    slug=tournament.slug,
-                    stage=section['key'],
-                ),
-                'is_current': (
-                    selected_builder_bracket_section is not None
-                    and section['key']
-                    == selected_builder_bracket_section['key']
-                ),
-            }
-            for section in builder_stage_bracket_sections
-        ]
+        builder_bracket_tab_rows = build_stage_tab_rows(
+            'netsession_tourney.view_bracket',
+            tournament.slug,
+            builder_stage_bracket_sections,
+            selected_builder_bracket_section,
+        )
 
     current_page_id = _get_main_nav_current_page_id()
 
@@ -1357,21 +1356,12 @@ def view_preliminaries(slug):
                 selected_stage_results_by_match_id,
                 stage_type=selected_stage.type if selected_stage is not None else None,
             )
-    preliminary_tab_rows = [
-        {
-            'title': section['title'],
-            'url': url_for(
-                'netsession_tourney.view_preliminaries',
-                slug=tournament.slug,
-                stage=section['key'],
-            ),
-            'is_current': (
-                selected_preliminary_section is not None
-                and section['key'] == selected_preliminary_section['key']
-            ),
-        }
-        for section in preliminary_sections
-    ]
+    preliminary_tab_rows = build_stage_tab_rows(
+        'netsession_tourney.view_preliminaries',
+        tournament.slug,
+        preliminary_sections,
+        selected_preliminary_section,
+    )
     preliminary_summary_lines = (
         _build_builder_stage_summary_lines(preliminary_summary_stage, stages)
         if preliminary_summary_stage is not None

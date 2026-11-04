@@ -118,7 +118,8 @@
 
 .ns-tourney-preliminary-ranking-panel .ns-tourney-ranking-table th:first-child,
 .ns-tourney-preliminary-ranking-panel .ns-tourney-ranking-table td:first-child {
-  width: 2.5rem;
+  width: 3rem;
+  padding-inline: 0;
 }
 
 .ns-tourney-preliminary-ranking-panel .ns-tourney-ranking-table th:nth-child(3),
@@ -948,7 +949,6 @@ body.ns-tourney-bracket-expanded .page-footer {
   text-transform: uppercase;
   opacity: 0.84;
 }
-
 
 .ns-tourney-bracket-canvas {
   position: relative;
