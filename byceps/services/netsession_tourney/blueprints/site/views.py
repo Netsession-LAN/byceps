@@ -27,7 +27,6 @@ from flask import (
 )
 from flask_babel import format_datetime, get_locale, gettext
 from markupsafe import Markup
-import mistletoe
 
 from byceps.services.external_accounts import external_accounts_service
 from byceps.services.party.models import PartyID
@@ -159,6 +158,9 @@ from .presentation_helpers import (
     _get_ffa_points_per_kill,
     _get_stage_duration_minutes,
     _select_builder_stage_section,
+)
+from .body_rendering import (
+    render_formatted_body_html as _render_formatted_body_html,
 )
 from .elimination_ranking import rank_by_elimination
 from .match_helpers import _get_or_create_idempotency_key
@@ -762,23 +764,9 @@ def _render_tournament_rule_template_body_html(
     if rule_template is None:
         return None
 
-    if rule_template.body_format == RuleTemplateBodyFormat.markdown:
-        rendered_html = mistletoe.markdown(rule_template.body)
-    else:
-        rendered_html = rule_template.body
-
-    return Markup(rendered_html)
-
-
-def _render_formatted_body_html(
-    body: str, body_format: RuleTemplateBodyFormat
-) -> Markup:
-    if body_format == RuleTemplateBodyFormat.markdown:
-        rendered_html = mistletoe.markdown(body)
-    else:
-        rendered_html = body
-
-    return Markup(rendered_html)
+    return _render_formatted_body_html(
+        rule_template.body, rule_template.body_format
+    )
 
 
 @blueprint.get('/<slug>')

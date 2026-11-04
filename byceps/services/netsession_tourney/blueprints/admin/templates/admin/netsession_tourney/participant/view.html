@@ -95,7 +95,7 @@
                   <input type="hidden" name="member_user_id" value="{{ member.user_id }}">
                   <button type="submit" class="button is-outlined">{{ _('Zu Teamkapitän machen') }}</button>
                 </form>
-                <form action="{{ url_for('.team_member_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, member_user_id=member.user_id, return_to='participant') }}" method="post" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Teammitglied entfernen willst?')|tojson }});">
+                <form action="{{ url_for('.team_member_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, member_user_id=member.user_id, return_to='participant') }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Teammitglied entfernen willst?')|tojson }});'>
                   <button type="submit" class="button is-outlined color-danger">{{ _('Entfernen') }}</button>
                 </form>
               </div>
@@ -205,7 +205,7 @@
             <p class="ns-admin-form-section-text">{{ _('Entfernt den Teilnehmer administrativ aus dem Turnier und protokolliert den Kommentar.') }}</p>
           </div>
         </div>
-        <form action="{{ url_for('.participant_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-stacked-form ns-admin-card-form" onsubmit="return confirm({{ _('Bist du sicher, dass du diesen Teilnehmer entfernen willst?')|tojson }});">
+        <form action="{{ url_for('.participant_remove', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-stacked-form ns-admin-card-form" onsubmit='return confirm({{ _('Bist du sicher, dass du diesen Teilnehmer entfernen willst?')|tojson }});'>
           <input type="hidden" name="return_to" value="participant">
           <div class="form-field">
             <div class="ns-admin-field-head">

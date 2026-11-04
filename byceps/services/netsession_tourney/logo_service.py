@@ -32,6 +32,7 @@ from .dbmodels import (
     DbNetsessionTourneyTournamentLogoAsset,
     DbNetsessionTourneyTournament,
 )
+from .sponsor_link import normalize_target_url
 from .models import LogoAssetID
 from .models import (
     DiscordForumImageAsset,
@@ -43,11 +44,11 @@ from .models import (
 )
 
 
+# Uploads: no SVG (may contain scripts); existing SVG files stay usable.
 ALLOWED_IMAGE_TYPES = frozenset(
     [
         ImageType.jpeg,
         ImageType.png,
-        ImageType.svg,
         ImageType.webp,
     ]
 )
@@ -55,6 +56,10 @@ ALLOWED_IMAGE_TYPES = frozenset(
 MAXIMUM_DIMENSIONS = Dimensions(512, 512)
 MAXIMUM_BANNER_DIMENSIONS = Dimensions(1200, 300)
 ALLOWED_SUFFIXES = {'.jpeg', '.jpg', '.png', '.svg', '.webp'}
+
+
+def _exceeds(size: Dimensions, maximum: Dimensions) -> bool:
+    return size.width > maximum.width or size.height > maximum.height
 
 
 def upload_logo_image(
@@ -73,7 +78,7 @@ def upload_logo_image(
 
     if image_type != ImageType.svg:
         image_dimensions = determine_dimensions(stream)
-        image_too_large = image_dimensions > MAXIMUM_DIMENSIONS
+        image_too_large = _exceeds(image_dimensions, MAXIMUM_DIMENSIONS)
         if image_too_large or not image_dimensions.is_square:
             stream = create_thumbnail(
                 stream,
@@ -445,7 +450,7 @@ def set_sponsor_logo_label(
         return Err('Logo name must not be empty.')
 
     db_asset.label = normalized_label
-    db_asset.target_url = _normalize_target_url(target_url)
+    db_asset.target_url = normalize_target_url(target_url)
     db_asset.uploaded_by_user_id = actor.id
     db.session.commit()
 
@@ -707,7 +712,7 @@ def _upload_asset_image(
 
     if image_type != ImageType.svg:
         image_dimensions = determine_dimensions(stream)
-        image_too_large = image_dimensions > max_dimensions
+        image_too_large = _exceeds(image_dimensions, max_dimensions)
         requires_square_conversion = (
             force_square and not image_dimensions.is_square
         )
@@ -729,7 +734,7 @@ def _upload_asset_image(
         return Err('Logo file already exists.')
 
     asset_label = _determine_logo_label(label, original_filename, filename)
-    asset_target_url = _normalize_target_url(target_url)
+    asset_target_url = normalize_target_url(target_url)
     if db_class is DbNetsessionTourneySponsorLogoAsset:
         db_asset = db_class(
             logo_asset_id,
@@ -820,17 +825,6 @@ def _unlink_file_if_exists(path: Path) -> None:
         path.unlink()
     except FileNotFoundError:
         pass
-
-
-def _normalize_target_url(target_url: str | None) -> str | None:
-    if target_url is None:
-        return None
-
-    normalized = target_url.strip()
-    if not normalized:
-        return None
-
-    return normalized[:500]
 
 
 def _get_logo_directory_path(party_id: PartyID) -> Path:

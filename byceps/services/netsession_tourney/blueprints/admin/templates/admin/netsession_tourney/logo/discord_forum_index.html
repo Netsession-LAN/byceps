@@ -23,7 +23,7 @@
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_field(upload_form.file, _('PNG, JPG, WEBP oder SVG. Für Discord ist ein größeres Querformat sinnvoll.')) }}
+          {{ render_field(upload_form.file, _('PNG, JPG oder WEBP. Für Discord ist ein größeres Querformat sinnvoll.')) }}
           {{ render_field(upload_form.label, _('Interne Bezeichnung für die Auswahl im Discord-Tab des Turniers.')) }}
         </div>
 
@@ -76,7 +76,7 @@
               <ol class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('.discord_forum_image_update_form', image_asset_id=logo_asset.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
                 <li>
-                  <form action="{{ url_for('.discord_forum_image_delete', image_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Discord-Forum-Bild löschen willst?')|tojson }});">
+                  <form action="{{ url_for('.discord_forum_image_delete', image_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Discord-Forum-Bild löschen willst?')|tojson }});'>
                     <button type="submit" class="dropdown-item">{{ _('Löschen') }}</button>
                   </form>
                 </li>

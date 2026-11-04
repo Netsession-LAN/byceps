@@ -170,7 +170,7 @@
       <form
         action="{{ url_for('.cancel', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});"
+        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});'
       >
         <button type="submit" class="button color-danger">{{ _('Turnier absagen') }}</button>
       </form>
@@ -184,7 +184,7 @@
       <form
         action="{{ url_for('.cancel', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});"
+        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});'
       >
         <button type="submit" class="button color-danger">{{ _('Turnier absagen') }}</button>
       </form>
@@ -192,7 +192,7 @@
       <form
         action="{{ url_for('.delete', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Turnier löschen willst?')|tojson }});"
+        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier löschen willst?')|tojson }});'
       >
         <button type="submit" class="button color-danger">{{ _('Löschen') }}</button>
       </form>
@@ -634,7 +634,7 @@
                 <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
                   {%- endif %}
                 {%- endif %}
-                <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit="return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});">
+                <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
                   <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
                 </form>
               </div>
@@ -685,7 +685,7 @@
                   <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
                     {%- endif %}
                   {%- endif %}
-                  <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit="return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});">
+                  <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
                     <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
                   </form>
                 </div>
@@ -1383,7 +1383,7 @@
           {%- if g.user.has_permission('netsession_tourney.manage') %}
           <div class="ns-admin-form-actions">
             <a href="{{ url_for('.tournament_prize_update_form', party_id=party.id, tournament_id=tournament.id, prize_id=prize.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
-            <form action="{{ url_for('.tournament_prize_delete', party_id=party.id, tournament_id=tournament.id, prize_id=prize.id) }}" method="post" onsubmit="return confirm({{ _('Bist du sicher, dass du diesen Preis löschen willst?')|tojson }});">
+            <form action="{{ url_for('.tournament_prize_delete', party_id=party.id, tournament_id=tournament.id, prize_id=prize.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diesen Preis löschen willst?')|tojson }});'>
               <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
             </form>
           </div>

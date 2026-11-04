@@ -23,7 +23,7 @@
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_field(upload_form.file, _('PNG, JPG oder SVG. Für Banner ist eine breite, transparente Variante sinnvoll.')) }}
+          {{ render_field(upload_form.file, _('PNG, JPG oder WEBP. Für Banner ist eine breite, transparente Variante sinnvoll.')) }}
           {{ render_field(upload_form.label, _('Interne Bezeichnung für die Auswahl im Turnierformular.')) }}
           {{ render_field(upload_form.target_url, _('Optionaler Link, der in der User-Ansicht beim Klick auf das Sponsor-Logo geöffnet wird.')) }}
         </div>
@@ -85,7 +85,7 @@
               <ol class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('.sponsor_logo_update_form', logo_asset_id=logo_asset.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
                 <li>
-                  <form action="{{ url_for('.sponsor_logo_delete', logo_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Sponsorlogo löschen willst?')|tojson }});">
+                  <form action="{{ url_for('.sponsor_logo_delete', logo_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Sponsorlogo löschen willst?')|tojson }});'>
                     <button type="submit" class="dropdown-item">{{ _('Löschen') }}</button>
                   </form>
                 </li>

@@ -23,7 +23,7 @@
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_field(upload_form.file, _('PNG, JPG oder SVG. Das Asset wird in der Admin- und User-UI als Turnierlogo angeboten.')) }}
+          {{ render_field(upload_form.file, _('PNG, JPG oder WEBP. Das Asset wird in der Admin- und User-UI als Turnierlogo angeboten.')) }}
           {{ render_field(upload_form.label, _('Interne Bezeichnung für die Auswahl im Turnierformular.')) }}
         </div>
 
@@ -74,7 +74,7 @@
               <ol class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('.tournament_logo_update_form', logo_asset_id=logo_asset.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
                 <li>
-                  <form action="{{ url_for('.tournament_logo_delete', logo_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Turnierlogo löschen willst?')|tojson }});">
+                  <form action="{{ url_for('.tournament_logo_delete', logo_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnierlogo löschen willst?')|tojson }});'>
                     <button type="submit" class="dropdown-item">{{ _('Löschen') }}</button>
                   </form>
                 </li>

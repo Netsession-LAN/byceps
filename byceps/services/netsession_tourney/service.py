@@ -84,6 +84,7 @@ from .engines.registry import (
     get_stage_type_specs,
 )
 from .flatout2 import get_flatout2_mode_label
+from .browser_push_endpoint import validate_push_subscription
 from .result_report_mode import (
     RESULT_REPORT_MODE_ADMIN_ONLY,
     RESULT_REPORT_MODE_BOTH_MUST_CONFIRM,
@@ -9980,8 +9981,9 @@ def upsert_browser_push_subscription(
     endpoint = endpoint.strip()
     endpoint_p256dh = endpoint_p256dh.strip()
     endpoint_auth = endpoint_auth.strip()
-    if not endpoint or not endpoint_p256dh or not endpoint_auth:
-        return Err('Subscription data is incomplete.')
+    error = validate_push_subscription(endpoint, endpoint_p256dh, endpoint_auth)
+    if error is not None:
+        return Err(error)
 
     now = datetime.utcnow()
     try:
@@ -11745,6 +11747,7 @@ def _seed_swiss_follow_up_rounds(
     stage: Stage,
 ) -> list[MatchID]:
     newly_ready_match_ids: list[MatchID] = []
+    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
         .filter_by(tournament_id=tournament_id, stage_id=stage.id)
@@ -11765,9 +11768,8 @@ def _seed_swiss_follow_up_rounds(
             DbNetsessionTourneyMatchSlot.slot_no.asc(),
         )
     ).all()
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
-        defaultdict(list)
-    )
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]]
+    slots_by_match_id = defaultdict(list)
     for db_slot in db_slots:
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
@@ -11861,7 +11863,7 @@ def _seed_swiss_follow_up_rounds(
                 )
 
             next_state = _calculate_match_state_for_slots(
-                tournament_status=_get_tournament_status_value(tournament_id),
+                tournament_status=db_tournament.status,
                 db_match_slots=db_match_slots,
             )
             db_match.state = next_state.value
@@ -11871,13 +11873,6 @@ def _seed_swiss_follow_up_rounds(
             db_match.updated_at = datetime.utcnow()
 
     return newly_ready_match_ids
-
-
-def _get_tournament_status_value(tournament_id: TournamentID) -> str:
-    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
-    if db_tournament is None:
-        raise ValueError(f'Unknown tournament ID "{tournament_id}"')
-    return db_tournament.status
 
 
 def _advance_stage_from_match(
@@ -11999,7 +11994,7 @@ def _advance_stage_from_match(
             select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
         ).all()
         next_state = _calculate_match_state_for_slots(
-            tournament_status=_get_tournament_status_value(tournament_id),
+            tournament_status=tournament_status,
             db_match_slots=db_match_slots,
         )
         db_match.state = next_state.value

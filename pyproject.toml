@@ -45,6 +45,7 @@ dependencies = [
     "lanpartydb>=0.13.0",
     "markupsafe==3.0.3",
     "mistletoe>=1.6.0",
+    "nh3>=0.3.0",
     "paypal-checkout-serversdk==1.0.3",
     "paypalhttp==1.0.1",
     "pillow>=13.0.0",
