@@ -40,7 +40,6 @@ from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
 from byceps.util.l10n import get_default_locale
 from byceps.util.views import login_required, redirect_to
-from byceps.util.uuid import generate_uuid7
 
 from ...logo_service import upload_logo_image
 from ...forms import (
@@ -162,6 +161,7 @@ from .presentation_helpers import (
     _select_builder_stage_section,
 )
 from .elimination_ranking import rank_by_elimination
+from .match_helpers import _get_or_create_idempotency_key
 from .ranking_helpers import (
     _are_all_rankable_matches_completed,
     _build_ffa_ranking_rows,
@@ -1465,10 +1465,9 @@ def view_ranking(slug):
             stage_type=StageType.swiss if is_swiss_tournament else None,
         )
     )
-    if not (is_ffa_scoring_tournament or is_flatout2_tournament):
-        ranking = rank_by_elimination(
-            ranking, stages, matches, slots_by_match_id, results_by_match_id
-        )
+    ranking = rank_by_elimination(
+        ranking, stages, matches, slots_by_match_id, results_by_match_id
+    )
     has_ranking_data = _has_rankable_results(
         matches, slots_by_match_id, results_by_match_id
     )
@@ -1844,10 +1843,6 @@ def view_match(slug, match_id):
         is_admin_or_referee = user.has_permission(
             'netsession_tourney.manage'
         ) or user.has_permission('netsession_tourney.admin')
-        # Whether a player may report is decided per stage
-        # (`result_report_mode`) and by managing a participant of the match.
-        # Admins/referees enter results in the admin UI; the site route always
-        # reports as a participant, so the form is shown to participants only.
         can_report = _can_user_report_match_result(
             user.id,
             tournament,
@@ -2526,15 +2521,6 @@ def _build_overview_stage_type_label(stages) -> str:
         )
 
     return main_stage_label
-
-
-def _get_or_create_idempotency_key(raw_key: str | None) -> str:
-    if raw_key:
-        key = raw_key.strip()
-        if key:
-            return key
-
-    return f'site-{generate_uuid7()}'
 
 
 def get_participants_for_tournament_indexed_by_id(

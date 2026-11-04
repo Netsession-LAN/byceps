@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from byceps.util.uuid import generate_uuid7
+
 from ...models import StageType
 from .double_elimination_rendering import (
     build_double_elimination_match_labels,
@@ -243,3 +245,12 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
         }
 
     return {}
+
+
+def _get_or_create_idempotency_key(raw_key: str | None) -> str:
+    if raw_key:
+        key = raw_key.strip()
+        if key:
+            return key
+
+    return f'site-{generate_uuid7()}'
