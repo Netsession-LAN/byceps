@@ -2724,6 +2724,81 @@ def test_player_cannot_report_in_admin_only_stage(
     assert admin_result.is_ok()
 
 
+@pytest.mark.parametrize(
+    ('stage_type', 'grand_final_winner_slot', 'expected_states'),
+    [
+        # Loser of match 1 wins the grand final: in the double grand final
+        # variant the reset match has to be played.
+        (StageType.double_elimination, 2, ['completed', 'completed']),
+        (
+            StageType.double_elimination_double_grand_final,
+            2,
+            ['completed', 'completed', 'ready'],
+        ),
+        # Winner of match 1 wins again: reset match is skipped.
+        (
+            StageType.double_elimination_double_grand_final,
+            1,
+            ['completed', 'completed', 'completed'],
+        ),
+    ],
+)
+def test_double_elimination_with_two_participants_gives_second_chance(
+    admin_app,
+    party,
+    admin_user,
+    make_user,
+    make_ticket_category,
+    stage_type,
+    grand_final_winner_slot,
+    expected_states,
+):
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-de-two-' + generate_token().lower(),
+        'NS DE Two',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = tourney_service.create_stage(
+        party.id, tournament.id, stage_type, 'DE', {}, admin_user
+    ).unwrap()
+    for _ in range(2):
+        player = make_user('NS_DETwo_' + generate_token())
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+        assert tourney_service.register_user(
+            party.id, tournament.id, player
+        ).is_ok()
+    assert tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    tourney_service.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+
+    def matches():
+        return sorted(
+            tourney_service.get_matches_for_tournament(party.id, tournament.id),
+            key=lambda match: match.match_no,
+        )
+
+    for match, winner_slot in zip(matches()[:2], (1, grand_final_winner_slot)):
+        assert tourney_service.report_result(
+            party.id,
+            tournament.id,
+            match.id,
+            admin_user.id,
+            idempotency_key='de-two-' + generate_token(),
+            winner_slot=winner_slot,
+            score={'display': '1:0'},
+            actor_is_admin_or_referee=True,
+            admin_comment='Test',
+        ).is_ok()
+
+    assert [match.state.value for match in matches()] == expected_states
+
+
 def _assign_party_ticket_to_user(party_id, user, make_ticket_category) -> None:
     category = make_ticket_category(
         party_id, 'NS-Ticket-' + generate_token()

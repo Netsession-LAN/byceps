@@ -281,3 +281,30 @@ def test_all_stage_types_can_generate_matches():
         result = engine.generate(stage, participant_ids)
         assert result.is_ok()
         assert result.unwrap()
+
+
+def test_double_elimination_with_two_participants_has_grand_final():
+    stage = _create_stage(StageType.double_elimination)
+    engine = find_stage_engine(stage.type)
+
+    specs = engine.generate(stage, _create_participant_ids(2)).unwrap()
+
+    assert [(spec.round_no, spec.match_no) for spec in specs] == [(1, 1), (2, 2)]
+    grand_final = specs[1]
+    assert {(slot.source_match_no, slot.source_outcome) for slot in grand_final.slots} == {
+        (1, 'winner'),
+        (1, 'loser'),
+    }
+
+
+def test_double_grand_final_with_two_participants_has_reset_match():
+    stage = _create_stage(StageType.double_elimination_double_grand_final)
+    engine = find_stage_engine(stage.type)
+
+    specs = engine.generate(stage, _create_participant_ids(2)).unwrap()
+
+    assert len(specs) == 3
+    assert {(slot.source_match_no, slot.source_outcome) for slot in specs[2].slots} == {
+        (2, 'winner'),
+        (2, 'loser'),
+    }

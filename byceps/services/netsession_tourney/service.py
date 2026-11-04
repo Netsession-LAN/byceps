@@ -85,6 +85,9 @@ from .engines.registry import (
 )
 from .flatout2 import get_flatout2_mode_label
 from .browser_push_endpoint import validate_push_subscription
+from .eligibility import (
+    validate_user_uses_ticket_for_party as _validate_user_uses_ticket_for_party,
+)
 from .result_report_mode import (
     RESULT_REPORT_MODE_ADMIN_ONLY,
     RESULT_REPORT_MODE_BOTH_MUST_CONFIRM,
@@ -1259,6 +1262,17 @@ def get_recent_coin_ledger_entries_for_user(
     return [_db_coin_ledger_entry_to_model(db_row) for db_row in db_rows]
 
 
+def _count_team_members(participant_id: ParticipantID) -> int:
+    return int(
+        db.session.scalar(
+            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
+                participant_id=participant_id
+            )
+        )
+        or 0
+    )
+
+
 def adjust_user_coins(
     party_id: PartyID,
     user_id: UserID,
@@ -1268,6 +1282,8 @@ def adjust_user_coins(
 ) -> Result[UserCoinBalance, str]:
     if amount_delta == 0:
         return Err('Amount delta must not be zero.')
+    if get_user_coin_balance(party_id, user_id).available_coins + amount_delta < 0:
+        return Err('Das Coin-Guthaben darf nicht negativ werden.')
 
     note_clean = note.strip() or None
     now = datetime.utcnow()
@@ -3340,11 +3356,7 @@ def join_team_by_invite_code(
         return Err('This team is not open for joining.')
     max_team_member_count = _get_max_team_member_count(tournament)
     if max_team_member_count is not None:
-        member_count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
-                participant_id=db_participant.id
-            )
-        )
+        member_count = _count_team_members(db_participant.id)
     if int(member_count or 0) >= max_team_member_count:
         return Err('This team is already full.')
 
@@ -3412,6 +3424,8 @@ def add_user_participant_by_admin(
         return Err(
             'Direct user adding is only available for solo or mixed registration mode.'
         )
+    if (ticket_check := _validate_user_uses_ticket_for_party(participant_user.id, party_id)).is_err():
+        return ticket_check
     if _is_user_already_active_participant(tournament_id, participant_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
 
@@ -3478,6 +3492,8 @@ def create_team_by_admin(
         )
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Team management is not available for solo registration mode.')
+    if (ticket_check := _validate_user_uses_ticket_for_party(captain_user.id, party_id)).is_err():
+        return ticket_check
     if _is_user_already_active_participant(tournament_id, captain_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
 
@@ -3570,16 +3586,14 @@ def add_team_member_by_admin(
     if db_participant is None:
         return Err('Unknown team.')
 
+    if (ticket_check := _validate_user_uses_ticket_for_party(member_user.id, party_id)).is_err():
+        return ticket_check
     if _is_user_already_active_participant(tournament_id, member_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
 
     max_team_member_count = _get_max_team_member_count(tournament)
     if max_team_member_count is not None:
-        member_count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
-                participant_id=participant_id
-            )
-        )
+        member_count = _count_team_members(participant_id)
         if int(member_count or 0) >= max_team_member_count:
             return Err('This team is already full.')
 
@@ -3873,11 +3887,7 @@ def add_team_member_by_captain(
 
     max_team_member_count = _get_max_team_member_count(tournament)
     if max_team_member_count is not None:
-        member_count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
-                participant_id=participant_id
-            )
-        )
+        member_count = _count_team_members(participant_id)
         if int(member_count or 0) >= max_team_member_count:
             return Err('This team is already full.')
 
@@ -3958,11 +3968,7 @@ def set_managed_team_ready_state(
         return Err('Team not found or not manageable by this user.')
 
     if ready and tournament.team_size is not None:
-        member_count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
-                participant_id=participant_id
-            )
-        )
+        member_count = _count_team_members(participant_id)
         if int(member_count or 0) != tournament.team_size:
             return Err(
                 f'Team is not complete. Required team size: {tournament.team_size}.'
@@ -12093,8 +12099,8 @@ def _update_optional_double_grand_final_state(
             match_id=source_match_id, slot_no=1
         )
     )
-    if db_source_slot is None:
-        return
+    if db_source_slot is None or db_source_slot.source_match_slot_id is None:
+        return  # first-round match, not grand final 1 (2 participants)
 
     downstream_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot).filter_by(
@@ -13701,17 +13707,6 @@ def _ensure_registration_is_registered(
         return
 
     db_registration.state = RegistrationState.registered.value
-
-
-def _validate_user_uses_ticket_for_party(
-    user_id: UserID, party_id: PartyID
-) -> Result[None, str]:
-    if ticket_service.uses_any_ticket_for_party(user_id, party_id):
-        return Ok(None)
-
-    return Err(
-        'Using a ticket for this party is required to register for tournaments.'
-    )
 
 
 def _find_db_managed_team_participant(

@@ -58,18 +58,7 @@ class _SingleEliminationEngine(StageEngine):
                     round_no=round_no,
                     match_no=match_no,
                     state=state,
-                    slots=[
-                        SlotSpec(
-                            slot_no=1,
-                            participant_id=p1,
-                            source_match_no=None,
-                        ),
-                        SlotSpec(
-                            slot_no=2,
-                            participant_id=p2,
-                            source_match_no=None,
-                        ),
-                    ],
+                    slots=_seeded_slots(p1, p2),
                 )
             )
             previous_round_match_numbers.append(match_no)
@@ -113,18 +102,8 @@ class _SingleEliminationEngine(StageEngine):
                         match_no=match_no,
                         state='pending',
                         slots=[
-                            SlotSpec(
-                                slot_no=1,
-                                participant_id=None,
-                                source_match_no=semifinal_1,
-                                source_outcome='loser',
-                            ),
-                            SlotSpec(
-                                slot_no=2,
-                                participant_id=None,
-                                source_match_no=semifinal_2,
-                                source_outcome='loser',
-                            ),
+                            _sourced_slot(1, semifinal_1, 'loser'),
+                            _sourced_slot(2, semifinal_2, 'loser'),
                         ],
                     )
                 )
@@ -190,6 +169,24 @@ class _DoubleEliminationEngine(StageEngine):
             return Err('At least 2 participants are required.')
         return Ok(None)
 
+    def _generate_for_two(self, bracket_slots) -> list[MatchSpec]:
+        """Two participants: the loser of match 1 gets a second chance in a
+        grand final (rematch); the double grand final variant adds a reset
+        match, skipped if the winner of match 1 also wins the grand final."""
+        p1 = bracket_slots[0]
+        p2 = bracket_slots[1] if len(bracket_slots) > 1 else None
+        specs = {
+            1: (_seeded_slots(p1, p2), 'ready' if p1 and p2 else 'pending'),
+            2: ([_sourced_slot(1, 1, 'winner'), _sourced_slot(2, 1, 'loser')],
+                'pending'),
+        }
+        if self._include_double_grand_final:
+            specs[3] = (
+                [_sourced_slot(1, 2, 'winner'), _sourced_slot(2, 2, 'loser')],
+                'pending',
+            )
+        return _with_computed_round_numbers(specs)
+
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
     ) -> Result[list[MatchSpec], str]:
@@ -200,31 +197,8 @@ class _DoubleEliminationEngine(StageEngine):
         bracket_slots = _build_seeded_bracket_slots(participant_ids)
         bracket_size = len(bracket_slots)
 
-        # Degenerate case (2 participants): one duel is sufficient.
         if bracket_size <= 2:
-            p1 = bracket_slots[0]
-            p2 = bracket_slots[1] if len(bracket_slots) > 1 else None
-            return Ok(
-                [
-                    MatchSpec(
-                        round_no=1,
-                        match_no=1,
-                        state='ready' if p1 and p2 else 'pending',
-                        slots=[
-                            SlotSpec(
-                                slot_no=1,
-                                participant_id=p1,
-                                source_match_no=None,
-                            ),
-                            SlotSpec(
-                                slot_no=2,
-                                participant_id=p2,
-                                source_match_no=None,
-                            ),
-                        ],
-                    )
-                ]
-            )
+            return Ok(self._generate_for_two(bracket_slots))
 
         specs_by_match_no: dict[int, tuple[list[SlotSpec], str]] = {}
         match_no = 1
@@ -238,18 +212,7 @@ class _DoubleEliminationEngine(StageEngine):
             p2 = bracket_slots[index + 1]
             state = 'ready' if p1 and p2 else 'pending'
             specs_by_match_no[match_no] = (
-                [
-                    SlotSpec(
-                        slot_no=1,
-                        participant_id=p1,
-                        source_match_no=None,
-                    ),
-                    SlotSpec(
-                        slot_no=2,
-                        participant_id=p2,
-                        source_match_no=None,
-                    ),
-                ],
+                _seeded_slots(p1, p2),
                 state,
             )
             wb_round_1.append(match_no)
@@ -265,18 +228,8 @@ class _DoubleEliminationEngine(StageEngine):
                 source_b = previous_wb_round[index + 1]
                 specs_by_match_no[match_no] = (
                     [
-                        SlotSpec(
-                            slot_no=1,
-                            participant_id=None,
-                            source_match_no=source_a,
-                            source_outcome='winner',
-                        ),
-                        SlotSpec(
-                            slot_no=2,
-                            participant_id=None,
-                            source_match_no=source_b,
-                            source_outcome='winner',
-                        ),
+                        _sourced_slot(1, source_a, 'winner'),
+                        _sourced_slot(2, source_b, 'winner'),
                     ],
                     'pending',
                 )
@@ -299,18 +252,8 @@ class _DoubleEliminationEngine(StageEngine):
             source_b = wb_first_round[index + 1]
             specs_by_match_no[match_no] = (
                 [
-                    SlotSpec(
-                        slot_no=1,
-                        participant_id=None,
-                        source_match_no=source_a,
-                        source_outcome='loser',
-                    ),
-                    SlotSpec(
-                        slot_no=2,
-                        participant_id=None,
-                        source_match_no=source_b,
-                        source_outcome='loser',
-                    ),
+                    _sourced_slot(1, source_a, 'loser'),
+                    _sourced_slot(2, source_b, 'loser'),
                 ],
                 'pending',
             )
@@ -328,18 +271,8 @@ class _DoubleEliminationEngine(StageEngine):
                     source_b = lb_previous_round[index + 1]
                     specs_by_match_no[match_no] = (
                         [
-                            SlotSpec(
-                                slot_no=1,
-                                participant_id=None,
-                                source_match_no=source_a,
-                                source_outcome='winner',
-                            ),
-                            SlotSpec(
-                                slot_no=2,
-                                participant_id=None,
-                                source_match_no=source_b,
-                                source_outcome='winner',
-                            ),
+                            _sourced_slot(1, source_a, 'winner'),
+                            _sourced_slot(2, source_b, 'winner'),
                         ],
                         'pending',
                     )
@@ -352,18 +285,8 @@ class _DoubleEliminationEngine(StageEngine):
                 lb_match_no = lb_previous_round[index]
                 specs_by_match_no[match_no] = (
                     [
-                        SlotSpec(
-                            slot_no=1,
-                            participant_id=None,
-                            source_match_no=lb_match_no,
-                            source_outcome='winner',
-                        ),
-                        SlotSpec(
-                            slot_no=2,
-                            participant_id=None,
-                            source_match_no=wb_match_no,
-                            source_outcome='loser',
-                        ),
+                        _sourced_slot(1, lb_match_no, 'winner'),
+                        _sourced_slot(2, wb_match_no, 'loser'),
                     ],
                     'pending',
                 )
@@ -377,18 +300,8 @@ class _DoubleEliminationEngine(StageEngine):
         # Grand Final #1.
         specs_by_match_no[match_no] = (
             [
-                SlotSpec(
-                    slot_no=1,
-                    participant_id=None,
-                    source_match_no=wb_final_match_no,
-                    source_outcome='winner',
-                ),
-                SlotSpec(
-                    slot_no=2,
-                    participant_id=None,
-                    source_match_no=lb_final_match_no,
-                    source_outcome='winner',
-                ),
+                _sourced_slot(1, wb_final_match_no, 'winner'),
+                _sourced_slot(2, lb_final_match_no, 'winner'),
             ],
             'pending',
         )
@@ -401,18 +314,8 @@ class _DoubleEliminationEngine(StageEngine):
             # loss and must play once more.
             specs_by_match_no[match_no] = (
                 [
-                    SlotSpec(
-                        slot_no=1,
-                        participant_id=None,
-                        source_match_no=grand_final_match_no,
-                        source_outcome='winner',
-                    ),
-                    SlotSpec(
-                        slot_no=2,
-                        participant_id=None,
-                        source_match_no=grand_final_match_no,
-                        source_outcome='loser',
-                    ),
+                    _sourced_slot(1, grand_final_match_no, 'winner'),
+                    _sourced_slot(2, grand_final_match_no, 'loser'),
                 ],
                 'pending',
             )
@@ -583,18 +486,7 @@ class _SwissEngine(StageEngine):
                         round_no=round_no,
                         match_no=match_no,
                         state=state,
-                        slots=[
-                            SlotSpec(
-                                slot_no=1,
-                                participant_id=p1,
-                                source_match_no=None,
-                            ),
-                            SlotSpec(
-                                slot_no=2,
-                                participant_id=p2,
-                                source_match_no=None,
-                            ),
-                        ],
+                        slots=_seeded_slots(p1, p2),
                     )
                 )
                 match_no += 1
@@ -1173,6 +1065,24 @@ def get_ffa_custom_bracket_engine() -> StageEngine:
     return _FfaKnockoutEngine()
 
 
+def _seeded_slots(
+    participant_1: ParticipantID | None, participant_2: ParticipantID | None
+) -> list[SlotSpec]:
+    return [
+        SlotSpec(slot_no=1, participant_id=participant_1, source_match_no=None),
+        SlotSpec(slot_no=2, participant_id=participant_2, source_match_no=None),
+    ]
+
+
+def _sourced_slot(slot_no: int, source_match_no: int, outcome: str) -> SlotSpec:
+    return SlotSpec(
+        slot_no=slot_no,
+        participant_id=None,
+        source_match_no=source_match_no,
+        source_outcome=outcome,
+    )
+
+
 def _build_score_based_standings(
     participant_ids: list[ParticipantID],
     match_scores: dict[ParticipantID, int],
@@ -1259,18 +1169,7 @@ def _generate_round_robin_specs(
                     round_no=round_no,
                     match_no=match_no,
                     state='pending' if p2 is None else 'ready',
-                    slots=[
-                        SlotSpec(
-                            slot_no=1,
-                            participant_id=p1,
-                            source_match_no=None,
-                        ),
-                        SlotSpec(
-                            slot_no=2,
-                            participant_id=p2,
-                            source_match_no=None,
-                        ),
-                    ],
+                    slots=_seeded_slots(p1, p2),
                 )
             )
             match_no += 1
