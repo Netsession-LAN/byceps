@@ -230,20 +230,38 @@ from .coin_service import (  # noqa: F401
     get_user_coin_balances,
     is_tournament_coin_refund_available,
 )
+from .tournament_queries import (  # noqa: F401
+    ACTIVE_PARTICIPANT_STATUS_VALUES,
+    _build_flatout2_first_race_summary,
+    _build_flatout2_round_race_lines,
+    _build_site_match_path,
+    _build_site_tournament_overview_path,
+    _db_stage_to_model_with_effective_status,
+    _find_db_tournament_for_party,
+    _get_active_user_ids_for_tournament,
+    _get_ffa_points_per_kill,
+    _get_flatout2_round_races,
+    _get_match_host_participant_id,
+    _get_match_involved_user_ids,
+    _get_selected_host_user_ids,
+    _is_walkover_score_json,
+    _parse_match_result_slot_scores,
+    _parse_numeric_score_value,
+    get_participants_for_tournament,
+    get_stages_for_tournament,
+)
+from .ranking_order import (  # noqa: F401
+    _build_swiss_head_to_head_scores,
+    _sort_ranked_participant_ids,
+)
+from .stage_ranking import (  # noqa: F401
+    _StageRankingData,
+    _build_stage_ranking_data,
+    _get_ranked_participant_ids_for_stage,
+)
 
 
 log = structlog.get_logger()
-
-
-@dataclass(frozen=True, kw_only=True)
-class _StageRankingData:
-    db_stage: DbNetsessionTourneyStage
-    db_matches: list[DbNetsessionTourneyMatch]
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]]
-    rows_by_participant_id: dict[ParticipantID, dict[str, Any]]
-    head_to_head_winner_id_by_pair: dict[frozenset[ParticipantID], ParticipantID]
-    opponent_ids_by_participant_id: dict[ParticipantID, list[ParticipantID]]
-    is_ffa_scoring_stage: bool
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -304,12 +322,6 @@ BROWSER_PUSH_MAX_ATTEMPTS = 5
 DISCORD_DM_MAX_ATTEMPTS = 5
 DISCORD_DM_TIMEOUT_SECONDS = 10
 
-ACTIVE_PARTICIPANT_STATUS_VALUES = {
-    ParticipantStatus.forming.value,
-    ParticipantStatus.ready.value,
-    ParticipantStatus.checked_in.value,
-    ParticipantStatus.locked.value,
-}
 BRACKET_READY_PARTICIPANT_STATUS_VALUES = {
     ParticipantStatus.ready.value,
     ParticipantStatus.checked_in.value,
@@ -2107,26 +2119,6 @@ def delete_stage(
     return Ok(None)
 
 
-def get_stages_for_tournament(
-    party_id: PartyID, tournament_id: TournamentID
-) -> list[Stage]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
-    if db_tournament is None:
-        return []
-
-    db_stages = db.session.scalars(
-        select(DbNetsessionTourneyStage)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(DbNetsessionTourneyStage.order_no.asc())
-    ).all()
-    return [
-        _db_stage_to_model_with_effective_status(
-            item, tournament_status=db_tournament.status
-        )
-        for item in db_stages
-    ]
-
-
 def publish_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[Tournament, str]:
@@ -3915,33 +3907,6 @@ def get_user_active_participation_tournament_ids(
     ).all()
 
     return set(direct_rows).union(team_rows)
-
-
-def get_participants_for_tournament(
-    party_id: PartyID,
-    tournament_id: TournamentID,
-    *,
-    include_dropped: bool = False,
-) -> list[Participant]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
-        return []
-
-    stmt = (
-        select(DbNetsessionTourneyParticipant)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(
-            DbNetsessionTourneyParticipant.seed.asc().nullslast(),
-            DbNetsessionTourneyParticipant.created_at.asc(),
-        )
-    )
-    if not include_dropped:
-        stmt = stmt.filter(
-            DbNetsessionTourneyParticipant.status
-            != ParticipantStatus.dropped.value
-        )
-
-    db_participants = db.session.scalars(stmt).all()
-    return [_db_participant_to_model(item) for item in db_participants]
 
 
 def get_participants_by_ids(
@@ -6437,30 +6402,6 @@ def _get_effective_qualifier_top_n_for_source_stage(
     return Ok(top_n)
 
 
-def _get_ranked_participant_ids_for_stage(
-    stage_id: StageID,
-    tournament_id: TournamentID,
-) -> Result[list[ParticipantID], str]:
-    ranking_data_result = _build_stage_ranking_data(stage_id, tournament_id)
-    if ranking_data_result.is_err():
-        return Err(ranking_data_result.unwrap_err())
-
-    ranking_data = ranking_data_result.unwrap()
-    ranked_participant_ids = _sort_ranked_participant_ids(
-        ranking_data.rows_by_participant_id,
-        stage_type=ranking_data.db_stage.type,
-        head_to_head_winner_id_by_pair=(
-            ranking_data.head_to_head_winner_id_by_pair
-        ),
-        is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
-    )
-
-    if not ranked_participant_ids:
-        return Err('contains no rankable participants.')
-
-    return Ok(ranked_participant_ids)
-
-
 def _get_ranked_participant_ids_by_group_for_stage(
     stage_id: StageID,
     tournament_id: TournamentID,
@@ -6567,549 +6508,6 @@ def _get_ranked_participant_ids_by_group_for_stage(
             for _, sorted_group_participant_ids in ranked_group_participant_ids
         ]
     )
-
-
-def _build_stage_ranking_data(
-    stage_id: StageID,
-    tournament_id: TournamentID,
-) -> Result[_StageRankingData, str]:
-    db_stage = db.session.get(DbNetsessionTourneyStage, stage_id)
-    if db_stage is None:
-        return Err('existiert nicht.')
-
-    db_matches = db.session.scalars(
-        select(DbNetsessionTourneyMatch)
-        .filter_by(stage_id=stage_id, tournament_id=tournament_id)
-        .order_by(
-            DbNetsessionTourneyMatch.round_no.asc(),
-            DbNetsessionTourneyMatch.match_no.asc(),
-        )
-    ).all()
-    if not db_matches:
-        return Err('no matches generated yet.')
-
-    if any(match.state != MatchState.completed.value for match in db_matches):
-        return Err('is not fully completed yet.')
-
-    match_ids = [match.id for match in db_matches]
-    db_slots = db.session.scalars(
-        select(DbNetsessionTourneyMatchSlot).filter(
-            DbNetsessionTourneyMatchSlot.match_id.in_(match_ids)
-        )
-    ).all()
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
-        defaultdict(list)
-    )
-    participant_ids: set[ParticipantID] = set()
-    for db_slot in db_slots:
-        slots_by_match_id[db_slot.match_id].append(db_slot)
-        if db_slot.participant_id is not None:
-            participant_ids.add(db_slot.participant_id)
-
-    if not participant_ids:
-        return Err('contains no participants.')
-
-    db_participants = db.session.scalars(
-        select(DbNetsessionTourneyParticipant)
-        .filter_by(tournament_id=tournament_id)
-        .filter(DbNetsessionTourneyParticipant.id.in_(participant_ids))
-    ).all()
-    db_participant_by_id = {
-        participant.id: participant for participant in db_participants
-    }
-
-    rows_by_participant_id: dict[ParticipantID, dict[str, Any]] = {}
-    for participant_id in participant_ids:
-        db_participant = db_participant_by_id.get(participant_id)
-        if db_participant is None:
-            continue
-
-        rows_by_participant_id[participant_id] = {
-            'total_points': 0,
-            'points': 0,
-            'wins': 0,
-            'losses': 0,
-            'match_points': 0,
-            'round_wins': 0,
-            'round_losses': 0,
-            'round_diff': 0,
-            'buchholz': 0,
-            'opponent_wl_sum': 0,
-            'second_order_sos': 0,
-            'kills': 0,
-            'placement': None,
-            'seed': db_participant.seed,
-            'created_at': db_participant.created_at,
-        }
-
-    is_ffa_scoring_stage = db_stage.type in {
-        StageType.ffa_simple.value,
-        StageType.ffa_single_elimination.value,
-        StageType.ffa_flatout2_single_elimination.value,
-    }
-    is_swiss_stage = db_stage.type == StageType.swiss.value
-    points_per_kill = _get_ffa_points_per_kill(dict(db_stage.settings_json or {}))
-
-    db_results = db.session.scalars(
-        select(DbNetsessionTourneyMatchResult).filter(
-            DbNetsessionTourneyMatchResult.match_id.in_(match_ids)
-        )
-    ).all()
-    opponent_ids_by_participant_id: dict[ParticipantID, list[ParticipantID]] = (
-        defaultdict(list)
-    )
-    head_to_head_winner_id_by_pair: dict[
-        frozenset[ParticipantID], ParticipantID
-    ] = {}
-    for db_result in db_results:
-        db_match_slots = slots_by_match_id.get(db_result.match_id, [])
-        real_match_slots = [
-            db_slot
-            for db_slot in db_match_slots
-            if db_slot.participant_id is not None
-        ]
-        real_participant_ids = [
-            db_slot.participant_id
-            for db_slot in real_match_slots
-            if db_slot.participant_id is not None
-        ]
-        winner_participant_id = None
-        if db_result.winner_slot is not None:
-            winner_participant_id = next(
-                (
-                    slot.participant_id
-                    for slot in db_match_slots
-                    if slot.slot_no == db_result.winner_slot
-                ),
-                None,
-            )
-
-        placement_by_slot_no: dict[int, int] = {}
-        points_by_slot_no: dict[int, int] = {}
-        if is_ffa_scoring_stage:
-            raw_ranking = db_result.ranking_json or {}
-            raw_placements = raw_ranking.get('placements')
-            if isinstance(raw_placements, dict):
-                for db_slot in db_match_slots:
-                    raw_value = raw_placements.get(str(db_slot.slot_no))
-                    if raw_value is None:
-                        raw_value = raw_placements.get(db_slot.slot_no)
-                    try:
-                        placement_by_slot_no[db_slot.slot_no] = int(raw_value)
-                    except (TypeError, ValueError):
-                        continue
-            raw_points = raw_ranking.get('points')
-            if isinstance(raw_points, dict):
-                for db_slot in db_match_slots:
-                    raw_value = raw_points.get(str(db_slot.slot_no))
-                    if raw_value is None:
-                        raw_value = raw_points.get(db_slot.slot_no)
-                    try:
-                        points_by_slot_no[db_slot.slot_no] = int(raw_value)
-                    except (TypeError, ValueError):
-                        continue
-
-        score_slots = _parse_match_result_slot_scores(
-            real_match_slots,
-            db_result.score_json,
-            winner_slot=db_result.winner_slot,
-        )
-        is_walkover_result = _is_walkover_score_json(db_result.score_json)
-
-        if (
-            len(real_participant_ids) == 2
-            and winner_participant_id in real_participant_ids
-            and not (is_swiss_stage and is_walkover_result)
-        ):
-            participant_a, participant_b = real_participant_ids
-            opponent_ids_by_participant_id[participant_a].append(
-                participant_b
-            )
-            opponent_ids_by_participant_id[participant_b].append(
-                participant_a
-            )
-            head_to_head_winner_id_by_pair[
-                frozenset(real_participant_ids)
-            ] = winner_participant_id
-
-        for db_slot in db_match_slots:
-            participant_id = db_slot.participant_id
-            if participant_id is None:
-                continue
-
-            row = rows_by_participant_id.get(participant_id)
-            if row is None:
-                continue
-
-            if is_ffa_scoring_stage:
-                row['points'] += points_by_slot_no.get(db_slot.slot_no, 0)
-                raw_kills = score_slots.get(str(db_slot.slot_no))
-                if raw_kills is None:
-                    raw_kills = score_slots.get(db_slot.slot_no)
-                try:
-                    row['kills'] += int(raw_kills)
-                except (TypeError, ValueError):
-                    pass
-                row['total_points'] = row['points'] + (
-                    row['kills'] * points_per_kill
-                )
-
-                placement = placement_by_slot_no.get(db_slot.slot_no)
-                if (
-                    placement is not None
-                    and (
-                        row['placement'] is None
-                        or placement < row['placement']
-                    )
-                ):
-                    row['placement'] = placement
-
-            if (
-                winner_participant_id is None
-                or len(real_participant_ids) < 2
-            ):
-                continue
-
-            if participant_id == winner_participant_id:
-                row['wins'] += 1
-                row['match_points'] += 3
-            else:
-                row['losses'] += 1
-
-            if len(real_participant_ids) != 2:
-                continue
-
-            if is_swiss_stage and is_walkover_result:
-                continue
-
-            raw_round_wins = score_slots.get(str(db_slot.slot_no))
-            if raw_round_wins is None:
-                raw_round_wins = score_slots.get(db_slot.slot_no)
-            round_wins = _parse_numeric_score_value(raw_round_wins)
-
-            round_losses = sum(
-                _parse_numeric_score_value(
-                    score_slots.get(str(other_slot.slot_no))
-                    if score_slots.get(str(other_slot.slot_no)) is not None
-                    else score_slots.get(other_slot.slot_no)
-                )
-                for other_slot in real_match_slots
-                if other_slot.slot_no != db_slot.slot_no
-            )
-            row['round_wins'] += round_wins
-            row['round_losses'] += round_losses
-            row['round_diff'] = row['round_wins'] - row['round_losses']
-
-    for participant_id, row in rows_by_participant_id.items():
-        row['buchholz'] = sum(
-            rows_by_participant_id.get(opponent_id, {}).get('wins', 0)
-            for opponent_id in opponent_ids_by_participant_id.get(
-                participant_id, []
-            )
-        )
-        row['opponent_wl_sum'] = sum(
-            rows_by_participant_id.get(opponent_id, {}).get('wins', 0)
-            - rows_by_participant_id.get(opponent_id, {}).get('losses', 0)
-            for opponent_id in opponent_ids_by_participant_id.get(
-                participant_id, []
-            )
-        )
-    for participant_id, row in rows_by_participant_id.items():
-        row['second_order_sos'] = sum(
-            rows_by_participant_id.get(opponent_id, {}).get(
-                'opponent_wl_sum', 0
-            )
-            for opponent_id in opponent_ids_by_participant_id.get(
-                participant_id, []
-            )
-        )
-
-    return Ok(
-        _StageRankingData(
-            db_stage=db_stage,
-            db_matches=db_matches,
-            slots_by_match_id=slots_by_match_id,
-            rows_by_participant_id=rows_by_participant_id,
-            head_to_head_winner_id_by_pair=head_to_head_winner_id_by_pair,
-            opponent_ids_by_participant_id=opponent_ids_by_participant_id,
-            is_ffa_scoring_stage=is_ffa_scoring_stage,
-        )
-    )
-
-
-def _parse_numeric_score_value(value: Any) -> int:
-    if value is None:
-        return 0
-
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return 0
-
-
-def _is_walkover_score_json(score_json: dict[str, Any] | None) -> bool:
-    if not isinstance(score_json, dict):
-        return False
-
-    return bool(score_json.get('walkover'))
-
-
-def _parse_match_result_slot_scores(
-    slots: list[DbNetsessionTourneyMatchSlot],
-    score_json: dict[str, Any] | None,
-    *,
-    winner_slot: int | None,
-) -> dict[int, str]:
-    if not slots or not isinstance(score_json, dict):
-        return {}
-
-    raw_slots = score_json.get('slots')
-    if isinstance(raw_slots, dict):
-        parsed_scores = {}
-        for slot in slots:
-            raw_value = raw_slots.get(str(slot.slot_no))
-            if raw_value is None:
-                raw_value = raw_slots.get(slot.slot_no)
-            if raw_value is None:
-                continue
-
-            normalized = str(raw_value).strip()
-            if not normalized:
-                continue
-
-            parsed_scores[slot.slot_no] = normalized
-
-        if parsed_scores:
-            return parsed_scores
-
-    raw_display = score_json.get('display')
-    if isinstance(raw_display, str):
-        display = raw_display.strip().replace(' ', '')
-        if display:
-            delimiter = next(
-                (
-                    candidate
-                    for candidate in [':', '-', '/']
-                    if candidate in display
-                ),
-                None,
-            )
-            if delimiter is not None:
-                parts = display.split(delimiter)
-                if len(parts) == len(slots) and all(
-                    part.isdigit() for part in parts
-                ):
-                    normalized_parts = list(parts)
-                    if len(slots) == 2 and winner_slot is not None:
-                        left = int(parts[0])
-                        right = int(parts[1])
-                        if left != right:
-                            first_slot_no = slots[0].slot_no
-                            second_slot_no = slots[1].slot_no
-                            winner_has_lower_score = (
-                                winner_slot == first_slot_no
-                                and left < right
-                            ) or (
-                                winner_slot == second_slot_no
-                                and right < left
-                            )
-                            if winner_has_lower_score:
-                                normalized_parts = [parts[1], parts[0]]
-
-                    return {
-                        slot.slot_no: normalized_parts[index]
-                        for index, slot in enumerate(slots)
-                    }
-
-    if winner_slot is None or len(slots) != 2:
-        return {}
-
-    return {
-        slots[0].slot_no: '1' if winner_slot == slots[0].slot_no else '0',
-        slots[1].slot_no: '1' if winner_slot == slots[1].slot_no else '0',
-    }
-
-
-def _sort_ranked_participant_ids(
-    rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
-    *,
-    stage_type: str | None = None,
-    head_to_head_winner_id_by_pair: dict[
-        frozenset[ParticipantID], ParticipantID
-    ] | None = None,
-    is_ffa_scoring_stage: bool,
-) -> list[ParticipantID]:
-    if not is_ffa_scoring_stage and stage_type == StageType.swiss.value:
-        swiss_head_to_head_scores = _build_swiss_head_to_head_scores(
-            rows_by_participant_id, head_to_head_winner_id_by_pair
-        )
-        return [
-            participant_id
-            for participant_id, _ in sorted(
-                rows_by_participant_id.items(),
-                key=lambda item: (
-                    -item[1].get('wins', 0),
-                    item[1].get('losses', 0),
-                    -item[1].get('buchholz', 0),
-                    -item[1].get('opponent_wl_sum', 0),
-                    -item[1].get('second_order_sos', 0),
-                    -swiss_head_to_head_scores.get(item[0], 0),
-                    -item[1].get('round_diff', 0),
-                    -item[1].get('round_wins', 0),
-                    (
-                        item[1]['seed']
-                        if item[1]['seed'] is not None
-                        else 999_999
-                    ),
-                    item[1]['created_at'],
-                ),
-            )
-        ]
-
-    if (
-        not is_ffa_scoring_stage
-        and stage_type == StageType.round_robin_groups.value
-    ):
-        tie_break_values_by_participant_id: dict[
-            ParticipantID, tuple[int, int, int, int]
-        ] = {}
-        participants_by_points: dict[int, list[ParticipantID]] = defaultdict(list)
-        for participant_id, row in rows_by_participant_id.items():
-            participants_by_points[row.get('match_points', 0)].append(
-                participant_id
-            )
-
-        for participant_ids in participants_by_points.values():
-            direct_compare_scores = {
-                participant_id: 0 for participant_id in participant_ids
-            }
-            if (
-                len(participant_ids) == 2
-                and head_to_head_winner_id_by_pair is not None
-            ):
-                winner_id = head_to_head_winner_id_by_pair.get(
-                    frozenset(participant_ids)
-                )
-                if winner_id in direct_compare_scores:
-                    direct_compare_scores[winner_id] = 1
-
-            for participant_id in participant_ids:
-                row = rows_by_participant_id[participant_id]
-                tie_break_values_by_participant_id[participant_id] = (
-                    row.get('match_points', 0),
-                    direct_compare_scores[participant_id],
-                    row.get('round_diff', 0),
-                    row.get('round_wins', 0),
-                )
-
-        return [
-            participant_id
-            for participant_id, _ in sorted(
-                rows_by_participant_id.items(),
-                key=lambda item: (
-                    -tie_break_values_by_participant_id[item[0]][0],
-                    -tie_break_values_by_participant_id[item[0]][1],
-                    -tie_break_values_by_participant_id[item[0]][2],
-                    -tie_break_values_by_participant_id[item[0]][3],
-                    (
-                        item[1]['seed']
-                        if item[1]['seed'] is not None
-                        else 999_999
-                    ),
-                    item[1]['created_at'],
-                ),
-            )
-        ]
-
-    return [
-        participant_id
-        for participant_id, _ in sorted(
-            rows_by_participant_id.items(),
-            key=lambda item: (
-                (
-                    -item[1]['total_points']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                (
-                    -item[1]['points']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                (
-                    -item[1]['kills']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                (
-                    (
-                        item[1]['placement']
-                        if item[1]['placement'] is not None
-                        else 999_999
-                    )
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                -item[1]['wins'],
-                item[1]['losses'],
-                item[1]['seed'] if item[1]['seed'] is not None else 999_999,
-                item[1]['created_at'],
-            ),
-        )
-    ]
-
-
-def _build_swiss_head_to_head_scores(
-    rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
-    head_to_head_winner_id_by_pair: dict[
-        frozenset[ParticipantID], ParticipantID
-    ]
-    | None,
-) -> dict[ParticipantID, int]:
-    scores_by_participant_id = {
-        participant_id: 0 for participant_id in rows_by_participant_id
-    }
-    if head_to_head_winner_id_by_pair is None:
-        return scores_by_participant_id
-
-    participant_ids_by_base_tie_values: dict[
-        tuple[int, int, int, int, int], list[ParticipantID]
-    ] = defaultdict(list)
-    for participant_id, row in rows_by_participant_id.items():
-        participant_ids_by_base_tie_values[
-            (
-                row.get('wins', 0),
-                row.get('losses', 0),
-                row.get('buchholz', 0),
-                row.get('opponent_wl_sum', 0),
-                row.get('second_order_sos', 0),
-            )
-        ].append(participant_id)
-
-    for participant_ids in participant_ids_by_base_tie_values.values():
-        if len(participant_ids) != 2:
-            continue
-
-        winner_id = head_to_head_winner_id_by_pair.get(
-            frozenset(participant_ids)
-        )
-        if winner_id in scores_by_participant_id:
-            scores_by_participant_id[winner_id] = 1
-
-    return scores_by_participant_id
-
-
-def _get_ffa_points_per_kill(settings: dict[str, Any] | None) -> int:
-    if not isinstance(settings, dict):
-        return 1
-
-    raw_value = settings.get('points_per_kill', 1)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 1
-
-    return max(0, value)
 
 
 def get_matches_for_tournament(
@@ -11984,73 +11382,6 @@ def _build_flatout2_host_notification_payload(
     }
 
 
-def _get_flatout2_round_races(
-    match_settings: dict[str, Any]
-) -> list[dict[str, str]]:
-    if not isinstance(match_settings, dict):
-        return []
-
-    raw_round_races = match_settings.get('flatout2_races')
-    if not isinstance(raw_round_races, list):
-        return []
-
-    normalized_races = []
-    for race in raw_round_races:
-        if not isinstance(race, dict):
-            continue
-        mode = str(race.get('mode') or '').strip() or 'single_race'
-        track = str(race.get('track') or '').strip()
-        vehicle = str(race.get('vehicle') or '').strip()
-        if not track or not vehicle:
-            continue
-        normalized_races.append(
-            {'mode': mode, 'track': track, 'vehicle': vehicle}
-        )
-
-    return normalized_races
-
-
-def _get_match_host_participant_id(
-    db_match: DbNetsessionTourneyMatch,
-) -> ParticipantID | None:
-    raw_value = (db_match.settings_json or {}).get('host_participant_id')
-    if not raw_value:
-        return None
-
-    try:
-        return ParticipantID(UUID(str(raw_value)))
-    except (TypeError, ValueError):
-        return None
-
-
-def _get_selected_host_user_ids(
-    db_match: DbNetsessionTourneyMatch,
-) -> set[UserID]:
-    participant_id = _get_match_host_participant_id(db_match)
-    if participant_id is None:
-        return set()
-
-    db_participant = db.session.get(DbNetsessionTourneyParticipant, participant_id)
-    if (
-        db_participant is None
-        or db_participant.status not in ACTIVE_PARTICIPANT_STATUS_VALUES
-    ):
-        return set()
-
-    user_ids = {
-        db_participant.user_id,
-        db_participant.manager_user_id,
-    } - {None}
-    user_ids.update(
-        db.session.scalars(
-            select(DbNetsessionTourneyTeamMember.user_id).filter_by(
-                participant_id=participant_id
-            )
-        ).all()
-    )
-    return user_ids
-
-
 def _append_notifications_for_match(
     db_match: DbNetsessionTourneyMatch,
     *,
@@ -12093,80 +11424,6 @@ def _append_notifications_for_tournament(
             payload=payload,
             created_at=now,
         )
-
-
-def _get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
-    db_slots = db.session.scalars(
-        select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
-    ).all()
-    participant_ids = [slot.participant_id for slot in db_slots if slot.participant_id]
-    if not participant_ids:
-        return set()
-
-    db_participants = db.session.scalars(
-        select(DbNetsessionTourneyParticipant)
-        .filter(DbNetsessionTourneyParticipant.id.in_(participant_ids))
-        .filter(
-            DbNetsessionTourneyParticipant.status.in_(
-                ACTIVE_PARTICIPANT_STATUS_VALUES
-            )
-        )
-    ).all()
-    participant_ids = [participant.id for participant in db_participants]
-    user_ids = {
-        participant.user_id
-        for participant in db_participants
-        if participant.user_id is not None
-    }
-    user_ids.update(
-        participant.manager_user_id
-        for participant in db_participants
-        if participant.manager_user_id is not None
-    )
-    user_ids.update(
-        db.session.scalars(
-            select(DbNetsessionTourneyTeamMember.user_id).filter(
-                DbNetsessionTourneyTeamMember.participant_id.in_(participant_ids)
-            )
-        ).all()
-    )
-    return user_ids
-
-
-def _get_active_user_ids_for_tournament(
-    tournament_id: TournamentID,
-) -> set[UserID]:
-    db_participants = db.session.scalars(
-        select(DbNetsessionTourneyParticipant)
-        .filter_by(tournament_id=tournament_id)
-        .filter(
-            DbNetsessionTourneyParticipant.status.in_(
-                ACTIVE_PARTICIPANT_STATUS_VALUES
-            )
-        )
-    ).all()
-    participant_ids = [participant.id for participant in db_participants]
-    user_ids = {
-        participant.user_id
-        for participant in db_participants
-        if participant.user_id is not None
-    }
-    user_ids.update(
-        participant.manager_user_id
-        for participant in db_participants
-        if participant.manager_user_id is not None
-    )
-    if participant_ids:
-        user_ids.update(
-            db.session.scalars(
-                select(DbNetsessionTourneyTeamMember.user_id).filter(
-                    DbNetsessionTourneyTeamMember.participant_id.in_(
-                        participant_ids
-                    )
-                )
-            ).all()
-        )
-    return user_ids
 
 
 def _append_notification(
@@ -12529,34 +11786,6 @@ def _build_discord_dm_message_payload(
         'allowed_mentions': {'parse': []},
         'embeds': [embed],
     }
-
-
-def _build_flatout2_round_race_lines(payload: dict[str, Any]) -> list[str]:
-    raw_races = payload.get('flatout2_round_races')
-    if not isinstance(raw_races, list):
-        return []
-
-    lines = []
-    for index, race in enumerate(raw_races, start=1):
-        if not isinstance(race, dict):
-            continue
-        mode = str(race.get('mode') or '').strip() or 'single_race'
-        track = str(race.get('track') or '').strip()
-        vehicle = str(race.get('vehicle') or '').strip()
-        if not track or not vehicle:
-            continue
-        lines.append(
-            f'{index}. {get_flatout2_mode_label(mode)} / {track} / {vehicle}'
-        )
-    return lines
-
-
-def _build_flatout2_first_race_summary(payload: dict[str, Any]) -> str:
-    race_lines = _build_flatout2_round_race_lines(payload)
-    if not race_lines:
-        return ''
-
-    return f'Erstes Rennen: {race_lines[0][3:]}'
 
 
 def _build_test_discord_dm_message_payload(
@@ -12955,16 +12184,6 @@ def _get_stage_setting_int(
         return fallback
 
     return value
-
-
-def _find_db_tournament_for_party(
-    party_id: PartyID, tournament_id: TournamentID
-) -> DbNetsessionTourneyTournament | None:
-    return db.session.scalar(
-        select(DbNetsessionTourneyTournament).filter_by(
-            id=tournament_id, party_id=party_id
-        )
-    )
 
 
 def _is_user_already_active_participant(
@@ -13555,14 +12774,6 @@ def _label_notification_bracket_matches(
     return labels_by_match_id
 
 
-def _build_site_tournament_overview_path(slug: str) -> str:
-    return f'/ns-tourneys/{slug}'
-
-
-def _build_site_match_path(slug: str, match_id: MatchID | UUID) -> str:
-    return f'/ns-tourneys/{slug}/matches/{match_id}'
-
-
 def _decrypt_discord_dm_bot_token(token: str | None) -> str | None:
     if not token:
         return None
@@ -13633,19 +12844,6 @@ def _format_browser_push_delivery_error(exc: Exception) -> str:
     if message:
         return f'{type(exc).__name__}: {message}'
     return type(exc).__name__
-
-
-def _db_stage_to_model_with_effective_status(
-    db_stage: DbNetsessionTourneyStage, *, tournament_status: str
-) -> Stage:
-    stage = _db_stage_to_model(db_stage)
-    if (
-        tournament_status == TournamentStatus.draft.value
-        and stage.status == StageStatus.live
-    ):
-        return replace(stage, status=StageStatus.draft)
-
-    return stage
 
 
 def _db_match_to_model_with_effective_state(
