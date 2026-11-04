@@ -162,6 +162,74 @@ from .models import (
     RuleTemplateBodyFormat,
     UserCoinBalance,
 )
+from .service_helpers import (  # noqa: F401
+    _append_audit_log,
+    _db_browser_push_config_to_model,
+    _db_coin_ledger_entry_to_model,
+    _db_coin_settings_to_model,
+    _db_discord_dm_config_to_model,
+    _db_match_chat_message_to_model,
+    _db_match_result_to_model,
+    _db_match_slot_to_model,
+    _db_match_to_model,
+    _db_participant_to_model,
+    _db_registration_to_model,
+    _db_stage_to_model,
+    _db_team_member_to_model,
+    _db_ticket_category_coin_settings_to_model,
+    _db_tournament_category_to_model,
+    _db_tournament_prize_to_model,
+    _db_tournament_rule_template_to_model,
+    _db_tournament_to_model,
+    _find_sponsor_logo_target_url,
+    _parse_source_outcome,
+)
+from .tournament_category_service import (  # noqa: F401
+    DEFAULT_TOURNAMENT_CATEGORY_TITLE,
+    _ensure_default_tournament_category_for_party,
+    _find_db_tournament_category,
+    _resolve_tournament_category_id_for_party,
+    create_tournament_category,
+    find_tournament_category,
+    get_tournament_categories_for_party,
+    move_tournament_category_down,
+    move_tournament_category_up,
+    update_tournament_category,
+)
+from .tournament_rule_template_service import (  # noqa: F401
+    _find_db_tournament_rule_template,
+    create_tournament_rule_template,
+    find_tournament_rule_template,
+    find_tournament_rule_template_by_slug_for_party,
+    get_tournament_rule_templates_for_party,
+    update_tournament_rule_template,
+)
+from .tournament_prize_service import (  # noqa: F401
+    _find_db_tournament_prize,
+    create_tournament_prize,
+    delete_tournament_prize,
+    find_tournament_prize,
+    get_tournament_prizes_for_tournament,
+    update_tournament_prize,
+)
+from .coin_service import (  # noqa: F401
+    _append_coin_ledger_entry,
+    _build_default_coin_settings,
+    _charge_coins_for_tournament_registration,
+    _get_manual_coin_adjustment_amount_for_user,
+    _get_registration_coin_delta_amount_for_user,
+    _get_ticket_coin_amount_for_user,
+    _refund_coins_for_tournament_registration_if_available,
+    _validate_coin_cost,
+    adjust_user_coins,
+    configure_coin_settings,
+    get_coin_settings,
+    get_recent_coin_ledger_entries_for_user,
+    get_ticket_category_coin_settings_for_party,
+    get_user_coin_balance,
+    get_user_coin_balances,
+    is_tournament_coin_refund_available,
+)
 
 
 log = structlog.get_logger()
@@ -249,7 +317,6 @@ BRACKET_READY_PARTICIPANT_STATUS_VALUES = {
 }
 
 DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG = 'grand_final_reset_skipped'
-DEFAULT_TOURNAMENT_CATEGORY_TITLE = 'Allgemein'
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -324,365 +391,6 @@ def is_stage_type_compatible_with_registration_mode(
     return _is_stage_type_compatible_with_registration_mode(
         stage_type, registration_mode
     )
-
-
-def create_tournament_category(
-    party_id: PartyID, title: str
-) -> Result[TournamentCategory, str]:
-    normalized_title = title.strip()
-    if not normalized_title:
-        return Err('Bitte einen Titel für die Kategorie angeben.')
-
-    db_party = db.session.get(DbParty, party_id)
-    if db_party is None:
-        return Err('Unbekannte Party.')
-
-    existing_db_category = db.session.scalar(
-        select(DbNetsessionTourneyTournamentCategory).filter_by(
-            party_id=party_id, title=normalized_title
-        )
-    )
-    if existing_db_category is not None:
-        return Err('Diesen Kategorietitel gibt es bereits.')
-
-    db_category = DbNetsessionTourneyTournamentCategory(
-        TournamentCategoryID(generate_uuid7()),
-        party_id,
-        normalized_title,
-    )
-    db_party.netsession_tourney_tournament_categories.append(db_category)
-
-    db.session.commit()
-    return Ok(_db_tournament_category_to_model(db_category))
-
-
-def update_tournament_category(
-    category_id: TournamentCategoryID, title: str
-) -> Result[TournamentCategory, str]:
-    db_category = _find_db_tournament_category(category_id)
-    if db_category is None:
-        return Err('Unbekannte Kategorie.')
-
-    normalized_title = title.strip()
-    if not normalized_title:
-        return Err('Bitte einen Titel für die Kategorie angeben.')
-
-    existing_db_category = db.session.scalar(
-        select(DbNetsessionTourneyTournamentCategory).filter_by(
-            party_id=db_category.party_id,
-            title=normalized_title,
-        )
-    )
-    if existing_db_category is not None and existing_db_category.id != db_category.id:
-        return Err('Diesen Kategorietitel gibt es bereits.')
-
-    db_category.title = normalized_title
-    db.session.commit()
-
-    return Ok(_db_tournament_category_to_model(db_category))
-
-
-def move_tournament_category_up(
-    category_id: TournamentCategoryID,
-) -> Result[None, str]:
-    db_category = _find_db_tournament_category(category_id)
-    if db_category is None:
-        return Err('Unbekannte Kategorie.')
-
-    db_category_list = db_category.party.netsession_tourney_tournament_categories
-    if db_category.position == 1:
-        return Err('Die Kategorie steht bereits ganz oben.')
-
-    db_popped_category = db_category_list.pop(db_category.position - 1)
-    db_category_list.insert(db_popped_category.position - 2, db_popped_category)
-
-    db.session.commit()
-    return Ok(None)
-
-
-def move_tournament_category_down(
-    category_id: TournamentCategoryID,
-) -> Result[None, str]:
-    db_category = _find_db_tournament_category(category_id)
-    if db_category is None:
-        return Err('Unbekannte Kategorie.')
-
-    db_category_list = db_category.party.netsession_tourney_tournament_categories
-    if db_category.position == len(db_category_list):
-        return Err('Die Kategorie steht bereits ganz unten.')
-
-    db_popped_category = db_category_list.pop(db_category.position - 1)
-    db_category_list.insert(db_popped_category.position, db_popped_category)
-
-    db.session.commit()
-    return Ok(None)
-
-
-def find_tournament_category(
-    category_id: TournamentCategoryID,
-) -> TournamentCategory | None:
-    db_category = _find_db_tournament_category(category_id)
-    if db_category is None:
-        return None
-
-    return _db_tournament_category_to_model(db_category)
-
-
-def get_tournament_categories_for_party(
-    party_id: PartyID,
-) -> list[TournamentCategory]:
-    db_categories = db.session.scalars(
-        select(DbNetsessionTourneyTournamentCategory)
-        .filter_by(party_id=party_id)
-        .order_by(DbNetsessionTourneyTournamentCategory.position.asc())
-    ).all()
-
-    return [_db_tournament_category_to_model(item) for item in db_categories]
-
-
-def create_tournament_rule_template(
-    party_id: PartyID,
-    slug: str,
-    title: str,
-    body_format: RuleTemplateBodyFormat,
-    body: str,
-) -> Result[TournamentRuleTemplate, str]:
-    normalized_slug = slug.strip()
-    normalized_title = title.strip()
-    normalized_body = body.strip()
-
-    if not normalized_slug:
-        return Err('Bitte einen Slug für die Regel-Vorlage angeben.')
-    if not normalized_title:
-        return Err('Bitte einen Titel für die Regel-Vorlage angeben.')
-    if not normalized_body:
-        return Err('Bitte einen Text für die Regel-Vorlage angeben.')
-
-    db_party = db.session.get(DbParty, party_id)
-    if db_party is None:
-        return Err('Unbekannte Party.')
-
-    existing_db_rule_template = db.session.scalar(
-        select(DbNetsessionTourneyTournamentRuleTemplate).filter_by(
-            party_id=party_id,
-            slug=normalized_slug,
-        )
-    )
-    if existing_db_rule_template is not None:
-        return Err('Diesen Slug verwendet bereits eine andere Regel-Vorlage.')
-
-    now = datetime.utcnow()
-    db_rule_template = DbNetsessionTourneyTournamentRuleTemplate(
-        TournamentRuleTemplateID(generate_uuid7()),
-        party_id,
-        normalized_slug,
-        normalized_title,
-        body_format,
-        normalized_body,
-        now,
-    )
-    db.session.add(db_rule_template)
-    db.session.commit()
-
-    return Ok(_db_tournament_rule_template_to_model(db_rule_template))
-
-
-def update_tournament_rule_template(
-    rule_template_id: TournamentRuleTemplateID,
-    slug: str,
-    title: str,
-    body_format: RuleTemplateBodyFormat,
-    body: str,
-) -> Result[TournamentRuleTemplate, str]:
-    db_rule_template = _find_db_tournament_rule_template(rule_template_id)
-    if db_rule_template is None:
-        return Err('Unbekannte Regel-Vorlage.')
-
-    normalized_slug = slug.strip()
-    normalized_title = title.strip()
-    normalized_body = body.strip()
-
-    if not normalized_slug:
-        return Err('Bitte einen Slug für die Regel-Vorlage angeben.')
-    if not normalized_title:
-        return Err('Bitte einen Titel für die Regel-Vorlage angeben.')
-    if not normalized_body:
-        return Err('Bitte einen Text für die Regel-Vorlage angeben.')
-
-    existing_db_rule_template = db.session.scalar(
-        select(DbNetsessionTourneyTournamentRuleTemplate).filter_by(
-            party_id=db_rule_template.party_id,
-            slug=normalized_slug,
-        )
-    )
-    if (
-        existing_db_rule_template is not None
-        and existing_db_rule_template.id != db_rule_template.id
-    ):
-        return Err('Diesen Slug verwendet bereits eine andere Regel-Vorlage.')
-
-    change_rule_template_slug(db_rule_template, normalized_slug)
-    db_rule_template.title = normalized_title
-    db_rule_template.body_format = body_format.value
-    db_rule_template.body = normalized_body
-    db_rule_template.updated_at = datetime.utcnow()
-
-    db.session.commit()
-    return Ok(_db_tournament_rule_template_to_model(db_rule_template))
-
-
-def find_tournament_rule_template(
-    rule_template_id: TournamentRuleTemplateID,
-) -> TournamentRuleTemplate | None:
-    db_rule_template = _find_db_tournament_rule_template(rule_template_id)
-    if db_rule_template is None:
-        return None
-
-    return _db_tournament_rule_template_to_model(db_rule_template)
-
-
-def find_tournament_rule_template_by_slug_for_party(
-    party_id: PartyID,
-    slug: str,
-) -> TournamentRuleTemplate | None:
-    db_rule_template = db.session.scalar(
-        select(DbNetsessionTourneyTournamentRuleTemplate).filter_by(
-            party_id=party_id,
-            slug=slug,
-        )
-    )
-    if db_rule_template is None:
-        return None
-
-    return _db_tournament_rule_template_to_model(db_rule_template)
-
-
-def get_tournament_rule_templates_for_party(
-    party_id: PartyID,
-) -> list[TournamentRuleTemplate]:
-    db_rule_templates = db.session.scalars(
-        select(DbNetsessionTourneyTournamentRuleTemplate)
-        .filter_by(party_id=party_id)
-        .order_by(
-            DbNetsessionTourneyTournamentRuleTemplate.title.asc(),
-            DbNetsessionTourneyTournamentRuleTemplate.slug.asc(),
-        )
-    ).all()
-
-    return [
-        _db_tournament_rule_template_to_model(item)
-        for item in db_rule_templates
-    ]
-
-
-def create_tournament_prize(
-    tournament_id: TournamentID,
-    position: int,
-    body_format: RuleTemplateBodyFormat,
-    body: str,
-) -> Result[TournamentPrize, str]:
-    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
-    if db_tournament is None:
-        return Err('Unbekanntes Turnier.')
-
-    normalized_body = body.strip()
-    if position < 1:
-        return Err('Die Platzierung des Preises muss mindestens 1 sein.')
-    if not normalized_body:
-        return Err('Bitte eine Beschreibung für den Preis angeben.')
-
-    existing_db_prize = db.session.scalar(
-        select(DbNetsessionTourneyTournamentPrize).filter_by(
-            tournament_id=tournament_id,
-            position=position,
-        )
-    )
-    if existing_db_prize is not None:
-        return Err('Für diese Platzierung gibt es bereits einen Preis.')
-
-    now = datetime.utcnow()
-    db_prize = DbNetsessionTourneyTournamentPrize(
-        TournamentPrizeID(generate_uuid7()),
-        tournament_id,
-        position,
-        body_format,
-        normalized_body,
-        now,
-    )
-    db.session.add(db_prize)
-    db.session.commit()
-
-    return Ok(_db_tournament_prize_to_model(db_prize))
-
-
-def update_tournament_prize(
-    prize_id: TournamentPrizeID,
-    position: int,
-    body_format: RuleTemplateBodyFormat,
-    body: str,
-) -> Result[TournamentPrize, str]:
-    db_prize = _find_db_tournament_prize(prize_id)
-    if db_prize is None:
-        return Err('Unbekannter Preis.')
-
-    normalized_body = body.strip()
-    if position < 1:
-        return Err('Die Platzierung des Preises muss mindestens 1 sein.')
-    if not normalized_body:
-        return Err('Bitte eine Beschreibung für den Preis angeben.')
-
-    existing_db_prize = db.session.scalar(
-        select(DbNetsessionTourneyTournamentPrize).filter_by(
-            tournament_id=db_prize.tournament_id,
-            position=position,
-        )
-    )
-    if existing_db_prize is not None and existing_db_prize.id != db_prize.id:
-        return Err('Für diese Platzierung gibt es bereits einen Preis.')
-
-    db_prize.position = position
-    db_prize.body_format = body_format.value
-    db_prize.body = normalized_body
-    db_prize.updated_at = datetime.utcnow()
-
-    db.session.commit()
-    return Ok(_db_tournament_prize_to_model(db_prize))
-
-
-def delete_tournament_prize(prize_id: TournamentPrizeID) -> Result[None, str]:
-    db_prize = _find_db_tournament_prize(prize_id)
-    if db_prize is None:
-        return Err('Unbekannter Preis.')
-
-    db.session.delete(db_prize)
-    db.session.commit()
-
-    return Ok(None)
-
-
-def find_tournament_prize(
-    prize_id: TournamentPrizeID,
-) -> TournamentPrize | None:
-    db_prize = _find_db_tournament_prize(prize_id)
-    if db_prize is None:
-        return None
-
-    return _db_tournament_prize_to_model(db_prize)
-
-
-def get_tournament_prizes_for_tournament(
-    tournament_id: TournamentID,
-) -> list[TournamentPrize]:
-    db_prizes = db.session.scalars(
-        select(DbNetsessionTourneyTournamentPrize)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(
-            DbNetsessionTourneyTournamentPrize.position.asc(),
-            DbNetsessionTourneyTournamentPrize.created_at.asc(),
-        )
-    ).all()
-
-    return [_db_tournament_prize_to_model(item) for item in db_prizes]
 
 
 def create_tournament(
@@ -1128,142 +836,6 @@ def set_tournament_admin_user_ids(
     return Ok(normalized_user_ids)
 
 
-def get_coin_settings(party_id: PartyID) -> CoinSettings:
-    db_settings = db.session.get(DbNetsessionTourneyCoinSettings, party_id)
-    if db_settings is None:
-        return _build_default_coin_settings(party_id)
-
-    return _db_coin_settings_to_model(db_settings)
-
-
-def get_ticket_category_coin_settings_for_party(
-    party_id: PartyID,
-) -> list[TicketCategoryCoinSettings]:
-    db_rows = db.session.scalars(
-        select(DbNetsessionTourneyTicketCategoryCoinSettings)
-        .filter_by(party_id=party_id)
-        .order_by(
-            DbNetsessionTourneyTicketCategoryCoinSettings.ticket_category_id.asc()
-        )
-    ).all()
-
-    return [
-        _db_ticket_category_coin_settings_to_model(db_row) for db_row in db_rows
-    ]
-
-
-def configure_coin_settings(
-    party_id: PartyID,
-    initiator: User,
-    *,
-    enabled: bool,
-    default_coin_amount: int,
-    ticket_category_coin_amounts: dict[Any, int],
-) -> Result[CoinSettings, str]:
-    _ = initiator
-
-    if default_coin_amount < 0:
-        return Err('Die Standard-Coins dürfen nicht negativ sein.')
-
-    for amount in ticket_category_coin_amounts.values():
-        if amount < 0:
-            return Err('Die Coins pro Ticketkategorie dürfen nicht negativ sein.')
-
-    now = datetime.utcnow()
-    db_settings = db.session.get(DbNetsessionTourneyCoinSettings, party_id)
-    if db_settings is None:
-        db_settings = DbNetsessionTourneyCoinSettings(
-            party_id,
-            now,
-            enabled=enabled,
-            default_coin_amount=default_coin_amount,
-        )
-        db.session.add(db_settings)
-    else:
-        db_settings.enabled = enabled
-        db_settings.default_coin_amount = default_coin_amount
-        db_settings.updated_at = now
-
-    existing_rows = {
-        db_row.ticket_category_id: db_row
-        for db_row in db.session.scalars(
-            select(DbNetsessionTourneyTicketCategoryCoinSettings).filter_by(
-                party_id=party_id
-            )
-        ).all()
-    }
-
-    normalized_ids = set(ticket_category_coin_amounts.keys())
-
-    for ticket_category_id, amount in ticket_category_coin_amounts.items():
-        db_row = existing_rows.get(ticket_category_id)
-        if db_row is None:
-            db.session.add(
-                DbNetsessionTourneyTicketCategoryCoinSettings(
-                    party_id,
-                    ticket_category_id,
-                    amount,
-                    now,
-                )
-            )
-            continue
-
-        db_row.coin_amount = amount
-        db_row.updated_at = now
-
-    for ticket_category_id, db_row in existing_rows.items():
-        if ticket_category_id not in normalized_ids:
-            db.session.delete(db_row)
-
-    db.session.commit()
-    return Ok(get_coin_settings(party_id))
-
-
-def get_user_coin_balance(party_id: PartyID, user_id: UserID) -> UserCoinBalance:
-    ticket_coin_amount = _get_ticket_coin_amount_for_user(party_id, user_id)
-    manual_adjustment_amount = _get_manual_coin_adjustment_amount_for_user(
-        party_id, user_id
-    )
-    registration_delta_amount = _get_registration_coin_delta_amount_for_user(
-        party_id, user_id
-    )
-
-    return UserCoinBalance(
-        party_id=party_id,
-        user_id=user_id,
-        ticket_coin_amount=ticket_coin_amount,
-        manual_adjustment_amount=manual_adjustment_amount,
-        registration_delta_amount=registration_delta_amount,
-        available_coins=(
-            ticket_coin_amount
-            + manual_adjustment_amount
-            + registration_delta_amount
-        ),
-    )
-
-
-def get_user_coin_balances(
-    party_id: PartyID, user_ids: set[UserID]
-) -> dict[UserID, UserCoinBalance]:
-    return {
-        user_id: get_user_coin_balance(party_id, user_id)
-        for user_id in user_ids
-    }
-
-
-def get_recent_coin_ledger_entries_for_user(
-    party_id: PartyID, user_id: UserID, *, limit: int = 10
-) -> list[CoinLedgerEntry]:
-    db_rows = db.session.scalars(
-        select(DbNetsessionTourneyCoinLedgerEntry)
-        .filter_by(party_id=party_id, user_id=user_id)
-        .order_by(DbNetsessionTourneyCoinLedgerEntry.created_at.desc())
-        .limit(limit)
-    ).all()
-
-    return [_db_coin_ledger_entry_to_model(db_row) for db_row in db_rows]
-
-
 def _count_team_members(participant_id: ParticipantID) -> int:
     return int(
         db.session.scalar(
@@ -1272,97 +844,6 @@ def _count_team_members(participant_id: ParticipantID) -> int:
             )
         )
         or 0
-    )
-
-
-def adjust_user_coins(
-    party_id: PartyID,
-    user_id: UserID,
-    amount_delta: int,
-    note: str,
-    initiator: User,
-) -> Result[UserCoinBalance, str]:
-    if amount_delta == 0:
-        return Err('Der Betrag darf nicht 0 sein.')
-    if get_user_coin_balance(party_id, user_id).available_coins + amount_delta < 0:
-        return Err('Das Coin-Guthaben darf nicht negativ werden.')
-
-    note_clean = note.strip() or None
-    now = datetime.utcnow()
-    db.session.add(
-        DbNetsessionTourneyCoinLedgerEntry(
-            CoinLedgerEntryID(generate_uuid7()),
-            party_id,
-            user_id,
-            amount_delta,
-            CoinLedgerEntryKind.admin_adjustment.value,
-            now,
-            note=note_clean,
-            created_by_user_id=initiator.id,
-        )
-    )
-
-    _append_audit_log(
-        actor_user_id=initiator.id,
-        object_type='user',
-        object_id=user_id,
-        action='coin_balance_adjusted',
-        payload={
-            'party_id': party_id,
-            'user_id': str(user_id),
-            'amount_delta': amount_delta,
-            'note': note_clean,
-        },
-        created_at=now,
-    )
-
-    db.session.commit()
-    return Ok(get_user_coin_balance(party_id, user_id))
-
-
-def is_tournament_coin_refund_available(tournament: Tournament) -> bool:
-    if tournament.status in {
-        TournamentStatus.closed,
-        TournamentStatus.canceled,
-    }:
-        return False
-
-    if (
-        tournament.coin_refund_policy
-        == CoinRefundPolicy.until_tournament_end
-    ):
-        return True
-
-    first_stage_id = db.session.scalar(
-        select(DbNetsessionTourneyStage.id)
-        .filter_by(tournament_id=tournament.id)
-        .order_by(DbNetsessionTourneyStage.order_no.asc())
-        .limit(1)
-    )
-    if first_stage_id is None:
-        return True
-
-    round_one_match_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatch.id)).filter_by(
-            tournament_id=tournament.id,
-            stage_id=first_stage_id,
-            round_no=1,
-        )
-    )
-    if not round_one_match_count:
-        return True
-
-    completed_round_one_match_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatch.id)).filter_by(
-            tournament_id=tournament.id,
-            stage_id=first_stage_id,
-            round_no=1,
-            state=MatchState.completed.value,
-        )
-    )
-
-    return int(completed_round_one_match_count or 0) < int(
-        round_one_match_count or 0
     )
 
 
@@ -12688,28 +12169,6 @@ def _get_active_user_ids_for_tournament(
     return user_ids
 
 
-def _append_audit_log(
-    *,
-    actor_user_id: UserID | None,
-    object_type: str,
-    object_id,
-    action: str,
-    payload: dict[str, Any],
-    created_at: datetime,
-) -> None:
-    db.session.add(
-        DbNetsessionTourneyAuditLog(
-            AuditLogID(generate_uuid7()),
-            object_type,
-            object_id,
-            action,
-            created_at,
-            actor_user_id=actor_user_id,
-            payload_json=payload,
-        )
-    )
-
-
 def _append_notification(
     *,
     tournament_id: TournamentID,
@@ -13220,16 +12679,6 @@ def _send_discord_dm(
         message_response.raise_for_status()
 
 
-def _parse_source_outcome(raw_value: str | None) -> SourceOutcome:
-    if not raw_value:
-        return SourceOutcome.winner
-
-    try:
-        return SourceOutcome(raw_value)
-    except ValueError:
-        return SourceOutcome.winner
-
-
 def _validate_team_size_for_registration_mode(
     *,
     registration_mode: RegistrationMode,
@@ -13277,13 +12726,6 @@ def _validate_participant_limit(participant_limit: int | None) -> Result[None, s
 
     if participant_limit < 2:
         return Err('Das Teilnehmerlimit muss mindestens 2 sein.')
-
-    return Ok(None)
-
-
-def _validate_coin_cost(coin_cost: int) -> Result[None, str]:
-    if coin_cost < 0:
-        return Err('Die Coin-Kosten dürfen nicht negativ sein.')
 
     return Ok(None)
 
@@ -13513,74 +12955,6 @@ def _get_stage_setting_int(
         return fallback
 
     return value
-
-
-def _resolve_tournament_category_id_for_party(
-    party_id: PartyID,
-    category_id: TournamentCategoryID | None,
-) -> Result[TournamentCategoryID, str]:
-    if category_id is not None:
-        db_category = db.session.scalar(
-            select(DbNetsessionTourneyTournamentCategory).filter_by(
-                id=category_id,
-                party_id=party_id,
-            )
-        )
-        if db_category is None:
-            return Err('Unbekannte Kategorie.')
-
-        return Ok(db_category.id)
-
-    db_category = _ensure_default_tournament_category_for_party(party_id)
-    if db_category is None:
-        return Err('Unbekannte Party.')
-
-    return Ok(db_category.id)
-
-
-def _ensure_default_tournament_category_for_party(
-    party_id: PartyID,
-) -> DbNetsessionTourneyTournamentCategory | None:
-    db_category = db.session.scalar(
-        select(DbNetsessionTourneyTournamentCategory)
-        .filter_by(party_id=party_id)
-        .order_by(DbNetsessionTourneyTournamentCategory.position.asc())
-    )
-    if db_category is not None:
-        return db_category
-
-    db_party = db.session.get(DbParty, party_id)
-    if db_party is None:
-        return None
-
-    db_category = DbNetsessionTourneyTournamentCategory(
-        TournamentCategoryID(generate_uuid7()),
-        party_id,
-        DEFAULT_TOURNAMENT_CATEGORY_TITLE,
-    )
-    db_party.netsession_tourney_tournament_categories.append(db_category)
-
-    return db_category
-
-
-def _find_db_tournament_category(
-    category_id: TournamentCategoryID,
-) -> DbNetsessionTourneyTournamentCategory | None:
-    return db.session.get(DbNetsessionTourneyTournamentCategory, category_id)
-
-
-def _find_db_tournament_rule_template(
-    rule_template_id: TournamentRuleTemplateID,
-) -> DbNetsessionTourneyTournamentRuleTemplate | None:
-    return db.session.get(
-        DbNetsessionTourneyTournamentRuleTemplate, rule_template_id
-    )
-
-
-def _find_db_tournament_prize(
-    prize_id: TournamentPrizeID,
-) -> DbNetsessionTourneyTournamentPrize | None:
-    return db.session.get(DbNetsessionTourneyTournamentPrize, prize_id)
 
 
 def _find_db_tournament_for_party(
@@ -14209,71 +13583,6 @@ def _mask_discord_dm_bot_token(bot_token: str | None) -> str:
     return bot_token[:6] + '***' + bot_token[-4:]
 
 
-def _db_tournament_category_to_model(
-    db_category: DbNetsessionTourneyTournamentCategory,
-) -> TournamentCategory:
-    return TournamentCategory(
-        id=db_category.id,
-        party_id=db_category.party_id,
-        position=db_category.position,
-        title=db_category.title,
-    )
-
-
-def _db_tournament_rule_template_to_model(
-    db_rule_template: DbNetsessionTourneyTournamentRuleTemplate,
-) -> TournamentRuleTemplate:
-    return TournamentRuleTemplate(
-        id=db_rule_template.id,
-        party_id=db_rule_template.party_id,
-        slug=db_rule_template.slug,
-        title=db_rule_template.title,
-        body_format=RuleTemplateBodyFormat(db_rule_template.body_format),
-        body=db_rule_template.body,
-        created_at=db_rule_template.created_at,
-        updated_at=db_rule_template.updated_at,
-    )
-
-
-def _db_tournament_prize_to_model(
-    db_prize: DbNetsessionTourneyTournamentPrize,
-) -> TournamentPrize:
-    return TournamentPrize(
-        id=db_prize.id,
-        tournament_id=db_prize.tournament_id,
-        position=db_prize.position,
-        body_format=RuleTemplateBodyFormat(db_prize.body_format),
-        body=db_prize.body,
-        created_at=db_prize.created_at,
-        updated_at=db_prize.updated_at,
-    )
-
-
-def _db_browser_push_config_to_model(
-    db_config: DbNetsessionTourneyBrowserPushConfig,
-) -> BrowserPushConfig:
-    return BrowserPushConfig(
-        party_id=db_config.party_id,
-        enabled=db_config.enabled,
-        vapid_public_key=db_config.vapid_public_key,
-        created_at=db_config.created_at,
-        updated_at=db_config.updated_at,
-    )
-
-
-def _db_discord_dm_config_to_model(
-    db_config: DbNetsessionTourneyDiscordDmConfig,
-) -> DiscordDmConfig:
-    return DiscordDmConfig(
-        party_id=db_config.party_id,
-        enabled=db_config.enabled,
-        application_id=db_config.application_id,
-        default_event_mask=list(db_config.default_event_mask or []),
-        created_at=db_config.created_at,
-        updated_at=db_config.updated_at,
-    )
-
-
 def _build_default_browser_push_config(
     party_id: PartyID,
 ) -> BrowserPushConfig:
@@ -14326,279 +13635,6 @@ def _format_browser_push_delivery_error(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def _build_default_coin_settings(party_id: PartyID) -> CoinSettings:
-    now = datetime.utcnow()
-    return CoinSettings(
-        party_id=party_id,
-        enabled=False,
-        default_coin_amount=0,
-        created_at=now,
-        updated_at=now,
-    )
-
-
-def _db_coin_settings_to_model(
-    db_settings: DbNetsessionTourneyCoinSettings,
-) -> CoinSettings:
-    return CoinSettings(
-        party_id=db_settings.party_id,
-        enabled=db_settings.enabled,
-        default_coin_amount=db_settings.default_coin_amount,
-        created_at=db_settings.created_at,
-        updated_at=db_settings.updated_at,
-    )
-
-
-def _db_ticket_category_coin_settings_to_model(
-    db_row: DbNetsessionTourneyTicketCategoryCoinSettings,
-) -> TicketCategoryCoinSettings:
-    return TicketCategoryCoinSettings(
-        party_id=db_row.party_id,
-        ticket_category_id=db_row.ticket_category_id,
-        coin_amount=db_row.coin_amount,
-    )
-
-
-def _db_coin_ledger_entry_to_model(
-    db_row: DbNetsessionTourneyCoinLedgerEntry,
-) -> CoinLedgerEntry:
-    return CoinLedgerEntry(
-        id=db_row.id,
-        party_id=db_row.party_id,
-        user_id=db_row.user_id,
-        amount_delta=db_row.amount_delta,
-        kind=CoinLedgerEntryKind(db_row.kind),
-        reference_type=db_row.reference_type,
-        reference_id=db_row.reference_id,
-        note=db_row.note,
-        created_by_user_id=db_row.created_by_user_id,
-        created_at=db_row.created_at,
-    )
-
-
-def _get_ticket_coin_amount_for_user(party_id: PartyID, user_id: UserID) -> int:
-    coin_settings = get_coin_settings(party_id)
-    tickets = ticket_service.get_tickets_used_by_user(user_id, party_id)
-    if not tickets:
-        return 0
-
-    amount_by_category_id = {
-        item.ticket_category_id: item.coin_amount
-        for item in get_ticket_category_coin_settings_for_party(party_id)
-    }
-
-    return max(
-        amount_by_category_id.get(ticket.category_id, coin_settings.default_coin_amount)
-        for ticket in tickets
-    )
-
-
-def _get_manual_coin_adjustment_amount_for_user(
-    party_id: PartyID, user_id: UserID
-) -> int:
-    amount = db.session.scalar(
-        select(db.func.coalesce(db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0))
-        .filter_by(
-            party_id=party_id,
-            user_id=user_id,
-            kind=CoinLedgerEntryKind.admin_adjustment.value,
-        )
-    )
-    return int(amount or 0)
-
-
-def _get_registration_coin_delta_amount_for_user(
-    party_id: PartyID, user_id: UserID
-) -> int:
-    amount = db.session.scalar(
-        select(db.func.coalesce(db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0))
-        .filter_by(party_id=party_id, user_id=user_id)
-        .filter(
-            DbNetsessionTourneyCoinLedgerEntry.kind.in_(
-                [
-                    CoinLedgerEntryKind.tournament_registration_charge.value,
-                    CoinLedgerEntryKind.tournament_registration_refund.value,
-                ]
-            )
-        )
-    )
-    return int(amount or 0)
-
-
-def _append_coin_ledger_entry(
-    party_id: PartyID,
-    user_id: UserID,
-    amount_delta: int,
-    kind: CoinLedgerEntryKind,
-    created_at: datetime,
-    *,
-    reference_type: str | None = None,
-    reference_id: str | None = None,
-    note: str | None = None,
-    created_by_user_id: UserID | None = None,
-) -> None:
-    db.session.add(
-        DbNetsessionTourneyCoinLedgerEntry(
-            CoinLedgerEntryID(generate_uuid7()),
-            party_id,
-            user_id,
-            amount_delta,
-            kind.value,
-            created_at,
-            reference_type=reference_type,
-            reference_id=reference_id,
-            note=note,
-            created_by_user_id=created_by_user_id,
-        )
-    )
-
-
-def _charge_coins_for_tournament_registration(
-    party_id: PartyID,
-    tournament: Tournament,
-    user_id: UserID,
-    *,
-    created_by_user_id: UserID | None = None,
-) -> Result[None, str]:
-    coin_settings = get_coin_settings(party_id)
-    if not coin_settings.enabled or tournament.coin_cost <= 0:
-        return Ok(None)
-
-    balance = get_user_coin_balance(party_id, user_id)
-    if balance.available_coins < tournament.coin_cost:
-        return Err(
-            f'Nicht genügend Coins. Benötigt: {tournament.coin_cost}, verfügbar: {balance.available_coins}.'
-        )
-
-    _append_coin_ledger_entry(
-        party_id,
-        user_id,
-        -tournament.coin_cost,
-        CoinLedgerEntryKind.tournament_registration_charge,
-        datetime.utcnow(),
-        reference_type='tournament',
-        reference_id=str(tournament.id),
-        note=tournament.title,
-        created_by_user_id=created_by_user_id,
-    )
-    return Ok(None)
-
-
-def _refund_coins_for_tournament_registration_if_available(
-    party_id: PartyID,
-    tournament: Tournament,
-    user_id: UserID,
-    *,
-    created_by_user_id: UserID | None = None,
-) -> None:
-    coin_settings = get_coin_settings(party_id)
-    if not coin_settings.enabled or tournament.coin_cost <= 0:
-        return
-
-    paid = get_unrefunded_registration_coins(party_id, user_id, tournament.id)
-    if not paid or not is_tournament_coin_refund_available(tournament):
-        return
-
-    _append_coin_ledger_entry(
-        party_id,
-        user_id,
-        paid,
-        CoinLedgerEntryKind.tournament_registration_refund,
-        datetime.utcnow(),
-        reference_type='tournament',
-        reference_id=str(tournament.id),
-        note=tournament.title,
-        created_by_user_id=created_by_user_id,
-    )
-
-
-def _db_tournament_to_model(db_tournament: DbNetsessionTourneyTournament) -> Tournament:
-    sponsor_logo_target_url = _find_sponsor_logo_target_url(
-        db_tournament.party_id, db_tournament.sponsor_logo_url
-    )
-
-    return Tournament(
-        id=db_tournament.id,
-        party_id=db_tournament.party_id,
-        category_id=db_tournament.category_id,
-        slug=db_tournament.slug,
-        title=db_tournament.title,
-        subtitle=db_tournament.subtitle,
-        logo_url=db_tournament.logo_url,
-        discord_forum_image_url=db_tournament.discord_forum_image_url,
-        is_sponsored=db_tournament.is_sponsored,
-        sponsor_logo_url=db_tournament.sponsor_logo_url,
-        sponsor_logo_target_url=sponsor_logo_target_url,
-        game=db_tournament.game,
-        mode=TournamentMode(db_tournament.mode),
-        status=TournamentStatus(db_tournament.status),
-        starts_at=db_tournament.starts_at,
-        visible_on_site=db_tournament.visible_on_site,
-        registration_open=db_tournament.registration_open,
-        rules_page_slug=db_tournament.rules_page_slug,
-        registration_mode=RegistrationMode(db_tournament.registration_mode),
-        registration_deadline=db_tournament.registration_deadline,
-        roster_lock_at=db_tournament.roster_lock_at,
-        checkin_open_at=db_tournament.checkin_open_at,
-        checkin_close_at=db_tournament.checkin_close_at,
-        team_size=db_tournament.team_size,
-        substitute_count=db_tournament.substitute_count,
-        participant_limit=db_tournament.participant_limit,
-        coin_cost=db_tournament.coin_cost,
-        coin_refund_policy=CoinRefundPolicy(db_tournament.coin_refund_policy),
-        coin_charge_mode=CoinChargeMode(db_tournament.coin_charge_mode),
-        discord_enabled=db_tournament.discord_enabled,
-        discord_forum_channel_id=db_tournament.discord_forum_channel_id,
-        discord_thread_id=db_tournament.discord_thread_id,
-        discord_applied_tag_ids=list(db_tournament.discord_applied_tag_ids or []),
-        discord_event_mask=list(db_tournament.discord_event_mask or []),
-        discord_dm_enabled=db_tournament.discord_dm_enabled,
-        discord_dm_event_mask=list(db_tournament.discord_dm_event_mask or []),
-    )
-
-
-def _find_sponsor_logo_target_url(
-    party_id: PartyID, sponsor_logo_url: str | None
-) -> str | None:
-    if not sponsor_logo_url:
-        return None
-
-    normalized_sponsor_logo_url = sponsor_logo_url.strip()
-    if not normalized_sponsor_logo_url:
-        return None
-
-    effective_party_id = party_id
-    filename = normalized_sponsor_logo_url.rsplit('/', 1)[-1].strip()
-    path_segments = normalized_sponsor_logo_url.split('/')
-    try:
-        parties_segment_index = path_segments.index('parties')
-        effective_party_id = PartyID(path_segments[parties_segment_index + 1])
-    except (ValueError, IndexError):
-        pass
-
-    if not filename:
-        return None
-
-    return db.session.scalar(
-        select(DbNetsessionTourneySponsorLogoAsset.target_url).filter_by(
-            party_id=effective_party_id,
-            filename=filename,
-        )
-    )
-
-
-def _db_stage_to_model(db_stage: DbNetsessionTourneyStage) -> Stage:
-    return Stage(
-        id=db_stage.id,
-        tournament_id=db_stage.tournament_id,
-        order_no=db_stage.order_no,
-        type=StageType(db_stage.type),
-        name=db_stage.name,
-        settings=dict(db_stage.settings_json or {}),
-        status=StageStatus(db_stage.status),
-    )
-
-
 def _db_stage_to_model_with_effective_status(
     db_stage: DbNetsessionTourneyStage, *, tournament_status: str
 ) -> Stage:
@@ -14610,47 +13646,6 @@ def _db_stage_to_model_with_effective_status(
         return replace(stage, status=StageStatus.draft)
 
     return stage
-
-
-def _db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> Participant:
-    return Participant(
-        id=db_participant.id,
-        tournament_id=db_participant.tournament_id,
-        type=ParticipantType(db_participant.type),
-        user_id=db_participant.user_id,
-        name=db_participant.name,
-        logo_url=db_participant.logo_url,
-        manager_user_id=db_participant.manager_user_id,
-        checkin_state=CheckinState(db_participant.checkin_state),
-        seed=db_participant.seed,
-        status=ParticipantStatus(db_participant.status),
-    )
-
-
-def _db_team_member_to_model(db_member: DbNetsessionTourneyTeamMember) -> TeamMember:
-    return TeamMember(
-        id=db_member.id,
-        participant_id=db_member.participant_id,
-        user_id=db_member.user_id,
-        role=TeamMemberRole(db_member.role),
-    )
-
-
-def _db_match_to_model(db_match: DbNetsessionTourneyMatch) -> Match:
-    return Match(
-        id=db_match.id,
-        tournament_id=db_match.tournament_id,
-        stage_id=db_match.stage_id,
-        round_no=db_match.round_no,
-        match_no=db_match.match_no,
-        state=MatchState(db_match.state),
-        scheduled_at=db_match.scheduled_at,
-        reported_by_user_id=db_match.reported_by_user_id,
-        confirmed_by_admin_id=db_match.confirmed_by_admin_id,
-        lock_version=db_match.lock_version,
-        confirmation_deadline_at=db_match.confirmation_deadline_at,
-        settings=dict(db_match.settings_json or {}),
-    )
 
 
 def _db_match_to_model_with_effective_state(
@@ -14673,49 +13668,3 @@ def _db_match_to_model_with_effective_state(
     return match
 
 
-def _db_match_slot_to_model(db_slot: DbNetsessionTourneyMatchSlot) -> MatchSlot:
-    return MatchSlot(
-        id=db_slot.id,
-        match_id=db_slot.match_id,
-        slot_no=db_slot.slot_no,
-        participant_id=db_slot.participant_id,
-        source_match_slot_id=db_slot.source_match_slot_id,
-        source_outcome=_parse_source_outcome(db_slot.source_outcome),
-    )
-
-
-def _db_match_result_to_model(db_result: DbNetsessionTourneyMatchResult) -> MatchResult:
-    return MatchResult(
-        id=db_result.id,
-        match_id=db_result.match_id,
-        winner_slot=db_result.winner_slot,
-        score=dict(db_result.score_json or {}),
-        ranking=dict(db_result.ranking_json or {}),
-        submitted_by_user_id=db_result.submitted_by_user_id,
-        confirmed_by_user_id=db_result.confirmed_by_user_id,
-        confirmed_by_admin_id=db_result.confirmed_by_admin_id,
-        confirmation_comment=db_result.confirmation_comment,
-    )
-
-
-def _db_match_chat_message_to_model(
-    db_message: DbNetsessionTourneyMatchChatMessage,
-) -> MatchChatMessage:
-    return MatchChatMessage(
-        id=db_message.id,
-        tournament_id=db_message.tournament_id,
-        match_id=db_message.match_id,
-        actor_user_id=db_message.actor_user_id,
-        body=db_message.body,
-        created_at=db_message.created_at,
-    )
-
-
-def _db_registration_to_model(db_registration: DbNetsessionTourneyRegistration) -> Registration:
-    return Registration(
-        id=db_registration.id,
-        tournament_id=db_registration.tournament_id,
-        user_id=db_registration.user_id,
-        state=RegistrationState(db_registration.state),
-        created_at=db_registration.created_at,
-    )
