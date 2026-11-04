@@ -23,6 +23,7 @@ from byceps.services.ticketing import (
 from tests.helpers import generate_token
 
 from byceps.services.netsession_tourney.models import (
+    CoinChargeMode,
     MatchState,
     ParticipantStatus,
     RegistrationMode,
@@ -2868,3 +2869,171 @@ def _complete_ready_matches(
             assert result.is_ok()
 
     raise AssertionError('Bracket did not settle.')
+
+
+def test_tournament_cannot_be_closed_while_matches_are_open(
+    admin_app, party, admin_user, user, make_user, make_ticket_category
+):
+    opponent = make_user('NS_Close_' + generate_token())
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-close-' + generate_token().lower(),
+        'NS Close',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = tourney_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'Main',
+        {},
+        admin_user,
+    ).unwrap()
+    for player in (user, opponent):
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+        assert tourney_service.register_user(
+            party.id, tournament.id, player
+        ).is_ok()
+    assert tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    final = tourney_service.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()[0]
+
+    blocked = tourney_service.close_tournament(
+        party.id, tournament.id, admin_user
+    )
+    assert blocked.is_err()
+    assert 'noch 1 Matches offen' in blocked.unwrap_err()
+
+    assert tourney_service.report_result(
+        party.id,
+        tournament.id,
+        final.id,
+        admin_user.id,
+        idempotency_key='close-final',
+        winner_slot=1,
+        score={'display': '1:0', 'slots': {'1': 1, '2': 0}},
+        actor_is_admin_or_referee=True,
+    ).is_ok()
+
+    assert tourney_service.close_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+
+
+def _make_coin_team_tournament(
+    party, admin_user, make_user, make_ticket_category, coin_charge_mode
+):
+    """Team tournament (size 2, 3 coins) with a complete team that pays
+    according to `coin_charge_mode`; returns (tournament, team, captain,
+    mate)."""
+    assert tourney_service.configure_coin_settings(
+        party.id,
+        admin_user,
+        enabled=True,
+        default_coin_amount=10,
+        ticket_category_coin_amounts={},
+    ).is_ok()
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-coins-' + generate_token().lower(),
+        'NS Coins',
+        TournamentMode.duel,
+        RegistrationMode.team_captain_managed,
+        admin_user,
+        team_size=2,
+        substitute_count=0,
+        coin_cost=3,
+        coin_charge_mode=coin_charge_mode,
+    ).unwrap()
+    captain = make_user('NS_CoinCap_' + generate_token())
+    mate = make_user('NS_CoinMate_' + generate_token())
+    for player in (captain, mate):
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+    team = tourney_service.create_team_for_captain(
+        party.id, tournament.id, captain, 'Coin Team'
+    ).unwrap()
+    invite_code = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)
+    )
+    assert tourney_service.join_team_by_invite_code(
+        party.id, tournament.id, invite_code, mate
+    ).is_ok()
+    return tournament, team, captain, mate
+
+
+def _coins(party, user) -> int:
+    return tourney_service.get_user_coin_balance(
+        party.id, user.id
+    ).available_coins
+
+
+def test_refund_after_captain_change_goes_to_former_captain(
+    admin_app, isolated_party, admin_user, make_user, make_ticket_category
+):
+    party = isolated_party
+    tournament, team, captain, mate = _make_coin_team_tournament(
+        party, admin_user, make_user, make_ticket_category,
+        CoinChargeMode.captain_only,
+    )
+    assert (_coins(party, captain), _coins(party, mate)) == (7, 10)
+
+    assert tourney_service.assign_team_captain_by_admin(
+        party.id, tournament.id, team.id, mate.id, admin_user
+    ).is_ok()
+    assert tourney_service.deregister_user(
+        party.id, tournament.id, mate
+    ).is_ok()
+
+    # The former captain paid and gets the coins back; nobody else gains.
+    assert (_coins(party, captain), _coins(party, mate)) == (10, 10)
+
+
+def test_removed_member_gets_coins_back_and_team_is_no_longer_ready(
+    admin_app, isolated_party, admin_user, make_user, make_ticket_category
+):
+    party = isolated_party
+    tournament, team, captain, mate = _make_coin_team_tournament(
+        party, admin_user, make_user, make_ticket_category,
+        CoinChargeMode.all_members,
+    )
+    assert tourney_service.set_managed_team_ready_state(
+        party.id, tournament.id, team.id, captain, ready=True
+    ).is_ok()
+    assert _coins(party, mate) == 7
+
+    assert tourney_service.remove_team_member_by_admin(
+        party.id, tournament.id, team.id, mate.id, admin_user
+    ).is_ok()
+
+    assert _coins(party, mate) == 10
+    status = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.status).filter_by(id=team.id)
+    )
+    assert status == ParticipantStatus.forming.value
+
+
+def test_team_is_no_longer_ready_when_a_member_leaves(
+    admin_app, isolated_party, admin_user, make_user, make_ticket_category
+):
+    party = isolated_party
+    tournament, team, captain, mate = _make_coin_team_tournament(
+        party, admin_user, make_user, make_ticket_category,
+        CoinChargeMode.captain_only,
+    )
+    assert tourney_service.set_managed_team_ready_state(
+        party.id, tournament.id, team.id, captain, ready=True
+    ).is_ok()
+
+    assert tourney_service.deregister_user(
+        party.id, tournament.id, mate
+    ).is_ok()
+
+    status = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.status).filter_by(id=team.id)
+    )
+    assert status == ParticipantStatus.forming.value

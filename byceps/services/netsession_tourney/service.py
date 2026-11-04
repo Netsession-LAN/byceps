@@ -85,6 +85,11 @@ from .engines.registry import (
 )
 from .flatout2 import get_flatout2_mode_label
 from .browser_push_endpoint import validate_push_subscription
+from .tournament_closing import validate_can_close
+from .team_coins_and_readiness import (
+    get_unrefunded_registration_coins,
+    reset_ready_if_incomplete,
+)
 from .eligibility import (
     validate_user_uses_ticket_for_party as _validate_user_uses_ticket_for_party,
 )
@@ -2669,9 +2674,7 @@ def publish_tournament(
     db_tournament.status = TournamentStatus.live.value
     db_tournament.updated_at = datetime.utcnow()
 
-    first_live_stage_id = _activate_prepared_stages_for_live_tournament(
-        tournament_id, stages
-    )
+    _activate_prepared_stages_for_live_tournament(tournament_id, stages)
     db_ready_matches = _activate_prepared_matches_for_live_tournament(
         tournament_id
     )
@@ -2710,11 +2713,8 @@ def close_tournament(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    if db_tournament.status == TournamentStatus.closed.value:
-        return Err('Tournament is already closed.')
-
-    if db_tournament.status == TournamentStatus.canceled.value:
-        return Err('Canceled tournaments cannot be closed.')
+    if (close_check := validate_can_close(db_tournament)).is_err():
+        return close_check
 
     db_tournament.status = TournamentStatus.closed.value
     db_tournament.updated_at = datetime.utcnow()
@@ -3679,7 +3679,10 @@ def remove_team_member_by_admin(
     _set_registration_state_for_user(
         tournament_id, member_user_id, RegistrationState.canceled
     )
-
+    _refund_coins_for_tournament_registration_if_available(
+        party_id, tournament, member_user_id, created_by_user_id=initiator.id
+    )
+    reset_ready_if_incomplete(db_participant, tournament.team_size)
     _append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
@@ -4156,7 +4159,10 @@ def remove_team_member_by_captain(
     _set_registration_state_for_user(
         tournament_id, member_user_id, RegistrationState.canceled
     )
-
+    _refund_coins_for_tournament_registration_if_available(
+        party_id, tournament, member_user_id, created_by_user_id=initiator.id
+    )
+    reset_ready_if_incomplete(db_participant, tournament.team_size)
     _append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
@@ -4235,16 +4241,9 @@ def deregister_user(
             _set_registration_state_for_user(
                 tournament_id, member_user_id, RegistrationState.canceled
             )
-            if (
-                tournament.coin_charge_mode == CoinChargeMode.all_members
-                or member_user_id == user.id
-            ):
-                _refund_coins_for_tournament_registration_if_available(
-                    party_id,
-                    tournament,
-                    member_user_id,
-                    created_by_user_id=user.id,
-                )
+            _refund_coins_for_tournament_registration_if_available(
+                party_id, tournament, member_user_id, created_by_user_id=user.id
+            )
         _append_audit_log(
             actor_user_id=user.id,
             object_type='participant',
@@ -4270,13 +4269,10 @@ def deregister_user(
     _set_registration_state_for_user(
         tournament_id, user.id, RegistrationState.canceled
     )
-    if tournament.coin_charge_mode == CoinChargeMode.all_members:
-        _refund_coins_for_tournament_registration_if_available(
-            party_id,
-            tournament,
-            user.id,
-            created_by_user_id=user.id,
-        )
+    _refund_coins_for_tournament_registration_if_available(
+        party_id, tournament, user.id, created_by_user_id=user.id
+    )
+    reset_ready_if_incomplete(db_participant, tournament.team_size)
     _append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
@@ -4327,9 +4323,13 @@ def remove_participant_by_admin(
     if db_participant.manager_user_id is not None:
         affected_user_ids.add(db_participant.manager_user_id)
 
+    tournament = find_tournament_for_party(party_id, tournament_id)
     for user_id in affected_user_ids:
         _set_registration_state_for_user(
             tournament_id, user_id, RegistrationState.canceled
+        )
+        _refund_coins_for_tournament_registration_if_available(
+            party_id, tournament, user_id, created_by_user_id=initiator.id
         )
 
     _append_audit_log(
@@ -12942,7 +12942,6 @@ def _build_discord_dm_message_payload(
     payload = dict(db_notification.payload_json or {})
     kind = db_notification.kind
     match_label = _build_browser_push_match_label(payload)
-    title = str(browser_payload.get('title') or '').strip() or db_tournament.title
     body = str(browser_payload.get('body') or '').strip() or 'Es gibt ein neues Update.'
     url = _build_absolute_notification_url(
         db_tournament.party_id,
@@ -14499,13 +14498,14 @@ def _refund_coins_for_tournament_registration_if_available(
     if not coin_settings.enabled or tournament.coin_cost <= 0:
         return
 
-    if not is_tournament_coin_refund_available(tournament):
+    paid = get_unrefunded_registration_coins(party_id, user_id, tournament.id)
+    if not paid or not is_tournament_coin_refund_available(tournament):
         return
 
     _append_coin_ledger_entry(
         party_id,
         user_id,
-        tournament.coin_cost,
+        paid,
         CoinLedgerEntryKind.tournament_registration_refund,
         datetime.utcnow(),
         reference_type='tournament',
