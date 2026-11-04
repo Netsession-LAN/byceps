@@ -1,3 +1,4 @@
+from dataclasses import replace
 from uuid import uuid4
 
 from byceps.services.netsession_tourney.engines.registry import (
@@ -77,7 +78,7 @@ def test_single_elimination_with_5_participants_has_no_empty_first_round_match()
 
 
 def test_swiss_generates_multiple_rounds():
-    stage = _create_stage(StageType.swiss, round_count=4)
+    stage = _create_stage(StageType.swiss, round_count=5)
     engine = find_stage_engine(stage.type)
     assert engine is not None
     participant_ids = _create_participant_ids(8)
@@ -86,8 +87,18 @@ def test_swiss_generates_multiple_rounds():
 
     assert result.is_ok()
     specs = result.unwrap()
-    assert len(specs) == 16
-    assert max(spec.round_no for spec in specs) == 4
+    assert len(specs) == 20
+    assert max(spec.round_no for spec in specs) == 5
+
+
+def test_swiss_rejects_even_round_count_without_threshold():
+    stage = _create_stage(StageType.swiss, round_count=4)
+    engine = find_stage_engine(stage.type)
+    assert engine is not None
+
+    result = engine.generate(stage, _create_participant_ids(8))
+
+    assert result.is_err()
 
 
 def test_swiss_distributes_bye_slots_over_rounds_for_odd_participants():
@@ -119,11 +130,28 @@ def test_swiss_distributes_bye_slots_over_rounds_for_odd_participants():
     assert len(set(bye_participants_by_round)) > 1
 
 
-def test_ffa_single_elimination_marks_single_player_match_as_pending_bye():
+def test_ffa_single_elimination_distributes_players_evenly_in_first_round():
     stage = _create_stage(StageType.ffa_single_elimination)
     engine = find_stage_engine(stage.type)
     assert engine is not None
-    participant_ids = _create_participant_ids(9)
+
+    result = engine.generate(stage, _create_participant_ids(9))
+
+    assert result.is_ok()
+    round1_specs = [spec for spec in result.unwrap() if spec.round_no == 1]
+    player_counts = sorted(
+        len([slot for slot in spec.slots if slot.participant_id])
+        for spec in round1_specs
+    )
+    assert player_counts == [4, 5]
+
+
+def test_ffa_single_elimination_marks_single_player_match_as_pending_bye():
+    stage = _create_stage(StageType.ffa_single_elimination)
+    stage = replace(stage, settings={'max_players_per_match': 2})
+    engine = find_stage_engine(stage.type)
+    assert engine is not None
+    participant_ids = _create_participant_ids(3)
 
     result = engine.generate(stage, participant_ids)
 
@@ -210,15 +238,13 @@ def test_double_elimination_with_double_grand_final_generates_reset_match():
 
 def test_stage_type_specs_mark_enabled_formats():
     enabled_spec = get_stage_type_spec(StageType.single_elimination)
-    enabled_gauntlet_spec = get_stage_type_spec(StageType.gauntlet)
+    disabled_spec = get_stage_type_spec(StageType.gauntlet)
 
     assert enabled_spec.enabled
     assert enabled_spec.publishable
     assert not enabled_spec.beta
 
-    assert enabled_gauntlet_spec.enabled
-    assert enabled_gauntlet_spec.publishable
-    assert not enabled_gauntlet_spec.beta
+    assert not disabled_spec.enabled
 
 
 def test_all_stage_types_have_an_engine():
@@ -241,7 +267,11 @@ def test_all_stage_types_can_generate_matches():
                 name=stage.name,
                 settings={
                     **stage.settings,
-                    'max_players_per_match': 4,
+                    'max_players_per_match': (
+                        6
+                        if stage_type == StageType.ffa_flatout2_single_elimination
+                        else 4
+                    ),
                 },
                 status=stage.status,
             )
