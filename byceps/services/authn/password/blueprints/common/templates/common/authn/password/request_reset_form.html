@@ -1,0 +1,19 @@
+{% extends 'layout/base_auto.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set simple_layout = true %}
+{% set current_page = 'authn_password_request_reset' %}
+{% set page_title = _('Request password reset') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.request_reset') }}" method="post">
+    <div class="{{ 'main-body-box' if g.app_mode.is_site() else 'box' }}">
+      {{ form_field(form.screen_name, maxlength=40, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Request')) }}
+  </form>
+
+{%- endblock %}

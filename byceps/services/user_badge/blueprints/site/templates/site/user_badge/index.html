@@ -1,0 +1,33 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/user_badge.html' import render_user_badge_linked %}
+{% set current_page = 'user_badge' %}
+{% set page_title = _('Badges') %}
+
+{% block head %}
+<style>
+.badge-title {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+</style>
+{%- endblock %}
+
+{% block body %}
+
+<h1 class="title">{{ _('Badges') }}</h1>
+
+<table class="itemlist is-vcentered">
+  {%- for badge in badges|sort(attribute='label') %}
+  <tr>
+    <td>{{ render_user_badge_linked(badge, 64) }}</td>
+    <td>
+      <div class="badge-title">{{ badge.label }}</div>
+      {%- if badge.description %}
+      <div>{{ badge.description|safe }}</div>
+      {%- endif %}
+    </td>
+  </tr>
+  {%- endfor %}
+</table>
+
+{%- endblock %}

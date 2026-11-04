@@ -1,0 +1,61 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_check_field, render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Turnier erstellen'), _('Zeiten')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.index', party_id=party.id), _('Netsession Turniere')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': _('Turnier erstellen'), 'url': none},
+      {'label': _('Zeiten'), 'url': none},
+    ],
+    party.title,
+    _('Turnier erstellen'),
+    _('Schritt 3 von 4: Definiere Registrierung, Startzeit, Roster-Lock und Check-in.'),
+    '3/4',
+    'status-draft',
+    [
+      {'label': _('Schritt'), 'value': _('Zeiten')},
+      {'label': _('Fokus'), 'value': _('Start, Registrierung und Check-in')},
+    ]
+  ) }}
+  {% include 'admin/netsession_tourney/wizard/_steps.html' %}
+
+  <form action="{{ url_for('.create_wizard_schedule_submit', party_id=party.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Zeiten') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Diese Werte steuern, wann Registrierung, Roster-Änderungen und Check-in möglich sind.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_field(form.starts_at, _('Geplanter Turnierstart. Wird für Anzeige und Scheduling genutzt.')) }}
+          {{ render_check_field(form.visible_on_site, _('Wenn aktiv, ist das Turnier in der User-UI sichtbar und direkt aufrufbar. Wenn deaktiviert, ist es für normale User komplett verborgen.')) }}
+          {{ render_check_field(form.registration_open, _('Wenn aktiv, können sich berechtigte User registrieren.')) }}
+          {{ render_field(form.registration_deadline, _('Bis zu diesem Zeitpunkt sind neue Registrierungen erlaubt.')) }}
+          {{ render_field(form.roster_lock_at, _('Ab diesem Zeitpunkt sind Team-Kader nicht mehr änderbar.')) }}
+          {{ render_field(form.checkin_open_at, _('Start des Check-in-Fensters. Erst ab dann kann eingecheckt werden.')) }}
+          {{ render_field(form.checkin_close_at, _('Ende des Check-in-Fensters. Danach entscheidet Admin über fehlenden Check-in.')) }}
+        </div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <a href="{{ url_for('.create_wizard_details', party_id=party.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
+      <button type="submit" class="button color-primary">{{ _('Weiter') }}</button>
+    </div>
+  </form>
+{% endblock %}

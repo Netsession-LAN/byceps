@@ -1,0 +1,59 @@
+{% extends 'layout/admin/authz.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% set current_tab = 'roles' %}
+{% set page_title = [_('Roles'), role.title] %}
+
+{% block head %}
+  <style>
+    .title {
+      margin-bottom: 0.5rem !important;
+    }
+
+    .subtitle.monospace {
+      font-size: 1.25rem !important;
+    }
+
+    ul.permissions {
+      margin: 0;
+      padding-left: 1em;
+    }
+
+    ul.permissions li + li {
+      margin-top: 0.5em;
+    }
+  </style>
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ role.title }}</h1>
+  <div class="subtitle monospace">{{ role.id|dim }}</div>
+
+  <h2>{{ _('Assigned permissions') }} {{ render_extra_in_heading(permissions|length) }}</h2>
+  <div class="box">
+    {%- if permissions %}
+    <ul class="permissions">
+      {%- for permission in permissions|sort(attribute='id') %}
+      <li>{{ permission.title }}<br><span class="monospace">{{ permission.id|dim }}</span></li>
+      {%- endfor %}
+    </ul>
+    {%- else %}
+    <p class="dimmed">{{ _('none') }}</p>
+    {%- endif %}
+  </div>
+
+  <h2>{{ _('Users with this role') }} {{ render_extra_in_heading(users|length) }}</h2>
+  <div class="box">
+    {%- if users %}
+    <ol class="bare">
+      {%- for user in users|sort(attribute='screen_name') %}
+      <li>{{ render_user_avatar_and_admin_link(user, size=16) }}</li>
+      {%- endfor %}
+    </ol>
+    {%- else %}
+    <p class="dimmed">{{ _('none') }}</p>
+    {%- endif %}
+  </div>
+
+{%- endblock %}

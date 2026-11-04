@@ -1,0 +1,32 @@
+{%- from 'macros/misc.html' import render_notification, render_tag %}
+
+{%- if item.featured_image_html is not none %}
+  {%- if item.featured_image_html.is_ok() %}
+<article class="news-item main-body-box main-body-box--no-padding-top">
+  <div class="featured-image mb">
+  {{ item.featured_image_html.unwrap()|safe }}
+  </div>
+  {%- else %}
+  {{ render_notification(_('An error has occurred while rendering the news.'), category='danger', icon='warning') }}
+  {%- endif %}
+{%- else %}
+<article class="news-item main-body-box">
+{%- endif %}
+  <h1 class="title"><a href="{{ url_for('.view', slug=item.slug) }}">{{ item.title }}</a></h1>
+  <footer class="meta">
+    {%- if item.published %}
+    {{ item.published_at|dateformat('full') }}
+    {%- else %}
+    {{ render_tag(_('Draft')) }}
+    {%- endif %}
+  </footer>
+  <div class="body">
+{%- if item.body_html.is_ok() %}
+  {%- with body_html = item.body_html.unwrap() %}
+{{ body_html|safe }}
+  {%- endwith %}
+{%- else %}
+{{ render_notification(_('An error has occurred while rendering the news.'), category='danger', icon='warning') }}
+{%- endif %}
+  </div>
+</article>

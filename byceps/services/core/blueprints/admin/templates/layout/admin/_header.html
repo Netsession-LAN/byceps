@@ -1,0 +1,29 @@
+{%- from 'macros/icons.html' import render_icon -%}
+
+
+    <header id="header">
+      <div id="header-content" class="container">
+        <div class="header-grid">
+          <div class="header-grid-cell-brand">
+
+            <a href="/" class="brand-text disguised">BYCEPS</a>
+
+          </div>
+          <div class="header-grid-cell-search">
+
+            {%- if g.user.has_permission('user.view') %}
+            <form action="{{ url_for('user_admin.index') }}" class="single-row">
+              <input type="search" name="search_term" placeholder="{{ _('username, first name, last name, email address') }}" title="{{ _('Search user:') }} {{ _('username, first name, last name, email address') }}">
+              <button type="submit" class="button" title="{{ _('Search') }}">{{ render_icon('search') }}</button>
+            </form>
+            {%- endif %}
+
+          </div>
+          <div class="header-grid-cell-user">
+
+{% include 'layout/admin/_current_user.html' %}
+
+          </div>
+        </div>{# #header-grid #}
+      </div>{# #header-content #}
+    </header>

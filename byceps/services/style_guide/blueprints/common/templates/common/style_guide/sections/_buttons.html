@@ -1,0 +1,49 @@
+{%- from 'macros/icons.html' import render_icon %}
+
+
+<p>Buttons with different styles and states:</p>
+
+{% call render_example() %}
+<div class="button-row">
+  <button class="button">Form Button</button>
+  <a href="#" class="button">Link Button</a>
+  <a href="#" class="button">{{ render_icon('shopping-cart') }} <span>Buy</span></a>
+  <a href="#" class="button">{{ render_icon('chevron-down') }}</a>
+  <a href="#" class="button is-outlined">Outlined</a>
+  <a href="#" class="button is-clear">Clear</a>
+  <a href="#" class="button is-rounded">Rounded</a>
+  <button class="button" disabled>Disabled Form Button</button>
+  <a href="#" class="button is-disabled">Disabled Link Button</a>
+</div>
+
+<div class="button-row">
+  <a href="#" class="button is-compact">Compact</a>
+  <a href="#" class="button is-compact">{{ render_icon('shopping-cart') }} <span>Buy</span></a>
+  <a href="#" class="button is-compact">{{ render_icon('chevron-down') }}</a>
+  <a href="#" class="button is-compact is-outlined is-rounded">Compact, Outlined, Rounded</a>
+</div>
+{% endcall %}
+
+<p>Different colors:</p>
+
+{% call render_example() %}
+<div class="button-row">
+  <a href="#" class="button color-primary">Primary</a>
+  <a href="#" class="button color-info">Info</a>
+  <a href="#" class="button color-success">Success</a>
+  <a href="#" class="button color-warning">Warning</a>
+  <a href="#" class="button color-danger">Danger</a>
+</div>
+{% endcall %}
+
+<p>Label wrapping:</p>
+
+{% call render_example() %}
+<div class="button-row">
+  <a href="#" class="button">A button with a rather long label, not wrapping by default</a>
+</div>
+
+<div class="button-row">
+  <a href="#" class="button button--wrapping" style="width: 12rem;">A button with a rather long label, wrapping</a>
+</div>
+{% endcall %}

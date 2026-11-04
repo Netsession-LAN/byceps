@@ -1,0 +1,15 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/more.html' import render_more_items %}
+{% set current_page = 'more_admin_party' %}
+{% set current_page_party = party %}
+{% set page_title = _('More') %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin_dashboard.css') }}">
+{%- endblock %}
+
+{% block body %}
+
+{{ render_more_items(items) }}
+
+{%- endblock %}

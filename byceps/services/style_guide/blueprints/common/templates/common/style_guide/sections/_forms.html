@@ -1,0 +1,99 @@
+{%- from 'macros/forms.html' import form_buttons %}
+
+
+{% call render_example() %}
+<form>
+
+  <div class="form-control-block">
+    <div class="form-form-errors">
+      <ol class="form-errors">
+        <li><strong>Error:</strong> <span>There were validation errors.</span></li>
+        <li><strong>Error:</strong> <span>The server is not in the mood for processing.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="form-control-block">
+    <label class="form-label" for="field1">Field 1</label>
+    <input class="form-control" id="field1" name="field1">
+  </div>
+
+  <div class="form-control-block row">
+    <div>
+
+      <div class="form-control-block">
+        <label class="form-label">Optional selections</label>
+        <div class="form-control-checkboxes">
+          <label class="form-check-label"><input name="checkbox1" type="checkbox"><span>Option 1</span></label>
+          <label class="form-check-label"><input name="checkbox2" type="checkbox"><span>Option 2</span></label>
+        </div>
+      </div>
+
+    </div>
+    <div>
+
+      <div class="form-control-block">
+        <label class="form-label" for="checkboxes1">Mandatory selection</label>
+        <div class="form-control-radios">
+          <ul id="radios1">
+            <li class="form-radio-label"><input id="radios1-1" name="radios1" type="radio"><label for="radios1-1"><span>Option A</span></label></li>
+            <li class="form-radio-label"><input id="radios1-2" name="radios1" type="radio"><label for="radios1-2"><span>Option B</span></label></li>
+            <li class="form-radio-label"><input id="radios1-3" name="radios1" type="radio"><label for="radios1-3"><span>Option C</span></label></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="form-control-block row">
+    <div class="column--grow">
+
+      <div class="form-control-block">
+        <label class="form-label" for="field2">Field 2</label>
+        <input class="form-control" id="field2" name="field2">
+      </div>
+
+    </div>
+    <div class="column--grow">
+
+      <div class="form-control-block invalid">
+        <label class="form-label" for="field3">Field 3</label>
+        <input class="form-control" id="field3" name="field3">
+        <ol class="form-errors">
+          <li><strong>Error:</strong> <span>Your answer must be in the form of a question. (<a href="#">More on this.</a>)</span></li>
+        </ol>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="form-control-block">
+    <label class="form-label" for="field4">Field 4</label>
+    <textarea class="form-control" id="field4" name="field4"></textarea>
+  </div>
+
+  {{ form_buttons(_('Save'), cancel_url='#') }}
+
+</form>
+{% endcall %}
+
+<p>Field prefix:</p>
+
+{% call render_example() %}
+<label class="form-label" for="amount_eur">Amount (in EUR)</label>
+<div class="form-control-wrapper">
+  <input class="form-control" id="amount_eur" name="amount_eur" size=8>
+  <span>€</span>
+</div>
+{% endcall %}
+
+<p>Field suffix:</p>
+
+{% call render_example() %}
+<label class="form-label" for="amount_eur">Amount (in USD)</label>
+<div class="form-control-wrapper">
+  <span>$</span>
+  <input class="form-control" id="amount_eur" name="amount_eur" size=8>
+</div>
+{% endcall %}

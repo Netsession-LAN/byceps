@@ -1,0 +1,501 @@
+"""
+byceps.services.ticketing.blueprints.site.views
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from typing import Any
+
+from flask import abort, g, request
+from flask_babel import gettext
+
+from byceps.services.party import party_service
+from byceps.services.shop.order import order_service
+from byceps.services.ticketing import (
+    barcode_service,
+    ticket_category_service,
+    ticket_seat_management_service,
+    ticket_service,
+    ticket_user_management_service,
+)
+from byceps.util.framework.blueprint import create_blueprint
+from byceps.util.framework.flash import flash_error, flash_success
+from byceps.util.framework.templating import templated
+from byceps.util.iterables import find
+from byceps.util.result import Err
+from byceps.util.views import login_required, redirect_to, respond_no_content
+
+from . import (
+    intranet_login_as_checkin,  # Load to connect to signal.  # noqa: F401
+    notification_service,
+)
+from .forms import SpecifyUserForm
+
+
+blueprint = create_blueprint('ticketing', __name__)
+
+
+@blueprint.app_context_processor
+def inject_ticket_sale_stats() -> dict[str, Any]:
+    if not g.party:
+        return {}
+
+    if g.site.is_intranet:
+        return {}
+
+    ticket_sale_stats = ticket_service.get_ticket_sale_stats(g.party)
+
+    return {
+        'ticket_sale_stats': ticket_sale_stats,
+    }
+
+
+@blueprint.get('/mine')
+@login_required
+@templated
+def index_mine():
+    """List tickets related to the current user."""
+    if not g.party:
+        # No party is configured for the current site.
+        abort(404)
+
+    party = g.party
+
+    user = g.user.as_user()
+
+    tickets = ticket_service.get_tickets_related_to_user_for_party(
+        user.id, party.id
+    )
+
+    tickets = [ticket for ticket in tickets if not ticket.revoked]
+
+    order_numbers = {
+        ticket.order_number
+        for ticket in tickets
+        if ticket.owned_by_id == user.id
+    }
+    order_ids_by_order_number = order_service.get_order_ids_for_order_numbers(
+        order_numbers
+    )
+
+    current_user_uses_any_ticket = find(
+        tickets, lambda t: t.used_by_id == user.id
+    )
+
+    return {
+        'party_title': party.title,
+        'tickets': tickets,
+        'order_ids_by_order_number': order_ids_by_order_number,
+        'current_user_uses_any_ticket': current_user_uses_any_ticket,
+        'is_user_allowed_to_print_ticket': _is_user_allowed_to_print_ticket,
+        'ticket_management_enabled': _is_ticket_management_enabled(),
+    }
+
+
+@blueprint.get('/tickets/<uuid:ticket_id>/printable.html')
+@login_required
+@templated
+def view_printable_html(ticket_id):
+    """Show a form to select a user to appoint for the ticket."""
+    ticket = _get_ticket_or_404(ticket_id)
+
+    if not _is_user_allowed_to_print_ticket(ticket, g.user.id):
+        # Hide ticket ID validity rather than openly denying access.
+        abort(404)
+
+    ticket_category = ticket_category_service.get_category(ticket.category_id)
+    party = party_service.get_party(ticket_category.party_id)
+
+    barcode_svg = barcode_service.render_svg(ticket.code)
+
+    # Encode SVG to be used inline as part of a data URI.
+    # Replacements are not complete, but sufficient for this case.
+    #
+    # See https://codepen.io/tigt/post/optimizing-svgs-in-data-uris
+    # for details.
+    # fmt: off
+    barcode_svg_inline = (
+        barcode_svg
+        .replace('\n', '%0A')
+        .replace('#', '%23')
+        .replace('<', '%3C')
+        .replace('>', '%3E')
+        .replace('"', "'")
+    )
+    # fmt: on
+
+    return {
+        'party_title': party.title,
+        'ticket_code': ticket.code,
+        'ticket_category_title': ticket_category.title,
+        'ticket_owner': ticket.owned_by,
+        'ticket_user': ticket.used_by,
+        'occupied_seat': ticket.occupied_seat,
+        'barcode_svg_inline': barcode_svg_inline,
+    }
+
+
+# -------------------------------------------------------------------- #
+# user
+
+
+@blueprint.get('/tickets/<uuid:ticket_id>/appoint_user')
+@login_required
+@templated
+def appoint_user_form(ticket_id, erroneous_form=None):
+    """Show a form to select a user to appoint for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_user_managed_by(manager.id):
+        abort(403)
+
+    form = erroneous_form if erroneous_form else SpecifyUserForm()
+
+    return {
+        'ticket': ticket,
+        'form': form,
+    }
+
+
+@blueprint.post('/tickets/<uuid:ticket_id>/user')
+def appoint_user(ticket_id):
+    """Appoint a user for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    form = SpecifyUserForm(request.form)
+    if not form.validate():
+        return appoint_user_form(ticket_id, form)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_user_managed_by(manager.id):
+        abort(403)
+
+    previous_user = ticket.used_by if ticket.used_by_id != g.user.id else None
+    new_user = form.user.data
+
+    match ticket_user_management_service.appoint_user(
+        ticket.id, new_user, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return redirect_to('.index_mine')
+
+    flash_success(
+        gettext(
+            '%(screen_name)s has been assigned as user of ticket %(ticket_code)s.',
+            screen_name=new_user.screen_name,
+            ticket_code=ticket.code,
+        )
+    )
+
+    if previous_user:
+        notification_service.notify_withdrawn_user(
+            ticket, previous_user, manager
+        )
+
+    notification_service.notify_appointed_user(ticket, new_user, manager)
+
+    return redirect_to('.index_mine')
+
+
+@blueprint.delete('/tickets/<uuid:ticket_id>/user')
+@respond_no_content
+def withdraw_user(ticket_id):
+    """Withdraw the ticket's user and appoint its owner instead."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_user_managed_by(manager.id):
+        abort(403)
+
+    previous_user = ticket.used_by if ticket.used_by_id != g.user.id else None
+
+    # Intentionally assign the ticket user manager as the new
+    # ticket user instead of removing the ticket user.
+    match ticket_user_management_service.appoint_user(
+        ticket.id, manager, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return
+
+    flash_success(
+        gettext(
+            'You have been assigned as user of ticket %(ticket_code)s.',
+            ticket_code=ticket.code,
+        )
+    )
+
+    if previous_user:
+        notification_service.notify_withdrawn_user(
+            ticket, previous_user, manager
+        )
+
+
+# -------------------------------------------------------------------- #
+# user manager
+
+
+@blueprint.get('/tickets/<uuid:ticket_id>/appoint_user_manager')
+@login_required
+@templated
+def appoint_user_manager_form(ticket_id, erroneous_form=None):
+    """Show a form to select a user to appoint as user manager for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    form = erroneous_form if erroneous_form else SpecifyUserForm()
+
+    return {
+        'ticket': ticket,
+        'form': form,
+    }
+
+
+@blueprint.post('/tickets/<uuid:ticket_id>/user_manager')
+def appoint_user_manager(ticket_id):
+    """Appoint a user manager for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    form = SpecifyUserForm(request.form)
+    if not form.validate():
+        return appoint_user_manager_form(ticket_id, form)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    user = form.user.data
+
+    match ticket_user_management_service.appoint_user_manager(
+        ticket.id, user, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return redirect_to('.index_mine')
+
+    flash_success(
+        gettext(
+            '%(screen_name)s has been assigned as user manager '
+            'of ticket %(ticket_code)s.',
+            screen_name=user.screen_name,
+            ticket_code=ticket.code,
+        )
+    )
+
+    notification_service.notify_appointed_user_manager(ticket, user, manager)
+
+    return redirect_to('.index_mine')
+
+
+@blueprint.delete('/tickets/<uuid:ticket_id>/user_manager')
+@respond_no_content
+def withdraw_user_manager(ticket_id):
+    """Withdraw the ticket's user manager."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    _abort_if_ticket_user_checked_in(ticket)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    previous_manager = ticket.user_managed_by
+
+    match ticket_user_management_service.withdraw_user_manager(
+        ticket.id, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return
+
+    flash_success(
+        gettext(
+            'User manager of ticket %(ticket_code)s has been removed.',
+            ticket_code=ticket.code,
+        )
+    )
+
+    if previous_manager:
+        notification_service.notify_withdrawn_user_manager(
+            ticket, previous_manager, manager
+        )
+
+
+# -------------------------------------------------------------------- #
+# seat manager
+
+
+@blueprint.get('/tickets/<uuid:ticket_id>/appoint_seat_manager')
+@login_required
+@templated
+def appoint_seat_manager_form(ticket_id, erroneous_form=None):
+    """Show a form to select a user to appoint as seat manager for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    form = erroneous_form if erroneous_form else SpecifyUserForm()
+
+    return {
+        'ticket': ticket,
+        'form': form,
+    }
+
+
+@blueprint.post('/tickets/<uuid:ticket_id>/seat_manager')
+def appoint_seat_manager(ticket_id):
+    """Appoint a seat manager for the ticket."""
+    _abort_if_ticket_management_disabled()
+
+    form = SpecifyUserForm(request.form)
+    if not form.validate():
+        return appoint_seat_manager_form(ticket_id, form)
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    user = form.user.data
+
+    match ticket_seat_management_service.appoint_seat_manager(
+        ticket.id, user, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return redirect_to('.index_mine')
+
+    flash_success(
+        gettext(
+            '%(screen_name)s has been assigned as seat manager '
+            'of ticket %(ticket_code)s.',
+            screen_name=user.screen_name,
+            ticket_code=ticket.code,
+        )
+    )
+
+    notification_service.notify_appointed_seat_manager(ticket, user, manager)
+
+    return redirect_to('.index_mine')
+
+
+@blueprint.delete('/tickets/<uuid:ticket_id>/seat_manager')
+@respond_no_content
+def withdraw_seat_manager(ticket_id):
+    """Withdraw the ticket's seat manager."""
+    _abort_if_ticket_management_disabled()
+
+    ticket = _get_ticket_or_404(ticket_id)
+
+    manager = g.user.as_user()
+
+    if not ticket.is_owned_by(manager.id):
+        abort(403)
+
+    previous_manager = ticket.seat_managed_by
+
+    match ticket_seat_management_service.withdraw_seat_manager(
+        ticket.id, manager
+    ):
+        case Err(e):
+            flash_error(e.message)
+            return
+
+    flash_success(
+        gettext(
+            'Seat manager of ticket %(ticket_code)s has been removed.',
+            ticket_code=ticket.code,
+        )
+    )
+
+    if previous_manager:
+        notification_service.notify_withdrawn_seat_manager(
+            ticket, previous_manager, manager
+        )
+
+
+# -------------------------------------------------------------------- #
+
+
+def _abort_if_ticket_management_disabled():
+    if not _is_ticket_management_enabled():
+        flash_error(gettext('Tickets cannot be updated at this time.'))
+        abort(403)
+
+
+def _is_ticket_management_enabled():
+    if not g.user.authenticated:
+        return False
+
+    if not g.party:
+        return False
+
+    return g.party.ticket_management_enabled
+
+
+def _get_ticket_or_404(ticket_id):
+    ticket = ticket_service.find_ticket(ticket_id)
+
+    if (ticket is None) or ticket.revoked:
+        abort(404)
+
+    return ticket
+
+
+def _abort_if_ticket_user_checked_in(ticket):
+    if ticket.user_checked_in:
+        flash_error(
+            gettext('Somebody has already been checked in with this ticket.')
+        )
+        abort(403)
+
+
+def _is_user_allowed_to_print_ticket(ticket, user_id):
+    """Return `True` only if the user is allowed to print the ticket."""
+    return (
+        ticket.is_owned_by(user_id)
+        or ticket.is_managed_by(user_id)
+        or ticket.used_by_id == user_id
+    )

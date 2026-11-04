@@ -1,0 +1,35 @@
+{% from 'macros/icons.html' import render_icon %}
+
+
+  <h2>{{ _('Newsletter') }}</h2>
+
+  <div class="main-body-box">
+    <div class="data-label">{{ _('Status') }}</div>
+    <div class="row">
+      <div>
+
+        <div class="data-value">
+          {%- if subscribed_to_newsletter -%}
+          {{ render_icon('enabled', color='#009900') }} {{ _('subscribed') }}
+          {%- else -%}
+          {{ render_icon('disabled', color='#cc0000') }} {{ _('not subscribed') }}
+          {%- endif -%}
+        </div>
+
+      </div>
+      <div>
+
+        <div class="dropdown">
+          <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') -}}</button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            {% if subscribed_to_newsletter -%}
+            <li><a class="dropdown-item" href="{{ url_for('newsletter.unsubscribe', list_id=newsletter_list.id) }}" data-action="newsletter-unsubscribe">{{ render_icon('disabled', color='#cc0000') }} {{ _('Unsubscribe') }}</a></li>
+            {%- else -%}
+            <li><a class="dropdown-item" href="{{ url_for('newsletter.subscribe', list_id=newsletter_list.id) }}" data-action="newsletter-subscribe">{{ render_icon('enabled', color='#009900') }} {{ _('Subscribe') }}</a></li>
+            {%- endif %}
+          </ol>
+        </div>
+
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,32 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% set simple_layout = true %}
+{% set current_page = 'shop_order' %}
+{% set page_title = pgettext('verb', 'Order') %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+{{ render_snippet('shop_order_intro', ignore_if_unknown=True)|safe }}
+
+  {%- if collections %}
+  <form action="{{ url_for('.order') }}" method="post" class="disable-submit-button-on-submit">
+
+{% include 'site/shop/order/_order_form_orderer.html' %}
+{% include 'site/shop/order/_order_form_products.html' %}
+
+    {{ form_buttons(_('Place binding order now')) }}
+  </form>
+  {%- else %}
+  <p>{{ _('No products are available at this time.') }}</p>
+  {%- endif %}
+
+{%- endblock %}

@@ -1,0 +1,139 @@
+{% extends 'layout/admin/shop/storefront.html' %}
+{% from 'macros/admin/shop/storefront.html' import render_enabled_payment_gateways, render_storefront_status %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set page_title = _('Storefronts') %}
+
+{% block body %}
+
+  <div class="block row row--space-between">
+    <div>
+      <h1 class="title">{{ page_title }} {{ render_extra_in_heading(storefronts|length) }}</h1>
+    </div>
+    {%- if g.user.has_permission('shop.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', shop_id=shop.id) }}">{{ render_icon('add') }} <span>{{ _('Create storefront') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if storefronts %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('ID') }}</th>
+        <th>{{ _('Order number sequence') }}</th>
+        <th>{{ _('Catalog') }}</th>
+        <th>{{ _('Payment gateways') }}</th>
+        <th>{{ _('Status') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for storefront in storefronts|sort(attribute='id') %}
+      <tr>
+        <td><a href="{{ url_for('.view', storefront_id=storefront.id) }}"><strong>{{ storefront.id }}</strong></a></td>
+        <td>{{ storefront.order_number_sequence.prefix }}</td>
+        <td>
+          {%- with catalog = storefront.catalog %}
+            {%- if catalog %}
+          <a href="{{ url_for('shop_catalog_admin.catalog_view', catalog_id=catalog.id) }}">{{ catalog.title }}</a>
+            {%- else %}
+          {{ None|fallback }}
+            {%- endif %}
+          {%- endwith %}
+        </td>
+        <td>{{ render_enabled_payment_gateways(storefront.enabled_payment_gateways) }}</td>
+        <td>{{ render_storefront_status(storefront) }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No storefronts exist.') }}</div>
+  {%- endif %}
+
+  <div class="block row row--space-between row--wrap">
+    <div class="column--grow">
+
+      <div class="block row row--space-between is-vcentered">
+        <div>
+          <h2 class="title">{{ _('Product Number Sequences') }} {{ render_extra_in_heading(product_number_sequences|length) }}</h2>
+        </div>
+        {%- if g.user.has_permission('shop_product.administrate') %}
+        <div>
+          <div class="button-row is-compact is-right-aligned">
+            <a class="button is-compact" href="{{ url_for('shop_product_admin.create_number_sequence_form', shop_id=shop.id) }}">{{ render_icon('add') }} <span>{{ _('Create') }}</span></a>
+          </div>
+        </div>
+        {%- endif %}
+      </div>
+
+      {%- if product_number_sequences %}
+      <table class="itemlist is-wide">
+        <thead>
+          <tr>
+            <th>{{ _('Prefix') }}</th>
+            <th></th>
+            <th class="number">{{ _('Value') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for product_number_sequence in product_number_sequences|sort(attribute='prefix') %}
+          <tr>
+            <td>{{ product_number_sequence.prefix }}</td>
+            <td>{% if product_number_sequence.archived %}{{ render_tag(_('archived'), class='color-disabled', icon='archived') }}{% endif %}</td>
+            <td class="number">{{ product_number_sequence.value }}</td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+      {%- else %}
+      <div class="box no-data-message">{{ _('None defined') }}</div>
+      {%- endif %}
+
+    </div>
+    <div class="column--grow">
+
+      <div class="block row row--space-between is-vcentered">
+        <div>
+          <h2 class="title">{{ _('Order Number Sequences') }} {{ render_extra_in_heading(order_number_sequences|length) }}</h2>
+        </div>
+        {%- if g.user.has_permission('shop.update') %}
+        <div>
+          <div class="button-row is-compact is-right-aligned">
+            <a class="button is-compact" href="{{ url_for('shop_order_admin.create_number_sequence_form', shop_id=shop.id) }}">{{ render_icon('add') }} <span>{{ _('Create') }}</span></a>
+          </div>
+        </div>
+        {%- endif %}
+      </div>
+
+      {%- if order_number_sequences %}
+      <table class="itemlist is-wide">
+        <thead>
+          <tr>
+            <th>{{ _('Prefix') }}</th>
+            <th></th>
+            <th class="number">{{ _('Value') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for order_number_sequence in order_number_sequences|sort(attribute='prefix') %}
+          <tr>
+            <td>{{ order_number_sequence.prefix }}</td>
+            <td>{% if order_number_sequence.archived %}{{ render_tag(_('archived'), class='color-disabled', icon='archived') }}{% endif %}</td>
+            <td class="number">{{ order_number_sequence.value }}</td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+      {%- else %}
+      <div class="box no-data-message">{{ _('None defined') }}</div>
+      {%- endif %}
+
+    </div>
+  </div>
+
+{%- endblock %}

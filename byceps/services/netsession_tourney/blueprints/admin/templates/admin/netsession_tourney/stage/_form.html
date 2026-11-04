@@ -1,0 +1,563 @@
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field, render_help %}
+
+<div class="ns-admin-form-shell">
+  <form id="{{ form_id|default('ns-tourney-stage-form') }}" action="{{ form_action }}" method="post" class="ns-admin-stage-form">
+    <div class="ns-admin-stage-form-grid">
+      <section class="box ns-admin-form-section ns-admin-stage-panel">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Basis') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Typ, Name und Teilnehmerquelle dieser Stage.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-stage-field-group">
+          {{ render_field(form.type, _('Legt fest, nach welchem Spielsystem diese Stage erzeugt wird (z. B. KO-Baum, Swiss oder FFA-Heat). Die Auswahl ist auf Turniermodus und Registrierungsmodus abgestimmt.')) }}
+          <div id="{{ form_id|default('ns-tourney-stage-form') }}-type-info" class="ns-admin-form-callout ns-admin-stage-type-info"></div>
+        </div>
+
+        <div class="ns-admin-stage-field-group">
+          {{ render_field(form.name, _('Interner Anzeigename für diese Stage, z. B. Gruppenphase oder Finalrunde.')) }}
+        </div>
+
+        {%- if show_participant_source_settings|default(false) %}
+        {%- set is_stage_qualifier_mode = stage_source_mode == 'stage_qualifiers' %}
+        <section class="ns-admin-stage-source-box">
+          <h3 class="ns-admin-form-section-title">{{ _('Teilnehmerquelle für diese Stage') }}</h3>
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-participant_source_mode">{{ _('Quelle') }}</label>
+              {{ render_help(_('Legt fest, ob die Stage aus dem kompletten Turnierfeld oder aus Qualifikanten vorheriger Stages befüllt wird.')) }}
+            </div>
+            <select
+              class="form-control"
+              id="{{ form_id|default('ns-tourney-stage-form') }}-participant_source_mode"
+              name="participant_source_mode"
+            >
+              <option value="tournament"{% if stage_source_mode != 'stage_qualifiers' %} selected{% endif %}>{{ _('Komplettes Turnierfeld') }}</option>
+              <option value="stage_qualifiers"{% if stage_source_mode == 'stage_qualifiers' %} selected{% endif %}>{{ _('Qualifizierte aus vorherigen Stages') }}</option>
+            </select>
+          </div>
+
+          <div data-stage-qualifier-settings{% if not is_stage_qualifier_mode %} hidden{% endif %}>
+            <div class="form-field">
+              <div class="ns-admin-field-head">
+                <div class="form-label ns-admin-form-label">{{ _('Quell-Stages (vorherige Stages)') }}</div>
+                {{ render_help(_('Hier wählst du aus, aus welchen bereits gespielten Stages Teilnehmer in diese Stage nachrücken.')) }}
+              </div>
+              {%- if available_source_stages %}
+              <div class="ns-admin-stage-source-list">
+                {%- for source_stage in available_source_stages %}
+                <label>
+                  <input
+                    type="checkbox"
+                    name="qualifier_source_stage_ids"
+                    value="{{ source_stage.id }}"
+                    {% if not is_stage_qualifier_mode %}disabled{% endif %}
+                    {% if source_stage.id|string in selected_source_stage_ids %}checked{% endif %}
+                  >
+                  <span>{{ source_stage.order_no }}. {{ source_stage.name }}</span>
+                </label>
+                {%- endfor %}
+              </div>
+              {%- else %}
+              <div class="dimmed">{{ _('Keine vorherigen Stages verfügbar.') }}</div>
+              {%- endif %}
+            </div>
+
+            <div class="form-field">
+              <div class="ns-admin-field-head">
+                <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_selection_mode">{{ _('Qualifikationsmodus') }}</label>
+                {{ render_help(_('Legt fest, ob die besten Teilnehmer pro Quell-Stage oder bei Round Robin Groups pro Gruppe übernommen werden.')) }}
+              </div>
+              <select
+                class="form-control"
+                id="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_selection_mode"
+                name="qualifier_selection_mode"
+                {% if not is_stage_qualifier_mode %}disabled{% endif %}
+              >
+                <option value="per_stage"{% if stage_qualifier_selection_mode|default('per_stage') != 'per_group' %} selected{% endif %}>{{ _('Top N pro Quell-Stage') }}</option>
+                <option value="per_group"{% if stage_qualifier_selection_mode|default('per_stage') == 'per_group' %} selected{% endif %}>{{ _('Top N pro Gruppe') }}</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <div class="ns-admin-field-head">
+                <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_top_n">{{ _('Top N pro Quell-Stage') }}</label>
+                {{ render_help(_('Gibt an, wie viele Teilnehmer je nach Qualifikationsmodus übernommen werden. Bei Round Robin Groups kann das auch Top N pro Gruppe sein.')) }}
+              </div>
+              <input
+                class="form-control"
+                type="number"
+                id="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_top_n"
+                name="qualifier_top_n"
+                min="1"
+                max="128"
+                {% if not is_stage_qualifier_mode %}disabled{% endif %}
+                value="{{ stage_qualifier_top_n|default(1) }}"
+              >
+            </div>
+          </div>
+        </section>
+        {%- endif %}
+      </section>
+
+      <section class="box ns-admin-form-section ns-admin-stage-panel">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Einstellungen') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Regeln, Größen und Zeitplanung dieser Stage.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-stage-field-group" data-stage-setting="round_count">
+          {{ render_field(form.round_count, _('Wie viele Runden erzeugt werden sollen. Relevant für League- und Round-Robin-basierte Stages.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="swiss_threshold">
+          {{ render_field(form.swiss_threshold, _('Entscheidungsschwelle für Swiss. Bei 2/3/4 gilt jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird daraus automatisch als 3/5/7 abgeleitet.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="max_players_per_match">
+          {{ render_field(form.max_players_per_match, _('Maximale Anzahl Teilnehmer pro Match. Relevant f�r FFA-Formate mit mehreren separaten Heats. Bei FlatOut 2 werden die Teilnehmer pro Match manuell zugewiesen, maximal 8 pro Match.')) }}
+          <div class="form-field" data-flatout2-max-players-wrapper hidden>
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-max-players-flatout2">{{ form.max_players_per_match.label.text }}</label>
+              {{ render_help(_('FlatOut 2 verwendet manuell vorbereitete Matches. W�hle die maximale Teilnehmerzahl pro Match zwischen 2 und 8.')) }}
+            </div>
+            <select
+              class="form-control"
+              id="{{ form_id|default('ns-tourney-stage-form') }}-max-players-flatout2"
+              data-flatout2-max-players-select
+            >
+              {%- for option_value in range(2, 9) %}
+              <option value="{{ option_value }}"{% if form.max_players_per_match.data == option_value %} selected{% endif %}>{{ option_value }}</option>
+              {%- endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="group_size">
+          {{ render_field(form.group_size, _('Anzahl Teilnehmer pro Gruppe. Wird für Group-Formate verwendet.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="placement_points">
+          <div class="ns-admin-field-head">
+            <div class="form-label ns-admin-form-label">{{ form.placement_points.label.text }}</div>
+            {{ render_help(_('Punkte pro Ingame-Platz für dieses FFA-Format. Bei FFA Simple orientiert sich die Liste am Turnierlimit, bei FFA Single Elimination und FlatOut 2 an der maximalen Matchgröße. Jeder Platz bekommt genau einen Punktewert, auch 0 ist erlaubt.')) }}
+          </div>
+          <div class="ns-admin-placement-points-builder" data-placement-points-builder data-max-places="{{ placement_points_row_count|default(0) }}" data-tournament-max-places="{{ tournament.participant_limit or 0 }}">
+            <div class="ns-admin-form-callout ns-admin-placement-points-summary">
+              {%- if placement_points_row_count %}
+              {{ _('Es werden %(count)s Plätze verwendet.', count=placement_points_row_count) }}
+              {%- else %}
+              {{ _('Bitte zuerst die relevante Match- oder Turniergröße setzen, damit die Platzliste erzeugt werden kann.') }}
+              {%- endif %}
+            </div>
+            <div class="ns-admin-placement-points-list" data-placement-points-list></div>
+            <p class="dimmed ns-admin-placement-points-empty" data-placement-points-empty{% if placement_points_row_count %} hidden{% endif %}>
+              {{ _('Ohne passende Match- oder Turniergröße kann kein fixes Platzschema aufgebaut werden.') }}
+            </p>
+            <template data-placement-points-row-template>
+              <label class="ns-admin-placement-points-row">
+                <span class="ns-admin-placement-points-place"></span>
+                <input
+                  class="form-control ns-admin-placement-points-input"
+                  type="number"
+                  min="0"
+                  max="999"
+                  step="1"
+                  inputmode="numeric"
+                  data-placement-points-value
+                >
+                <span class="ns-admin-placement-points-label">{{ _('Punkte') }}</span>
+              </label>
+            </template>
+          </div>
+          <div class="ns-admin-placement-points-storage">
+            {{ form.placement_points(class_='form-control', rows='2') }}
+          </div>
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="points_per_kill">
+          {{ render_field(form.points_per_kill, _('Wie viele Turnierpunkte jeder Kill bei diesem FFA-Format bringt. 0 deaktiviert Killpunkte komplett.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="match_duration_minutes" data-stage-setting-default="true">
+          {{ render_field(form.match_duration_minutes, _('Geplante Dauer eines einzelnen Matches in Minuten. Dient zur automatischen Zeitplanung.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="break_between_rounds_minutes" data-stage-setting-default="true">
+          {{ render_field(form.break_between_rounds_minutes, _('Pause zwischen zwei Runden in Minuten. Wird auf die automatische Planung addiert.')) }}
+        </div>
+        <div class="ns-admin-stage-field-group" data-stage-setting="result_report_mode" data-stage-setting-default="true">
+          {{ render_field(form.result_report_mode, _('Legt fest, welches Team ein Match-Ergebnis melden darf.')) }}
+        </div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ submit_label }}</button>
+      <a href="{{ cancel_url }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  (() => {
+    const form = document.querySelector('#{{ form_id|default('ns-tourney-stage-form') }}');
+    if (!form) {
+      return;
+    }
+
+    const stageTypeField = form.querySelector('select[name="type"]');
+    if (!stageTypeField) {
+      return;
+    }
+
+    const stageTypeSettingMap = {
+      single_elimination: [],
+      double_elimination: [],
+      double_elimination_double_grand_final: [],
+      swiss: ['swiss_threshold'],
+      round_robin_groups: ['round_count', 'group_size'],
+      league: ['round_count'],
+      ffa_simple: ['placement_points', 'points_per_kill'],
+      ffa_single_elimination: ['max_players_per_match', 'placement_points', 'points_per_kill'],
+      ffa_flatout2_single_elimination: ['max_players_per_match'],
+    };
+    const stageTypeDescriptionMap = {
+      single_elimination: {{ _('Single Elimination: KO-Baum, eine Niederlage bedeutet Ausscheiden.')|tojson }},
+      double_elimination: {{ _('Double Elimination: Teams haben in der Regel zwei Leben (Upper/Lower-Bracket).')|tojson }},
+      double_elimination_double_grand_final: {{ _('Double Elimination + Double Grand Final: wie Double Elimination, mit optionalem zweitem Grand Final bei Bracket-Reset.')|tojson }},
+      round_robin_groups: {{ _('Round Robin Groups: Jeder gegen jeden innerhalb der Gruppen.')|tojson }},
+      league: {{ _('League: Jeder gegen jeden über die Liga-Runden.')|tojson }},
+      swiss: {{ _('Swiss: Mehrere Runden ohne direktes Ausscheiden, Paarungen nach laufender Wertung.')|tojson }},
+      ffa_simple: {{ _('FFA Simple: Ein einzelnes FFA-Match mit allen Teilnehmern dieser Stage. Ingame-Platz und Kills werden im Admin erfasst, daraus entstehen Turnierpunkte.')|tojson }},
+      ffa_single_elimination: {{ _('FFA Single Elimination: FFA-Heats mit KO-Fortschritt in Folgerunden.')|tojson }},
+      ffa_flatout2_single_elimination: {{ _('FlatOut 2: manuell vorbereitete FFA-Stage mit Runden, Matches, Host-Auswahl und konfigurierbarem Rennen-Setup pro Match. Platz- und Killpunkte werden dabei nicht verwendet.')|tojson }},
+    };
+    const stageTypeScopeMap = {
+      single_elimination: {{ _('solo/team')|tojson }},
+      double_elimination: {{ _('solo/team')|tojson }},
+      double_elimination_double_grand_final: {{ _('solo/team')|tojson }},
+      round_robin_groups: {{ _('solo/team')|tojson }},
+      league: {{ _('solo/team')|tojson }},
+      swiss: {{ _('solo/team')|tojson }},
+      ffa_simple: {{ _('solo/team')|tojson }},
+      ffa_single_elimination: {{ _('solo/team')|tojson }},
+      ffa_flatout2_single_elimination: {{ _('solo/team')|tojson }},
+    };
+
+    const configurableSettingContainers = Array.from(
+      form.querySelectorAll('[data-stage-setting]')
+    );
+    const resultReportModeField = form.querySelector(
+      'select[name="result_report_mode"]'
+    );
+    const resultReportModeOptions = resultReportModeField
+      ? Array.from(resultReportModeField.options).map((option) => ({
+          value: option.value,
+          label: option.textContent,
+        }))
+      : [];
+    const stageTypeInfo = form.querySelector('#{{ form_id|default('ns-tourney-stage-form') }}-type-info');
+    const placementPointsBuilder = form.querySelector(
+      '[data-placement-points-builder]'
+    );
+    const placementPointsList = form.querySelector(
+      '[data-placement-points-list]'
+    );
+    const placementPointsSummary = form.querySelector(
+      '.ns-admin-placement-points-summary'
+    );
+    const placementPointsEmpty = form.querySelector(
+      '[data-placement-points-empty]'
+    );
+    const placementPointsRowTemplate = form.querySelector(
+      '[data-placement-points-row-template]'
+    );
+    const placementPointsField = form.querySelector(
+      'textarea[name="placement_points"]'
+    );
+    const maxPlayersPerMatchField = form.querySelector(
+      'input[name="max_players_per_match"]'
+    );
+    const flatout2MaxPlayersWrapper = form.querySelector(
+      '[data-flatout2-max-players-wrapper]'
+    );
+    const flatout2MaxPlayersSelect = form.querySelector(
+      '[data-flatout2-max-players-select]'
+    );
+    const participantSourceModeField = form.querySelector(
+      'select[name="participant_source_mode"]'
+    );
+    const qualifierSettingsContainer = form.querySelector(
+      '[data-stage-qualifier-settings]'
+    );
+
+    const parsePlacementPoints = (rawText) => {
+      const valuesByPlace = new Map();
+      const text = (rawText || '').trim();
+      if (!text) {
+        return valuesByPlace;
+      }
+
+      const pattern =
+        /^(?:platz\s*#?\s*)?(\d+)(?:\s*-\s*(\d+))?\s*(?:=|:|->)?\s*(\d+)\s*(?:punkte?|pts?)?$/i;
+
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) {
+          continue;
+        }
+
+        const match = line.match(pattern);
+        if (!match) {
+          continue;
+        }
+
+        const fromPlace = Number(match[1]);
+        const toPlace = Number(match[2] || match[1]);
+        const points = Number(match[3]);
+
+        for (let place = fromPlace; place <= toPlace; place += 1) {
+          valuesByPlace.set(place, points);
+        }
+      }
+
+      return valuesByPlace;
+    };
+
+    const serializePlacementPoints = () => {
+      if (!placementPointsBuilder || !placementPointsField) {
+        return;
+      }
+
+      const lines = Array.from(
+        placementPointsBuilder.querySelectorAll('[data-placement-points-value]')
+      ).map((input) => {
+        const place = Number(input.dataset.place || '0');
+        const points = Number(input.value || '0');
+        return `${place} = ${Number.isFinite(points) ? points : 0}`;
+      });
+
+      placementPointsField.value = lines.join('\n');
+    };
+
+    const getPlacementPointRowCount = () => {
+      if (!placementPointsBuilder) {
+        return 0;
+      }
+
+      const selectedStageType = stageTypeField.value;
+      if (selectedStageType === 'ffa_simple') {
+        const maxPlaces = Number.parseInt(
+          placementPointsBuilder.dataset.tournamentMaxPlaces || '0',
+          10
+        );
+        return Number.isFinite(maxPlaces) && maxPlaces > 0 ? maxPlaces : 0;
+      }
+
+      if (selectedStageType === 'ffa_single_elimination') {
+        const maxPlayers = Number.parseInt(
+          maxPlayersPerMatchField?.value || '0',
+          10
+        );
+        return Number.isFinite(maxPlayers) && maxPlayers > 0 ? maxPlayers : 0;
+      }
+
+      return 0;
+    };
+
+    const updatePlacementPointsSummary = (maxPlaces) => {
+      if (!placementPointsSummary) {
+        return;
+      }
+
+      placementPointsSummary.textContent = maxPlaces > 0
+        ? `{{ _('Es werden %(count)s Plätze verwendet.', count='__COUNT__') }}`.replace(
+            '__COUNT__',
+            String(maxPlaces)
+          )
+        : `{{ _('Bitte zuerst die relevante Match- oder Turniergröße setzen, damit die Platzliste erzeugt werden kann.') }}`;
+    };
+
+    const buildPlacementPointsInputs = () => {
+      if (
+        !placementPointsBuilder
+        || !placementPointsList
+        || !placementPointsRowTemplate
+        || !placementPointsField
+      ) {
+        return;
+      }
+
+      const maxPlaces = getPlacementPointRowCount();
+      updatePlacementPointsSummary(maxPlaces);
+      placementPointsList.replaceChildren();
+
+      if (!Number.isInteger(maxPlaces) || maxPlaces < 1) {
+        if (placementPointsEmpty) {
+          placementPointsEmpty.hidden = false;
+        }
+        return;
+      }
+
+      if (placementPointsEmpty) {
+        placementPointsEmpty.hidden = true;
+      }
+
+      const valuesByPlace = parsePlacementPoints(placementPointsField.value);
+      for (let place = 1; place <= maxPlaces; place += 1) {
+        const fragment = placementPointsRowTemplate.content.cloneNode(true);
+        const row = fragment.querySelector('.ns-admin-placement-points-row');
+        const placeLabel = fragment.querySelector(
+          '.ns-admin-placement-points-place'
+        );
+        const input = fragment.querySelector('[data-placement-points-value]');
+
+        placeLabel.textContent = `{{ _('Platz') }} #${place}`;
+        input.name = `placement_points_place_${place}`;
+        input.dataset.place = String(place);
+        input.value = String(valuesByPlace.get(place) ?? 0);
+        input.addEventListener('input', serializePlacementPoints);
+
+        placementPointsList.appendChild(row);
+      }
+
+      serializePlacementPoints();
+    };
+
+    const updateVisibleSettings = () => {
+      const selectedStageType = stageTypeField.value;
+      const usedSettings = new Set(stageTypeSettingMap[selectedStageType] || []);
+      const isFlatout2Stage =
+        selectedStageType === 'ffa_flatout2_single_elimination';
+      if (stageTypeInfo) {
+        const description = stageTypeDescriptionMap[selectedStageType] || '';
+        const scope = stageTypeScopeMap[selectedStageType] || '';
+        const scopeLabel = {{ _('Geeignet für')|tojson }};
+        stageTypeInfo.textContent = scope
+          ? `${description} ${scopeLabel}: ${scope}.`
+          : description;
+      }
+
+      configurableSettingContainers.forEach((container) => {
+        const settingName = container.dataset.stageSetting;
+        const alwaysVisible =
+          container.dataset.stageSettingDefault === 'true';
+        const hiddenFor = (container.dataset.stageSettingHiddenFor || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const shouldBeVisible =
+          (alwaysVisible || usedSettings.has(settingName))
+          && !hiddenFor.includes(selectedStageType);
+
+        container.hidden = !shouldBeVisible;
+
+        const inputs = container.querySelectorAll('input, select, textarea');
+        inputs.forEach((input) => {
+          input.disabled = !shouldBeVisible;
+        });
+      });
+
+      if (maxPlayersPerMatchField) {
+        const maxPlayersFieldBlock = maxPlayersPerMatchField.closest(
+          '.form-control-block'
+        );
+        if (maxPlayersFieldBlock) {
+          maxPlayersFieldBlock.hidden = isFlatout2Stage;
+        } else {
+          maxPlayersPerMatchField.hidden = isFlatout2Stage;
+        }
+        maxPlayersPerMatchField.disabled = !usedSettings.has('max_players_per_match');
+      }
+
+      if (flatout2MaxPlayersWrapper) {
+        flatout2MaxPlayersWrapper.hidden = !isFlatout2Stage || !usedSettings.has('max_players_per_match');
+      }
+
+      if (flatout2MaxPlayersSelect) {
+        flatout2MaxPlayersSelect.disabled = !isFlatout2Stage || !usedSettings.has('max_players_per_match');
+        if (isFlatout2Stage && maxPlayersPerMatchField) {
+          const currentValue = Number.parseInt(
+            maxPlayersPerMatchField.value || flatout2MaxPlayersSelect.value || '8',
+            10
+          );
+          const normalizedValue = currentValue >= 2 && currentValue <= 8
+            ? currentValue
+            : 8;
+          flatout2MaxPlayersSelect.value = String(normalizedValue);
+          maxPlayersPerMatchField.value = String(normalizedValue);
+        }
+      }
+
+      if (resultReportModeField) {
+        const onlyAdminMode =
+          selectedStageType === 'ffa_simple'
+          || selectedStageType === 'ffa_single_elimination'
+          || selectedStageType === 'ffa_flatout2_single_elimination';
+        const previousValue = resultReportModeField.value;
+        const desiredOptions = onlyAdminMode
+          ? resultReportModeOptions.filter((option) => option.value === 'admin_only')
+          : resultReportModeOptions;
+
+        resultReportModeField.replaceChildren(
+          ...desiredOptions.map((option) => {
+            const element = document.createElement('option');
+            element.value = option.value;
+            element.textContent = option.label;
+            return element;
+          })
+        );
+
+        resultReportModeField.value = onlyAdminMode
+          ? 'admin_only'
+          : (previousValue || 'both_must_confirm');
+        resultReportModeField.disabled = onlyAdminMode;
+      }
+    };
+
+    const updateParticipantSourceSettingsVisibility = () => {
+      if (!participantSourceModeField || !qualifierSettingsContainer) {
+        return;
+      }
+
+      const isQualifierMode =
+        participantSourceModeField.value === 'stage_qualifiers';
+      qualifierSettingsContainer.hidden = !isQualifierMode;
+      qualifierSettingsContainer
+        .querySelectorAll('input, select, textarea')
+        .forEach((input) => {
+          input.disabled = !isQualifierMode;
+        });
+    };
+
+    stageTypeField.addEventListener('change', () => {
+      updateVisibleSettings();
+      buildPlacementPointsInputs();
+    });
+    flatout2MaxPlayersSelect?.addEventListener('change', () => {
+      if (!maxPlayersPerMatchField) {
+        return;
+      }
+
+      maxPlayersPerMatchField.value = flatout2MaxPlayersSelect.value;
+      buildPlacementPointsInputs();
+    });
+    maxPlayersPerMatchField?.addEventListener(
+      'input',
+      buildPlacementPointsInputs
+    );
+    if (participantSourceModeField) {
+      participantSourceModeField.addEventListener(
+        'change',
+        updateParticipantSourceSettingsVisibility
+      );
+    }
+    buildPlacementPointsInputs();
+    updateVisibleSettings();
+    updateParticipantSourceSettingsVisibility();
+    form.addEventListener('submit', () => {
+      if (flatout2MaxPlayersSelect && maxPlayersPerMatchField && stageTypeField.value === 'ffa_flatout2_single_elimination') {
+        maxPlayersPerMatchField.value = flatout2MaxPlayersSelect.value;
+      }
+      serializePlacementPoints();
+    });
+  })();
+</script>

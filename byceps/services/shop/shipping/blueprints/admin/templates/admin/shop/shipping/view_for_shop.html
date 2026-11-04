@@ -1,0 +1,38 @@
+{% extends 'layout/admin/shop/shipping.html' %}
+{% set current_page_shop = shop %}
+{% set page_title = _('Shipping') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  {%- if products_to_ship %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Product number') }}</th>
+        <th>{{ pgettext('product', 'Name') }}</th>
+        <th class="number">{{ _('Paid') }}</th>
+        <th class="number">{{ _('Open') }}</th>
+        <th class="number">{{ _('Total') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for product_to_ship in products_to_ship %}
+      <tr>
+        {%- with product = products_by_id[product_to_ship.product_id] %}
+        <td>{{ product.item_number }}</td>
+        <td>{{ product_to_ship.name }}</td>
+        <td class="number">{{ product_to_ship.quantity_paid }}</td>
+        <td class="number">{{ product_to_ship.quantity_open }}</td>
+        <td class="number">{{ product_to_ship.quantity_total }}</td>
+        {%- endwith %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('Currently no products that need to be shipped are ordered or paid.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

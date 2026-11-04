@@ -1,0 +1,62 @@
+"""
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+import pytest
+
+from byceps.services.ticketing import ticket_bundle_service as bundle_service
+from byceps.services.ticketing.log import ticket_log_service
+from byceps.util.result import Ok
+
+
+def test_revoke_bundle(admin_app, bundle, ticketing_admin):
+    expected_quantity = 4
+
+    bundle_before = bundle
+    assert not bundle_before.revoked
+
+    tickets_before = bundle_service.get_tickets_for_bundle(bundle.id)
+    assert len(tickets_before) == expected_quantity
+
+    for ticket_before in tickets_before:
+        assert not ticket_before.revoked
+
+        log_entries_before = ticket_log_service.get_entries_for_ticket(
+            ticket_before.id
+        )
+        assert len(log_entries_before) == 0
+
+    # -------------------------------- #
+
+    assert bundle_service.revoke_bundle(bundle.id, ticketing_admin) == Ok(None)
+
+    # -------------------------------- #
+
+    bundle_after = bundle_service.get_bundle(bundle.id)
+    assert bundle_after.revoked
+
+    tickets_after = bundle_service.get_tickets_for_bundle(bundle.id)
+    assert len(tickets_after) == expected_quantity
+
+    for ticket_after in tickets_after:
+        assert ticket_after.revoked
+
+        log_entries_after = ticket_log_service.get_entries_for_ticket(
+            ticket_after.id
+        )
+        assert len(log_entries_after) == 1
+
+        ticket_revoked_log_entry = log_entries_after[0]
+        assert ticket_revoked_log_entry.event_type == 'ticket-revoked'
+        assert ticket_revoked_log_entry.data == {
+            'initiator_id': str(ticketing_admin.id),
+        }
+
+
+# helpers
+
+
+@pytest.fixture()
+def bundle(category, ticket_owner, *, quantity=4):
+    return bundle_service.create_bundle(category, quantity, ticket_owner)

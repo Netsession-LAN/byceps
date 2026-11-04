@@ -1,0 +1,104 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = [_('News channel'), channel.id] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">
+        {{ _('News channel') }} &quot;{{ channel.id }}&quot;
+        {%- if channel.archived %}
+        {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- endif %}
+      </h1>
+    </div>
+  {%- if g.user.has_permission('news_channel.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.channel_update_form', channel_id=channel.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('Site for announcement') }}</div>
+    <div class="data-value">
+      {%- if announcement_site is not none %}
+      <a href="{{ url_for('admin_dashboard.view_site', site_id=announcement_site.id) }}">{{ announcement_site.title }}</a>
+      {%- else %}
+      {{ pgettext('site', 'none')|dim }}
+      {%- endif %}
+    </div>
+
+  </div>
+
+  <div class="row row--space-between is-vcentered">
+    <div>
+      <h2>{{ _('News posts') }} {{ render_extra_in_heading(items.total) }}</h2>
+    </div>
+  {%- if g.user.has_permission('news_item.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button is-compact" href="{{ url_for('.item_create_form', channel_id=channel.id) }}">{{ render_icon('add') }} <span>{{ _('Create news post') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if items.items %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>
+          {{ _('Title') }}<br>
+          {{ _('Slug') }}
+        </th>
+        <th></th>
+        <th class="nowrap">{{ _('Latest change') }}</th>
+        <th class="centered">{{ _('Images') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for item in items.items|sort(attribute='created_at', reverse=True) %}
+      <tr>
+        <td>
+          {%- if not item.published %}
+          {{ render_tag(_('Draft')) }}
+          {%- endif %}
+          <a href="{{ url_for('.item_view', item_id=item.id) }}"><strong>{{ item.title|fallback(_('untitled')) }}</strong></a><br>
+          {{ item.slug|dim }}
+        </td>
+        <td>{% if item.featured_image %} {{ render_icon('image', title=_('Image defined')) }}{% endif %}</td>
+        <td class="nowrap">
+          {%- if g.user.has_permission('news_item.view') %}
+          <a href="{{ url_for('.item_list_versions', item_id=item.id) }}" title="{{ _('View change history') }}">{{ item.created_at|datetimeformat }}</a>
+          {%- else %}
+          {{ item.created_at|datetimeformat }}
+          {%- endif -%}
+          <br>
+          {{ _('by') }} {{ render_user_avatar_and_name(item.creator, size=16) }}
+        </td>
+        <td class="centered bignumber{% if item.image_total == 0 %} dimmed{% endif %}">{{ item.image_total }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No news posts exist for this channel.') }}</div>
+  {%- endif %}
+
+{{ render_pagination_nav(items, '.channel_view', {
+  'per_page': per_page,
+  'channel_id': channel.id,
+}) }}
+
+{%- endblock %}

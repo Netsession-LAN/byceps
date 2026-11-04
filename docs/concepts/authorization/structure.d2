@@ -1,0 +1,27 @@
+vars: {
+  d2-config: {
+    layout-engine: dagre
+    theme-id: 104
+  }
+}
+
+direction: right
+
+container: "" {
+  User: {
+    shape: person
+    width: 60
+    height: 60
+  }
+  Role: {
+    shape: oval
+    height: 60
+  }
+  Permission: {
+    shape: oval
+    height: 60
+  }
+
+  User -> Role: has
+  Role -> Permission: grants
+}

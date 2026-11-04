@@ -1,0 +1,22 @@
+{%- from 'macros/dashboard.html' import render_continuative_link %}
+
+<h2>{{ _('News') }}</h2>
+
+{%- if news_headlines %}
+<table class="itemlist is-compact is-wide">
+  <tbody>
+    {%- for headline in news_headlines %}
+    <tr>
+      <td>
+        <a class="disguised" href="{{ url_for('news.view', slug=headline.slug) }}">{{ headline.title }}</a>
+        <div class="dashboard-item-meta">{{ headline.published_at|dateformat('full') }}</div>
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<p class="dimmed">{{ _('No news yet.') }}</p>
+{%- endif %}
+
+{{ render_continuative_link(url_for('news.index'), _('All news')) }}

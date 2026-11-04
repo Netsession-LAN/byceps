@@ -1,0 +1,70 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_notification %}
+{% set current_page = 'ticketing_checkin_admin' %}
+{% set current_page_party = party %}
+{% set page_title = [_('Check-In'), party.title] %}
+
+{% block body %}
+
+  <h1 class="title">{{ _('Check-In') }}</h1>
+
+  <div class="box mb">
+
+    <div class="row row--space-between is-vcentered row--wrap">
+      <div>
+
+        <form action="{{ url_for('.index', party_id=party.id) }}" class="single-row unobtrusive">
+          <input type="search" name="search_term" placeholder="{{ [_('ticket code'), _('order number'), _('username'), _('first name'), _('last name'), _('email address')]|join(', ') }}" class="form-control" autofocus>
+          <button type="submit" class="button" title="{{ _('Search') }}" tabindex="-1">{{ render_icon('search') }}</button>
+          <a href="{{ url_for('.index', party_id=party.id) }}" class="button{% if not search_term %} dimmed{% endif %}" title="{{ _('Remove search term constraint') }}" tabindex="-1">{{ render_icon('remove') }}</a>
+        </form>
+
+      </div>
+      <div class="column--grow">
+
+        <small>
+          <ul style="margin: 0; padding-left: 1rem;">
+            <li><strong>{{ _('Tickets') }}</strong> {{ _('via') }} {{ _('ticket code') }}</li>
+            <li><strong>{{ _('Orders') }}</strong> {{ _('via') }} {{ _('order number') }}</li>
+            <li><strong>{{ _('Users') }}</strong> {{ _('via') }} {{ [_('username'), _('first name'), _('last name'), _('email address')]|join(', ') }}</li>
+          </ul>
+        </small>
+
+      </div>
+    </div>
+
+  </div>
+
+  {%- if search_term %}
+
+  {{ render_notification(_('The person must be born on <strong>%(latest_dob)s</strong> or earlier.', latest_dob=latest_dob_for_checkin|dateformat)|safe, category='warning', icon='warning') }}
+
+  <h2>{{ _('Tickets') }} {{ render_extra_in_heading(tickets|length) }}</h2>
+{% include 'admin/ticketing/checkin/_ticket_list.html' %}
+
+  <h2>{{ _('Orders') }} {{ render_extra_in_heading(orders|length) }}</h2>
+{% include 'admin/shop/order/_order_list.html' %}
+
+  <h2>{{ _('Users') }} {{ render_extra_in_heading(users|length) }}</h2>
+{% include 'admin/ticketing/checkin/_user_list.html' %}
+
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  onDomReady(() => {
+  {%- if tickets %}
+    // Skip non-check-in links in ticket list for keyboard tab navigation.
+    document
+      .querySelectorAll('.tickets a:not(.button-check-in)')
+      .forEach(node => { node.tabIndex = -1; });
+  {%- endif %}
+
+    post_on_click_then_reload('[data-action="check-in-user"]');
+  });
+</script>
+{% endblock %}

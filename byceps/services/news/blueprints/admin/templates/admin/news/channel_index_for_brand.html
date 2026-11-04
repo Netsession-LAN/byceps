@@ -1,0 +1,79 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = [_('News channels'), brand.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ brand.title }} {{ render_extra_in_heading(channels|length) }}</h1>
+    </div>
+  {%- if g.user.has_permission('news_channel.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.channel_create_form', brand_id=brand.id) }}">{{ render_icon('add') }} <span>{{ _('Create news channel') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if channels %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th colspan="2">{{ _('ID') }}</th>
+        <th>{{ _('Site for announcement') }}</th>
+        <th class="centered">{{ _('News posts') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for channel in channels|sort(attribute='id') %}
+      {%- with item_count = item_count_by_channel_id[channel.id] %}
+      <tr>
+        <td><a href="{{ url_for('.channel_view', channel_id=channel.id) }}"><strong>{{ channel.id }}</strong></a></td>
+        <td>
+        {%- if channel.archived %}
+          {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- endif %}
+        </td>
+        <td>
+        {%- with site_id = channel.announcement_site_id %}
+          {%- if site_id is not none %}
+          <a href="{{ url_for('admin_dashboard.view_site', site_id=site_id) }}">{{ announcement_sites_by_channel_id[site_id].title }}</a>
+          {%- else %}
+          {{ pgettext('site', 'none')|dim }}
+          {%- endif %}
+        {%- endwith %}
+        </td>
+        <td class="centered bignumber">{{ item_count|numberformat }}</td>
+        <td>
+        {%- if g.user.has_permission('news_channel.administrate') %}
+          <a href="{{ url_for('.channel_update_form', channel_id=channel.id) }}" class="button is-compact" title="{{ _('Edit') }}">{{ render_icon('edit') }}</a>
+          {%- if item_count == 0 %}
+          <a href="{{ url_for('.channel_delete', channel_id=channel.id) }}" data-action="channel-delete" class="button is-compact" title="{{ _('Delete') }}">{{ render_icon('remove') }}</a>
+          {%- endif %}
+        {%- endif %}
+        </td>
+      </tr>
+      {%- endwith %}
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No news channels exist for this brand.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        confirmed_delete_on_click_then_reload('[data-action="channel-delete"]', '{{ _('Delete news channel?') }}');
+      });
+    </script>
+{%- endblock %}

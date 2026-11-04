@@ -1,0 +1,24 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_main_tabs %}
+{% set current_page = 'authz_admin' %}
+
+{% block before_body %}
+{{
+  render_main_tabs(
+    Navigation()
+      .add_item(
+        url_for('.role_index'),
+        'Rollen',
+        id='roles',
+        required_permission='role.view',
+        icon='role')
+      .add_item(
+        url_for('.permission_index'),
+        'Berechtigungen',
+        id='permissions',
+        required_permission='role.view',
+        icon='permission')
+    , current_tab
+  )
+}}
+{%- endblock %}

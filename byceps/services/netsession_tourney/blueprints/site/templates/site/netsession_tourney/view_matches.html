@@ -1,0 +1,390 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% set page_title = [tournament.title, _('Spiele')] %}
+{% set netsession_tourney_icons_url = url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <div class="ns-tourney-panel ns-tourney-matches-overview-panel">
+    {%- if selected_builder_match_section %}
+      {%- if builder_match_tab_rows|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for tab_row in builder_match_tab_rows %}
+        <li>
+          {%- if tab_row.is_current %}
+          <span class="tabs-tab tabs-tab--current">{{ tab_row.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}</span>
+          {%- else %}
+          <a class="tabs-tab" href="{{ tab_row.url }}">{{ tab_row.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}</a>
+          {%- endif %}
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      <section class="ns-tourney-match-overview-section">
+        {%- if selected_builder_match_section.title %}
+        <h2 class="ns-tourney-match-overview-section-title">{{ selected_builder_match_section.title }}</h2>
+        {%- endif %}
+
+        {%- if selected_builder_match_section.kind == 'summary' %}
+        <div class="ns-tourney-stage-summary">
+          {%- for line in selected_builder_match_section.lines %}
+          <div>{{ line }}</div>
+          {%- endfor %}
+        </div>
+        {%- else %}
+        {%- for round in selected_builder_match_section.rounds %}
+        <h3 class="ns-tourney-match-overview-round-title">
+          {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+          {%- if round.time_range_label %}
+          <span class="ns-tourney-match-overview-round-time">({{ round.time_range_label }})</span>
+          {%- endif %}
+        </h3>
+
+        {%- set selected_builder_is_ffa_presentation = selected_builder_match_section.presentation|default('duel') in ['ffa', 'flatout2'] or (round.rows and round.rows[0].participants is defined) %}
+        {%- if selected_builder_is_ffa_presentation %}
+        <div class="ns-tourney-match-overview-table-wrap">
+          <table class="itemlist is-vcentered is-wide ns-tourney-match-overview-table ns-tourney-match-overview-table--ffa">
+            <tbody>
+            {%- for row in round.rows %}
+              {%- set match_url = row.url if row.url is defined else (none if row.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id)) %}
+              <tr
+                class="ns-tourney-match-overview-row{% if row.is_struck %} is-struck{% endif %}"
+                {% if match_url %}data-href="{{ match_url }}"{% endif %}
+                {% if match_url %}tabindex="0" role="link"{% endif %}
+                aria-label="{{ row.match_label }}"
+              >
+                <td class="ns-tourney-match-overview-match-cell ns-tourney-match-overview-match-cell--ffa">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-match-link" href="{{ match_url }}">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </a>
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-match-link">{{ row.match_label }}</span>
+                  {%- endif %}
+                </td>
+                <td class="ns-tourney-match-overview-summary-cell">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-summary-link" href="{{ match_url }}">
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-summary-link">
+                  {%- endif %}
+                    <span class="ns-tourney-match-overview-summary">
+                      <strong>
+                        {%- if row.is_placeholder|default(false) %}
+                        {{ _('Bis zu %(count)s Teilnehmer', count=row.slot_capacity) }}
+                        {%- else %}
+                        {{ row.participants|length }} {{ _('Teilnehmer') }}
+                        {%- endif %}
+                      </strong>
+                    </span>
+                  {%- if match_url %}
+                  </a>
+                  {%- else %}
+                  </span>
+                  {%- endif %}
+                </td>
+                <td class="ns-tourney-match-overview-score-cell ns-tourney-match-overview-score-cell--ffa">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link">
+                  {%- endif %}
+                    <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                      {{ row.score_display }}
+                    </span>
+                  {%- if match_url %}
+                  </a>
+                  {%- else %}
+                  </span>
+                  {%- endif %}
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+        {%- else %}
+        <div class="ns-tourney-match-overview-table-wrap">
+          <table class="itemlist is-vcentered is-wide ns-tourney-match-overview-table">
+            <tbody>
+            {%- for row in round.rows %}
+              {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+              <tr
+                class="ns-tourney-match-overview-row{% if row.is_struck %} is-struck{% endif %}"
+                data-href="{{ match_url }}"
+                tabindex="0"
+                role="link"
+                aria-label="{{ row.match_label }}"
+              >
+                <td class="ns-tourney-match-overview-match-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-match-link" href="{{ match_url }}">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--left">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--left" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-team-name{% if row.left.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.left.name }}</span>
+                    {%- if row.left.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.left.image_url %} is-placeholder{% endif %}">
+                      {%- if row.left.image_url %}
+                      <img src="{{ row.left.image_url }}" alt="{{ row.left.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-trophy{% if row.left.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-score-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                      {{ row.score_display }}
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--right">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--right" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-trophy{% if row.right.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                    {%- if row.right.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.right.image_url %} is-placeholder{% endif %}">
+                      {%- if row.right.image_url %}
+                      <img src="{{ row.right.image_url }}" alt="{{ row.right.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-team-name{% if row.right.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.right.name }}</span>
+                  </a>
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+        {%- endif %}
+        {%- endfor %}
+        {%- endif %}
+      </section>
+    {%- elif match_sections %}
+      {%- if match_sections|length > 1 %}
+      <ol class="tabs ns-tourney-stage-tabs">
+        {%- for section in match_sections %}
+        <li>
+          <a class="tabs-tab" href="#matches-section-{{ loop.index }}">
+            {{ section.title or (_('Abschnitt') ~ ' ' ~ loop.index) }}
+          </a>
+        </li>
+        {%- endfor %}
+      </ol>
+      {%- endif %}
+      {%- for section in match_sections %}
+      <section id="matches-section-{{ loop.index }}" class="ns-tourney-match-overview-section{% if not loop.first %} mt{% endif %}">
+        {%- if section.title %}
+        <h2 class="ns-tourney-match-overview-section-title">{{ section.title }}</h2>
+        {%- endif %}
+
+        {%- if section.kind|default('matches') == 'summary' %}
+        <div class="ns-tourney-stage-summary">
+          {%- for line in section.lines %}
+          <div>{{ line }}</div>
+          {%- endfor %}
+        </div>
+        {%- else %}
+        {%- for round in section.rounds %}
+        <h3 class="ns-tourney-match-overview-round-title">
+          {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
+          {%- if round.time_range_label %}
+          <span class="ns-tourney-match-overview-round-time">({{ round.time_range_label }})</span>
+          {%- endif %}
+        </h3>
+
+        {%- set section_is_ffa_presentation = section.presentation|default('duel') in ['ffa', 'flatout2'] or (round.rows and round.rows[0].participants is defined) %}
+        {%- if not section_is_ffa_presentation %}
+        <div class="ns-tourney-match-overview-table-wrap">
+          <table class="itemlist is-vcentered is-wide ns-tourney-match-overview-table">
+            <tbody>
+            {%- for row in round.rows %}
+              {%- set match_url = url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id) %}
+              <tr
+                class="ns-tourney-match-overview-row{% if row.is_struck %} is-struck{% endif %}"
+                data-href="{{ match_url }}"
+                tabindex="0"
+                role="link"
+                aria-label="{{ row.match_label }}"
+              >
+                <td class="ns-tourney-match-overview-match-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-match-link" href="{{ match_url }}">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--left">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--left" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-team-name{% if row.left.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.left.name }}</span>
+                    {%- if row.left.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.left.image_url %} is-placeholder{% endif %}">
+                      {%- if row.left.image_url %}
+                      <img src="{{ row.left.image_url }}" alt="{{ row.left.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-trophy{% if row.left.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-score-cell">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                      {{ row.score_display }}
+                    </span>
+                  </a>
+                </td>
+                <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--right">
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--right" href="{{ match_url }}">
+                    <span class="ns-tourney-match-overview-trophy{% if row.right.is_winner %} is-visible{% endif %}">
+                      <svg class="icon" aria-hidden="true" focusable="false">
+                        <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
+                      </svg>
+                    </span>
+                    {%- if row.right.show_avatar %}
+                    <span class="ns-tourney-match-overview-team-avatar{% if not row.right.image_url %} is-placeholder{% endif %}">
+                      {%- if row.right.image_url %}
+                      <img src="{{ row.right.image_url }}" alt="{{ row.right.image_alt or _('Team-Logo') }}" loading="lazy">
+                      {%- endif %}
+                    </span>
+                    {%- endif %}
+                    <span class="ns-tourney-match-overview-team-name{% if row.right.is_bye %} ns-tourney-bye-label{% endif %}">{{ row.right.name }}</span>
+                  </a>
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+        {%- else %}
+        <div class="ns-tourney-match-overview-table-wrap">
+          <table class="itemlist is-vcentered is-wide ns-tourney-match-overview-table ns-tourney-match-overview-table--ffa">
+            <tbody>
+            {%- for row in round.rows %}
+              {%- set match_url = row.url if row.url is defined else (none if row.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=row.match.id)) %}
+              <tr
+                class="ns-tourney-match-overview-row{% if row.is_struck %} is-struck{% endif %}"
+                {% if match_url %}data-href="{{ match_url }}"{% endif %}
+                {% if match_url %}tabindex="0" role="link"{% endif %}
+                aria-label="{{ row.match_label }}"
+              >
+                <td class="ns-tourney-match-overview-match-cell ns-tourney-match-overview-match-cell--ffa">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-match-link" href="{{ match_url }}">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </a>
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-match-link">
+                    {{ row.match_label }}{% if row.is_struck %} ({{ _('gestrichen') }}){% endif %}
+                  </span>
+                  {%- endif %}
+                </td>
+                <td class="ns-tourney-match-overview-summary-cell">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-summary-link" href="{{ match_url }}">
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-summary-link">
+                  {%- endif %}
+                    <span class="ns-tourney-match-overview-summary">
+                      <strong>
+                        {%- if row.is_placeholder|default(false) %}
+                        {{ _('Bis zu %(count)s Teilnehmer', count=row.slot_capacity) }}
+                        {%- else %}
+                        {{ row.participants|length }} {{ _('Teilnehmer') }}
+                        {%- endif %}
+                      </strong>
+                    </span>
+                  {%- if match_url %}
+                  </a>
+                  {%- else %}
+                  </span>
+                  {%- endif %}
+                </td>
+                <td class="ns-tourney-match-overview-score-cell ns-tourney-match-overview-score-cell--ffa">
+                  {%- if match_url %}
+                  <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
+                  {%- else %}
+                  <span class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link">
+                  {%- endif %}
+                    <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
+                      {{ row.score_display }}
+                    </span>
+                  {%- if match_url %}
+                  </a>
+                  {%- else %}
+                  </span>
+                  {%- endif %}
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </div>
+        {%- endif %}
+        {%- endfor %}
+        {%- endif %}
+      </section>
+      {%- endfor %}
+    {%- else %}
+    <p class="dimmed">{{ _('Keine Spiele vorhanden.') }}</p>
+    {%- endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const rows = document.querySelectorAll('.ns-tourney-match-overview-row[data-href]');
+      const isInteractiveTarget = (target) =>
+        target instanceof Element
+        && Boolean(target.closest('a, button, input, select, textarea, label, form'));
+
+      for (const row of rows) {
+        row.addEventListener('click', (event) => {
+          if (isInteractiveTarget(event.target)) {
+            return;
+          }
+
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+
+          event.preventDefault();
+          const href = row.dataset.href;
+          if (href) {
+            window.location.assign(href);
+          }
+        });
+      }
+    })();
+  </script>
+{% endblock %}

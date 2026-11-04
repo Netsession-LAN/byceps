@@ -1,0 +1,29 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_checkboxes %}
+{% set current_page = 'webhook_admin' %}
+{% set page_title = _('Edit Webhook') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index'), _('Webhooks')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.update', webhook_id=webhook.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.description, autofocus='autofocus') }}
+      {{ form_field(form.format) }}
+      {{ form_field(form.url) }}
+      {{ form_field(form.text_prefix) }}
+      {{ form_field(form.extra_fields, caption=_('Valid JSON or empty')) }}
+      {{ form_field(form.enabled) }}
+      {{ form_field_checkboxes(form.event_types) }}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}

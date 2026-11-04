@@ -1,0 +1,126 @@
+"""
+byceps.cli.command.import_seats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Import seats from JSON lines.
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from collections import defaultdict
+from collections.abc import Iterable, Iterator
+from pathlib import Path
+
+import click
+from flask.cli import with_appcontext
+
+from byceps.services.party.models import PartyID
+from byceps.services.seating import seat_group_service, seat_import_service
+from byceps.services.seating.models import Seat
+from byceps.services.seating.seat_import_service import SeatToImport
+from byceps.util.result import Err, Ok, Result
+
+
+@click.command()
+@click.argument('party_id')
+@click.argument(
+    'data_file', type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@with_appcontext
+def import_seats(party_id: PartyID, data_file: Path) -> None:
+    """Import seats."""
+    with data_file.open() as f:
+        lines = iter(f)
+        parse_result = _parse_seats(party_id, lines)
+
+    match parse_result:
+        case Ok(line_numbers_and_seats_to_import):
+            pass
+        case Err(erroneous_line_numbers):
+            line_numbers_str = ', '.join(
+                map(str, sorted(erroneous_line_numbers))
+            )
+            click.secho(
+                '\nNot attempting actual importing of seats due to parsing errors '
+                f'in these lines: {line_numbers_str}',
+                fg='red',
+            )
+            return
+
+    imported_seats_and_group_titles = list(
+        _import_seats(line_numbers_and_seats_to_import)
+    )
+    _import_seat_groups(party_id, imported_seats_and_group_titles)
+
+
+def _parse_seats(
+    party_id: PartyID, lines: Iterable[str]
+) -> Result[list[tuple[int, SeatToImport]], set[int]]:
+    line_numbers_and_seats_to_import: list[tuple[int, SeatToImport]] = []
+    erroneous_line_numbers = set()
+
+    loaded_seats = seat_import_service.load_seats_from_json_lines(
+        party_id, lines
+    )
+    for line_number, parse_result in loaded_seats:
+        match parse_result:
+            case Ok(seat_to_import):
+                line_numbers_and_seats_to_import.append(
+                    (line_number, seat_to_import)
+                )
+            case Err(error_str):
+                erroneous_line_numbers.add(line_number)
+                click.secho(f'[line {line_number}] {error_str}', fg='red')
+
+    if erroneous_line_numbers:
+        return Err(erroneous_line_numbers)
+
+    return Ok(line_numbers_and_seats_to_import)
+
+
+def _import_seats(
+    line_numbers_and_seats_to_import: list[tuple[int, SeatToImport]],
+) -> Iterator[tuple[Seat, str | None]]:
+    """Import seats into database."""
+    for line_number, seat_to_import in line_numbers_and_seats_to_import:
+        match seat_import_service.import_seat(seat_to_import):
+            case Ok(imported_seat):
+                click.secho(
+                    f'[line {line_number}] Imported seat '
+                    f'(area_id="{imported_seat.area_id}", x={imported_seat.coord_x}, y={imported_seat.coord_y}, category_id="{imported_seat.category_id}").',
+                    fg='green',
+                )
+                yield imported_seat, seat_to_import.group_title
+            case Err(error_str):
+                click.secho(
+                    f'[line {line_number}] Import of seat failed: {error_str}',
+                    fg='red',
+                )
+
+
+def _import_seat_groups(
+    party_id: PartyID, seats_and_group_titles: list[tuple[Seat, str | None]]
+) -> None:
+    """Import seat groups into database."""
+    seats_by_group_title = defaultdict(list)
+
+    for seat, group_title in seats_and_group_titles:
+        if group_title is not None:
+            seats_by_group_title[group_title].append(seat)
+
+    for group_title, seats in seats_by_group_title.items():
+        match seat_group_service.create_group(
+            party_id, seats[0].category_id, group_title, seats
+        ):
+            case Ok(group):
+                seat_quantity = len(group.seats)
+                click.secho(
+                    f'Imported seat group "{group.title}" with {seat_quantity} seats (category_id="{group.ticket_category_id}")',
+                    fg='green',
+                )
+            case Err(error):
+                click.secho(
+                    f'Group "{group_title}" could not be created: {error.message}',
+                    fg='red',
+                )

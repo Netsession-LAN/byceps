@@ -1,0 +1,58 @@
+{% extends 'layout/admin/guest_server.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/guest_server.html' import render_gateway, render_hostname, render_ip_address, render_netmask %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set current_page_party = party %}
+{% set current_tab = 'addresses' %}
+{% set page_title = [_('Guest Servers'), _('Addresses')] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Addresses') }} {{ render_extra_in_heading(addresses|length) }}</h1>
+    </div>
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.address_export_netbox', party_id=party.id) }}">{{ render_icon('download') }} <span>{{ _('Export') }} (NetBox)</span></a>
+      </div>
+    </div>
+  </div>
+
+  {%- if addresses %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('IP address') }}</th>
+        <th>{{ _('Hostname') }}</th>
+        <th>{{ _('Netmask') }}</th>
+        <th>{{ _('Gateway') }}</th>
+        <th>{{ _('Server') }}</th>
+        <th>{{ _('Owner') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for address in sort_addresses(addresses) %}
+      <tr>
+        <td>{{ render_ip_address(address) }}</td>
+        <td>{{ render_hostname(address, setting) }}</td>
+        <td>{{ render_netmask(address, setting) }}</td>
+        <td>{{ render_gateway(address, setting) }}</td>
+        <td><a href="{{ url_for('.server_view', server_id=address.server_id) }}">{{ _('Show') }}</a></td>
+        <td>{{ render_user_avatar_and_name(owners_by_server_id[address.server_id], size=20) }}</td>
+        <td>
+          {%- if g.user.has_permission('guest_server.administrate') %}
+          <a class="button is-compact" href="{{ url_for('.address_update_form', address_id=address.id) }}" title="{{ _('Update server address') }}">{{ render_icon('edit') }}</a>
+          {%- endif %}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No addresses registered.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

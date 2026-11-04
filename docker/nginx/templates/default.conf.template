@@ -1,0 +1,38 @@
+server {
+    server_name ${SERVER_NAME_ADMIN};
+    server_tokens off;
+
+    location @byceps {
+        uwsgi_pass ${UWSGI_ADDRESS};
+        include uwsgi_params;
+        proxy_set_header Host $host;
+    }
+
+    include includes/byceps;
+}
+
+server {
+    server_name ${SERVER_NAME_API};
+    server_tokens off;
+
+    location @byceps {
+        uwsgi_pass ${UWSGI_ADDRESS};
+        include uwsgi_params;
+        proxy_set_header Host $host;
+    }
+
+    include includes/byceps;
+}
+
+server {
+    server_name ${SERVER_NAME_SITE};
+    server_tokens off;
+
+    location @byceps {
+        uwsgi_pass ${UWSGI_ADDRESS};
+        include uwsgi_params;
+        proxy_set_header Host $host;
+    }
+
+    include includes/byceps;
+}

@@ -1,0 +1,48 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage erstellen')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Stage erstellen'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage erstellen'),
+    _('Lege Spielsystem, Teilnehmerquelle und Zeitplanung in einer klaren Reihenfolge fest.'),
+    _('Neu'),
+    'status-draft',
+    [
+      {'label': _('Turnier'), 'value': tournament.title},
+      {'label': _('Modus'), 'value': tournament.mode.value|replace('_', ' ')|title},
+      {'label': _('Registrierung'), 'value': tournament.registration_mode.value|replace('_', ' ')|title},
+    ]
+  ) }}
+
+  {% with
+    form_action=url_for('.stage_create', party_id=party.id, tournament_id=tournament.id),
+    submit_label=_('Stage anlegen'),
+    cancel_url=url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'),
+    form_id='ns-tourney-stage-create-form',
+    show_participant_source_settings=show_participant_source_settings,
+    stage_source_mode=stage_source_mode,
+    stage_qualifier_top_n=stage_qualifier_top_n,
+    stage_qualifier_selection_mode=stage_qualifier_selection_mode,
+    selected_source_stage_ids=selected_source_stage_ids,
+    available_source_stages=available_source_stages
+  %}
+    {% include 'admin/netsession_tourney/stage/_form.html' %}
+  {% endwith %}
+{% endblock %}

@@ -1,0 +1,59 @@
+{% from 'macros/misc.html' import render_tag %}
+
+
+{% macro render_line_item_processing_state(state) %}
+  {%- set state_name = state.name %}
+  {%- if state_name == 'not_applicable' -%}
+    {{ render_tag(_('not applicable'), class='tag--outlined nowrap') }}
+  {%- elif state_name == 'pending' -%}
+    {{ render_tag(_('pending'), icon='pending', class='color-warning nowrap') }}
+  {%- elif state_name == 'canceled' -%}
+    {{ render_tag(pgettext('processing', 'canceled'), icon='disabled', class='color-disabled nowrap') }}
+  {%- elif state_name == 'complete' -%}
+    {{ render_tag(_('complete'), icon='success', class='color-success nowrap') }}
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro render_order_link(order) -%}
+  <a href="{{ url_for('shop_order_admin.view', order_id=order.id) }}">{{ order.order_number }}</a>
+{%- endmacro %}
+
+
+{% macro render_order_payment_state(payment_state) %}
+  {%- set state_name = payment_state.name %}
+  {%- if state_name == 'paid' -%}
+    {{ render_tag(_('paid'), icon='success', class='order-payment-state--paid') }}
+  {%- elif state_name == 'canceled_before_paid' -%}
+    {{ render_tag(_('canceled (b. p.)'), icon='disabled', class='order-payment-state--canceled-before-paid', title=_('canceled before payment')) }}
+  {%- elif state_name == 'canceled_after_paid' -%}
+    {{ render_tag(_('canceled (a. p.)'), icon='disabled', class='order-payment-state--canceled-after-paid', title=_('canceled after payment')) }}
+  {%- else -%}
+    {{ render_tag(pgettext('order', 'open'), icon='pending', class='order-payment-state--open') }}
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro render_order_state_filter(order_state_filter) %}
+  {%- if order_state_filter.name == 'none' -%}
+    {{ render_tag(_('all'), class='color-none') }}
+  {%- elif order_state_filter.name == 'waiting_for_processing' -%}
+    {{ render_tag(_('waiting for shipping'), icon='shipping', class='order-waiting-for-shipping') }}
+  {%- else -%}
+    {{ render_order_payment_state(order_state_filter.payment_state) }}
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro render_order_invoiced_tag(order) %}
+  {%- if order.is_invoiced %}
+    {{- render_tag(ngettext('Invoice', 'Invoices', 1), icon='invoice', class='color-info') }}
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro render_order_overdue_tag(order) %}
+  {%- if order.is_overdue %}
+    {{- render_tag(_('overdue'), icon='warning', class='color-danger') }}
+  {%- endif -%}
+{%- endmacro %}

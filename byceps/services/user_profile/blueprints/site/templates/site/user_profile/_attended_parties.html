@@ -1,0 +1,13 @@
+<div class="block">
+  <h2 class="title">{{ _('Attended parties') }}</h2>
+
+  {%- if attended_parties %}
+  <ol class="itemlist is-compact is-wide">
+    {%- for party in attended_parties %}
+    <li>{{ party.title }}</li>
+    {%- endfor %}
+  </ol>
+  {%- else %}
+  {{- pgettext('party', 'none')|dim -}}
+  {%- endif %}
+</div>

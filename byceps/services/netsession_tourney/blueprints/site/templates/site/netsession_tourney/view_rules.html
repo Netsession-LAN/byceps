@@ -1,0 +1,22 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% set page_title = [tournament.title, _('Regeln')] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, current_tournament_page, crumb_label=_('Regeln'), show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+  <div class="ns-tourney-panel ns-tourney-overview-rules-panel">
+    {%- if rules_html %}
+    <h2 class="ns-tourney-overview-rules-title">{{ _('Regeln') }}</h2>
+    <div class="ns-tourney-overview-rules-content">{{ rules_html }}</div>
+    {%- else %}
+    <p class="dimmed">{{ _('Keine Regeln hinterlegt.') }}</p>
+    {%- endif %}
+  </div>
+{% endblock %}

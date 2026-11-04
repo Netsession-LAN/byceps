@@ -1,0 +1,42 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'categories' %}
+{% set page_title = _('Kategorie erstellen') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.category_index', party_id=party.id), _('Kategorien')) }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Kategorien'), 'url': url_for('.category_index', party_id=party.id)},
+      {'label': _('Kategorie erstellen'), 'url': none},
+    ],
+    party.title,
+    page_title,
+    _('Kategorien steuern Sortierung und Gruppierung der Turniere.')
+  ) }}
+
+  <form action="{{ url_for('.category_create', party_id=party.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Basis') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Kategorien steuern Sortierung und Gruppierung der Turniere.') }}</p>
+          </div>
+        </div>
+        {{ render_field(form.title, _('Interner und sichtbarer Kategoriename für die Turnierübersicht.'), autofocus='autofocus') }}
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Erstellen') }}</button>
+      <a href="{{ url_for('.category_index', party_id=party.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

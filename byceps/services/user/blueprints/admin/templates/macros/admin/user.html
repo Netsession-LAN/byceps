@@ -1,0 +1,63 @@
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/user.html' import render_user_avatar, render_user_avatar_image, render_user_screen_name %}
+
+
+{% macro render_user_admin_link(user, disguised=false) -%}
+  <a href="{{ url_for('user_admin.view', user_id=user.id) }}"{% if disguised %} class="disguised"{% endif %}>{{ render_user_screen_name(user) }}</a>
+{%- endmacro %}
+
+
+{% macro render_user_avatar_and_admin_link(user, size) -%}
+<span class="nowrap">{{ render_user_avatar(user, size=size) }} {{ render_user_admin_link(user) }}</span>
+{%- endmacro %}
+
+
+{% macro render_user_microcard(user, full_name=None, tiny_avatar=False, show_flags=True) -%}
+<div class="user-microcard{% if tiny_avatar %} user-microcard--tiny-avatar{% endif %}{% if user.deleted %} dimmed{% endif %}">
+  <div class="user-microcard-avatar">
+    <div class="avatar">{{ render_user_avatar_image(user) }}</div>
+  </div>
+  <div class="user-microcard-names">
+    <div class="user-microcard-screen-name">
+      {{- render_user_admin_link(user) -}}
+      {%- if show_flags -%}
+      {%- if user.deleted %} {{ render_user_flag_deleted(show_label=False) }}{% endif -%}
+      {%- if user.suspended %} {{ render_user_flag_suspended(show_label=False) }}{% endif -%}
+      {%- endif -%}
+    </div>
+    <div class="user-microcard-full-name">
+      {%- if not user.deleted -%}
+      {{ full_name if full_name is not none else user.detail.full_name|fallback }}
+      {%- else -%}
+      <em>{{ _('deleted') }}</em>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+
+{% macro render_user_flag_deleted(label=_('deleted'), show_label=True) -%}
+  {{ render_tag(label if show_label else '', class='color-disabled', icon='delete', title=None if show_label else label) }}
+{%- endmacro %}
+
+
+{% macro render_user_flag_suspended(label=_('suspended'), show_label=True) -%}
+  {{ render_tag(label if show_label else '', class='color-danger', icon='lock', title=None if show_label else label) }}
+{%- endmacro %}
+
+
+{% macro render_user_flag_uninitialized(label=_('not initialized'), show_label=True) -%}
+  {{ render_tag(label if show_label else '', class='color-warning', icon='pending', title=None if show_label else label) }}
+{%- endmacro %}
+
+
+{% macro render_most_important_user_flag(user, show_label=True) -%}
+  {%- if user.deleted -%}
+    {{ render_user_flag_deleted(show_label=show_label) }}
+  {%- elif user.suspended -%}
+    {{ render_user_flag_suspended(show_label=show_label) }}
+  {%- elif not user.initialized -%}
+    {{ render_user_flag_uninitialized(show_label=show_label) }}
+  {%- endif -%}
+{%- endmacro %}

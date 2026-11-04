@@ -1,0 +1,114 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page = 'orga_presence' %}
+{% set current_page_party = party %}
+{% set page_title = _('Organizer Presence') %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/presence.css') }}">
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th colspan="3"></th>
+        {%- for day, hour_total in days_and_hour_totals %}
+        <th colspan="{{ hour_total }}">{{ day|dateformat('EEEE') }}</th>
+        {%- endfor %}
+      </tr>
+      <tr>
+        <th></th>
+        <th>{{ _('Start') }}</th>
+        <th>{{ _('End') }}</th>
+        {%- for hour_range in hour_ranges %}
+        <th class="bar-column">{{ hour_range.start|timeformat('short', rebase=False) }}</th>
+        {%- endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="party">
+        <td class="nowrap"><strong>{{ party_time_slot.party.title }}</strong></td>
+        {{ render_range_columns(party_time_slot) }}
+        {{ render_bar_columns([party_time_slot]) }}
+      </tr>
+      {%- for task in tasks|sort(attribute='starts_at') %}
+      <tr class="task">
+        <td>{{ task.title }}</td>
+        {{ render_range_columns(task) }}
+        {{ render_bar_columns([task]) }}
+      </tr>
+      {%- endfor %}
+      {%- for orga, presences in presences_by_orga|items|sort(attribute='0.screen_name') %}
+      <tr class="presence">
+        <td>{{ render_user_avatar_and_admin_link(orga, size=16) }}</td>
+        <td colspan="2"></td>
+        {{ render_bar_columns(presences) }}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+
+  <div class="row is-vcentered">
+    <div>
+      <h2>{{ _('My Presence') }} {{ render_extra_in_heading(current_user_presences|length) }}</h2>
+    </div>
+    {%- if g.user.has_permission('orga_presence.update') %}
+    <div>
+      <div class="button-row is-compact is-right-aligned">
+        <a class="button is-compact" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Add') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if current_user_presences %}
+  <table class="itemlist">
+    <thead>
+      <tr>
+        <th>{{ _('Start') }}</th>
+        <th>{{ _('End') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for presence in current_user_presences|sort(attribute='starts_at,ends_at') %}
+      <tr>
+        <td class="nowrap">{{ presence.starts_at|dateformat }}, {{ presence.starts_at|timeformat('short') }}</td>
+        <td class="nowrap">{{ presence.ends_at|dateformat }}, {{ presence.ends_at|timeformat('short') }}</td>
+        <td><a class="button is-compact" href="{{ url_for('.time_slot_delete', time_slot_id=presence.id) }}" data-action="time-slot-delete" title="{{ _('Remove presence') }}">{{ render_icon('remove') }}</a></td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        confirmed_delete_on_click_then_reload('[data-action="time-slot-delete"]', '{{ _('Remove presence?') }}');
+      });
+    </script>
+{%- endblock %}
+
+{% macro render_range_columns(time_slot) -%}
+          <td class="nowrap">{{ time_slot.range.start|dateformat }}, {{ time_slot.range.start|timeformat('short') }}</td>
+          <td class="nowrap">{{ time_slot.range.end|dateformat }}, {{ time_slot.range.end|timeformat('short') }}</td>
+{%- endmacro %}
+
+{% macro render_bar_columns(time_slots) -%}
+      {%- for hour_range in hour_ranges %}
+        {%- if is_instant_contained_in_time_slots(hour_range.start, time_slots) %}
+          <td class="bar-column"><span class="bar"></span></td>
+        {%- else %}
+          <td></td>
+        {%- endif %}
+      {%- endfor %}
+{%- endmacro %}

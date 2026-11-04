@@ -1,0 +1,38 @@
+{% macro render_user_avatar(user, size, orga=False) -%}
+<div class="avatar size-{{ size }}{% if size >= 32 and orga %} orga{% endif %}"{% if not user.deleted %} title="{{ user.screen_name }}"{% endif %}>
+  {{- render_user_avatar_image(user) }}
+</div>
+{%- endmacro %}
+
+
+{% macro render_user_avatar_and_link(user, size, orga=False) -%}
+<span class="nowrap">{{ render_user_avatar(user, size=size, orga=orga) }} {{ render_user_link(user) }}</span>
+{%- endmacro %}
+
+
+{% macro render_user_avatar_and_name(user, size, orga=False) -%}
+<span class="nowrap">{{ render_user_avatar(user, size=size, orga=orga) }} {{ render_user_screen_name(user) }}</span>
+{%- endmacro %}
+
+
+{% macro render_user_avatar_image(user) -%}
+  <img src="{{ user.avatar_url }}" alt="{{ _('Avatar of %(screen_name)s', screen_name=user.screen_name) if not user.deleted else _('Avatar of deleted user') }}" loading="lazy">
+{%- endmacro %}
+
+
+{% macro render_user_link(user) -%}
+  {%- if user.deleted -%}
+{{ render_user_screen_name(user) }}
+  {%- else -%}
+<a href="{{ url_for('user_profile.view', user_id=user.id) }}">{{ render_user_screen_name(user) }}</a>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro render_user_screen_name(user) -%}
+  {%- if user.deleted -%}
+<span class="dimmed" style="font-style: italic;">gelöscht</span>
+  {%- else -%}
+{{ user.screen_name }}
+  {%- endif -%}
+{%- endmacro %}

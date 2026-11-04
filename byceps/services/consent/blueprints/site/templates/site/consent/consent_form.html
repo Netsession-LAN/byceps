@@ -1,0 +1,24 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field_check %}
+{% from 'macros/misc.html' import render_notification %}
+{% set simple_layout = true %}
+{% set page_title = _('Consent required') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+{{ render_notification(_('Please consent to the updated terms to be able to continue.'), category='warning', icon='warning') }}
+
+  <form action="{{ url_for('.consent', token=token) }}" method="post" class="disable-submit-button-on-submit">
+    <div class="main-body-box">
+      {{ form.subject_ids() }}
+      {%- for subject, field in subjects_and_fields %}
+      {{ form_field_check(field, subject.checkbox_label.replace('{url}', subject.checkbox_link_target)|safe) }}
+      {%- endfor %}
+    </div>
+
+    {{ form_buttons(_('I consent')) }}
+  </form>
+
+{%- endblock %}

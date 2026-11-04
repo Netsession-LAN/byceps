@@ -1,0 +1,43 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page = 'consent_admin' %}
+{% set page_title = _('Consents') %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ page_title }} {{ render_extra_in_heading(subjects_with_consent_counts|length) }}</h1>
+    </div>
+    {%- if g.user.has_permission('consent.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.subject_create_form') }}">{{ render_icon('add') }} <span>{{ _('Create consent subject') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if subjects_with_consent_counts %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Title') }}<br>{{ _('Name') }}</th>
+        <th class="number">{{ _('Consents') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for subject, consent_count in subjects_with_consent_counts|sort(attribute='0.name') %}
+        <tr>
+          <td><strong>{{ subject.title }}</strong><br>{{ subject.name|dim }}</td>
+          <td class="bignumber number">{{ consent_count|numberformat }}</td>
+        </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('None defined') }}</div>
+  {%- endif %}
+
+{%- endblock %}

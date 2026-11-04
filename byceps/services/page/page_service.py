@@ -1,0 +1,349 @@
+"""
+byceps.services.page.page_service
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from datetime import datetime
+
+from byceps.services.core.events import EventSite
+from byceps.services.site import site_service
+from byceps.services.site.models import Site, SiteID
+from byceps.services.site_navigation.models import NavMenuID
+from byceps.services.user import user_service
+from byceps.services.user.models import User
+from byceps.util.result import Err, Ok, Result
+
+from . import page_repository
+from .dbmodels import DbPage, DbPageVersion
+from .errors import (
+    PageAlreadyExistsError,
+    PageDeletionFailedError,
+    PageNotFoundError,
+)
+from .events import (
+    PageCreatedEvent,
+    PageDeletedEvent,
+    PageUpdatedEvent,
+)
+from .models import (
+    Page,
+    PageAggregate,
+    PageID,
+    PageVersion,
+    PageVersionID,
+)
+
+
+def copy_page(
+    source_site: Site, target_site: Site, name: str, language_code: str
+) -> Result[
+    tuple[DbPageVersion, PageCreatedEvent],
+    PageAlreadyExistsError | PageNotFoundError,
+]:
+    """Copy a page from one site to another."""
+    source_version = find_current_version_for_name(
+        source_site.id, name, language_code
+    )
+    if source_version is None:
+        return Err(PageNotFoundError())
+
+    target_version = find_current_version_for_name(
+        target_site.id, name, language_code
+    )
+    if target_version is not None:
+        return Err(PageAlreadyExistsError())
+
+    creator = user_service.get_user(source_version.creator_id)
+
+    page = get_page(source_version.page_id)
+
+    db_version, event = create_page(
+        target_site,
+        page.name,
+        page.language_code,
+        page.url_path,
+        creator,
+        source_version.title,
+        source_version.body,
+        head=source_version.head,
+        hidden=page.hidden,
+    )
+
+    return Ok((db_version, event))
+
+
+def create_page(
+    site: Site,
+    name: str,
+    language_code: str,
+    url_path: str,
+    creator: User,
+    title: str,
+    body: str,
+    *,
+    head: str | None = None,
+    hidden: bool = False,
+) -> tuple[DbPageVersion, PageCreatedEvent]:
+    """Create a page and its initial version."""
+    created_at = datetime.utcnow()
+
+    db_page, db_version = page_repository.create_page(
+        site.id,
+        name,
+        language_code,
+        url_path,
+        created_at,
+        creator.id,
+        title,
+        head,
+        body,
+        hidden,
+    )
+
+    event = PageCreatedEvent(
+        occurred_at=created_at,
+        initiator=creator,
+        page_id=db_page.id,
+        site=EventSite.from_site(site),
+        page_name=db_page.name,
+        language_code=db_page.language_code,
+        page_version_id=db_version.id,
+    )
+
+    return db_version, event
+
+
+def update_page(
+    page_id: PageID,
+    language_code: str,
+    url_path: str,
+    creator: User,
+    title: str,
+    head: str | None,
+    body: str,
+    hidden: bool,
+) -> tuple[DbPageVersion, PageUpdatedEvent]:
+    """Update page with a new version."""
+    created_at = datetime.utcnow()
+
+    db_page, db_version = page_repository.update_page(
+        page_id,
+        language_code,
+        url_path,
+        created_at,
+        creator.id,
+        title,
+        head,
+        body,
+        hidden,
+    )
+
+    site = site_service.get_site(db_page.site_id)
+
+    event = PageUpdatedEvent(
+        occurred_at=db_version.created_at,
+        initiator=creator,
+        page_id=db_page.id,
+        site=EventSite.from_site(site),
+        page_name=db_page.name,
+        language_code=db_page.language_code,
+        page_version_id=db_version.id,
+    )
+
+    return db_version, event
+
+
+def delete_page(
+    page_id: PageID, *, initiator: User | None = None
+) -> Result[PageDeletedEvent, PageDeletionFailedError]:
+    """Delete the page and its versions.
+
+    It is expected that no database records refer to the page anymore.
+    """
+    db_page = page_repository.get_page(page_id)
+
+    # Keep values for use after page is deleted.
+    site = site_service.get_site(db_page.site_id)
+    page_name = db_page.name
+    language_code = db_page.language_code
+
+    match page_repository.delete_page(page_id):
+        case Err(e):
+            return Err(e)
+
+    event = PageDeletedEvent(
+        occurred_at=datetime.utcnow(),
+        initiator=initiator,
+        page_id=page_id,
+        site=EventSite.from_site(site),
+        page_name=page_name,
+        language_code=language_code,
+    )
+
+    return Ok(event)
+
+
+def set_nav_menu_id(page_id: PageID, nav_menu_id: NavMenuID | None) -> None:
+    """Set navigation menu for page."""
+    page_repository.set_nav_menu_id(page_id, nav_menu_id)
+
+
+def find_page(page_id: PageID) -> Page | None:
+    """Return the page, or `None` if not found."""
+    db_page = page_repository.find_page(page_id)
+
+    if db_page is None:
+        return None
+
+    return _db_entity_to_page(db_page)
+
+
+def get_page(page_id: PageID) -> Page:
+    """Return the page.
+
+    Raise error if not found.
+    """
+    db_page = page_repository.get_page(page_id)
+
+    return _db_entity_to_page(db_page)
+
+
+def find_version(version_id: PageVersionID) -> PageVersion | None:
+    """Return the page version, or `None` if not found."""
+    db_version = page_repository.find_version(version_id)
+
+    if db_version is None:
+        return None
+
+    return _db_entity_to_version(db_version)
+
+
+def get_versions(page_id: PageID) -> list[DbPageVersion]:
+    """Return all versions of the page, sorted from most recent to oldest."""
+    db_versions = page_repository.get_versions(page_id)
+
+    return list(db_versions)
+
+
+def find_current_version_id(page_id: PageID) -> PageVersionID | None:
+    """Return the ID of current version of the page."""
+    return page_repository.find_current_version_id(page_id)
+
+
+def is_current_version(page_id: PageID, version_id: PageVersionID) -> bool:
+    """Return `True` if the given version is the current version of the page."""
+    return page_repository.is_current_version(page_id, version_id)
+
+
+def find_current_version_for_name(
+    site_id: SiteID, name: str, language_code: str
+) -> PageVersion | None:
+    """Return the current version of the page with that name and
+    language code for that site.
+    """
+    db_version = page_repository.find_current_version_for_name(
+        site_id, name, language_code
+    )
+
+    if db_version is None:
+        return None
+
+    return _db_entity_to_version(db_version)
+
+
+def find_current_version_for_url_path(
+    site_id: SiteID, url_path: str, language_code: str
+) -> PageVersion | None:
+    """Return the current version of the page with that URL path and
+    language code for that site.
+    """
+    db_version = page_repository.find_current_version_for_url_path(
+        site_id, url_path, language_code
+    )
+
+    if db_version is None:
+        return None
+
+    return _db_entity_to_version(db_version)
+
+
+def get_url_paths_by_page_name_for_site(site_id: SiteID) -> dict[str, str]:
+    """Return mapping from page names to URL paths for that site."""
+    rows = page_repository.get_page_names_and_url_paths(site_id)
+
+    return {name: url_path for name, url_path in rows}
+
+
+def get_pages_for_site(site_id: SiteID) -> list[Page]:
+    """Return the IDs and names of all pages for that site and locale."""
+    db_pages = page_repository.get_pages_for_site(site_id)
+
+    return [_db_entity_to_page(db_page) for db_page in db_pages]
+
+
+def find_page_aggregate(version_id: PageVersionID) -> PageAggregate | None:
+    """Return an aggregated page for that version."""
+    version = find_version(version_id)
+    if version is None:
+        return None
+
+    page = get_page(version.page_id)
+
+    return build_page_aggregate(page, version)
+
+
+def build_page_aggregate(page: Page, version: PageVersion) -> PageAggregate:
+    return PageAggregate(
+        id=page.id,
+        site_id=page.site_id,
+        name=page.name,
+        language_code=page.language_code,
+        url_path=page.url_path,
+        hidden=page.hidden,
+        nav_menu_id=page.nav_menu_id,
+        title=version.title,
+        head=version.head,
+        body=version.body,
+    )
+
+
+def get_pages_for_site_with_current_versions(site_id: SiteID) -> list[DbPage]:
+    """Return all pages with their current versions for that site."""
+    db_pages = page_repository.get_pages_for_site_with_current_versions(site_id)
+    return list(db_pages)
+
+
+def search_pages(
+    search_term: str, *, site_id: SiteID | None = None
+) -> list[Page]:
+    """Search in (the latest versions of) pages."""
+    db_pages = page_repository.search_pages(search_term, site_id=site_id)
+
+    return [_db_entity_to_page(db_page) for db_page in db_pages]
+
+
+def _db_entity_to_page(db_page: DbPage) -> Page:
+    return Page(
+        id=db_page.id,
+        site_id=db_page.site_id,
+        name=db_page.name,
+        language_code=db_page.language_code,
+        url_path=db_page.url_path,
+        hidden=db_page.hidden,
+        nav_menu_id=db_page.nav_menu_id,
+    )
+
+
+def _db_entity_to_version(db_version: DbPageVersion) -> PageVersion:
+    return PageVersion(
+        id=db_version.id,
+        page_id=db_version.page_id,
+        created_at=db_version.created_at,
+        creator_id=db_version.creator_id,
+        title=db_version.title,
+        head=db_version.head,
+        body=db_version.body,
+    )

@@ -1,0 +1,30 @@
+<ol class="ns-admin-wizard-steps">
+  <li class="ns-admin-wizard-step">
+    {%- if wizard_step == 'format' -%}
+    <span class="ns-admin-wizard-step-link is-current">1. {{ _('Format') }}</span>
+    {%- else -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.create_wizard_format', party_id=party.id) }}">1. {{ _('Format') }}</a>
+    {%- endif -%}
+  </li>
+  <li class="ns-admin-wizard-step">
+    {%- if wizard_step == 'details' -%}
+    <span class="ns-admin-wizard-step-link is-current">2. {{ _('Basisdaten') }}</span>
+    {%- else -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.create_wizard_details', party_id=party.id) }}">2. {{ _('Basisdaten') }}</a>
+    {%- endif -%}
+  </li>
+  <li class="ns-admin-wizard-step">
+    {%- if wizard_step == 'schedule' -%}
+    <span class="ns-admin-wizard-step-link is-current">3. {{ _('Zeiten') }}</span>
+    {%- else -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.create_wizard_schedule', party_id=party.id) }}">3. {{ _('Zeiten') }}</a>
+    {%- endif -%}
+  </li>
+  <li class="ns-admin-wizard-step">
+    {%- if wizard_step == 'review' -%}
+    <span class="ns-admin-wizard-step-link is-current">4. {{ _('Prüfen') }}</span>
+    {%- else -%}
+    <a class="ns-admin-wizard-step-link" href="{{ url_for('.create_wizard_review', party_id=party.id) }}">4. {{ _('Prüfen') }}</a>
+    {%- endif -%}
+  </li>
+</ol>

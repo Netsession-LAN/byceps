@@ -1,0 +1,32 @@
+{%- from 'macros/admin/user.html' import render_most_important_user_flag, render_user_microcard %}
+
+{%- if users %}
+<table class="itemlist is-vcentered is-wide">
+  <thead>
+    <tr>
+      <th>{{ _('Username') }}<br>{{ _('Full name') }}</th>
+      <th>{{ _('Status') }}</th>
+      <th>{{ _('Created') }}</th>
+      <th>{{ _('Last login') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for user, recent_login in users %}
+    <tr>
+      <td>{{ render_user_microcard(user, show_flags=False) }}</td>
+      <td>{{ render_most_important_user_flag(user, show_label=False) }}</td>
+      <td>{{ user.created_at|datetimeformat }}</td>
+      <td>
+        {%- if recent_login %}
+        {{ recent_login|datetimeformat }}
+        {%- else %}
+        {{ _('unknown')|dim }}
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<div class="box no-data-message">{{ _('none') }}</div>
+{%- endif %}

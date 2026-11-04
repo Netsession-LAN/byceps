@@ -1,0 +1,62 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'gallery_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Gallery') ~ ': ' ~ gallery.title %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.gallery_index_for_brand', brand_id=brand.id), _('Galleries')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">
+        {{- gallery.title }}
+        {%- if gallery.hidden %}
+        {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+        {%- endif -%}
+      </h1>
+    </div>
+    {%- if g.user.has_permission('gallery.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.scan_images', gallery_id=gallery.id) }}">{{ render_icon('add') }} <span>{{ _('Import images') }}</span></a>
+        <a class="button" href="{{ url_for('.gallery_update_form', gallery_id=gallery.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+        <div class="dropdown">
+          <button class="dropdown-toggle button"><span>{{ render_icon('chevron-down') }}</span></button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            <li><a class="dropdown-item color--danger" href="{{ url_for('.gallery_delete', gallery_id=gallery.id) }}" data-action="delete-gallery">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  <div class="row">
+
+    <div class="box">
+      <div class="data-label">{{ _('Slug') }}</div>
+      <div class="data-value">{{ gallery.slug }}</div>
+    </div>
+
+    <div class="box">
+      <div class="data-label">{{ _('Position') }}</div>
+      <div class="data-value">{{ gallery.position }}</div>
+    </div>
+
+  </div>
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+onDomReady(() => {
+  confirmed_delete_on_click('[data-action="delete-gallery"]', '{{ _('Really delete it?') }}');
+});
+</script>
+{% endblock %}

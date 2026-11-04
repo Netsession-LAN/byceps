@@ -1,0 +1,78 @@
+{% extends 'layout/admin/tourney.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'categories' %}
+{% set page_title = [_('Tourney categories'), party.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Categories') }} {{ render_extra_in_heading(categories|length) }}</h1>
+    </div>
+    <div>
+      {%- if g.user.has_permission('tourney_category.administrate') %}
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Create category') }}</span></a>
+      </div>
+      {%- endif %}
+    </div>
+  </div>
+
+  {%- if categories %}
+  <table class="itemlist is-vcentered">
+    <thead>
+      <tr>
+        <th>{{ _('Position') }}</th>
+        <th>{{ _('Title') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for category in categories|sort(attribute='position') %}
+      <tr>
+        <td class="number">{{ category.position }}</td>
+        <td><strong>{{ category.title }}</strong></td>
+        <td>
+          {%- if g.user.has_permission('tourney_category.administrate') -%}
+          <div class="dropdown">
+            <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+            <ol class="dropdown-menu">
+              <li><a class="dropdown-item" href="{{ url_for('.update_form', category_id=category.id) }}">{{ render_icon('edit') }} {{ _('Edit') }}</a></li>
+
+              <li class="dropdown-divider"></li>
+
+              {%- if not loop.first %}
+              <li><a class="dropdown-item" href="{{ url_for('.move_up', category_id=category.id) }}" data-action="category-move-up">{{ render_icon('arrow-up') }} {{ _('Move up') }}</a></li>
+              {%- else %}
+              <li><span class="dropdown-label dimmed">{{ render_icon('arrow-up') }} {{ _('Move up') }}</span></li>
+              {%- endif %}
+
+              {%- if not loop.last %}
+              <li><a class="dropdown-item" href="{{ url_for('.move_down', category_id=category.id) }}" data-action="category-move-down">{{ render_icon('arrow-down') }} {{ _('Move down') }}</a></li>
+              {%- else %}
+              <li><span class="dropdown-label dimmed">{{ render_icon('arrow-down') }} {{ _('Move down') }}</span></li>
+              {%- endif %}
+            </ol>
+          </div>
+          {%- endif -%}
+        </td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No categories exist.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        post_on_click_then_reload('[data-action="category-move-up"]');
+        post_on_click_then_reload('[data-action="category-move-down"]');
+      });
+    </script>
+{%- endblock %}

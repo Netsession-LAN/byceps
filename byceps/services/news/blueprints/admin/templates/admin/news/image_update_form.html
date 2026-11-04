@@ -1,0 +1,30 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = item.brand %}
+{% set page_title = _('Edit image') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.item_view', item_id=item.id), _('News post') ~ ' "%s"'|format(item.title)) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.image_update', image_id=image.id) }}" method="post">
+    <div class="box">
+      <div class="mb">
+        <img src="{{ image.url_path }}">
+      </div>
+
+      {{ form_field(form.alt_text, autofocus='autofocus') }}
+      {{ form_field(form.caption) }}
+      {{ form_field(form.attribution) }}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}

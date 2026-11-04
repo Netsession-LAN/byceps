@@ -1,0 +1,83 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage bearbeiten'), stage.name] %}
+{% set stage_type_label_by_value = {
+  'single_elimination': _('Single Elimination'),
+  'double_elimination': _('Double Elimination'),
+  'double_elimination_double_grand_final': _('Double Elimination + Double Grand Final'),
+  'round_robin_groups': _('Round Robin Groups'),
+  'league': _('League'),
+  'swiss': _('Swiss'),
+  'ffa_simple': _('FFA Simple'),
+  'ffa_single_elimination': _('FFA Single Elimination'),
+  'ffa_flatout2_single_elimination': _('FlatOut 2'),
+} %}
+{% set stage_type_label = stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)},
+      {'label': _('Stage bearbeiten'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage bearbeiten') ~ ': ' ~ stage.name,
+    _('Passe Aufbau, Teilnehmerquelle und Timing dieser Stage an, ohne die Gesamtstruktur aus dem Blick zu verlieren.'),
+    stage.status.value,
+    'status-' ~ stage.status.value,
+    [
+      {'label': _('Turnier'), 'value': tournament.title},
+      {'label': _('Typ'), 'value': stage_type_label},
+      {'label': _('Reihenfolge'), 'value': _('Stage') ~ ' #' ~ stage.order_no},
+    ]
+  ) }}
+
+  {%- if stage_builder_meta %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ stage_builder_meta.role_label }}</strong>
+    <div class="ns-admin-inline-note-body">
+      {%- for line in stage_builder_meta.lines %}
+      <div>{{ line }}</div>
+      {%- endfor %}
+    </div>
+  </div>
+  {%- endif %}
+
+  {%- if stage_builder_generation_summary %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ stage_builder_generation_summary.title }}:</strong>
+    <div class="ns-admin-inline-note-body">
+      {%- for line in stage_builder_generation_summary.lines %}
+      <div>{{ line }}</div>
+      {%- endfor %}
+    </div>
+  </div>
+  {%- endif %}
+
+  {% with
+    form_action=url_for('.stage_update', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id),
+    submit_label=_('Speichern'),
+    cancel_url=url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'),
+    form_id='ns-tourney-stage-update-form',
+    show_participant_source_settings=show_participant_source_settings,
+    stage_source_mode=stage_source_mode,
+    stage_qualifier_top_n=stage_qualifier_top_n,
+    stage_qualifier_selection_mode=stage_qualifier_selection_mode,
+    selected_source_stage_ids=selected_source_stage_ids,
+    available_source_stages=available_source_stages
+  %}
+    {% include 'admin/netsession_tourney/stage/_form.html' %}
+  {% endwith %}
+{% endblock %}

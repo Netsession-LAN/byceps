@@ -1,0 +1,51 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'admin/netsession_tourney/logo/_subtabs.html' import render_logo_subtabs %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'logos' %}
+{% set page_title = [_('Sponsor-Logo bearbeiten'), party.title] %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.sponsor_logo_index', party_id=party.id), _('Turnier-Sponsor-Logos')) }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Turnier-Sponsor-Logos'), 'url': url_for('.sponsor_logo_index', party_id=party.id)},
+      {'label': _('Sponsor-Logo bearbeiten'), 'url': none},
+    ],
+    party.title,
+    _('Sponsor-Logo bearbeiten'),
+    _('Pflege Bezeichnung und Ziel-URL des Sponsor-Logos mit sichtbarer Banner-Vorschau.')
+  ) }}
+  {{ render_logo_subtabs(party, current_logo_subtab) }}
+
+  <form action="{{ url_for('.sponsor_logo_update', logo_asset_id=logo_asset.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Logo') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Pflege Bezeichnung und Ziel-URL des Sponsor-Logos mit sichtbarer Banner-Vorschau.') }}</p>
+          </div>
+        </div>
+        <div class="ns-admin-form-callout">
+          <span class="ns-tourney-admin-logo-preview ns-tourney-admin-logo-preview--banner">
+            <img src="{{ logo_asset.url_path }}" alt="{{ logo_asset.label }}" style="max-height: 40px; max-width: 260px;">
+          </span>
+        </div>
+        {{ render_field(form.label, _('Interne Bezeichnung des Sponsor-Logos für die Auswahl in Turnierformularen.'), autofocus='autofocus') }}
+        {{ render_field(form.target_url, _('Optionaler Link, der beim Klick auf das Sponsor-Logo im Frontend geöffnet wird.')) }}
+        <div class="ns-admin-form-callout"><code>{{ logo_asset.url_path }}</code></div>
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+      <a href="{{ url_for('.sponsor_logo_index', party_id=party.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

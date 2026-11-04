@@ -1,0 +1,72 @@
+{% extends 'layout/admin/shop/order.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/shop/order.html' import render_order_payment_state, render_order_state_filter %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% set page_title = _('Orders') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }} {{ render_extra_in_heading(orders.total) }}</h1>
+
+  <div class="row row--space-between is-vcentered block">
+    <div>
+
+      <form action="{{ url_for('.index_for_shop', shop_id=shop.id) }}" class="single-row">
+        {%- if only_payment_state %}
+        <input type="hidden" name="only_payment_state" value="{{ only_payment_state.name }}">
+        {%- endif %}
+        {%- if only_overdue is not none %}
+        <input type="hidden" name="only_overdue" value="{{ 'true' if only_overdue else 'false' }}">
+        {%- endif %}
+        {%- if (only_processed is not none) and not only_processed %}
+        <input type="hidden" name="only_processed" value="false">
+        {%- endif %}
+        <input type="search" name="search_term" placeholder="{{ _('Order number') }}"{%- if search_term %} value="{{ search_term }}"{% endif %} class="form-control" autofocus>
+        <button type="submit" class="button" title="{{ _('Search') }}">{{ render_icon('search') }}</button>
+        <a href="{{ url_for(
+          '.index_for_shop',
+          shop_id=shop.id,
+          only_payment_state=(only_payment_state.name if only_payment_state else None),
+          only_overdue=(('true' if only_overdue else 'false') if (only_overdue is not none) else None),
+          only_processed=('false' if ((only_processed is not none) and not only_processed) else None)
+        ) }}" class="button{% if not search_term %} dimmed{% endif %}" title="{{ _('Remove search term constraint') }}">{{ render_icon('remove') }}</a>
+      </form>
+
+    </div>
+    <div>
+
+      <div class="filter">
+        <span>{{ _('Status') }}:</span>
+        <div class="dropdown">
+          <button class="dropdown-toggle button is-clear is-compact">{{ render_order_state_filter(order_state_filter) }} {{ render_icon('chevron-down') }}</button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            <li><a class="dropdown-item" href="{{ url_for('.index_for_shop', shop_id=shop.id, search_term=search_term) }}">{{ render_order_state_filter(OrderStateFilter.none) }}</a></li>
+            <li class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('.index_for_shop', shop_id=shop.id, search_term=search_term, only_payment_state=PaymentState.open.name, only_overdue='true') }}">{{ render_order_payment_state(PaymentState.open) }} {{ render_tag(_('overdue'), icon='warning', class='color-danger') }}</a></li>
+            {%- for payment_state in PaymentState %}
+            <li><a class="dropdown-item" href="{{ url_for('.index_for_shop', shop_id=shop.id, search_term=search_term, only_payment_state=payment_state.name) }}">{{ render_order_payment_state(payment_state) }}</a></li>
+            {%- endfor %}
+            <li><a class="dropdown-item" href="{{ url_for('.index_for_shop', shop_id=shop.id, search_term=search_term, only_payment_state=PaymentState.paid.name, only_processed='false') }}">{{ render_order_state_filter(OrderStateFilter.waiting_for_processing) }}</a></li>
+          </ol>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {%- with orders = orders.items %}
+{% include 'admin/shop/order/_order_list.html' %}
+  {%- endwith %}
+
+{{ render_pagination_nav(orders, '.index_for_shop', {
+  'shop_id': shop.id,
+  'per_page': per_page,
+  'search_term': search_term if search_term else None,
+  'only_payment_state': only_payment_state.name if only_payment_state else None,
+  'only_overdue': ('true' if only_overdue else 'false') if (only_overdue is not none) else None,
+  'only_processed': 'false' if ((only_processed is not none) and not only_processed) else None,
+}) }}
+
+{%- endblock %}

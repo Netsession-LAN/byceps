@@ -1,0 +1,14 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/orga.html' import render_upcoming_birthday_items %}
+{% set current_page = 'orga_admin.birthdays' %}
+{% set page_title = _('Upcoming birthdays') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <ol class="itemlist birthdays">
+{{ render_upcoming_birthday_items(orgas) }}
+  </ol>
+
+{%- endblock %}

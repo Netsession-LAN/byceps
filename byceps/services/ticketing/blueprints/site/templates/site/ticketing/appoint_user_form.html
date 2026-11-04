@@ -1,0 +1,19 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set simple_layout = true %}
+{% set current_page = 'ticket' %}
+{% set page_title = 'Ticket %s an Benutzer zuweisen'|format(ticket.code) %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.appoint_user', ticket_id=ticket.id) }}" method="post">
+    <div class="main-body-box">
+      {{ form_field(form.user, maxlength=40, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Assign')) }}
+  </form>
+
+{%- endblock %}

@@ -1,0 +1,27 @@
+{%- from 'macros/misc.html' import render_tag %}
+
+
+{% call render_example() %}
+<div class="block">Just a {{ render_tag('tag') }} to attach to things or to represent state.</div>
+{% endcall %}
+
+<p>With pre-defined colors and styles:</p>
+
+{% call render_example() %}
+{%- with colors = ('info', 'success', 'warning', 'danger', 'disabled') %}
+<div class="block">
+  {%- for color in colors %}
+  {{ render_tag(color, class='color-{}'.format(color)) }}
+  {%- endfor %}
+</div>
+<div class="block">
+  {%- for color in colors %}
+  {{ render_tag(color, class='color-{}--light'.format(color)) }}
+  {%- endfor %}
+</div>
+{%- endwith %}
+<div class="block">
+  {{ render_tag('outlined', class='tag--outlined') }}
+  {{ render_tag('with icon', icon='success') }}
+</div>
+{% endcall %}

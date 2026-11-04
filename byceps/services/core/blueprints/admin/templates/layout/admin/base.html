@@ -1,0 +1,58 @@
+{% from 'macros/page.html' import render_page_title -%}
+
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="generator" content="BYCEPS">
+    <meta name="referrer" content="origin-when-cross-origin">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ render_page_title(page_title|default([]), 'BYCEPS') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin.css') }}">
+{% block head %}{% endblock %}
+  </head>
+  <body>
+
+    <div class="page-layout">
+
+      {%- if show_admin_top_bar|default(true) %}
+      <section class="page-header">
+{% include 'layout/admin/_header.html' %}
+      </section>
+      {%- endif %}
+
+      {%- if g.user.has_permission('admin.access') %}
+      <section class="page-header-nav">
+{% include 'layout/admin/_header_nav.html' %}
+      </section>
+      {%- endif %}
+
+      <section class="page-body">
+        <div class="container">
+
+          <div class="page-body-inner">
+            <main>
+{% include 'layout/_notifications.html' %}
+{% block before_body %}{% endblock %}
+{% block body required %}{% endblock %}
+            </main>
+          </div>
+
+        </div>
+      </section>{# .page-body #}
+
+      <section class="page-footer">
+        <footer id="footer" class="container">
+          <a href="https://byceps.nwsnet.de/" class="disguised"><strong>BYCEPS</strong></a><br>
+          Copyright &copy; 2014&ndash;2026 Jochen &quot;Y0Gi&quot; Kupperschmidt
+        </footer>
+      </section>
+
+    </div>{# .page-layout #}
+
+    <script src="{{ url_for('static', filename='behavior/common.js') }}"></script>
+{% block scripts %}{% endblock %}
+
+  </body>
+</html>

@@ -1,0 +1,55 @@
+{%- from 'macros/admin/site.html' import render_icon_tag, render_site %}
+
+
+  <style>
+    .icon-tag,
+    .text-tag {
+      align-items: center;
+      border-radius: 3px;
+      color: #ffffff;
+      display: inline-flex;
+      font-size: 1rem; /* 16px */
+      height: 1.75rem;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .icon-tag {
+      width: 1.75rem;
+    }
+
+    .text-tag {
+      font-size: 0.75rem; /* 12px / 16px */
+      font-weight: bold;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+
+    .icon-tag.color-disabled {
+      background-color: var(--color-disabled);
+    }
+
+    .icon-tag.color-success {
+      background-color: var(--color-success);
+    }
+
+    .text-tag.color-info {
+      background-color: var(--color-info);
+    }
+  </style>
+
+  {%- if sites %}
+
+  <h2>{{ _('Active sites') }}</h2>
+    {%- for site in sites|selectattr('enabled') %}
+    {{ render_site(site, party_titles_by_id, storefronts_by_id, show_brand_avatar=show_brand_avatar) }}
+    {%- endfor %}
+
+  <h2>{{ _('Inactive sites') }}</h2>
+    {%- for site in sites|rejectattr('enabled') %}
+    {{ render_site(site, party_titles_by_id, storefronts_by_id, show_brand_avatar=show_brand_avatar) }}
+    {%- endfor %}
+
+  {%- else %}
+  <div class="box no-data-message">{{ _('No sites available.') }}</div>
+  {%- endif %}

@@ -1,0 +1,360 @@
+[[roles]]
+id = 'api_admin'
+title = 'API verwalten'
+assigned_permissions = [
+    'api.administrate',
+]
+
+[[roles]]
+id = 'authorization_admin'
+title = 'Rechte und Rollen verwalten'
+assigned_permissions = [
+    'role.assign',
+    'role.view',
+]
+
+[[roles]]
+id = 'board_admin'
+title = 'Forum verwalten'
+assigned_permissions = [
+    'board.create',
+    'board_category.create',
+    'board_category.update',
+    'board_category.view',
+    'board_topic.mute',
+]
+
+[[roles]]
+id = 'board_moderator'
+title = 'Forum moderieren'
+assigned_permissions = [
+    'board.announce',
+    'board.hide',
+    'board.update_of_others',
+    'board.view_hidden',
+    'board_topic.lock',
+    'board_topic.move',
+    'board_topic.pin',
+]
+
+[[roles]]
+id = 'board_user'
+title = 'im Forum schreiben'
+assigned_permissions = [
+    'board_posting.create',
+    'board_posting.update',
+    'board_topic.create',
+    'board_topic.update',
+]
+
+[[roles]]
+id = 'brand_admin'
+title = 'Marken verwalten'
+assigned_permissions = [
+    'brand.create',
+    'brand.update',
+    'brand.view',
+]
+
+[[roles]]
+id = 'checkin_boss'
+title = 'Abendkasse und Nutzerzuweisung'
+assigned_permissions = [
+    'shop_order.view',
+    'ticketing.administrate_seat_occupancy',
+    'user.administrate',
+    'user.create',
+    'user.set_password',
+    'user.view',
+]
+
+[[roles]]
+id = 'consent_admin'
+title = 'Zustimmungen verwalten'
+assigned_permissions = ['consent.administrate']
+
+[[roles]]
+id = 'content_admin'
+title = 'Inhalte verwalten'
+assigned_permissions = [
+    'page.delete',
+    'snippet.delete',
+    'timetable.administrate',
+]
+
+[[roles]]
+id = 'content_editor'
+title = 'Inhalte bearbeiten'
+assigned_permissions = [
+    'page.create',
+    'page.update',
+    'page.view',
+    'page.view_history',
+    'snippet.create',
+    'snippet.update',
+    'snippet.view',
+    'snippet.view_history',
+    'timetable.update',
+]
+
+[[roles]]
+id = 'gallery_admin'
+title = 'Galerien verwalten'
+assigned_permissions = [
+    'gallery.administrate',
+    'gallery.view_hidden',
+]
+
+[[roles]]
+id = 'guest_server_admin'
+title = 'Gastserver verwalten'
+assigned_permissions = [
+    'guest_server.administrate',
+    'guest_server.view',
+]
+
+[[roles]]
+id = 'jobs_admin'
+title = 'Hintergrundjobs verwalten'
+assigned_permissions = ['jobs.view']
+
+[[roles]]
+id = 'maintenance_admin'
+title = 'Wartungsarbeiten ausführen'
+assigned_permissions = ['admin.maintain']
+
+[[roles]]
+id = 'news_admin'
+title = 'News verwalten'
+assigned_permissions = ['news_channel.administrate']
+
+[[roles]]
+id = 'news_editor'
+title = 'Newsredakteur'
+assigned_permissions = [
+    'news_item.create',
+    'news_item.publish',
+    'news_item.update',
+    'news_item.view',
+    'news_item.view_draft',
+]
+
+[[roles]]
+id = 'newsletter_admin'
+title = 'Newsletter-Abonnements verwalten'
+assigned_permissions = [
+    'newsletter.administrate',
+    'newsletter.export_subscribers',
+    'newsletter.view_subscriptions',
+]
+
+[[roles]]
+id = 'orga'
+title = 'Organisator'
+assigned_permissions = [
+    'admin.access',
+    'board.view_hidden',
+    'brand.view',
+    'guest_server.view',
+    'news_item.view',
+    'orga_birthday.view',
+    'orga_detail.view',
+    'orga_presence.update',
+    'orga_presence.view',
+    'orga_team.view',
+    'page.view',
+    'page.view_history',
+    'party.view',
+    'seating.view',
+    'site.view',
+    'snippet.view',
+    'snippet.view_history',
+    'ticketing.checkin',
+    'ticketing.view',
+    'tourney.view',
+    'tourney_category.view',
+]
+
+[[roles]]
+id = 'orga_team_admin'
+title = 'Orgateams verwalten'
+assigned_permissions = [
+    'orga_team.administrate_memberships',
+    'orga_team.create',
+    'orga_team.delete',
+    'orga_team.view',
+]
+
+[[roles]]
+id = 'page_admin'
+title = 'Seiten verwalten'
+assigned_permissions = [
+    'page.delete',
+]
+
+[[roles]]
+id = 'page_editor'
+title = 'Seiten bearbeiten'
+assigned_permissions = [
+    'page.create',
+    'page.update',
+    'page.view',
+    'page.view_history',
+]
+
+[[roles]]
+id = 'party_admin'
+title = 'Partys verwalten'
+assigned_permissions = [
+    'party.create',
+    'party.update',
+    'party.view',
+]
+
+[[roles]]
+id = 'seating_admin'
+title = 'Sitzpläne verwalten'
+assigned_permissions = [
+    'seating.administrate',
+    'seating.view',
+]
+
+[[roles]]
+id = 'shop_admin'
+title = 'Shops verwalten'
+assigned_permissions = [
+    'shop.create',
+    'shop.update',
+    'shop.view',
+]
+
+[[roles]]
+id = 'shop_product_admin'
+title = 'Shop-Produkte verwalten'
+assigned_permissions = [
+    'shop_product.administrate',
+    'shop_product.view',
+]
+
+[[roles]]
+id = 'shop_order_admin'
+title = 'Shop-Bestellungen verwalten'
+assigned_permissions = [
+    'shop_order.cancel',
+    'shop_order.update',
+    'shop_order.view',
+]
+
+[[roles]]
+id = 'shop_order_payment_approver'
+title = 'Zahlungseingänge bestätigen'
+assigned_permissions = [
+    'shop_order.mark_as_paid',
+    'shop_order.view',
+]
+
+[[roles]]
+id = 'site_admin'
+title = 'Sites verwalten'
+assigned_permissions = [
+    'site.create',
+    'site.update',
+    'site.view',
+    'site_navigation.administrate',
+]
+
+[[roles]]
+id = 'snippet_admin'
+title = 'Snippets verwalten'
+assigned_permissions = [
+    'snippet.delete',
+]
+
+[[roles]]
+id = 'snippet_editor'
+title = 'Snippets bearbeiten'
+assigned_permissions = [
+    'snippet.create',
+    'snippet.update',
+    'snippet.view',
+    'snippet.view_history',
+]
+
+[[roles]]
+id = 'support_orga'
+title = 'Support-Orga'
+assigned_permissions = [
+    'shop_order.view',
+    'user.view',
+]
+
+[[roles]]
+id = 'ticketing_admin'
+title = 'Tickets verwalten'
+assigned_permissions = [
+    'ticketing.administrate',
+    'ticketing.view',
+]
+
+[[roles]]
+id = 'tourney_admin'
+title = 'Turniere verwalten'
+assigned_permissions = [
+    'tourney.administrate',
+    'tourney.view',
+]
+
+[[roles]]
+id = 'tourney_category_admin'
+title = 'Turnierkategorien verwalten'
+assigned_permissions = [
+    'tourney_category.administrate',
+    'tourney_category.view',
+]
+
+[[roles]]
+id = 'netsession_tourney_admin'
+title = 'Netsession-Turniere verwalten'
+assigned_permissions = [
+    'netsession_tourney.admin',
+    'netsession_tourney.manage',
+    'netsession_tourney.participate',
+    'netsession_tourney.report_result',
+    'netsession_tourney.view',
+]
+
+[[roles]]
+id = 'user_admin'
+title = 'Benutzer verwalten'
+assigned_permissions = [
+    'user.administrate',
+    'user.create',
+    'user.view',
+]
+
+[[roles]]
+id = 'user_authn_admin'
+title = 'Benutzer-Authentifizierung verwalten'
+assigned_permissions = [
+    'authn_identity_tag.administrate',
+    'authn_identity_tag.view',
+    'user.set_password',
+]
+
+[[roles]]
+id = 'user_badge_admin'
+title = 'Abzeichen verwalten'
+assigned_permissions = [
+    'user_badge.award',
+    'user_badge.create',
+    'user_badge.update',
+    'user_badge.view',
+]
+
+[[roles]]
+id = 'webhook_admin'
+title = 'Webhooks verwalten'
+assigned_permissions = [
+    'webhook.administrate',
+    'webhook.view',
+]

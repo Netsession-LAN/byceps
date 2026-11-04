@@ -1,0 +1,34 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Add image') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.item_view', item_id=item.id), _('News post') ~ ' "%s"'|format(item.title)) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.image_create', item_id=item.id) }}" method="post" enctype="multipart/form-data" class="disable-submit-button-on-submit">
+    <div class="box">
+    {%- with %}
+      {%- set caption %}
+      {{ _('Allowed formats') }}: {{ allowed_types|sort|join(', ') }}<br>
+      {{ _('Maximum image dimensions') }}: {{ maximum_dimensions.width }} &times; {{ maximum_dimensions.height }} {{ _('pixels') }}<br>
+      {{ _('Maximum file size') }}: 250 KB<br>
+      {%- endset %}
+      {{ form_field(form.image, maxlength=250000, accept='image/*', autofocus='autofocus', caption=caption) }}
+    {%- endwith %}
+      {{ form_field(form.alt_text) }}
+      {{ form_field(form.caption) }}
+      {{ form_field(form.attribution) }}
+    </div>
+
+    {{ form_buttons(_('Add')) }}
+  </form>
+
+{%- endblock %}

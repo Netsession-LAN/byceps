@@ -1,0 +1,110 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'board_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = [_('Board'), board_id] %}
+
+{% block body %}
+
+  <div class="row row--space-between is-vcentered block">
+    <div>
+      <nav class="breadcrumbs">
+        <ol>
+          <li><a href="{{ url_for('.board_index_for_brand', brand_id=board_brand_id) }}">{{ _('Boards') }}</a></li>
+        </ol>
+      </nav>
+      <h1 class="title">{{ board_id }}</h1>
+    </div>
+  {%- if g.user.has_permission('board_category.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.category_create_form', board_id=board_id) }}">{{ render_icon('add') }} <span>{{ _('Create category') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if categories %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Position') }}</th>
+        <th>{{ _('Title') }}, {{ _('Slug') }}</th>
+        <th>{{ _('Description') }}</th>
+        <th class="centered">{{ _('Topics') }}</th>
+        <th class="centered">{{ _('Postings') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for category in categories|sort(attribute='position') %}
+      <tr>
+        <td class="centered">{{ category.position }}</td>
+        <td>
+          <strong>{{ category.title }}</strong><br>
+          {{ category.slug|dim }}
+          {%- if category.hidden %}
+          <br>{{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+          {%- endif %}
+        </td>
+        <td>{{ category.description|fallback }}</td>
+        <td class="centered bignumber">{{ category.topic_count|numberformat }}</td>
+        <td class="centered bignumber">{{ category.posting_count|numberformat }}</td>
+        <td>
+          {%- if g.user.has_permission('board_category.update') -%}
+          <div class="dropdown">
+            <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+            <ol class="dropdown-menu dropdown-menu--right">
+              <li><a class="dropdown-item" href="{{ url_for('.category_update_form', category_id=category.id) }}">{{ render_icon('edit') }} {{ _('Edit') }}</a></li>
+
+              <li class="dropdown-divider"></li>
+
+              {%- if not loop.first %}
+              <li><a class="dropdown-item" href="{{ url_for('.category_move_up', category_id=category.id) }}" data-action="category-move-up">{{ render_icon('arrow-up') }} {{ _('Move up') }}</a></li>
+              {%- else %}
+              <li><span class="dropdown-label dimmed">{{ render_icon('arrow-up') }} {{ _('Move up') }}</span></li>
+              {%- endif %}
+
+              {%- if not loop.last %}
+              <li><a class="dropdown-item" href="{{ url_for('.category_move_down', category_id=category.id) }}" data-action="category-move-down">{{ render_icon('arrow-down') }} {{ _('Move down') }}</a></li>
+              {%- else %}
+              <li><span class="dropdown-label dimmed">{{ render_icon('arrow-down') }} {{ _('Move down') }}</span></li>
+              {%- endif %}
+
+              <li class="dropdown-divider"></li>
+
+              {%- if category.hidden %}
+              <li><a class="dropdown-item" href="{{ url_for('.category_unhide', category_id=category.id) }}" data-action="category-unhide">{{ render_icon('view') }} {{ _('Make visible') }}</a></li>
+              {%- else %}
+              <li><a class="dropdown-item" href="{{ url_for('.category_hide', category_id=category.id) }}" data-action="category-hide">{{ render_icon('hidden') }} {{ _('Hide') }}</a></li>
+              {%- endif %}
+
+              {%- if category.topic_count == 0 %}
+              <li><a class="dropdown-item" href="{{ url_for('.category_delete', category_id=category.id) }}" data-action="category-delete">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+              {%- endif %}
+            </ol>
+          </div>
+          {%- endif -%}
+        </td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('This board contains no categories.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        post_on_click_then_reload('[data-action="category-move-up"]');
+        post_on_click_then_reload('[data-action="category-move-down"]');
+        post_on_click_then_reload('[data-action="category-hide"]');
+        delete_on_click_then_reload('[data-action="category-unhide"]');
+        confirmed_delete_on_click_then_reload('[data-action="category-delete"]', '{{ _('Delete category?') }}');
+      });
+    </script>
+{%- endblock %}

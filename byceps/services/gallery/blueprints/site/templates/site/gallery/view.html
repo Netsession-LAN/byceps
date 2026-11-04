@@ -1,0 +1,48 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% set current_page = 'gallery' %}
+{% set page_title = [gallery.title, _('Galleries')] %}
+
+{% block head %}
+  {%- if gallery.title_image %}
+    <meta property="og:title" content="{{ gallery.title }} &middot; {{ _('Galleries') }}">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="{{ request.url_root }}{{ gallery.title_image.url_path_preview }}">
+    <meta property="og:url" content="{{ url_for('.view', slug=gallery.slug, _external=True) }}">
+  {%- endif %}
+{% endblock %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <nav class="breadcrumbs">
+    <ol>
+      <li><a href="{{ url_for('.index') }}">{{ _('Galleries') }}</a></li>
+    </ol>
+  </nav>
+
+  <h1 class="title">{{ gallery.title }}{% if gallery.hidden %} {{ render_tag(_('hidden')) }}{% endif %}</h1>
+
+  <div class="main-body-box">
+    {%- if gallery.images %}
+    <div class="gallery-images">
+      {%- for image in gallery.images|sort(attribute='position') %}
+      <a data-fslightbox="gallery-images" href="{{ image.url_path_full }}"><img src="{{ image.url_path_preview }}" class="framed" loading="lazy"></a>
+      {%- endfor %}
+    </div>
+    {%- else %}
+    <p class="dimmed">{{ _('No images available.') }}</p>
+    {%- endif %}
+  </div>
+
+{%- endblock %}
+
+{%- block scripts %}
+  <script src="{{ url_for('static', filename='behavior/vendor/fslightbox.js') }}"></script>
+{%- endblock %}

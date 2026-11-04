@@ -1,0 +1,59 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_distribution_bar %}
+{% set current_page = 'newsletter_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = [_('Newsletter'), list_.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between is-vcentered block">
+    <div>
+
+      <nav class="breadcrumbs">
+        <ol>
+          <li><a href="{{ url_for('.index') }}">{{ _('Newsletter') }}</a></li>
+        </ol>
+      </nav>
+      <h1 class="title">{{ list_.title }}</h1>
+
+    </div>
+    <div>
+
+      {%- if g.user.has_permission('newsletter.export_subscribers') %}
+      <div class="button-row is-right-aligned">
+        <div class="dropdown">
+          <button class="dropdown-toggle button">
+            <div class="block-with-icon">
+              <div class="block-with-icon-icon">{{ render_icon('download') }}</div>
+              <div class="block-with-icon-body">{{ _('Export') }} {{ render_icon('chevron-down') }}</div>
+            </div>
+          </button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            <li><a class="dropdown-item" href="{{ url_for('.export_subscribers', list_id=list_.id) }}" download="subscribers_{{ list_.id }}.json">{{ render_icon('download') }} {{ _('Usernames and email addresses (as JSON)') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('.export_subscriber_email_addresses', list_id=list_.id) }}" download="subscribers_{{ list_.id }}.txt">{{ render_icon('download') }} {{ _('email addresses only (as plaintext)') }}</a></li>
+          </ol>
+        </div>
+      </div>
+      {%- endif %}
+
+    </div>
+  </div>
+
+  <div class="box">
+
+{{ render_distribution_bar(
+  [
+    (subscription_count, 'color-success'),
+    (user_count - subscription_count, 'color-disabled'),
+  ],
+  user_count
+) }}
+    <div class="row row--space-between">
+      <div><strong>{{ subscription_count|numberformat }}</strong> {{ _('requested') }}</div>
+      <div><strong>{{ user_count|numberformat }}</strong> {{ _('Users') }} {{ _('total') }}</div>
+    </div>
+
+  </div>
+
+{%- endblock %}

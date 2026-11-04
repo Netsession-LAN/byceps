@@ -1,0 +1,19 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page = 'shop_shop_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Shop') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <div class="box no-data-message">{{ _('No shop exists for this brand.') }}</div>
+
+  {%- if g.user.has_permission('shop.create') %}
+  <div class="button-row is-hcentered">
+    <a class="button" href="{{ url_for('.create_form', brand_id=brand.id) }}">{{ render_icon('add') }} <span>{{ _('Create shop') }}</span></a>
+  </div>
+  {%- endif %}
+
+{%- endblock %}

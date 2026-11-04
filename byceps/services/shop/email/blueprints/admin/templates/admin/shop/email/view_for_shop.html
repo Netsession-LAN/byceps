@@ -1,0 +1,76 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/misc.html' import render_notification %}
+{% set current_page = 'shop_email_admin' %}
+{% set current_page_brand = brand %}
+{% set current_page_shop = shop %}
+{% set page_title = _('Email') %}
+
+{% block head %}
+<style>
+.box.email-example {
+  padding: 0;
+}
+
+.email-example pre {
+  margin: 0;
+}
+
+.email-example code {
+  display: block;
+  font-size: 0.75rem;
+  max-width: 46rem;
+  overflow-x: auto;
+  padding: 1rem;
+}
+</style>
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ _('Email') }}</h1>
+
+  <h2>{{ _('Examples') }}</h2>
+
+{{ render_example_email(_('Order confirmation'), placed_order_message_text_result) }}
+{{ render_example_email(_('Payment receipt'), paid_order_message_text_result) }}
+{{ render_example_email(_('Cancellation'), canceled_order_message_text_result) }}
+
+  <h2>{{ _('Configuration') }}</h2>
+  <div class="box">
+
+    <div class="row mb">
+      <div>
+
+        <div class="data-label">{{ _('Sender address') }}</div>
+        <div class="data-value">{{ email_config.sender.address }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Sender name') }}</div>
+        <div class="data-value">{{ email_config.sender.name|fallback }}</div>
+
+      </div>
+    </div>
+
+    <div class="data-label">{{ _('Contact address') }}</div>
+    <div class="data-value">{{ email_config.contact_address|fallback }}</div>
+
+  </div>
+
+{%- endblock %}
+
+{% macro render_example_email(title, text_result) -%}
+    <details class="block email-example"{% if text_result.is_err() %} open{% endif %}>
+      <summary class="mb">{{ title }}</summary>
+  {%- if text_result.is_ok() -%}
+      <div class="box email-example">
+        <pre><code>{{ text_result.unwrap() }}</code></pre>
+      </div>
+  {%- else -%}
+      <div class="mb">
+{{ render_notification(text_result.unwrap_err(), category='danger') }}
+      </div>
+  {%- endif -%}
+    </details>
+{%- endmacro %}

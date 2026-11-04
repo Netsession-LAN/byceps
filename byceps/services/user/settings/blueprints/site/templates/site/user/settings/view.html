@@ -1,0 +1,35 @@
+{% extends 'layout/base.html' %}
+{% set current_page = 'user' %}
+{% set page_title = _('Settings') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+{% include 'site/user/settings/_account.html' %}
+{% include 'site/user/settings/_details_personal.html' %}
+  {%- if newsletter_offered and not g.site.is_intranet %}
+{% include 'site/user/settings/_newsletter.html' %}
+  {%- endif %}
+{%- include 'site/user/settings/_connected_external_accounts.html' %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        // avatar
+        confirmed_delete_on_click_then_reload('[data-action="avatar-delete"]', '{{ _('Remove avatar image?') }}');
+
+        // locale
+        post_on_click_then_reload('[data-action="locale-update"]');
+
+        // newsletter
+        post_on_click_then_reload('[data-action="newsletter-subscribe"]');
+        confirmed_delete_on_click_then_reload('[data-action="newsletter-unsubscribe"]', '{{ _('Unsubscribe from newsletter?') }}');
+
+        // connected external accounts
+        confirmed_delete_on_click_then_reload('[data-action="discord-remove"]', 'Verbindung mit Discord-Account entfernen?');
+      });
+    </script>
+{% endblock %}

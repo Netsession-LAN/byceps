@@ -1,0 +1,40 @@
+{% from 'macros/misc.html' import render_notification -%}
+
+
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="origin-when-cross-origin">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin.css') }}">
+  </head>
+  <body style="background-color: transparent; padding: 2rem;">
+
+    <main>
+
+      <h1 class="title">{{ item.title }}</h1>
+
+{%- if item.featured_image_html is not none %}
+  {%- if item.featured_image_html.is_ok() %}
+  {{ item.featured_image_html.unwrap()|safe }}
+  {%- else %}
+  {{ render_notification('<pre style="white-space: pre-wrap;">%s</pre>'|format(item.featured_image_html.unwrap_err())|safe, category='danger') }}
+  {%- endif %}
+{%- endif %}
+
+{%- if item.body_html.is_ok() %}
+  {%- with body_html = item.body_html.unwrap() %}
+    {%- if body_html %}
+{{ body_html|safe }}
+    {%- endif %}
+  {%- endwith %}
+{%- else %}
+{{ render_notification('<pre style="white-space: pre-wrap;">%s</pre>'|format(item.body_html.unwrap_err())|safe, category='danger') }}
+{%- endif %}
+
+    </main>
+
+  </body>
+</html>

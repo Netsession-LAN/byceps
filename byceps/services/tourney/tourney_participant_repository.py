@@ -1,0 +1,77 @@
+"""
+byceps.services.tourney.tourney_participant_repository
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from collections.abc import Sequence
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import delete, select
+
+from byceps.database import db
+
+from .dbmodels.participant import DbParticipant, DbParticipantMembership
+from .models import Participant, ParticipantID, ParticipantMembership, TourneyID
+
+
+def create_participant(participant: Participant, created_at: datetime) -> None:
+    """Create a participant."""
+    db_participant = DbParticipant(
+        participant.id,
+        participant.tourney_id,
+        created_at,
+        participant.name,
+        participant.manager.id,
+    )
+
+    db.session.add(db_participant)
+    db.session.commit()
+
+
+def delete_participant(participant_id: ParticipantID) -> None:
+    """Delete a participant."""
+    participant = find_participant(participant_id)
+    if participant is None:
+        raise ValueError(f'Unknown participant ID "{participant_id}"')
+
+    db.session.execute(delete(DbParticipant).filter_by(id=participant.id))
+    db.session.commit()
+
+
+def find_participant(participant_id: ParticipantID) -> DbParticipant | None:
+    """Return the participant with that ID, or `None` if not found."""
+    return db.session.get(DbParticipant, participant_id)
+
+
+def get_participants_for_tourney(
+    tourney_id: TourneyID,
+) -> Sequence[DbParticipant]:
+    """Return the participants of the tourney."""
+    return db.session.scalars(
+        select(DbParticipant).filter_by(tourney_id=tourney_id)
+    ).all()
+
+
+def add_player_to_participant(membership: ParticipantMembership) -> None:
+    """Add a player to a participant."""
+    db_membership = DbParticipantMembership(
+        membership.id,
+        membership.participant_id,
+        membership.player.id,
+        membership.status,
+    )
+
+    db.session.add(db_membership)
+    db.session.commit()
+
+
+def delete_participant_membership(membership_id: UUID) -> None:
+    """Remove a player from a participant."""
+    db.session.execute(
+        delete(DbParticipantMembership).filter_by(id=membership_id)
+    )
+    db.session.commit()

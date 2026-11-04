@@ -1,0 +1,38 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% set current_page = 'attendance_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Most Frequent Attendees') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <p>{{ _('Total parties of brand "%(brand_title)s"', brand_title=brand.title) }}: <strong>{{ party_total }}</strong></p>
+
+  {%- if most_recent_party %}
+  <p>{{ _('Latest included party') }}: <strong>{{ most_recent_party.title }}</strong></p>
+  {%- endif %}
+
+  {%- if top_attendees %}
+  <table class="itemlist is-vcentered">
+    <thead>
+      <tr>
+        <th>{{ _('User') }}</th>
+        <th class="number">{{ _('Attendances') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for user, attendance_count in top_attendees %}
+      <tr>
+        <td>{{ render_user_avatar_and_admin_link(user, size=16) }}</td>
+        <td class="number">{{ attendance_count }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No attendances at parties of this brand.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

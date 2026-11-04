@@ -1,0 +1,28 @@
+{%- from 'macros/icons.html' import render_icon %}
+
+
+<p>A simple dropdown menu:</p>
+
+{% call render_example() %}
+<div class="dropdown">
+  <button class="dropdown-toggle button"><span>Left-aligned (default)</span> {{ render_icon('chevron-down') }}</button>
+  <ol class="dropdown-menu">
+    <li><a class="dropdown-item" href="#">One</a></li>
+    <li><a class="dropdown-item" href="#">Two</a></li>
+    <li class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="#">Three</a></li>
+    <li><a class="dropdown-item color--danger" href="#">Dangerous</a></li>
+  </ol>
+</div>
+
+<div class="dropdown">
+  <button class="dropdown-toggle button"><span>Right-aligned</span> {{ render_icon('chevron-down') }}</button>
+  <ol class="dropdown-menu dropdown-menu--right">
+    <li><a class="dropdown-item" href="#">One</a></li>
+    <li><a class="dropdown-item" href="#">Two</a></li>
+    <li class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="#">Three</a></li>
+    <li><a class="dropdown-item color--danger" href="#">Dangerous</a></li>
+  </ol>
+</div>
+{% endcall %}

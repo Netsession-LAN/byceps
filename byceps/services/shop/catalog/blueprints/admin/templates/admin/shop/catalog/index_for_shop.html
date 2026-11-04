@@ -1,0 +1,40 @@
+{% extends 'layout/admin/shop/catalog.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set page_title = _('Catalogs') %}
+
+{% block body %}
+
+  <div class="block row row--space-between">
+    <div>
+      <h1 class="title">{{ page_title }} {{ render_extra_in_heading(catalogs|length) }}</h1>
+    </div>
+    {%- if g.user.has_permission('shop_product.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.catalog_create_form', shop_id=shop.id) }}">{{ render_icon('add') }} <span>{{ _('Create') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if catalogs %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Title') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for catalog in catalogs|sort(attribute='title') %}
+      <tr>
+        <td><a href="{{ url_for('.catalog_view', catalog_id=catalog.id) }}"><strong>{{ catalog.title }}</strong></a></td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No catalogs exist.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

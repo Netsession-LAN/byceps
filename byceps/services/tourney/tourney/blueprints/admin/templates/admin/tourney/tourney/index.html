@@ -1,0 +1,64 @@
+{% extends 'layout/admin/tourney.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page_party = party %}
+{% set current_tab = 'tourneys' %}
+{% set page_title = [_('Tourneys'), party.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Tourneys') }} {{ render_extra_in_heading(tourneys|length) }}</h1>
+    </div>
+    <div>
+      {%- if g.user.has_permission('tourney.administrate') %}
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Create tourney') }}</span></a>
+      </div>
+      {%- endif %}
+    </div>
+  </div>
+
+  {%- if tourneys %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Title') }}<br>{{ _('Subtitle') }}</th>
+        <th>{{ _('Category') }}</th>
+        <th>{{ _('Team size') }}</th>
+        <th colspan="3">{{ _('Participants') }}</th>
+        <th>{{ _('Start') }}</th>
+        <th>{{ _('Status') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for tourney in tourneys|sort(attribute='title') %}
+      <tr>
+        <td>
+          <a href="{{ url_for('.view', tourney_id=tourney.id) }}" class="disguised">
+            <strong>{{ tourney.title }}</strong><br>
+            <small>{{ tourney.subtitle|fallback('') }}</small>
+          </a>
+        </td>
+        <td>{{ tourney.category.title }}</td>
+        <td class="centered">{{ tourney.team_size }}</td>
+        <td class="bignumber number" style="padding-right: 0;">{{ tourney.current_participant_count }}</td>
+        <td class="bignumber dimmed" style="padding-left: 0.25rem; padding-right: 0.25rem;">/</td>
+        <td class="bignumber">{{ tourney.max_participant_count }}</td>
+        <td>{{ tourney.starts_at|dateformat }}, {{ tourney.starts_at|timeformat('short') }}</td>
+        <td>
+        {%- if tourney.registration_open %}
+          {{ render_tag(_('Registration open'), class='color-info') }}
+        {%- endif %}
+        </td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No tourneys exist.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

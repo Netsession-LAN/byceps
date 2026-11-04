@@ -1,0 +1,504 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_subnav.html' import render_global_subnav %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% from 'macros/misc.html' import render_tag %}
+{% set page_title = _('Turniere') %}
+{% set netsession_tourney_icons_url = url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') %}
+
+{% macro render_tournament_rows(tournaments, registration_states_by_tournament_id, public_statuses_by_tournament_id, coin_settings) -%}
+  {%- for tournament in tournaments %}
+    {%- set registration_state = registration_states_by_tournament_id[tournament.id] %}
+    {%- set public_status = public_statuses_by_tournament_id[tournament.id] %}
+    <tr>
+      <td class="ns-tourney-index-title-cell">
+        <a
+          href="{{ url_for('netsession_tourney.view_overview', slug=tournament.slug) }}"
+          class="disguised ns-tourney-index-title-link"
+        >
+          <span class="ns-tourney-index-logo-wrap" aria-hidden="true">
+            {%- if tournament.logo_url %}
+            <img
+              src="{{ tournament.logo_url }}"
+              alt=""
+              class="ns-tourney-index-logo"
+              loading="lazy"
+            >
+            {%- else %}
+            <span class="ns-tourney-index-logo ns-tourney-index-logo--placeholder"></span>
+            {%- endif %}
+          </span>
+          <span class="ns-tourney-index-title-text">
+            <strong class="ns-tourney-index-title-name">{{ tournament.title }}</strong>
+            {%- if tournament.is_sponsored %}
+            <span class="ns-tourney-sponsor-meta ns-tourney-sponsor-meta--index">
+              <span class="ns-tourney-sponsor-label">{{ _('Sponsored by') }}</span>
+              {%- if tournament.sponsor_logo_url %}
+              <img
+                src="{{ tournament.sponsor_logo_url }}"
+                alt="{{ _('Sponsor') }}"
+                class="ns-tourney-sponsor-logo"
+                loading="lazy"
+              >
+              {%- endif %}
+            </span>
+            {%- endif %}
+          </span>
+        </a>
+      </td>
+      <td class="ns-tourney-index-participants">
+        {{ registration_state.active_participant_count }}
+        {%- if tournament.participant_limit is not none %}
+          / {{ tournament.participant_limit }}
+        {%- endif %}
+      </td>
+      {%- if coin_settings.enabled %}
+      <td class="ns-tourney-index-coins">
+        {{ tournament.coin_cost }}
+      </td>
+      {%- endif %}
+      <td class="ns-tourney-index-status">
+        {{ render_tag(public_status.label, class=public_status.class_name) }}
+      </td>
+    </tr>
+  {%- endfor %}
+{%- endmacro %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_global_subnav_page|default(current_page)) }}
+{%- else %}
+{{ render_global_subnav(current_global_subnav_page|default(current_page)) }}
+{%- endif %}
+{% endblock %}
+
+{% block body %}
+  <div class="ns-tourney-headline block">
+    <h1 class="title">{{ _('Turniere') }}</h1>
+  </div>
+
+  {%- if notification_prompt_enabled %}
+  <div data-notification-slot="top"></div>
+  {%- endif %}
+
+  {%- if notification_prompt_enabled %}
+  <section
+    class="ns-tourney-panel ns-tourney-browser-push-panel block"
+    data-notification-panel
+    data-browser-available="{{ 'true' if browser_push_prompt_enabled else 'false' }}"
+    data-browser-public-key="{{ browser_push_vapid_public_key or '' }}"
+    data-browser-subscribe-url="{{ url_for('netsession_tourney.browser_push_subscribe') }}"
+    data-browser-unsubscribe-url="{{ url_for('netsession_tourney.browser_push_unsubscribe') }}"
+    data-browser-worker-url="{{ url_for('netsession_tourney.browser_push_service_worker') }}"
+    data-browser-worker-scope="{{ url_for('netsession_tourney.index') }}"
+    data-browser-has-server-subscription="{{ 'true' if browser_push_has_subscription else 'false' }}"
+    data-discord-available="{{ 'true' if discord_dm_prompt_enabled else 'false' }}"
+    data-discord-subscribe-url="{{ url_for('netsession_tourney.discord_dm_subscribe') }}"
+    data-discord-unsubscribe-url="{{ url_for('netsession_tourney.discord_dm_unsubscribe') }}"
+    data-discord-has-subscription="{{ 'true' if discord_dm_has_subscription else 'false' }}"
+    data-discord-account-connected="{{ 'true' if discord_account_connected else 'false' }}"
+  >
+    <div class="ns-tourney-browser-push-copy">
+      <h2 class="ns-tourney-browser-push-title">{{ _('Benachrichtigungen') }}</h2>
+      <p class="ns-tourney-browser-push-text">
+        {{ _('Erhalte wichtige Updates zu deinen Turnieren und Matches, sobald du beteiligt bist.') }}
+      </p>
+    </div>
+    <div class="ns-tourney-browser-push-actions">
+      <button type="button" class="button color-primary" data-discord-dm-enable hidden>
+        {{ _('Discord aktivieren') }}
+      </button>
+      <button type="button" class="button is-outlined" data-discord-dm-disable hidden>
+        {{ _('Discord deaktivieren') }}
+      </button>
+      <button type="button" class="button color-primary" data-browser-push-enable hidden>
+        {{ _('Browser aktivieren') }}
+      </button>
+      <button type="button" class="button is-outlined" data-browser-push-disable hidden>
+        {{ _('Browser deaktivieren') }}
+      </button>
+      <small class="dimmed" data-browser-push-status></small>
+      <small class="dimmed" data-discord-dm-status></small>
+    </div>
+  </section>
+  {%- endif %}
+
+  <div class="ns-tourney-panel">
+    <form method="get" class="single-row unobtrusive mb">
+      <input type="text" name="game" value="{{ game_filter }}" class="form-control" placeholder="{{ _('Game') }}">
+      <button type="submit" class="button">{{ _('Filter') }}</button>
+    </form>
+
+    {%- if tournaments %}
+      {%- for category, tournaments_in_category in categories_with_tournaments %}
+      <section class="ns-tourney-index-category">
+        <h2 class="ns-tourney-index-category-title">{{ category.title }}</h2>
+        <table class="itemlist is-vcentered is-wide ns-tourney-index-table">
+          <thead>
+            <tr>
+              <th>{{ _('Turnier') }}</th>
+              <th class="ns-tourney-index-participants-head">{{ _('Teilnehmer') }}</th>
+              {%- if coin_settings.enabled %}<th class="ns-tourney-index-coins-head"><span class="ns-tourney-index-coins-label"><svg class="icon ns-tourney-index-coins-icon" aria-hidden="true" focusable="false"><use href="{{ netsession_tourney_icons_url }}#coins"></use></svg><span>{{ _('Coins') }}</span></span></th>{%- endif %}
+              <th class="ns-tourney-index-status-head">{{ _('Status') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ render_tournament_rows(tournaments_in_category, registration_states_by_tournament_id, public_statuses_by_tournament_id, coin_settings) }}
+          </tbody>
+        </table>
+      </section>
+      {%- endfor %}
+
+      {%- if uncategorized_tournaments %}
+      <section class="ns-tourney-index-category">
+        <h2 class="ns-tourney-index-category-title">{{ _('Ohne Kategorie') }}</h2>
+        <table class="itemlist is-vcentered is-wide ns-tourney-index-table">
+          <thead>
+          <tr>
+            <th>{{ _('Turnier') }}</th>
+            <th class="ns-tourney-index-participants-head">{{ _('Teilnehmer') }}</th>
+            {%- if coin_settings.enabled %}<th class="ns-tourney-index-coins-head"><span class="ns-tourney-index-coins-label"><svg class="icon ns-tourney-index-coins-icon" aria-hidden="true" focusable="false"><use href="{{ netsession_tourney_icons_url }}#coins"></use></svg><span>{{ _('Coins') }}</span></span></th>{%- endif %}
+            <th class="ns-tourney-index-status-head">{{ _('Status') }}</th>
+          </tr>
+          </thead>
+          <tbody>
+            {{ render_tournament_rows(uncategorized_tournaments, registration_states_by_tournament_id, public_statuses_by_tournament_id, coin_settings) }}
+          </tbody>
+        </table>
+      </section>
+      {%- endif %}
+    {%- else %}
+    <p class="dimmed">{{ _('Keine Turniere gefunden.') }}</p>
+    {%- endif %}
+  </div>
+
+  {%- if notification_prompt_enabled %}
+  <div data-notification-slot="bottom"></div>
+  {%- endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {%- if notification_prompt_enabled %}
+  <script>
+    (() => {
+      const panel = document.querySelector('[data-notification-panel]');
+      if (!panel) {
+        return;
+      }
+
+      const browserEnableButton = panel.querySelector('[data-browser-push-enable]');
+      const browserDisableButton = panel.querySelector('[data-browser-push-disable]');
+      const discordEnableButton = panel.querySelector('[data-discord-dm-enable]');
+      const discordDisableButton = panel.querySelector('[data-discord-dm-disable]');
+      const browserStatusNode = panel.querySelector('[data-browser-push-status]');
+      const discordStatusNode = panel.querySelector('[data-discord-dm-status]');
+      const topSlot = document.querySelector('[data-notification-slot="top"]');
+      const bottomSlot = document.querySelector('[data-notification-slot="bottom"]');
+
+      const browserAvailable = panel.dataset.browserAvailable === 'true';
+      const browserPublicKey = panel.dataset.browserPublicKey;
+      const browserSubscribeUrl = panel.dataset.browserSubscribeUrl;
+      const browserUnsubscribeUrl = panel.dataset.browserUnsubscribeUrl;
+      const browserWorkerUrl = panel.dataset.browserWorkerUrl;
+      const browserWorkerScope = panel.dataset.browserWorkerScope;
+      const browserHasServerSubscription = panel.dataset.browserHasServerSubscription === 'true';
+
+      const discordAvailable = panel.dataset.discordAvailable === 'true';
+      const discordSubscribeUrl = panel.dataset.discordSubscribeUrl;
+      const discordUnsubscribeUrl = panel.dataset.discordUnsubscribeUrl;
+      const discordAccountConnected = panel.dataset.discordAccountConnected === 'true';
+
+      const state = {
+        browserEnabled: false,
+        discordEnabled: panel.dataset.discordHasSubscription === 'true',
+        showBrowserStatus: false,
+        showDiscordStatus: false,
+      };
+
+      const placePanel = () => {
+        const target = (state.browserEnabled || state.discordEnabled) ? bottomSlot : topSlot;
+        if (!target || panel.parentElement === target) {
+          return;
+        }
+        target.appendChild(panel);
+      };
+
+      const render = () => {
+        placePanel();
+
+        browserEnableButton.hidden = !browserAvailable || state.browserEnabled;
+        browserDisableButton.hidden = !browserAvailable || !state.browserEnabled;
+        discordEnableButton.hidden = !discordAvailable || state.discordEnabled;
+        discordDisableButton.hidden = !discordAvailable || !state.discordEnabled;
+        browserStatusNode.hidden = !state.showBrowserStatus || !browserStatusNode.textContent.trim();
+        discordStatusNode.hidden = !state.showDiscordStatus || !discordStatusNode.textContent.trim();
+      };
+
+      const setBrowserStatus = (text, visible = false) => {
+        browserStatusNode.textContent = text;
+        state.showBrowserStatus = visible;
+      };
+
+      const setDiscordStatus = (text, visible = false) => {
+        discordStatusNode.textContent = text;
+        state.showDiscordStatus = visible;
+      };
+
+      const urlBase64ToUint8Array = (base64String) => {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        return Uint8Array.from(rawData, (char) => char.charCodeAt(0));
+      };
+
+      const getBrowserPushRegistration = async (ensureRegistered = false) => {
+        const directRegistration = await navigator.serviceWorker.getRegistration(browserWorkerScope);
+        if (directRegistration) {
+          return directRegistration;
+        }
+
+        if (!ensureRegistered) {
+          return null;
+        }
+
+        return navigator.serviceWorker.register(browserWorkerUrl, { scope: browserWorkerScope });
+      };
+
+      const persistBrowserSubscriptionOnServer = async (subscription) => {
+        const response = await fetch(browserSubscribeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(subscription.toJSON()),
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          throw new Error('subscribe_failed');
+        }
+      };
+
+      const syncBrowserState = async () => {
+        if (!browserAvailable) {
+          render();
+          return;
+        }
+
+        if (
+          !('serviceWorker' in navigator) ||
+          !('PushManager' in window) ||
+          !('Notification' in window)
+        ) {
+          state.browserEnabled = false;
+          setBrowserStatus('Dieser Browser unterstützt keine Push-Benachrichtigungen.', true);
+          browserEnableButton.disabled = true;
+          render();
+          return;
+        }
+
+        const permission = Notification.permission;
+        if (permission === 'denied') {
+          state.browserEnabled = false;
+          setBrowserStatus('Browser-Benachrichtigungen sind im Browser blockiert.', true);
+          render();
+          return;
+        }
+
+        const registration = await getBrowserPushRegistration(false);
+        const localSubscription = registration
+          ? await registration.pushManager.getSubscription()
+          : null;
+
+        if (localSubscription) {
+          try {
+            await persistBrowserSubscriptionOnServer(localSubscription);
+            state.browserEnabled = true;
+            setBrowserStatus('Browser-Benachrichtigungen sind auf diesem Browser aktiv.');
+            render();
+            return;
+          } catch (_error) {
+            state.browserEnabled = false;
+            setBrowserStatus('Dieser Browser ist lokal registriert, konnte aber nicht mit dem Server synchronisiert werden.', true);
+            render();
+            return;
+          }
+        }
+
+        state.browserEnabled = false;
+        if (permission === 'granted') {
+          setBrowserStatus(
+            browserHasServerSubscription
+              ? 'Browser-Benachrichtigungen sind nur auf anderen Browsern oder Geräten aktiv.'
+              : 'Dieser Browser hat noch keine aktive Benachrichtigungs-Subscription.'
+          );
+        } else {
+          setBrowserStatus(
+            browserHasServerSubscription
+              ? 'Browser-Benachrichtigungen sind nur auf anderen Browsern oder Geräten aktiv.'
+              : 'Browser-Benachrichtigungen sind noch nicht aktiviert.'
+          );
+        }
+        render();
+      };
+
+      const registerBrowserSubscription = async () => {
+        const registration = await getBrowserPushRegistration(true);
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(browserPublicKey),
+          });
+        }
+
+        await persistBrowserSubscriptionOnServer(subscription);
+        state.browserEnabled = true;
+        setBrowserStatus('Browser-Benachrichtigungen sind auf diesem Browser aktiv.');
+        render();
+      };
+
+      const unregisterBrowserSubscription = async () => {
+        const registration = await getBrowserPushRegistration(false);
+        if (!registration) {
+          state.browserEnabled = false;
+          setBrowserStatus('Browser-Benachrichtigungen sind für diesen Browser deaktiviert. Die Browser-Berechtigung bleibt erlaubt.');
+          render();
+          return;
+        }
+
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          state.browserEnabled = false;
+          setBrowserStatus('Browser-Benachrichtigungen sind für diesen Browser deaktiviert. Die Browser-Berechtigung bleibt erlaubt.');
+          render();
+          return;
+        }
+
+        const response = await fetch(browserUnsubscribeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          throw new Error('unsubscribe_failed');
+        }
+
+        const unsubscribed = await subscription.unsubscribe();
+        const remainingSubscription = await registration.pushManager.getSubscription();
+        if (!unsubscribed || remainingSubscription) {
+          throw new Error('local_unsubscribe_failed');
+        }
+
+        state.browserEnabled = false;
+        setBrowserStatus('Browser-Benachrichtigungen sind für diesen Browser deaktiviert. Die Browser-Berechtigung bleibt erlaubt.');
+        render();
+      };
+
+      const subscribeDiscord = async () => {
+        const response = await fetch(discordSubscribeUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const error = new Error(payload.message || payload.error || 'subscribe_failed');
+          error.code = payload.error || 'subscribe_failed';
+          throw error;
+        }
+
+        state.discordEnabled = true;
+        setDiscordStatus('Discord-Benachrichtigungen sind aktiv.');
+        render();
+      };
+
+      const unsubscribeDiscord = async () => {
+        const response = await fetch(discordUnsubscribeUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          throw new Error('unsubscribe_failed');
+        }
+
+        state.discordEnabled = false;
+        setDiscordStatus('Discord-Benachrichtigungen sind deaktiviert.');
+        render();
+      };
+
+      browserEnableButton.addEventListener('click', async () => {
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            state.browserEnabled = false;
+            setBrowserStatus('Browser-Benachrichtigungen wurden nicht erlaubt.', true);
+            render();
+            return;
+          }
+          await registerBrowserSubscription();
+        } catch (_error) {
+          state.browserEnabled = false;
+          setBrowserStatus('Browser-Benachrichtigungen konnten nicht aktiviert werden.', true);
+          render();
+        }
+      });
+
+      browserDisableButton.addEventListener('click', async () => {
+        try {
+          await unregisterBrowserSubscription();
+        } catch (_error) {
+          setBrowserStatus('Browser-Benachrichtigungen konnten nicht deaktiviert werden.', true);
+          render();
+        }
+      });
+
+      discordEnableButton.addEventListener('click', async () => {
+        try {
+          await subscribeDiscord();
+        } catch (error) {
+          if (!discordAccountConnected || error.code === 'discord_not_connected') {
+            setDiscordStatus('Bitte verbinde zuerst deinen Discord-Account, bevor du Discord-Benachrichtigungen aktivierst.', true);
+          } else if (error.code === 'not_eligible') {
+            setDiscordStatus('Für deine aktuellen Turnierbeteiligungen sind derzeit keine Discord-Benachrichtigungen verfügbar.', true);
+          } else {
+            setDiscordStatus('Discord-Benachrichtigungen konnten nicht aktiviert werden.', true);
+          }
+          render();
+        }
+      });
+
+      discordDisableButton.addEventListener('click', async () => {
+        try {
+          await unsubscribeDiscord();
+        } catch (_error) {
+          setDiscordStatus('Discord-Benachrichtigungen konnten nicht deaktiviert werden.', true);
+          render();
+        }
+      });
+
+      if (discordAvailable) {
+        setDiscordStatus(
+          state.discordEnabled
+            ? 'Discord-Benachrichtigungen sind aktiv.'
+            : discordAccountConnected
+              ? 'Discord-Benachrichtigungen sind noch nicht aktiviert.'
+              : 'Discord-Account ist noch nicht verbunden.'
+        );
+      }
+
+      render();
+      syncBrowserState();
+    })();
+  </script>
+  {%- endif %}
+{% endblock %}

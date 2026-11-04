@@ -1,0 +1,59 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/dashboard.html' import render_bigstats_cell, render_cell %}
+{% set current_page = 'admin_dashboard_brand' %}
+{% set current_page_brand = brand %}
+{% set page_title = [_('Dashboard'), brand.title] %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin_dashboard.css') }}">
+{%- endblock %}
+
+{% block body %}
+
+  {%- with show_brand_avatar = False %}
+{% include 'admin/dashboard/_current_sites.html' %}
+{% include 'admin/dashboard/_current_party.html' %}
+  {%- endwith %}
+
+  <h2>{{ _('Overview') }}</h2>
+
+  <div class="grid dashboard">
+
+  {%- call render_cell('news') %}
+    <div class="cell-label hyphenate">{{ _('News channels') }}</div>
+    {%- if active_news_channels %}
+    <div class="mt">
+      <ul class="bare bare--spaced">
+        {%- for channel in active_news_channels|sort(attribute='id') %}
+        <li><a class="disguised" href="{{ url_for('news_admin.channel_view', channel_id=channel.id) }}">{{ channel.id }}</a></li>
+        {%- endfor -%}
+      </ul>
+    </div>
+    {%- else -%}
+    <div class="box no-data-message">{{ _('No news channels exist for this brand.') }}</div>
+    {%- endif -%}
+  {%- endcall %}
+
+  {%- if shop %}
+  {{ render_bigstats_cell(open_order_count, ngettext('open order', 'open orders', open_order_count), href=url_for('shop_order_admin.index_for_shop', shop_id=shop.id, only_payment_state='open'), icon_name='invoice') }}
+  {%- endif %}
+
+  {%- call render_cell('legal', 'cell--wider', href=url_for('consent_admin.requirement_index', brand_id=brand.id)) %}
+    <div class="cell-label hyphenate">{{ _('Required Consents') }}</div>
+    {%- if consent_subjects_with_consent_counts -%}
+    <table class="index is-vcentered mt">
+      {%- for subject, count in consent_subjects_with_consent_counts -%}
+      <tr>
+        <td>{{ subject.title }}</td>
+        <td class="bignumber number">{{ count|numberformat }}</td>
+      </tr>
+      {%- endfor -%}
+    </table>
+    {%- else -%}
+    <p class="centered mt"><strong style="color: #cc0000;">{{ _('None required') }}</strong></p>
+    {%- endif -%}
+  {%- endcall %}
+
+</div>
+
+{%- endblock %}

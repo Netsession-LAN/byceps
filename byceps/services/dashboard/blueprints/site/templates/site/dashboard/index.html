@@ -1,0 +1,53 @@
+{% extends 'layout/base.html' %}
+{% set page_title = _('Dashboard') %}
+
+{% block head %}
+<style>
+.dashboard-items {
+  display: grid;
+  gap: 1rem 3rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.dashboard-item-meta {
+  color: var(--dimmed-color);
+  font-size: 0.6875rem; /* 11px / 16px */
+}
+</style>
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ _('Dashboard') }}</h1>
+
+  <div class="dashboard-items">
+
+    <div class="dashboard-item">
+{% include 'site/dashboard/_orders.html' %}
+    </div>
+
+    <div class="dashboard-item">
+{% include 'site/dashboard/_tickets.html' %}
+    </div>
+
+{%- if news_headlines is not none %}
+    <div class="dashboard-item">
+{% include 'site/dashboard/_news.html' %}
+    </div>
+{%- endif %}
+
+{%- if board_topics is not none %}
+    <div class="dashboard-item">
+{% include 'site/dashboard/_board.html' %}
+    </div>
+{%- endif %}
+
+{%- if guest_servers is not none %}
+    <div class="dashboard-item">
+{% include 'site/dashboard/_guest_servers.html' %}
+    </div>
+{%- endif %}
+
+  </div>
+
+{%- endblock %}

@@ -1,0 +1,588 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_help %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Matches') if parent_return_to == 'matches' else _('Stages'), match_label] %}
+
+{% block before_body %}
+  {{ render_backlink(back_url, back_label) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {%- set slot_1 = slots[0] if slots|length > 0 else none %}
+  {%- set slot_2 = slots[1] if slots|length > 1 else none %}
+  {%- set is_ffa_scoring = stage and stage.type.value in ['ffa_simple', 'ffa_single_elimination'] %}
+  {%- set is_flatout2_result_match = stage and stage.type.value == 'ffa_flatout2_single_elimination' %}
+  {%- set participant_1 = participants_by_id.get(slot_1.participant_id) if slot_1 and slot_1.participant_id else none %}
+  {%- set participant_2 = participants_by_id.get(slot_2.participant_id) if slot_2 and slot_2.participant_id else none %}
+  {%- set occupied_slot_count = slots|selectattr('participant_id')|list|length %}
+  {%- set slot_scores = result.score.get('slots', {}) if result and result.score else {} %}
+  {%- set slot_placements = result.ranking.get('placements', {}) if result and result.ranking else {} %}
+  {%- set slot_points = result.ranking.get('points', {}) if result and result.ranking else {} %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Matches') if parent_return_to == 'matches' else _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') if parent_return_to == 'matches' else url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)} if parent_return_to != 'matches' and stage else none,
+      {'label': match_label, 'url': none},
+    ]|reject('equalto', none)|list,
+    tournament.title,
+    (stage.name ~ ' · ' if stage else '') ~ match_label,
+    _('Match-Status, Slot-Besetzung und Admin-Eingriffe für dieses einzelne Match.'),
+    match.state.value,
+    'status-' ~ match.state.value,
+    [
+      {'label': _('Stage'), 'value': stage.name if stage else '-'},
+      {'label': _('Geplant für'), 'value': match.scheduled_at|datetimeformat if match.scheduled_at else '-'},
+      {'label': _('Runde'), 'value': match.round_no},
+      {'label': _('Match-Nr.'), 'value': match.match_no},
+    ]
+  ) }}
+
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Slotübersicht') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Aktuelle Besetzung und Ergebnisstatus dieses Matches im Überblick.') }}</p>
+      </div>
+    </div>
+
+    {%- if not is_ffa_scoring and not is_flatout2_result_match %}
+    <div class="ns-admin-match-duel">
+      <article class="ns-admin-match-party-card{% if result and result.winner_slot == 1 %} is-winner{% endif %}">
+        <span class="ns-admin-match-party-label">{{ _('Slot') }} 1</span>
+        <strong class="ns-admin-match-party-name">{{ participant_1.name if participant_1 else _('TBD') }}</strong>
+        <span class="ns-admin-match-party-meta">
+          {% if slot_1 and slot_1.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% else %}{{ _('Manuell verwaltbar') }}{% endif %}
+        </span>
+      </article>
+
+      <div class="ns-admin-match-duel-vs">
+        <span>VS</span>
+        {%- if result and result.score and result.score.get('display') %}
+        <small>{{ result.score.get('display') }}</small>
+        {%- endif %}
+      </div>
+
+      <article class="ns-admin-match-party-card{% if result and result.winner_slot == 2 %} is-winner{% endif %}">
+        <span class="ns-admin-match-party-label">{{ _('Slot') }} 2</span>
+        <strong class="ns-admin-match-party-name">{{ participant_2.name if participant_2 else _('TBD') }}</strong>
+        <span class="ns-admin-match-party-meta">
+          {% if slot_2 and slot_2.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% else %}{{ _('Manuell verwaltbar') }}{% endif %}
+        </span>
+      </article>
+    </div>
+    {%- elif is_ffa_scoring %}
+    <table class="itemlist is-vcentered is-wide ns-admin-match-slot-table">
+      <thead>
+        <tr>
+          <th>{{ _('Slot') }}</th>
+          <th>{{ _('Teilnehmer') }}</th>
+          <th>{{ _('Platz') }}</th>
+          <th>{{ _('Punkte') }}</th>
+          <th>{{ _('Kills') }}</th>
+          <th>{{ _('Status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for slot in slots %}
+        {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+        <tr>
+          <td>{{ slot.slot_no }}</td>
+          <td>{{ participant.name if participant else _('TBD') }}</td>
+          <td>{{ slot_placements.get(slot.slot_no|string, slot_placements.get(slot.slot_no, '-')) }}</td>
+          <td>{{ slot_points.get(slot.slot_no|string, slot_points.get(slot.slot_no, '-')) }}</td>
+          <td>{{ slot_scores.get(slot.slot_no|string, slot_scores.get(slot.slot_no, '-')) }}</td>
+          <td>
+            {%- if result and result.winner_slot == slot.slot_no %}
+              {{ _('Sieger') }}
+            {%- elif participant %}
+              <span class="dimmed">{{ _('Teilnehmer') }}</span>
+            {%- else %}
+              <span class="dimmed">{{ _('TBD') }}</span>
+            {%- endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <table class="itemlist is-vcentered is-wide ns-admin-match-slot-table">
+      <thead>
+        <tr>
+          <th>{{ _('Slot') }}</th>
+          <th>{{ _('Teilnehmer') }}</th>
+          <th>{{ _('Rang') }}</th>
+          <th>{{ _('Punkte') }}</th>
+          <th>{{ _('Status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for slot in slots %}
+        {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+        <tr>
+          <td>{{ slot.slot_no }}</td>
+          <td>{{ participant.name if participant else _('TBD') }}</td>
+          <td>{{ slot_placements.get(slot.slot_no|string, slot_placements.get(slot.slot_no, '-')) }}</td>
+          <td>{{ slot_points.get(slot.slot_no|string, slot_points.get(slot.slot_no, 0)) }}</td>
+          <td>
+            {%- if result and result.winner_slot == slot.slot_no %}
+              {{ _('Sieger') }}
+            {%- elif participant %}
+              <span class="dimmed">{{ _('Teilnehmer') }}</span>
+            {%- else %}
+              <span class="dimmed">{{ _('TBD') }}</span>
+            {%- endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- endif %}
+
+    {%- if result %}
+    <div class="ns-admin-form-callout mt">
+      <strong>{{ _('Aktuelles Ergebnis') }}:</strong>
+      {{ result.score.get('display') if result.score else '-' }}
+      {%- if result.winner_slot %} · {{ _('Gewinner-Slot') }} {{ result.winner_slot }}{%- endif %}
+    </div>
+    {%- endif %}
+  </section>
+
+  {%- if is_flatout2_stage %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('FlatOut 2 Setup') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Host-Auswahl für dieses Match und das Rennen-Setup der aktuellen Runde.') }}</p>
+      </div>
+    </div>
+
+    <div class="ns-admin-form-callout">
+      <strong>{{ _('Wichtig:') }}</strong>
+      {{ _('Top 3 qualifizieren sich pro Heat für die nächste Runde.') }}
+    </div>
+
+    <form action="{{ url_for('.match_host_set', party_id=party.id, tournament_id=tournament.id, match_id=match.id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+      <div class="form-field">
+        <div class="ns-admin-field-head">
+          <label class="form-label ns-admin-form-label">{{ _('Host') }}</label>
+          {{ render_help(_('Der gewählte Host bekommt eine eigene Benachrichtigung mit den Renn-Daten dieser Runde.')) }}
+        </div>
+        <select class="form-control" name="host_participant_id">
+          <option value="">{{ _('Bitte wählen') }}</option>
+          {%- for slot in slots %}
+            {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+            {%- if participant %}
+            <option value="{{ participant.id }}"{% if current_host_participant_id == participant.id|string %} selected{% endif %}>{{ participant.name }}</option>
+            {%- endif %}
+          {%- endfor %}
+        </select>
+      </div>
+      <div class="button-row">
+        <button type="submit" class="button">{{ _('Host speichern') }}</button>
+      </div>
+    </form>
+
+    <table class="itemlist is-vcentered is-wide mt">
+      <thead>
+        <tr>
+          <th>{{ _('Rennen') }}</th>
+          <th>{{ _('Modus') }}</th>
+          <th>{{ _('Strecke') }}</th>
+          <th>{{ _('Fahrzeug') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for race in flatout2_round_races %}
+        <tr>
+          <td>{{ _('Rennen') }} {{ loop.index }}</td>
+          <td>{{ race.mode_label if race.mode_label else '-' }}</td>
+          <td>{{ race.track if race.track else '-' }}</td>
+          <td>{{ race.vehicle if race.vehicle else '-' }}</td>
+        </tr>
+      {%- else %}
+        <tr>
+          <td colspan="4" class="dimmed">{{ _('Fur diese Runde ist noch kein Rennen-Setup hinterlegt.') }}</td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+  </section>
+  {%- endif %}
+
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <div class="ns-admin-field-head">
+          <h2 class="ns-admin-form-section-title">{{ _('Slot-Besetzung') }}</h2>
+          {{ render_help(_('Nur Slots ohne Feeder-Verknüpfung sind manuell editierbar. Feeder-Slots werden automatisch aus vorherigen Matches befüllt.')) }}
+        </div>
+        <p class="ns-admin-form-section-text">{{ _('Hier kannst du offene oder manuell verwaltete Slots korrigieren und optional kommentieren.') }}</p>
+      </div>
+    </div>
+
+    <table class="itemlist is-vcentered is-wide ns-admin-match-slot-table">
+      <thead>
+        <tr>
+          <th>{{ _('Slot') }}</th>
+          <th>{{ _('Teilnehmer') }}</th>
+          <th>{{ _('Hinweis') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for slot in slots %}
+        <tr>
+          <td>{{ slot.slot_no }}</td>
+          <td>
+            <form action="{{ url_for('.match_slot_set', party_id=party.id, tournament_id=tournament.id, match_id=match.id, slot_no=slot.slot_no, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-match-slot-form">
+              <input type="hidden" name="return_to" value="match">
+              <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+              {%- if parent_stage_id %}
+              <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+              {%- endif %}
+              <div class="ns-admin-match-slot-form-fields">
+                <select class="form-control" name="participant_id"{% if slot.source_match_slot_id %} disabled{% endif %}>
+                  <option value="">{{ _('Freilos / TBD') }}</option>
+                  {%- for participant in participants %}
+                  <option value="{{ participant.id }}"{% if participant.id == slot.participant_id %} selected{% endif %}>{{ participant.name }}</option>
+                  {%- endfor %}
+                </select>
+                <input class="form-control" type="text" name="comment" placeholder="{{ _('Kommentar (optional)') }}">
+              </div>
+              <button type="submit" class="button is-compact"{% if slot.source_match_slot_id %} disabled{% endif %}>{{ _('Speichern') }}</button>
+            </form>
+          </td>
+          <td>
+            {%- if slot.source_match_slot_id %}
+            <span class="dimmed">{{ _('Automatisch') }}</span>
+            {%- else %}
+            <span class="dimmed">-</span>
+            {%- endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+  </section>
+  <div class="ns-admin-action-grid block">
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <div class="ns-admin-field-head">
+            <h3 class="ns-admin-form-section-title">{{ _('Ergebnis übermitteln') }}</h3>
+            {%- if is_flatout2_result_match %}
+            {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Für FlatOut 2 wird die Gesamtpunktzahl pro Teilnehmer erfasst; daraus wird das Match-Ranking automatisch berechnet.')) }}
+            {%- elif is_ffa_scoring %}
+            {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Bei FFA-Scoring-Stages werden Ingame-Platz und Kills pro Slot erfasst. Turnierpunkte entstehen automatisch aus dem Stage-Schema.')) }}
+            {%- else %}
+            {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis für dieses Duell.')) }}
+            {%- endif %}
+          </div>
+        </div>
+      </div>
+      <form action="{{ url_for('.match_set_result', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+        {%- if parent_stage_id %}
+        <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+        {%- endif %}
+        {%- if not is_ffa_scoring and not is_flatout2_result_match %}
+        <div class="ns-admin-match-score-grid">
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label">{{ participant_1.name if participant_1 else (_('Slot') ~ ' 1') }}</label>
+              {{ render_help(_('Punktestand für die linke Seite dieses Matches.')) }}
+            </div>
+            <input class="form-control ns-admin-number-input" type="number" name="slot_1_points" min="0" max="999" required>
+          </div>
+          <div class="form-field">
+            <div class="ns-admin-field-head">
+              <label class="form-label ns-admin-form-label">{{ participant_2.name if participant_2 else (_('Slot') ~ ' 2') }}</label>
+              {{ render_help(_('Punktestand für die rechte Seite dieses Matches.')) }}
+            </div>
+            <input class="form-control ns-admin-number-input" type="number" name="slot_2_points" min="0" max="999" required>
+          </div>
+        </div>
+        {%- elif is_ffa_scoring %}
+        <table class="itemlist is-vcentered is-wide ns-admin-match-slot-table">
+          <thead>
+            <tr>
+              <th>{{ _('Slot') }}</th>
+              <th>{{ _('Teilnehmer') }}</th>
+              <th>{{ _('Ingame-Platz') }}</th>
+              <th>{{ _('Kills') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+          {%- for slot in slots %}
+            {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+            {%- if participant %}
+            <tr>
+              <td>{{ slot.slot_no }}</td>
+              <td>{{ participant.name }}</td>
+              <td>
+                <select
+                  class="form-control"
+                  name="placement_slot_{{ slot.slot_no }}"
+                  data-ffa-placement-select
+                  data-slot-no="{{ slot.slot_no }}"
+                  required
+                >
+                  <option value="">{{ _('Bitte wählen') }}</option>
+                  {%- set selected_placement = slot_placements.get(slot.slot_no|string, slot_placements.get(slot.slot_no, '')) %}
+                  {%- for placement in range(1, occupied_slot_count + 1) %}
+                  <option value="{{ placement }}"{% if selected_placement|string == placement|string %} selected{% endif %}>{{ _('Platz') }} {{ placement }}</option>
+                  {%- endfor %}
+                </select>
+              </td>
+              <td>
+                <input
+                  class="form-control ns-admin-number-input"
+                  type="number"
+                  name="kills_slot_{{ slot.slot_no }}"
+                  min="0"
+                  max="999"
+                  value="{{ slot_scores.get(slot.slot_no|string, slot_scores.get(slot.slot_no, '')) }}"
+                  required
+                >
+              </td>
+            </tr>
+            {%- endif %}
+          {%- endfor %}
+          </tbody>
+        </table>
+        {%- else %}
+        <table class="itemlist is-vcentered is-wide ns-admin-match-slot-table">
+          <thead>
+            <tr>
+              <th>{{ _('Slot') }}</th>
+              <th>{{ _('Teilnehmer') }}</th>
+              <th>{{ _('Punkte') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+          {%- for slot in slots %}
+            {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+            {%- if participant %}
+            <tr>
+              <td>{{ slot.slot_no }}</td>
+              <td>{{ participant.name }}</td>
+              <td>
+                <input
+                  class="form-control ns-admin-number-input"
+                  type="number"
+                  name="points_slot_{{ slot.slot_no }}"
+                  min="0"
+                  max="9999"
+                  value="{{ slot_points.get(slot.slot_no|string, slot_points.get(slot.slot_no, '')) }}"
+                  required
+                >
+              </td>
+            </tr>
+            {%- endif %}
+          {%- endfor %}
+          </tbody>
+        </table>
+        {%- endif %}
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+            {{ render_help(_('Pflicht, wenn ein bestehendes Ergebnis korrigiert wird. Der Kommentar dient als Audit-Hinweis im Verlauf.')) }}
+          </div>
+          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" placeholder="{{ _('Pflicht bei Korrektur eines bestehenden Ergebnisses') }}"></textarea>
+        </div>
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button color-primary">{{ _('Ergebnis übermitteln') }}</button>
+        </div>
+      </form>
+    </section>
+    {%- if result %}
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div class="ns-admin-field-head">
+          <h3 class="ns-admin-form-section-title">{{ _('Ergebnis löschen') }}</h3>
+          {{ render_help(_('Entfernt dieses Ergebnis wieder. Automatisch erzeugte Folge-Ergebnisse werden ebenfalls entfernt, manuell gemeldete Folge-Ergebnisse blockieren den Vorgang.')) }}
+        </div>
+      </div>
+      <form action="{{ url_for('.match_delete_result', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form" onsubmit="return confirm('{{ _('Gespeichertes Ergebnis wirklich löschen?') }}');">
+        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+        {%- if parent_stage_id %}
+        <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+        {%- endif %}
+        <p class="ns-admin-form-section-text">{{ _('Nützlich, um automatisch erzeugte Freilos-Ergebnisse oder fehlerhafte Admin-Eingaben zurückzunehmen.') }}</p>
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button color-danger">{{ _('Ergebnis löschen') }}</button>
+        </div>
+      </form>
+    </section>
+    {%- endif %}
+    {%- if not is_ffa_scoring and not is_flatout2_result_match %}
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div class="ns-admin-field-head">
+          <h3 class="ns-admin-form-section-title">{{ _('Kampflosen Sieg setzen') }}</h3>
+          {{ render_help(_('Ein kampfloser Sieg bedeutet, dass eine Seite ohne gespieltes Match gewinnt, zum Beispiel bei Nichtantritt. Ein Kommentar ist Pflicht.')) }}
+        </div>
+      </div>
+      <form action="{{ url_for('.match_set_walkover', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+        {%- if parent_stage_id %}
+        <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+        {%- endif %}
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Gewinner') }}</label>
+            {{ render_help(_('Wähle den Slot, der den kampflosen Sieg erhalten soll.')) }}
+          </div>
+          <select class="form-control" name="winner_slot" required>
+            <option value="">{{ _('Bitte wählen') }}</option>
+            {%- for slot in slots %}
+              {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+              {%- if participant %}
+              <option value="{{ slot.slot_no }}">{{ participant.name }}</option>
+              {%- endif %}
+            {%- endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+            {{ render_help(_('Pflichtfeld für den dokumentierten Grund des kampflosen Siegs.')) }}
+          </div>
+          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" required></textarea>
+        </div>
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button">{{ _('Kampflosen Sieg speichern') }}</button>
+        </div>
+      </form>
+    </section>
+    {%- endif %}
+  </div>
+
+  <div class="ns-admin-action-grid block">
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div class="ns-admin-field-head">
+          <h3 class="ns-admin-form-section-title">{{ _('Neu ansetzen') }}</h3>
+          {{ render_help(_('Legt eine neue Startzeit für das Match fest. Die Änderung wird als Admin-Aktion protokolliert.')) }}
+        </div>
+      </div>
+      <form action="{{ url_for('.match_reschedule', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+        {%- if parent_stage_id %}
+        <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+        {%- endif %}
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Geplant für') }}</label>
+            {{ render_help(_('Neue geplante Startzeit für das Match.')) }}
+          </div>
+          <input class="form-control" type="datetime-local" name="scheduled_at" required>
+        </div>
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+            {{ render_help(_('Pflichtkommentar, der den Grund für die Neuansetzung festhält.')) }}
+          </div>
+          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" required></textarea>
+        </div>
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button">{{ _('Neuansetzung speichern') }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div class="ns-admin-field-head">
+          <h3 class="ns-admin-form-section-title">{{ _('Streitfall eröffnen') }}</h3>
+          {{ render_help(_('Öffnet administrativ einen Streitfall für dieses Match. Begründungscode und Kommentar werden protokolliert.')) }}
+        </div>
+      </div>
+      <form action="{{ url_for('.match_dispute', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
+        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
+        {%- if parent_stage_id %}
+        <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
+        {%- endif %}
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Begründungscode') }}</label>
+            {{ render_help(_('Wähle den passenden administrativen Grundcode für den Streitfall.')) }}
+          </div>
+          <select class="form-control" name="reason_code" required>
+            {%- for value, label in match_dispute_form.reason_code.choices %}
+            <option value="{{ value }}"{% if match_dispute_form.reason_code.data == value %} selected{% endif %}>{{ label }}</option>
+            {%- endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <div class="ns-admin-field-head">
+            <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
+            {{ render_help(_('Pflichtfeld für die menschlich lesbare Begründung des Streitfalls.')) }}
+          </div>
+          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" required></textarea>
+        </div>
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button">{{ _('Streitfall speichern') }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+  {%- endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const placementSelects = Array.from(
+        document.querySelectorAll('[data-ffa-placement-select]')
+      );
+      if (!placementSelects.length) {
+        return;
+      }
+
+      const updatePlacementOptions = () => {
+        const selectedValues = new Map(
+          placementSelects
+            .map((select) => [select, select.value])
+            .filter(([, value]) => Boolean(value))
+        );
+
+        for (const select of placementSelects) {
+          const ownValue = selectedValues.get(select) || '';
+          for (const option of Array.from(select.options)) {
+            if (!option.value) {
+              option.disabled = false;
+              continue;
+            }
+
+            const isTakenElsewhere = placementSelects.some(
+              (otherSelect) =>
+                otherSelect !== select && otherSelect.value === option.value
+            );
+            option.disabled = isTakenElsewhere && option.value !== ownValue;
+          }
+        }
+      };
+
+      for (const select of placementSelects) {
+        select.addEventListener('change', updatePlacementOptions);
+      }
+
+      updatePlacementOptions();
+    })();
+  </script>
+{% endblock %}
+

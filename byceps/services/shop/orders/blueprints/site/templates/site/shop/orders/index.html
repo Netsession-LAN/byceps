@@ -1,0 +1,41 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/shop/orders.html' import render_order_payment_state, render_order_overdue_tag %}
+{% set current_page = 'shop_orders' %}
+{% set page_title = _('Your orders') %}
+{% block body %}
+
+  <nav class="breadcrumbs">
+    <ol>
+      <li>{{ _('Shop') }}</li>
+    </ol>
+  </nav>
+  <h1 class="title">{{ page_title }}</h1>
+
+  {%- if orders %}
+  <div class="block">{{ _('You can cancel orders with status %(payment_state)s yourself.', payment_state=render_order_payment_state(PaymentState.open)) }}</div>
+
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Order number') }}</th>
+        <th>{{ _('Date') }}</th>
+        <th class="number">{{ _('Amount') }}</th>
+        <th>{{ _('Status') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for order in orders %}
+      <tr>
+        <td><strong><a href="{{ url_for('.view', order_id=order.id) }}">{{ order.order_number }}</a></strong></td>
+        <td>{{ order.created_at|dateformat }}, {{ order.created_at|timeformat('short') }}</td>
+        <td class="number">{{ order.total_amount|moneyformat }}</td>
+        <td class="nowrap">{{- render_order_payment_state(order.payment_state) }} {{ render_order_overdue_tag(order) }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="block">{{ _('You have not placed any orders.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

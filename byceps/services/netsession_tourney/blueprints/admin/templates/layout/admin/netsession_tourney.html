@@ -1,0 +1,214 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_main_tabs %}
+{% set current_page = 'netsession_tourney_admin' %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney_admin.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block before_body %}
+  {%- if not hide_netsession_main_tabs|default(false) %}
+  {%- with party = current_page_party %}
+{{
+  render_main_tabs(
+    Navigation()
+      .add_item(
+        url_for('netsession_tourney_admin.index', party_id=party.id),
+        _('Netsession Turniere'),
+        id='tournaments',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.category_index', party_id=party.id),
+        _('Kategorien'),
+        id='categories',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.tournament_logo_index', party_id=party.id),
+        _('Logos'),
+        id='logos',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.rule_template_index', party_id=party.id),
+        _('Regeln'),
+        id='rules',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.timetable', party_id=party.id),
+        _('Zeitplan'),
+        id='timetable',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.notifications_index', party_id=party.id),
+        _('Notifications'),
+        id='notifications',
+        required_permission='netsession_tourney.view')
+      .add_item(
+        url_for('netsession_tourney_admin.coins_index', party_id=party.id),
+        _('Coins'),
+        id='coins',
+        required_permission='netsession_tourney.view')
+    , current_tab
+  )
+}}
+  {%- endwith %}
+  {%- endif %}
+{%- endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (() => {
+      const helpDetails = Array.from(document.querySelectorAll('.ns-admin-help'));
+      if (helpDetails.length === 0) {
+        return;
+      }
+
+      const closeOtherHelpDetails = (currentDetail) => {
+        helpDetails.forEach((detail) => {
+          if (detail !== currentDetail) {
+            detail.removeAttribute('open');
+          }
+        });
+      };
+
+      document.addEventListener(
+        'toggle',
+        (event) => {
+          const detail = event.target;
+          if (
+            !(detail instanceof HTMLDetailsElement) ||
+            !detail.classList.contains('ns-admin-help')
+          ) {
+            return;
+          }
+
+          if (detail.open) {
+            closeOtherHelpDetails(detail);
+          }
+        },
+        true
+      );
+
+      document.addEventListener('click', (event) => {
+        helpDetails.forEach((detail) => {
+          if (!detail.open || detail.contains(event.target)) {
+            return;
+          }
+
+          detail.removeAttribute('open');
+        });
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+          return;
+        }
+
+        helpDetails.forEach((detail) => detail.removeAttribute('open'));
+      });
+    })();
+
+    (() => {
+      document
+        .querySelectorAll('textarea.ns-admin-compact-textarea')
+        .forEach((textarea) => {
+          textarea.style.height = '40px';
+        });
+    })();
+
+    (() => {
+      const defaultMessage = {{ _('Bist du sicher, dass du diese Aktion ausführen willst?')|tojson }};
+      const actionMessages = [
+        {
+          pattern: /\/publish$/,
+          message: {{ _('Bist du sicher, dass du dieses Turnier live schalten willst?')|tojson }},
+        },
+        {
+          pattern: /\/unpublish$/,
+          message: {{ _('Bist du sicher, dass du dieses Turnier zurück auf Draft setzen willst?')|tojson }},
+        },
+        {
+          pattern: /\/close$/,
+          message: {{ _('Bist du sicher, dass du dieses Turnier schließen willst?')|tojson }},
+        },
+        {
+          pattern: /\/cancel$/,
+          message: {{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }},
+        },
+        {
+          pattern: /\/delete$/,
+          message: {{ _('Bist du sicher, dass du diesen Eintrag löschen willst?')|tojson }},
+        },
+        {
+          pattern: /\/disqualify$/,
+          message: {{ _('Bist du sicher, dass du diesen Teilnehmer disqualifizieren willst?')|tojson }},
+        },
+        {
+          pattern: /\/walkover$/,
+          message: {{ _('Bist du sicher, dass du diesen Walkover anwenden willst?')|tojson }},
+        },
+        {
+          pattern: /\/remove$/,
+          message: {{ _('Bist du sicher, dass du diesen Eintrag entfernen willst?')|tojson }},
+        },
+        {
+          pattern: /\/delete-result$/,
+          message: {{ _('Bist du sicher, dass du dieses Ergebnis löschen willst?')|tojson }},
+        },
+      ];
+
+      const hasInlineConfirmation = (form) => {
+        const onsubmit = form.getAttribute('onsubmit') || '';
+        return onsubmit.includes('confirm(');
+      };
+
+      const getConfirmationMessage = (form) => {
+        if (form.dataset.confirmMessage) {
+          return form.dataset.confirmMessage;
+        }
+
+        const action = form.getAttribute('action') || '';
+        const matchedRule = actionMessages.find((rule) =>
+          rule.pattern.test(action)
+        );
+        if (matchedRule) {
+          return matchedRule.message;
+        }
+
+        const dangerButton = form.querySelector(
+          'button.color-danger, input.color-danger'
+        );
+        if (dangerButton) {
+          return defaultMessage;
+        }
+
+        return null;
+      };
+
+      document.addEventListener(
+        'submit',
+        (event) => {
+          const form = event.target;
+          if (!(form instanceof HTMLFormElement)) {
+            return;
+          }
+
+          if (hasInlineConfirmation(form)) {
+            return;
+          }
+
+          const message = getConfirmationMessage(form);
+          if (!message) {
+            return;
+          }
+
+          if (!window.confirm(message)) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+        true
+      );
+    })();
+  </script>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'orga_team_admin.teams' %}
+{% set current_page_party = party %}
+{% set page_title = _('Create orga team') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.teams_for_party', party_id=party.id), 'Teams "%s"'|format(party.title)) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.team_create', party_id=party.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.title, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

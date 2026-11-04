@@ -1,0 +1,113 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% set page_title = [_('Tourney'), tourney.title] %}
+
+{% block head %}
+<style>
+  .tourney-header {
+    margin-bottom: 1.5rem;
+    margin-top: 1rem;
+    min-height: 5.5rem;
+  }
+
+  .tourney-header h1 {
+    margin: 0;
+    padding: 0;
+  }
+
+  .tourney-icon img {
+    height: 64px;
+    width: 64px;
+    display: block;
+  }
+
+  .tourney-icon .icon {
+    font-size: 4rem;
+  }
+
+  .progress {
+    background-color: #cccccc;
+    height: 0.3rem;
+    width: 4rem;
+  }
+
+  .progress-bar {
+    box-shadow: 1px 0 1px #333;
+  }
+
+  .progress-bar.color--available {
+    background-color: #11aa22;
+  }
+
+  .progress-bar.color--scarce {
+    background-color: #eecc00;
+  }
+
+  .progress-bar.color--full {
+    background-color: #ee3322;
+  }
+</style>
+{%- endblock %}
+
+{% block body %}
+
+  <nav class="breadcrumbs">
+    <ol>
+      <li><a href="{{ url_for('.tourney_index') }}">{{ _('Tourneys') }}</a></li>
+    </ol>
+  </nav>
+  <div class="tourney-header">
+    <div class="row">
+      <div>
+        <div class="tourney-icon">
+          {%- if tourney.logo_url %}
+            <img src="{{ tourney.logo_url }}">
+          {%- else %}
+            {{ render_icon('trophy') }}
+          {%- endif %}
+        </div>
+      </div>
+      <div>
+        <h1 class="title">
+          <div class="tourney-title">{{ tourney.title }}</div>
+          {%- if tourney.subtitle %}
+          <div class="tourney-subtitle">{{ tourney.subtitle|safe }}</div>
+          {%- endif %}
+        </h1>
+      </div>
+    </div>
+  </div>
+
+  <div class="data-label">{{ _('Start') }}</div>
+  <div class="data-value">{{ tourney.starts_at|dateformat('EEEE') }}, {{ tourney.starts_at|timeformat('short') }}</div>
+
+  <h2>
+    <div class="row" style="align-items: center;">
+      <div>
+        {{ _('Participants') }}
+      </div>
+      <div>
+        <div class="progress">
+          {%- with percentage = 100 * tourney.current_participant_count / tourney.max_participant_count %}
+          <div class="progress-bar color--{% if percentage < 100 %}{% if percentage < 70 %}available{% else %}scarce{% endif %}{% else %}full{% endif %}" style="width: {{ percentage }}%;"></div>
+          {%- endwith %}
+        </div>
+      </div>
+      <div>
+        <small class="dimmed nowrap">{{ tourney.current_participant_count }} / {{ tourney.max_participant_count }}</small>
+      </div>
+    </div>
+  </h2>
+  <div class="main-body-box">
+  {%- if participants %}
+    <ul>
+      {%- for participant in participants|sort(attribute='name') %}
+      <li>{{ participant.name }}</li>
+      {%- endfor %}
+    </ul>
+  {%- else %}
+    <p class="dimmed">{{ _('No participants have registered yet.') }}</p>
+  {%- endif %}
+  </div>
+
+{%- endblock %}

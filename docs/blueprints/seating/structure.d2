@@ -1,0 +1,33 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 104
+  }
+}
+
+direction: left
+
+classes: {
+  entity: {
+    shape: oval
+    height: 80
+  }
+}
+
+container: "" {
+  Party: { class: entity }
+
+  Ticketing: {
+    Ticket Category: { class: entity }
+  }
+
+  Seating: {
+    Seating Area: { class: entity }
+    Seat: { class: entity }
+  }
+
+  Ticketing.Ticket Category -> Party
+  Seating.Seating Area -> Party
+  Seating.Seat -> Seating.Seating Area
+  Seating.Seat -> Ticketing.Ticket Category
+}

@@ -1,0 +1,106 @@
+"""
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from datetime import datetime
+
+import pytest
+
+from byceps.announce.announce import build_announcement_request
+from byceps.byceps_app import BycepsApp
+from byceps.services.shop.order.events import (
+    ShopOrderCanceledEvent,
+    ShopOrderPaidEvent,
+    ShopOrderPlacedEvent,
+)
+from byceps.services.shop.order.models.order import OrderID, OrderNumber
+from byceps.services.user.models import User
+
+from tests.helpers import generate_uuid
+
+from .helpers import assert_text
+
+
+ORDER_ID = OrderID(generate_uuid())
+
+
+def test_shop_order_placed_announced(
+    app: BycepsApp, now: datetime, orderer_user: User, webhook_for_irc
+):
+    expected_text = 'Ken_von_Kaufkraft has placed order ORDER-00001.'
+
+    event = ShopOrderPlacedEvent(
+        occurred_at=now,
+        initiator=orderer_user,
+        order_id=ORDER_ID,
+        order_number=OrderNumber('ORDER-00001'),
+        orderer=orderer_user,
+    )
+
+    actual = build_announcement_request(event, webhook_for_irc)
+
+    assert_text(actual, expected_text)
+
+
+def test_shop_order_canceled_announced(
+    app: BycepsApp,
+    now: datetime,
+    shop_admin: User,
+    orderer_user: User,
+    webhook_for_irc,
+):
+    expected_text = (
+        'ShoppingSheriff has canceled order ORDER-00002 by Ken_von_Kaufkraft.'
+    )
+
+    event = ShopOrderCanceledEvent(
+        occurred_at=now,
+        initiator=shop_admin,
+        order_id=ORDER_ID,
+        order_number=OrderNumber('ORDER-00002'),
+        orderer=orderer_user,
+    )
+
+    actual = build_announcement_request(event, webhook_for_irc)
+
+    assert_text(actual, expected_text)
+
+
+def test_shop_order_paid_announced(
+    app: BycepsApp,
+    now: datetime,
+    shop_admin: User,
+    orderer_user: User,
+    webhook_for_irc,
+):
+    expected_text = (
+        'ShoppingSheriff marked order ORDER-00003 by Ken_von_Kaufkraft '
+        'as paid via bank transfer.'
+    )
+
+    event = ShopOrderPaidEvent(
+        occurred_at=now,
+        initiator=shop_admin,
+        order_id=ORDER_ID,
+        order_number=OrderNumber('ORDER-00003'),
+        orderer=orderer_user,
+        payment_method='bank_transfer',
+    )
+
+    actual = build_announcement_request(event, webhook_for_irc)
+
+    assert_text(actual, expected_text)
+
+
+# helpers
+
+
+@pytest.fixture(scope='module')
+def shop_admin(make_user) -> User:
+    return make_user(screen_name='ShoppingSheriff')
+
+
+@pytest.fixture(scope='module')
+def orderer_user(make_user) -> User:
+    return make_user(screen_name='Ken_von_Kaufkraft')

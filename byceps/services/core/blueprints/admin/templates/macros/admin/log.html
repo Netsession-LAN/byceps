@@ -1,0 +1,41 @@
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% from 'macros/icons.html' import render_icon %}
+
+
+{% macro render_log_entries() -%}
+  <table class="events itemlist is-wide">
+    <tbody>
+{{ caller() }}
+    </tbody>
+  </table>
+{%- endmacro %}
+
+
+{% macro render_log_entry(icon_name, timestamp) -%}
+      <tr>
+        <td>
+          <div class="event-icon">{{ render_icon(icon_name) }}</div>
+        </td>
+        <td>
+          <div class="row row--space-between row--wrap">
+            <div class="event-body">
+{{ caller() }}
+            </div>
+            <div>{{ timestamp|datetimeformat|dim }}</div>
+          </div>
+        </td>
+      </tr>
+{%- endmacro %}
+
+
+{% macro render_log_reason(reason) -%}
+          <div style="margin-top: 0.5rem;">
+            {{ _('Reason') }}:
+            <blockquote>{{ reason }}</blockquote>
+          </div>
+{%- endmacro %}
+
+
+{% macro render_log_user(user) -%}
+<span class="user-link">{{ render_user_avatar_and_admin_link(user, size=20) }}</span>
+{%- endmacro %}

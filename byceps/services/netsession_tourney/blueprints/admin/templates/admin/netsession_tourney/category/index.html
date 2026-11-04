@@ -1,0 +1,75 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'categories' %}
+{% set page_title = [_('Kategorien'), party.title] %}
+
+{% block body %}
+  <div class="ns-admin-page-head block">
+    <div class="ns-admin-page-head-main">
+      <h1 class="title">{{ _('Kategorien') }} {{ render_extra_in_heading(categories|length) }}</h1>
+      <p class="ns-admin-page-head-meta">{{ _('Kategorien steuern Gruppierung und Sortierung der Turniere im Admin und Frontend.') }}</p>
+    </div>
+    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    <a class="button" href="{{ url_for('.category_create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Kategorie erstellen') }}</span></a>
+    {%- endif %}
+  </div>
+
+  <section class="box ns-admin-form-section">
+    {%- if categories %}
+    <table class="itemlist is-vcentered ns-admin-asset-table">
+      <thead>
+        <tr>
+          <th>{{ _('Position') }}</th>
+          <th>{{ _('Titel') }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for category in categories %}
+        <tr>
+          <td class="number">{{ category.position }}</td>
+          <td><strong>{{ category.title }}</strong></td>
+          <td>
+            {%- if g.user.has_permission('netsession_tourney.manage') -%}
+            <div class="dropdown">
+              <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+              <ol class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('.category_update_form', category_id=category.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
+
+                <li class="dropdown-divider"></li>
+
+                {%- if not loop.first %}
+                <li><a class="dropdown-item" href="{{ url_for('.category_move_up', category_id=category.id) }}" data-action="category-move-up">{{ render_icon('arrow-up') }} {{ _('Nach oben') }}</a></li>
+                {%- else %}
+                <li><span class="dropdown-label dimmed">{{ render_icon('arrow-up') }} {{ _('Nach oben') }}</span></li>
+                {%- endif %}
+
+                {%- if not loop.last %}
+                <li><a class="dropdown-item" href="{{ url_for('.category_move_down', category_id=category.id) }}" data-action="category-move-down">{{ render_icon('arrow-down') }} {{ _('Nach unten') }}</a></li>
+                {%- else %}
+                <li><span class="dropdown-label dimmed">{{ render_icon('arrow-down') }} {{ _('Nach unten') }}</span></li>
+                {%- endif %}
+              </ol>
+            </div>
+            {%- endif -%}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Kategorien vorhanden.') }}</div>
+    {%- endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        post_on_click_then_reload('[data-action="category-move-up"]');
+        post_on_click_then_reload('[data-action="category-move-down"]');
+      });
+    </script>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'layout/admin/ticketing.html' %}
+{% from 'macros/admin/shop/order.html' import render_order_link %}
+{% from 'macros/admin/ticketing.html' import render_ticket_flag_revoked, render_ticket_flag_user_checked_in %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link, render_user_microcard %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'tickets' %}
+{% set page_title = _('Ticket') ~ ' ' ~ ticket.code %}
+
+{% block head %}
+<style>
+.local-grid .box {
+  margin-bottom: 0;
+}
+
+.local-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+
+      <h1 class="title">
+        {{- render_icon('ticket') }} {{ ticket.code }}
+        {%- if ticket.revoked %} {{ render_ticket_flag_revoked() }}{% endif -%}
+        {%- if ticket.user_checked_in %} {{ render_ticket_flag_user_checked_in() }}{% endif -%}
+      </h1>
+
+    </div>
+    <div>
+
+  {%- if g.user.has_any_permission('ticketing.administrate', 'ticketing.checkin') %}
+      <div class="button-row">
+        <div class="dropdown">
+          <button class="dropdown-toggle button"><span>{{ _('Actions') }}</span> {{ render_icon('chevron-down') }}</button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            {%- if not ticket.revoked %}
+            <li><a class="dropdown-item" href="{{ url_for('.appoint_user_form', ticket_id=ticket.id) }}">{{ render_icon('arrow-right') }} {{ _('Assign user') }}</a></li>
+            {%- endif %}
+            {%- if g.user.has_permission('ticketing.administrate') and not ticket.user_checked_in %}
+            <li><a class="dropdown-item" href="{{ url_for('.update_code', ticket_id=ticket.id) }}">{{ render_icon('edit') }} {{ _('Change code') }}</a></li>
+            {%- endif %}
+            {%- if ticket.user_checked_in %}
+            <li class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('ticketing_checkin_admin.revert_user_check_in', ticket_id=ticket.id) }}" data-action="revert-user-check-in">{{ render_icon('disabled') }} {{ _('Revert check-in') }}</a></li>
+            {%- endif %}
+          </ol>
+        </div>
+      </div>
+  {%- endif %}
+
+    </div>
+  </div>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('ID') }}</div>
+    <div class="data-value">
+      {{ ticket.id }}
+      <input id="ticket-id-field" value="{{ ticket.id }}" style="position: fixed; top: -1000px;" readonly>
+      <button id="ticket-id-copy-trigger" data-field-id="ticket-id-field" class="button is-compact" title="{{ _('Copy to clipboard') }}">{{ render_icon('clipboard') }}</button>
+    </div>
+
+    <div class="data-label">{{ _('Created') }}</div>
+    <div class="data-value">{{ ticket.created_at|datetimeformat }}</div>
+
+    <div class="data-label">{{ _('Category') }}</div>
+    <div class="data-value"><a href="{{ url_for('ticketing_category_admin.index', party_id=party.id) }}">{{ ticket.category.title }}</a></div>
+
+    <div class="data-label">{{ _('Bundle') }}</div>
+    <div class="data-value">
+      {%- if ticket.bundle_id %}
+      <a href="{{ url_for('.view_bundle', bundle_id=ticket.bundle_id) }}">{{ _('Bundle') }}</a>
+      {%- else %}
+      {{ _('independent')|dim }}
+      {%- endif %}
+    </div>
+
+    <div class="data-label">{{ _('Order') }}</div>
+    <div class="data-value">{{ render_order_link(order) if order else None|fallback(_('not specified')) }}</div>
+
+  </div>
+
+  <div class="grid local-grid" style="--column-min-width: 16rem;">
+    <div class="box">
+
+      <div class="data-label">{{ _('Owner') }}</div>
+      <div class="data-value">{{ render_user_microcard(ticket.owned_by) }}</div>
+
+    </div>
+    <div class="box">
+
+      <div class="local-column">
+        <div>
+
+          <div class="data-label">{{ _('User') }}</div>
+          <div class="data-value mb">
+            {%- if ticket.used_by -%}
+            {{ render_user_microcard(ticket.used_by) }}
+            {%- else -%}
+            {{ _('nobody')|dim }}
+            {%- endif -%}
+          </div>
+
+        </div>
+        <div>
+
+          <div class="data-label">{{ _('managed by') }}</div>
+          <div class="data-value">{{ render_user_avatar_and_admin_link(ticket.get_user_manager(), size=20) }}</div>
+
+        </div>
+      </div>
+
+    </div>
+    <div class="box">
+
+      <div class="local-column">
+        <div>
+
+          <div class="data-label">{{ _('Seat') }}</div>
+          <div class="data-value mb">
+            {%- if ticket.occupied_seat -%}
+            {{ ticket.occupied_seat.label|fallback(_('unnamed')) }}
+            {%- else -%}
+            {{ _('no seat')|dim }}
+            {%- endif -%}
+          </div>
+
+        </div>
+        <div>
+
+          <div class="data-label">{{ _('managed by') }}</div>
+          <div class="data-value">{{ render_user_avatar_and_admin_link(ticket.get_seat_manager(), size=20) }}</div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <h2>{{ _('History') }}</h2>
+{% include 'admin/ticketing/_ticket_events.html' %}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  enableCopyToClipboard('ticket-id-copy-trigger');
+
+  onDomReady(() => {
+    confirmed_post_on_click_then_reload('[data-action="revert-user-check-in"]', '{{ _('Revert check-in?') }}');
+  });
+</script>
+{% endblock %}

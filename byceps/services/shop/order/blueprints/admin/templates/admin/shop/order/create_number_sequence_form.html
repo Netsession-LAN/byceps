@@ -1,0 +1,22 @@
+{% extends 'layout/admin/shop/order.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set page_title = _('Create order number sequence') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('shop_storefront_admin.index_for_shop', shop_id=shop.id), _('Storefronts')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create_number_sequence', shop_id=shop.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.prefix, placeholder='LAN23-B', autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

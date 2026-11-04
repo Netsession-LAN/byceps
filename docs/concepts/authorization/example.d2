@@ -1,0 +1,67 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 104
+  }
+}
+
+direction: right
+
+classes: {
+  user: {
+    shape: person
+    width: 70
+    height: 70
+  }
+  role: {
+    shape: oval
+    width: 120
+    height: 80
+  }
+  permission: {
+    shape: oval
+    width: 140
+    height: 80
+  }
+  has-role: {
+    label: has role
+  }
+  grants-permission: {
+    label: grants\npermission
+  }
+}
+
+container: "" {
+  Users: {
+    Alice: { class: user }
+    Bob: { class: user }
+    Eve: { class: user }
+  }
+
+  Roles: {
+    Guest: { class: role }
+    Author: { class: role }
+    Moderator: { class: role }
+  }
+
+  Permissions: {
+    View Topic: { class: permission }
+    Create Topic: { class: permission }
+    Update Topic: { class: permission }
+    Hide Topic: { class: permission }
+  }
+
+  Users.Alice -> Roles.Guest: { class: has-role }
+
+  Users.Bob -> Roles.Guest
+  Users.Bob -> Roles.Author
+
+  Users.Eve -> Roles.Guest
+  Users.Eve -> Roles.Author
+  Users.Eve -> Roles.Moderator
+
+  Roles.Guest -> Permissions.View Topic: { class: grants-permission }
+  Roles.Author -> Permissions.Create Topic
+  Roles.Author -> Permissions.Update Topic
+  Roles.Moderator -> Permissions.Hide Topic
+}

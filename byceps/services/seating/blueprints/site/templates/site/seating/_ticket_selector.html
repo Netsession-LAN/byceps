@@ -1,0 +1,53 @@
+{%- from 'macros/icons.html' import render_icon %}
+{%- from 'macros/misc.html' import render_notification %}
+{%- from 'macros/user.html' import render_user_screen_name %}
+
+
+{%- if selected_ticket_id %}
+{{ render_notification(_('You are managing this ticket as a seating administrator.'), category='warning', icon='warning') }}
+{%- endif %}
+
+{%- if managed_tickets %}
+  {%- with managed_tickets_total = managed_tickets|length %}
+  <div class="block">{{ ngettext('You are managing seats of <strong>%(quantity)s</strong> ticket.', 'You are managing seats of <strong>%(quantity)s</strong> tickets.', managed_tickets_total, quantity=managed_tickets_total) }}</div>
+  {%- endwith %}
+
+  <div class="row row--space-between is-vcentered">
+    <div class="column--grow">
+      <div class="ticket-selector button">
+        <ol id="ticket-selection" class="bare">
+          {%- for managed_ticket in managed_tickets|sort(attribute='code') %}
+          <li class="ticket" data-id="{{ managed_ticket.id }}" data-code="{{ managed_ticket.code }}"{% if managed_ticket.occupies_seat and managed_ticket.seat_label %} data-seat-label="{{ managed_ticket.seat_label }}"{% endif %}>
+            <span class="managed-ticket-code">{{ managed_ticket.code }}</span>
+
+            <span class="managed-ticket-category">{{ managed_ticket.category_label }}</span>
+
+            <span class="managed-ticket-user">
+            {%- if managed_ticket.user -%}
+              {{ render_user_screen_name(managed_ticket.user) }}
+            {%- else -%}
+              {{ _('no user')|dim }}
+            {%- endif -%}
+            </span>
+
+            <span class="managed-ticket-seat">
+            {%- if managed_ticket.occupies_seat -%}
+              {{ managed_ticket.seat_label|fallback(_('unnamed')) }}
+            {%- else -%}
+              {{ _('no seat')|dim }}
+            {%- endif -%}
+            </span>
+
+          </li>
+          {%- endfor %}
+        </ol>
+        {{ render_icon('chevron-down') }}
+      </div>
+    </div>
+    <div>
+      <button class="button" id="release-seat-trigger" title="{{ _('Release seat') }}">{{ render_icon('remove') }}</button>
+    </div>
+  </div>
+{%- else %}
+  <p>{{ _('You are not managing any seats.') }}</p>
+{%- endif %}

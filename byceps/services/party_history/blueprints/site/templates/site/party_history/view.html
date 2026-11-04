@@ -1,0 +1,41 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% from 'macros/user.html' import render_user_avatar_and_link %}
+{% set current_page = 'party_history' %}
+{% set page_title = party.title %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block head %}
+  <style>
+    .attendees {
+      columns: 10rem;
+      line-height: 1.8;
+      list-style: none;
+      margin: 0;
+      padding: 0 2rem 0 0;
+    }
+  </style>
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+{% include 'site/party_history/_meta.html' %}
+
+  {%- if attendees %}
+  <h2>{{ _('Attendees') }}</h2>
+  <div class="main-body-box">
+    <ol class="attendees">
+      {%- for user in attendees|sort(attribute='screen_name') -%}
+      <li>{{- render_user_avatar_and_link(user, size=20) -}}</li>
+      {%- endfor %}
+    </ol>
+  </div>
+  {%- endif %}
+
+{%- endblock %}

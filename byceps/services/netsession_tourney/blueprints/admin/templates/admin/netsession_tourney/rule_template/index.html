@@ -1,0 +1,54 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'rules' %}
+{% set page_title = [_('Regeln'), party.title] %}
+
+{% block body %}
+  <div class="ns-admin-page-head block">
+    <div class="ns-admin-page-head-main">
+      <h1 class="title">{{ _('Regeln') }} {{ render_extra_in_heading(rule_templates|length) }}</h1>
+      <p class="ns-admin-page-head-meta">{{ _('Regeltemplates werden Turnieren zentral zugewiesen und steuern die sichtbare Regelseite.') }}</p>
+    </div>
+    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    <a class="button" href="{{ url_for('.rule_template_create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Regeltemplate erstellen') }}</span></a>
+    {%- endif %}
+  </div>
+
+  <section class="box ns-admin-form-section">
+    {%- if rule_templates %}
+    <table class="itemlist is-vcentered ns-admin-asset-table">
+      <thead>
+        <tr>
+          <th>{{ _('Titel') }}</th>
+          <th>{{ _('Slug') }}</th>
+          <th>{{ _('Textformat') }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for rule_template in rule_templates %}
+        <tr>
+          <td><strong>{{ rule_template.title }}</strong></td>
+          <td><code>{{ rule_template.slug }}</code></td>
+          <td>{{ rule_template.body_format.value|upper }}</td>
+          <td>
+            {%- if g.user.has_permission('netsession_tourney.manage') -%}
+            <div class="dropdown">
+              <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+              <ol class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('.rule_template_update_form', rule_template_id=rule_template.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
+              </ol>
+            </div>
+            {%- endif -%}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Regeltemplates vorhanden.') }}</div>
+    {%- endif %}
+  </section>
+{% endblock %}

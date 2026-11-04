@@ -1,0 +1,33 @@
+{%- from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{%- from 'macros/icons.html' import render_icon %}
+
+
+<div class="data-label">{{ _('User') }}</div>
+<div class="data-value">{{ render_user_avatar_and_admin_link(order.placed_by, size=20) }}</div>
+
+<div class="data-label">{{ _('Company') }}</div>
+<div class="data-value">{{ order.company|fallback }}</div>
+
+<div class="data-label">{{ _('Name') }}</div>
+<div class="data-value">{{ order.first_name }} {{ order.last_name }}</div>
+
+<div class="data-label">{{ _('Address') }}</div>
+<div class="row">
+  <div>
+    <div class="data-value">
+      {{ order.address.street }}<br>
+      {{ order.address.postal_code }} {{ order.address.city }}<br>
+      {{ order.address.country }}
+    </div>
+  </div>
+  <div>
+    <textarea id="order-address-field" style="position: fixed; top: -1000px;" readonly>{{
+      '%s %s\n%s\n%s %s'|format(
+        order.first_name, order.last_name,
+        order.address.street,
+        order.address.postal_code, order.address.city
+      )
+    }}</textarea>
+    <button id="order-address-copy-trigger" data-field-id="order-address-field" class="button is-compact" title="Anschrift in die Zwischenablage kopieren"><span>{{ render_icon('clipboard') }}</span></button>
+  </div>
+</div>

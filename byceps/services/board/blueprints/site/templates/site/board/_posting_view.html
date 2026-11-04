@@ -1,0 +1,24 @@
+{%- from 'macros/user.html' import render_user_link %}
+
+
+<article class="user-comment{% if posting.hidden %} dimmed{% endif %}" id="posting-{{ posting.id }}">
+  <aside class="user-comment-aside">
+{% include 'site/board/_posting_view_aside.html' %}
+  </aside>
+  <div class="user-comment-main">
+    <header>
+{% include 'site/board/_posting_view_meta.html' %}
+{% include 'site/board/_posting_view_actions.html' %}
+    </header>
+    <div class="body">
+{{ posting.body|bbcode|safe }}
+
+{% include 'site/board/_posting_view_reactions.html' %}
+    </div>
+    {%- if posting.edit_count %}
+    <footer>
+      <p>{{ posting.edit_count }} {{ _('times edited') }}, {{ _('lastly') }}: {{ posting.last_edited_at|dateformat }}, {{ posting.last_edited_at|timeformat('short') }} {{ _('by') }} {{ render_user_link(posting.last_edited_by) }}</p>
+    </footer>
+    {%- endif %}
+  </div>
+</article>

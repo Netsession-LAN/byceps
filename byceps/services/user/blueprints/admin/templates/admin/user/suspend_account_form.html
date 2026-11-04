@@ -1,0 +1,19 @@
+{% extends 'layout/admin/user.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_tab = 'profile' %}
+{% set current_tab_user_id = user.id %}
+{% set page_title = _('Suspend user account') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.suspend_account', user_id=user.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.reason, caption=_('The reason will be saved as <em>internal</em> remark.')|safe, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Lock'), icon='lock') }}
+  </form>
+
+{%- endblock %}

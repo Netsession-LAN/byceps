@@ -1,0 +1,69 @@
+﻿{% from 'macros/forms.html' import form_field_errors %}
+
+{% macro render_help(text) -%}
+  <details class="ns-admin-help">
+    <summary class="ns-admin-help-summary" title="{{ _('Erklärung anzeigen') }}">i</summary>
+    <div class="ns-admin-help-popover">{{ text }}</div>
+  </details>
+{%- endmacro %}
+
+{% macro render_field(field, help_text, class='') -%}
+  {%- set extra_class = ' ns-admin-number-input' if field.type in ['IntegerField', 'DecimalField', 'FloatField'] else '' -%}
+  <div class="form-control-block{% if field.errors %} invalid{% endif %}">
+    <div class="ns-admin-field-head">
+      {{ field.label(class='form-label ns-admin-form-label') }}
+      {{ render_help(help_text) }}
+    </div>
+    {{ field(class=('form-control ' + class + extra_class).strip(), **kwargs) }}
+    {{ form_field_errors(field) }}
+  </div>
+{%- endmacro %}
+
+{% macro render_check_field(field, help_text) -%}
+  <div class="form-control-block{% if field.errors %} invalid{% endif %} ns-admin-check-field">
+    <div class="ns-admin-field-head">
+      <span class="form-label ns-admin-form-label">{{ field.label.text }}</span>
+      {{ render_help(help_text) }}
+    </div>
+    <label class="form-check-label">
+      {{ field() }}
+      <span>{{ _('Aktivieren') }}</span>
+    </label>
+    {{ form_field_errors(field) }}
+  </div>
+{%- endmacro %}
+
+{% macro render_admin_multiselect(field, help_text) -%}
+  <div class="form-control-block{% if field.errors %} invalid{% endif %}">
+    <div class="ns-admin-field-head">
+      <span class="form-label ns-admin-form-label">{{ field.label.text }}</span>
+      {{ render_help(help_text) }}
+    </div>
+
+    <details class="ns-admin-multiselect" data-admin-multiselect>
+      <summary class="ns-admin-multiselect-summary">
+        <span class="ns-admin-multiselect-summary-text" data-admin-summary>
+          {{ field.label.text }}
+        </span>
+      </summary>
+
+      <div class="ns-admin-multiselect-panel">
+        {%- for choice in field %}
+        <label class="ns-admin-multiselect-option">
+          <input
+            type="checkbox"
+            name="{{ field.name }}"
+            value="{{ choice.data }}"
+            data-label="{{ choice.label.text }}"
+            {% if choice.checked %}checked{% endif %}
+          >
+          <span>{{ choice.label.text }}</span>
+        </label>
+        {%- endfor %}
+      </div>
+    </details>
+
+    <div class="ns-admin-selected-tags" data-admin-tags></div>
+    {{ form_field_errors(field) }}
+  </div>
+{%- endmacro %}

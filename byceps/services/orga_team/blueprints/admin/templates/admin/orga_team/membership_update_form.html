@@ -1,0 +1,33 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'orga_team_admin.teams' %}
+{% set current_page_party = party %}
+{% set page_title = _('Edit orga team membership') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.teams_for_party', party_id=party.id), 'Teams "%s"'|format(party.title)) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.membership_update', membership_id=membership.id) }}" method="post">
+    <div class="box">
+      <div class="mb">
+        <label class="form-label">{{ _('Orga') }}</label>
+        <div>
+          {{ render_user_avatar_and_admin_link(user, size=20) }}
+        </div>
+      </div>
+
+      {{ form_field(form.orga_team_id, autofocus='autofocus') }}
+      {{ form_field(form.duties, maxlength=40) }}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}

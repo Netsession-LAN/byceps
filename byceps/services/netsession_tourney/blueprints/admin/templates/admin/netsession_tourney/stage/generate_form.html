@@ -1,0 +1,731 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stages'), stage.name, _('Stage vorbereiten') if is_flatout2_manual_stage else _('Matches generieren')] %}
+
+{% block before_body %}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id), _('Zurueck zu Stages')) }}
+  {{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)},
+      {'label': _('Stage vorbereiten') if is_flatout2_manual_stage else _('Matches generieren'), 'url': none},
+    ],
+    tournament.title,
+    _('Stage vorbereiten') if is_flatout2_manual_stage else _('Seeding und Matches generieren'),
+    _('Lege Runden, Matches, Rennen, Hosts und Teilnehmer fuer diese FlatOut-2-Stage manuell fest.') if is_flatout2_manual_stage else _('Pruefe Auto-Seeds, setze manuelle Ueberschreibungen und generiere danach die Paarungen fuer diese Stage.'),
+    stage.status.value,
+    'status-' ~ stage.status.value,
+    [
+      {'label': _('Stage'), 'value': stage.name},
+      {'label': _('Teilnehmer'), 'value': flatout2_generation_state.participant_choices|length if is_flatout2_manual_stage else preview.participant_count},
+      {'label': _('Matches'), 'value': (flatout2_generation_state.rounds | selectattr('is_active') | map(attribute='match_count') | sum) if is_flatout2_manual_stage else preview.match_count},
+      {'label': _('Runden'), 'value': flatout2_generation_state.round_count if is_flatout2_manual_stage else preview.rounds|length},
+    ]
+  ) }}
+
+  {%- if existing_stage_match_count > 0 %}
+    {%- if is_incremental_swiss_generation %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ _('Swiss') }}:</strong>
+    {{ _('Fuer diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Beim naechsten Schritt wird die naechste Swiss-Runde angehaengt. Vorhandene Matches bleiben erhalten.') }}
+  </div>
+    {%- elif is_incremental_flatout2_generation %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ _('FlatOut 2') }}:</strong>
+    {{ _('Fuer diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Jetzt wird die naechste Runde erzeugt. Vorhandene Matches bleiben erhalten.') }}
+  </div>
+    {%- else %}
+    <div class="box block ns-tourney-stage-regenerate-warning">
+    <strong>{{ _('Achtung') }}:</strong>
+    {{ _('Fuer diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Eine Neugenerierung loescht vorhandene Matches und erstellt die Paarungen neu.') }}
+  </div>
+    {%- endif %}
+  {%- endif %}
+
+  {%- if stage_builder_preview_summary %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ stage_builder_preview_summary.title }}:</strong>
+    <div class="ns-admin-inline-note-body">
+      {%- for line in stage_builder_preview_summary.lines %}
+      <div>{{ line }}</div>
+      {%- endfor %}
+    </div>
+  </div>
+  {%- endif %}
+
+  <div class="box">
+    <form
+      class="ns-admin-seeding-form"
+      action="{{ url_for('.stage_generate', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}"
+      method="post"
+      {% if existing_stage_match_count > 0 and not is_incremental_swiss_generation and not is_incremental_flatout2_generation %}data-needs-regenerate-confirmation="true"{% endif %}
+    >
+      {%- if not is_incremental_swiss_generation and not is_flatout2_manual_stage %}
+      <h2>{{ _('Seeding') }}</h2>
+      {%- if is_locked_auto_seeding %}
+      <p class="dimmed">
+        {{ _('Diese Main Stage uebernimmt das Seeding automatisch aus den abgeschlossenen Vorrunden. Manuelle Aenderungen sind hier gesperrt.') }}
+      </p>
+      <div class="ns-admin-form-callout mb">
+        <strong>{{ _('Fixe Reihenfolge') }}:</strong>
+        {{ _('Pkt., Direktvergleich bei 2er-Gleichstand, danach Rundendifferenz. Dieses Seeding wird direkt fuer die Match-Generierung verwendet.') }}
+      </div>
+      {%- else %}
+      <p class="dimmed">
+        {{ _('Das System wuerfelt zuerst Auto-Seeds fuer alle aktuellen Teilnehmer aus. Manuelle Seeds ueberschreiben diese Reihenfolge als lueckenloses Praefix ab Seed 1.') }}
+      </p>
+
+      <div class="ns-admin-seeding-toolbar mb">
+        <div class="ns-admin-seeding-legend">
+          <span class="ns-admin-seeding-badge is-auto">{{ _('Auto') }}</span>
+          <span class="ns-admin-seeding-badge is-manual">{{ _('Manuell') }}</span>
+          <span class="ns-admin-seeding-badge is-final-auto">{{ _('Final') }}</span>
+        </div>
+        <div class="ns-admin-seeding-toolbar-actions">
+          <button type="button" class="button is-outlined" data-action="reroll-auto-seeds">{{ _('Auto-Seeds neu wuerfeln') }}</button>
+          <button type="button" class="button is-outlined" data-action="reset-manual-seeds">{{ _('Manuelle Overrides zuruecksetzen') }}</button>
+        </div>
+      </div>
+
+      <div class="ns-admin-form-callout mb">
+        <strong>{{ _('Live-Vorschau') }}:</strong>
+        {{ _('Der finale Seed wird sofort berechnet und genau so uebernommen, sobald du unten die Match-Generierung startest.') }}
+      </div>
+
+      <div class="ns-admin-form-callout mb" data-role="seed-validation" hidden></div>
+      {%- endif %}
+
+      <div data-role="auto-seed-inputs">
+        {%- for participant_id in auto_seed_participant_ids %}
+        <input type="hidden" name="auto_seed_participant_ids" value="{{ participant_id }}">
+        {%- endfor %}
+      </div>
+
+      <table class="itemlist is-vcentered is-wide mb ns-admin-seeding-table">
+        <thead>
+          <tr>
+            <th>{{ _('Teilnehmer / Team') }}</th>
+            <th>{% if is_locked_auto_seeding %}{{ _('Qualifier-Seed') }}{% else %}{{ _('Auto-Seed') }}{% endif %}</th>
+            <th>{% if is_locked_auto_seeding %}{{ _('Modus') }}{% else %}{{ _('Manueller Seed') }}{% endif %}</th>
+            <th>{{ _('Finaler Seed (wird uebernommen)') }}</th>
+            <th>{{ _('Quelle') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in seed_rows %}
+          <tr data-participant-id="{{ row.participant.id }}">
+            <td class="ns-admin-seeding-table-name">
+              <strong>{{ row.participant.name }}</strong>
+            </td>
+            <td>
+              <span class="ns-admin-seeding-badge is-auto" data-role="auto-seed">#{{ row.auto_seed }}</span>
+            </td>
+            <td>
+              {%- if is_locked_auto_seeding %}
+              <span class="ns-admin-seeding-source is-auto">{{ _('Automatisch aus Vorrunde') }}</span>
+              {%- else %}
+              <select
+                class="form-control ns-admin-seeding-input"
+                name="manual_seed_{{ row.participant.id }}"
+                data-role="manual-seed"
+              >
+                <option value="">{{ _('Auto') }}</option>
+                {%- for seed_option in range(1, preview.participant_count + 1) %}
+                <option value="{{ seed_option }}"{% if row.manual_seed == seed_option %} selected{% endif %}>#{{ seed_option }}</option>
+                {%- endfor %}
+              </select>
+              {%- endif %}
+            </td>
+            <td>
+              <span class="ns-admin-seeding-badge{% if row.is_manual %} is-manual{% else %} is-final-auto{% endif %}" data-role="final-seed">
+                #{{ row.final_seed }}
+              </span>
+            </td>
+            <td>
+              <span class="ns-admin-seeding-source{% if row.is_manual %} is-manual{% else %} is-auto{% endif %}" data-role="seed-source">
+                {%- if is_locked_auto_seeding -%}
+                  {{ _('Vorrunden-Ranking') }}
+                {%- elif row.is_manual -%}
+                  {{ _('Manuell ueberschrieben') }}
+                {%- else -%}
+                  {{ _('Automatisch') }}
+                {%- endif -%}
+              </span>
+            </td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+
+      {%- if not is_locked_auto_seeding %}
+      <div class="ns-admin-form-callout mb">
+        <strong>{{ _('Hinweis') }}:</strong>
+        {{ _('Wenn du manuelle Seeds setzt, muessen sie lueckenlos bei 1 beginnen. Beispiel: 1, 2, 3 ist gueltig; 1 und 3 ohne 2 ist ungueltig.') }}
+      </div>
+      {%- endif %}
+      {%- endif %}
+
+      {%- if is_builder_round_robin_summary_stage %}
+      <h2>{{ _('Gruppen-Materialisierung') }}</h2>
+      <p class="dimmed">
+        {{ _('Diese Vorrunden-Uebersicht erzeugt beim naechsten Schritt echte Gruppen-Stages. Die eigentlichen Runden und Matches liegen danach in den Gruppen wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.') }}
+      </p>
+      <div class="ns-admin-form-callout mb">
+        <strong>{{ _('Aktive RR-Strategie') }}:</strong>
+        {%- if round_robin_generation_intro and round_robin_generation_intro.is_manual_mode -%}
+          {{ _('Expertenoption mit manueller Gruppenzahl. Der Builder materialisiert genau die vorgegebene Anzahl Gruppen und leitet daraus die Qualifikation ins Hauptturnier ab.') }}
+        {%- else -%}
+          {{ _('Empfohlener Standard. Bei einer Main Stage mit 16 Plaetzen bevorzugt der Builder 8 Gruppen mit Top 2 pro Gruppe und verteilt die ready Teilnehmer moeglichst gleichmaessig.') }}
+        {%- endif -%}
+        {%- if round_robin_generation_intro and round_robin_generation_intro.distribution_summary -%}
+          <br>
+          {{ round_robin_generation_intro.distribution_summary }}
+        {%- endif -%}
+        {%- if round_robin_generation_intro and round_robin_generation_intro.qualification_summary -%}
+          <br>
+          <strong>{{ round_robin_generation_intro.qualification_summary }}</strong>
+        {%- endif -%}
+      </div>
+      <div class="ns-admin-form-callout mb">
+        <strong>{{ _('Wichtig') }}:</strong>
+        {{ _('Diese Summary-Stage hat keinen eigenen normalen Runden-Zeitplan. Startzeiten und Pairings bearbeitest du nach dem Erzeugen in den einzelnen Gruppen-Stages.') }}
+      </div>
+      {%- else %}
+      <h2>{{ _('Runden-Zeitplan') }}</h2>
+      <p class="dimmed">
+        {{ _('Hier siehst du die geplanten Runden und kannst die Startzeiten pro Runde vor der finalen Generierung anpassen.') }}
+      </p>
+
+      <table class="itemlist is-vcentered is-wide mb">
+        <thead>
+          <tr>
+            <th>{{ _('Runde') }}</th>
+            <th>{{ _('Geplante Matches') }}</th>
+            <th>{{ _('Startzeit') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- if is_flatout2_manual_stage %}
+          {%- for round_state in flatout2_generation_state.rounds if round_state.is_active %}
+          <tr>
+            <td>
+              <strong>{{ round_state.display_title }}</strong>
+            </td>
+            <td>{{ round_state.match_count }}</td>
+            <td>
+              <input
+                class="form-control"
+                type="datetime-local"
+                name="round_starts_at_round_{{ round_state.round_no }}"
+                value="{{ round_start_values_by_round_no.get(round_state.round_no, '') }}"
+              >
+            </td>
+          </tr>
+          {%- endfor %}
+        {%- else %}
+          {%- for round_preview in preview.rounds %}
+          <tr>
+            <td>
+              <strong>{{ _('Runde') }} {{ round_preview.round_no }}</strong>
+            </td>
+            <td>{{ round_preview.match_count }}</td>
+            <td>
+              <input
+                class="form-control"
+                type="datetime-local"
+                name="round_starts_at_round_{{ round_preview.round_no }}"
+                value="{{ round_start_values_by_round_no.get(round_preview.round_no, '') }}"
+              >
+            </td>
+          </tr>
+          {%- endfor %}
+        {%- endif %}
+        </tbody>
+      </table>
+      {%- endif %}
+
+            {%- if flatout2_generation_state %}
+      <h2>{{ _('FlatOut 2 Setup') }}</h2>
+      <p class="dimmed">
+        {{ _('Diese Stage wird bei FlatOut 2 vollstaendig manuell vorbereitet. Lege zuerst fest, wie viele Matches es in dieser Stage gibt. Danach konfigurierst du die Rennen fuer die Stage und weist die Teilnehmer pro Match zu.') }}
+      </p>
+
+      {%- for round_state in flatout2_generation_state.rounds %}
+      <section class="box block" data-flatout2-round-section data-round-no="{{ round_state.round_no }}">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h3 class="ns-admin-form-section-title">{{ round_state.display_title }}</h3>
+            <p class="ns-admin-form-section-text">{{ _('Setup fuer diese Stage.') }}</p>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label ns-admin-form-label" for="flatout2_match_count_round_{{ round_state.round_no }}">{{ _('Matches in dieser Stage') }}</label>
+          <select class="form-control" id="flatout2_match_count_round_{{ round_state.round_no }}" name="flatout2_match_count_round_{{ round_state.round_no }}" data-flatout2-match-count data-round-no="{{ round_state.round_no }}">
+            {%- for match_count in flatout2_generation_state.match_count_choices %}
+            <option value="{{ match_count }}"{% if round_state.match_count == match_count %} selected{% endif %}>{{ match_count }}</option>
+            {%- endfor %}
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label ns-admin-form-label" for="flatout2_race_count_round_{{ round_state.round_no }}">{{ _('Rennen in dieser Stage') }}</label>
+          <select class="form-control" id="flatout2_race_count_round_{{ round_state.round_no }}" name="flatout2_race_count_round_{{ round_state.round_no }}" data-flatout2-race-count data-round-no="{{ round_state.round_no }}">
+            {%- for race_count in flatout2_generation_state.race_count_choices %}
+            <option value="{{ race_count }}"{% if round_state.race_count == race_count %} selected{% endif %}>{{ race_count }}</option>
+            {%- endfor %}
+          </select>
+        </div>
+
+        <table class="itemlist is-vcentered is-wide mb">
+          <thead>
+            <tr>
+              <th>{{ _('Rennen') }}</th>
+              <th>{{ _('Modus') }}</th>
+              <th>{{ _('Strecke') }}</th>
+              <th>{{ _('Fahrzeug') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+          {%- for race in round_state.races %}
+            <tr data-flatout2-race-row data-round-no="{{ round_state.round_no }}" data-race-no="{{ race.race_no }}"{% if not race.is_active %} hidden style="display:none;"{% endif %}>
+              <td><strong>{{ _('Rennen') }} {{ race.race_no }}</strong></td>
+              <td>
+                <select class="form-control" name="flatout2_mode_round_{{ round_state.round_no }}_race_{{ race.race_no }}" data-flatout2-mode data-round-no="{{ round_state.round_no }}" data-race-no="{{ race.race_no }}">
+                  <option value="">{{ _('Bitte waehlen') }}</option>
+                  {%- for mode in flatout2_generation_state.mode_choices %}
+                  <option value="{{ mode.value }}"{% if race.mode == mode.value %} selected{% endif %}>{{ mode.label }}</option>
+                  {%- endfor %}
+                </select>
+              </td>
+              <td>
+                <select class="form-control" name="flatout2_track_round_{{ round_state.round_no }}_race_{{ race.race_no }}" data-flatout2-track data-selected-value="{{ race.track }}" data-round-no="{{ round_state.round_no }}" data-race-no="{{ race.race_no }}">
+                  <option value="">{{ _('Bitte waehlen') }}</option>
+                </select>
+              </td>
+              <td>
+                <select class="form-control" name="flatout2_vehicle_round_{{ round_state.round_no }}_race_{{ race.race_no }}" data-flatout2-vehicle data-selected-value="{{ race.vehicle }}" data-round-no="{{ round_state.round_no }}" data-race-no="{{ race.race_no }}">
+                  <option value="">{{ _('Bitte waehlen') }}</option>
+                </select>
+              </td>
+            </tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+
+        {%- for match_state in round_state.matches %}
+        <section class="box block" data-flatout2-match-card data-round-no="{{ round_state.round_no }}" data-match-no="{{ match_state.match_no }}"{% if not match_state.is_active %} hidden style="display:none;"{% endif %}>
+          <div class="ns-admin-form-section-head">
+            <div>
+              <h4 class="ns-admin-form-section-title">{{ _('Match') }} {{ match_state.match_no }}</h4>
+              <p class="ns-admin-form-section-text">{{ _('Teilnehmer dieses Matches. Host ist automatisch Slot 1.') }}</p>
+            </div>
+          </div>
+
+          <table class="itemlist is-vcentered is-wide">
+            <thead>
+              <tr>
+                <th>{{ _('Slot') }}</th>
+                <th>{{ _('Teilnehmer') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {%- for slot_no in range(1, flatout2_generation_state.max_players_per_match + 1) %}
+              <tr>
+                <td>
+                  {{ slot_no }}
+                  {%- if slot_no == 1 %} ({{ _('Host') }}){%- endif %}
+                </td>
+                <td>
+                  <select class="form-control" name="flatout2_participant_round_{{ round_state.round_no }}_match_{{ match_state.match_no }}_slot_{{ slot_no }}">
+                    <option value="">{{ _('TBD') }}</option>
+                    {%- for participant in flatout2_generation_state.participant_choices %}
+                    <option value="{{ participant.value }}"{% if match_state.participant_ids[slot_no - 1] == participant.value %} selected{% endif %}>{{ participant.label }}</option>
+                    {%- endfor %}
+                  </select>
+                </td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        </section>
+        {%- endfor %}
+      </section>
+      {%- endfor %}
+      {%- endif %}
+
+      <div class="ns-admin-form-actions">
+        <button type="submit" class="button color-primary">
+          {%- if is_flatout2_manual_stage -%}
+            {{ _('Stage vorbereiten') if existing_stage_match_count == 0 else _('Stage neu vorbereiten') }}
+          {%- elif is_incremental_swiss_generation -%}
+            {{ _('Naechste Runde generieren') }}
+          {%- elif is_incremental_flatout2_generation -%}
+            {{ _('%(title)s vorbereiten', title=(preview.rounds[0].display_title if preview.rounds and preview.rounds[0].display_title else _('Naechste FlatOut-2-Runde'))) }}
+          {%- elif existing_stage_match_count > 0 -%}
+            {{ _('Matches mit diesen Seeds neu generieren') }}
+          {%- else -%}
+            {{ _('Matches mit diesen Seeds generieren') }}
+          {%- endif -%}
+        </button>
+        <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {% if not is_incremental_swiss_generation and not is_flatout2_manual_stage %}
+  <script>
+    (() => {
+      const isLockedAutoSeeding = {{ is_locked_auto_seeding|tojson }};
+      if (isLockedAutoSeeding) {
+        return;
+      }
+      const seedingForm = document.querySelector('.ns-admin-seeding-form');
+      if (!seedingForm) {
+        return;
+      }
+
+      const rows = Array.from(
+        seedingForm.querySelectorAll('.ns-admin-seeding-table tbody tr[data-participant-id]')
+      );
+      const autoSeedInputsContainer = seedingForm.querySelector('[data-role="auto-seed-inputs"]');
+      const validationBox = seedingForm.querySelector('[data-role="seed-validation"]');
+      const rerollButton = seedingForm.querySelector('[data-action="reroll-auto-seeds"]');
+      const resetButton = seedingForm.querySelector('[data-action="reset-manual-seeds"]');
+      const invalidManualMessage = {{ _('Manuelle Seeds muessen lueckenlos bei 1 beginnen und duerfen keine Duplikate enthalten.')|tojson }};
+
+      const shuffle = (items) => {
+        const copy = [...items];
+        for (let i = copy.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      };
+
+      const renderAutoSeedInputs = () => {
+        autoSeedInputsContainer.innerHTML = '';
+        rows
+          .slice()
+          .sort((left, right) => Number(left.dataset.autoSeed) - Number(right.dataset.autoSeed))
+          .forEach((row) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'auto_seed_participant_ids';
+            input.value = row.dataset.participantId;
+            autoSeedInputsContainer.appendChild(input);
+          });
+      };
+
+      const setValidationState = (message) => {
+        if (!message) {
+          validationBox.hidden = true;
+          validationBox.textContent = '';
+          return;
+        }
+        validationBox.hidden = false;
+        validationBox.textContent = message;
+      };
+
+      const refreshFinalSeeds = () => {
+        const manualAssignments = [];
+        let invalid = false;
+
+        rows.forEach((row) => {
+          const input = row.querySelector('[data-role="manual-seed"]');
+          const rawValue = input.value.trim();
+          input.classList.remove('is-invalid');
+          row.classList.remove('is-invalid');
+
+          if (!rawValue) {
+            return;
+          }
+
+          const seed = Number(rawValue);
+          if (!Number.isInteger(seed) || seed < 1 || seed > rows.length) {
+            invalid = true;
+            input.classList.add('is-invalid');
+            row.classList.add('is-invalid');
+            return;
+          }
+
+          manualAssignments.push({ row, seed });
+        });
+
+        const sortedManualSeeds = manualAssignments
+          .map((assignment) => assignment.seed)
+          .sort((left, right) => left - right);
+        const expectedManualSeeds = Array.from(
+          { length: manualAssignments.length },
+          (_unused, index) => index + 1
+        );
+        if (
+          sortedManualSeeds.length !== expectedManualSeeds.length ||
+          sortedManualSeeds.some((seed, index) => seed !== expectedManualSeeds[index])
+        ) {
+          invalid = true;
+          manualAssignments.forEach(({ row }) => {
+            row.classList.add('is-invalid');
+            row.querySelector('[data-role="manual-seed"]').classList.add('is-invalid');
+          });
+        }
+
+        const autoOrderedRows = rows
+          .slice()
+          .sort((left, right) => Number(left.dataset.autoSeed) - Number(right.dataset.autoSeed));
+        const manualOrderedRows = manualAssignments
+          .slice()
+          .sort((left, right) => left.seed - right.seed)
+          .map((assignment) => assignment.row);
+        const finalRows = invalid
+          ? autoOrderedRows
+          : manualOrderedRows.concat(
+              autoOrderedRows.filter((row) => !manualOrderedRows.includes(row))
+            );
+
+        finalRows.forEach((row, index) => {
+          const finalSeedBadge = row.querySelector('[data-role="final-seed"]');
+          const sourceLabel = row.querySelector('[data-role="seed-source"]');
+          const isManual = !invalid && manualOrderedRows.includes(row);
+          finalSeedBadge.textContent = `#${index + 1}`;
+          finalSeedBadge.classList.toggle('is-manual', isManual);
+          finalSeedBadge.classList.toggle('is-final-auto', !isManual);
+          sourceLabel.textContent = isManual
+            ? {{ _('Manuell ueberschrieben')|tojson }}
+            : {{ _('Automatisch')|tojson }};
+          sourceLabel.classList.toggle('is-manual', isManual);
+          sourceLabel.classList.toggle('is-auto', !isManual);
+        });
+
+        setValidationState(invalid ? invalidManualMessage : '');
+        return !invalid;
+      };
+
+      const rerollAutoSeeds = () => {
+        const shuffledRows = shuffle(rows);
+        shuffledRows.forEach((row, index) => {
+          row.dataset.autoSeed = String(index + 1);
+          row.querySelector('[data-role="auto-seed"]').textContent = `#${index + 1}`;
+          row.parentElement.appendChild(row);
+        });
+        renderAutoSeedInputs();
+        refreshFinalSeeds();
+      };
+
+      const resetManualSeeds = () => {
+        rows.forEach((row) => {
+          row.querySelector('[data-role="manual-seed"]').value = '';
+        });
+        refreshFinalSeeds();
+      };
+
+      rows.forEach((row, index) => {
+        row.dataset.autoSeed = String(index + 1);
+        row.querySelector('[data-role="manual-seed"]').addEventListener('input', refreshFinalSeeds);
+      });
+
+      rerollButton?.addEventListener('click', rerollAutoSeeds);
+      resetButton?.addEventListener('click', resetManualSeeds);
+
+      renderAutoSeedInputs();
+      refreshFinalSeeds();
+
+      seedingForm.addEventListener('submit', (event) => {
+        const isValid = refreshFinalSeeds();
+        if (!isValid) {
+          event.preventDefault();
+          return;
+        }
+
+        if (!seedingForm.matches('[data-needs-regenerate-confirmation="true"]')) {
+          return;
+        }
+
+        const confirmed = window.confirm(
+          {{ _('Achtung: Es sind bereits Matches generiert. Neugenerierung loescht vorhandene Matches und erstellt sie neu. Fortfahren?')|tojson }}
+        );
+        if (!confirmed) {
+          event.preventDefault();
+        }
+      });
+    })();
+  </script>
+  {% endif %}
+    {% if flatout2_generation_state %}
+  <script>
+    (() => {
+      const trackChoicesByMode = {{ flatout2_generation_state.track_choices_by_mode|tojson }};
+      const vehicleChoicesByMode = {{ flatout2_generation_state.vehicle_choices_by_mode|tojson }};
+      const roundCountField = document.querySelector('[data-flatout2-round-count]');
+      const roundSections = Array.from(
+        document.querySelectorAll('[data-flatout2-round-section]')
+      );
+      const matchCountFields = Array.from(
+        document.querySelectorAll('[data-flatout2-match-count]')
+      );
+      const raceCountFields = Array.from(
+        document.querySelectorAll('[data-flatout2-race-count]')
+      );
+      const raceRows = Array.from(
+        document.querySelectorAll('[data-flatout2-race-row]')
+      );
+
+      const buildOptions = (selectField, values, selectedValue) => {
+        const normalizedSelectedValue = selectedValue || '';
+        const sortedValues = [...values].sort((a, b) =>
+          a.localeCompare(b, 'de', { sensitivity: 'base' })
+        );
+        selectField.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = {{ _('Bitte waehlen')|tojson }};
+        selectField.appendChild(placeholder);
+
+        sortedValues.forEach((value) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          option.selected = value === normalizedSelectedValue;
+          selectField.appendChild(option);
+        });
+
+        if (normalizedSelectedValue && !sortedValues.includes(normalizedSelectedValue)) {
+          selectField.value = '';
+        }
+      };
+
+      const syncRaceOptionLists = (row) => {
+        const modeField = row.querySelector('[data-flatout2-mode]');
+        const trackField = row.querySelector('[data-flatout2-track]');
+        const vehicleField = row.querySelector('[data-flatout2-vehicle]');
+        if (!modeField || !trackField || !vehicleField) {
+          return;
+        }
+
+        const selectedMode = modeField.value || '';
+        const currentTrack = trackField.dataset.selectedValue || '';
+        const currentVehicle = vehicleField.dataset.selectedValue || '';
+        const trackChoices = trackChoicesByMode[selectedMode] || [];
+        const vehicleChoices = vehicleChoicesByMode[selectedMode] || [];
+
+        buildOptions(trackField, trackChoices, currentTrack);
+        buildOptions(vehicleField, vehicleChoices, currentVehicle);
+
+        trackField.dataset.selectedValue = trackField.value || '';
+        vehicleField.dataset.selectedValue = vehicleField.value || '';
+      };
+
+      const syncRoundSections = () => {
+        const selectedRoundCount = Number(roundCountField?.value || '0');
+        roundSections.forEach((section) => {
+          const roundNo = Number(section.dataset.roundNo || '0');
+          const isActive = roundNo <= selectedRoundCount;
+          section.hidden = !isActive;
+          section.style.display = isActive ? '' : 'none';
+          section.querySelectorAll('select, input').forEach((field) => {
+            field.disabled = !isActive;
+          });
+        });
+      };
+
+      const syncMatchCards = (selectField) => {
+        const roundNo = selectField.dataset.roundNo;
+        const selectedCount = Number(selectField.value || '0');
+        document
+          .querySelectorAll(`[data-flatout2-match-card][data-round-no="${roundNo}"]`)
+          .forEach((card) => {
+            const matchNo = Number(card.dataset.matchNo || '0');
+            const isActive = matchNo <= selectedCount;
+            card.hidden = !isActive;
+            card.style.display = isActive ? '' : 'none';
+            card.querySelectorAll('select, input').forEach((field) => {
+              field.disabled = !isActive;
+            });
+          });
+      };
+
+      const syncRoundRaceRows = (selectField) => {
+        const roundNo = selectField.dataset.roundNo;
+        const selectedCount = Number(selectField.value || '0');
+        document
+          .querySelectorAll(`[data-flatout2-race-row][data-round-no="${roundNo}"]`)
+          .forEach((row) => {
+            const raceNo = Number(row.dataset.raceNo || '0');
+            const isActive = raceNo <= selectedCount;
+            row.hidden = !isActive;
+            row.style.display = isActive ? '' : 'none';
+            row.querySelectorAll('select').forEach((field) => {
+              field.disabled = !isActive;
+            });
+          });
+      };
+
+      if (roundCountField) {
+        roundCountField.addEventListener('change', syncRoundSections);
+        syncRoundSections();
+      }
+
+      matchCountFields.forEach((field) => {
+        field.addEventListener('change', () => syncMatchCards(field));
+        syncMatchCards(field);
+      });
+
+      raceCountFields.forEach((field) => {
+        field.addEventListener('change', () => syncRoundRaceRows(field));
+        syncRoundRaceRows(field);
+      });
+
+      raceRows.forEach((row) => {
+        const modeField = row.querySelector('[data-flatout2-mode]');
+        const trackField = row.querySelector('[data-flatout2-track]');
+        const vehicleField = row.querySelector('[data-flatout2-vehicle]');
+        if (trackField) {
+          trackField.dataset.selectedValue = trackField.getAttribute('data-selected-value') || '';
+        }
+        if (vehicleField) {
+          vehicleField.dataset.selectedValue = vehicleField.getAttribute('data-selected-value') || '';
+        }
+        if (modeField) {
+          modeField.addEventListener('change', () => {
+            if (trackField) {
+              trackField.dataset.selectedValue = '';
+            }
+            if (vehicleField) {
+              vehicleField.dataset.selectedValue = '';
+            }
+            syncRaceOptionLists(row);
+          });
+        }
+        if (trackField) {
+          trackField.addEventListener('change', () => {
+            trackField.dataset.selectedValue = trackField.value || '';
+          });
+        }
+        if (vehicleField) {
+          vehicleField.addEventListener('change', () => {
+            vehicleField.dataset.selectedValue = vehicleField.value || '';
+          });
+        }
+        syncRaceOptionLists(row);
+      });
+    })();
+  </script>
+  {% endif %}
+{% endblock %}

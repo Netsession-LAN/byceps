@@ -1,0 +1,215 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('View news post version') %}
+
+{% block head %}
+<style>
+.two-column {
+  display: grid;
+  gap: var(--inner-gutter);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 48rem) { /* 768px / 16px */
+  .two-column {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+</style>
+{%- endblock %}
+
+{% block body %}
+
+  <div class="row row--space-between is-vcentered block">
+    <div>
+
+      <nav class="breadcrumbs">
+        <ol>
+          <li>{{ _('Channel') }}: <a href="{{ url_for('.channel_view', channel_id=item.channel.id) }}">{{ item.channel.id }}</a></li>
+        </ol>
+      </nav>
+      <h1 class="title">{% if not version.item.published %}{{ render_tag(_('Draft')) }} {% endif %}{{ item.title }}</h1>
+
+    </div>
+    <div>
+
+      {%- if g.user.has_permission('news_item.update') %}
+      <div class="button-row button-row--nowrap is-right-aligned">
+        <a class="button" href="{{ url_for('.item_update_form', item_id=item.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+        {%- if g.user.has_permission('news_item.publish') %}
+        <div class="dropdown">
+          <button class="dropdown-toggle button"><span>{{ render_icon('published') }} {{ _('Publish') }} {{ render_icon('chevron-down') }}</span></button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            {%- if not item.published %}
+            <li><a class="dropdown-item" href="{{ url_for('.item_publish_now', item_id=item.id) }}" data-action="item-publish-now">{{ _('Publish now') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('.item_publish_later_form', item_id=item.id) }}">{{ _('Publish later') }}</a></li>
+            {%- else %}
+            <li><a class="dropdown-item" href="{{ url_for('.item_unpublish', item_id=item.id) }}" data-action="item-unpublish">{{ _('Unpublish') }}</a></li>
+            {%- endif %}
+          </ol>
+        </div>
+        {%- endif %}
+      </div>
+      {%- endif %}
+
+    </div>
+  </div>
+
+
+  <div class="box">
+
+    <div class="two-column">
+
+      <div>
+        <div class="data-label">{{ _('Slug') }}</div>
+        <div class="data-value">{{ item.slug }}</div>
+      </div>
+
+      <div>
+        <div class="data-label">{{ _('Version') }}</div>
+        <div class="data-value">
+          {{- version.id -}}
+          {%- if is_current_version %}
+          {{ render_tag(_('current'), class='color-success') }}
+          {%- else %}
+          {{ render_tag(_('outdated'), class='color-warning') }}<br>
+          (<a href="{{ url_for('.item_view', item_id=item.id) }}">{{ _('View current version') }}</a>)
+          {%- endif %}
+        </div>
+      </div>
+
+      <div>
+        <div class="data-label">{{ _('Created') }}</div>
+        <div class="data-value">
+          {{ version.created_at|datetimeformat }} {{ _('by') }} {{ render_user_avatar_and_name(creator, size=16) }}<br>
+          <a href="{{ url_for('.item_list_versions', item_id=item.id) }}">{{ render_icon('history') }} {{ _('View change history') }}</a>
+        </div>
+      </div>
+
+      {%- if version.item.published %}
+      <div>
+        <div class="data-label">{{ _('Published') }}</div>
+        <div class="data-value">{{ version.item.published_at|datetimeformat }}</div>
+      </div>
+      {%- endif %}
+
+    </div>
+
+  </div>
+
+
+  <div class="row row--space-between is-vcentered">
+    <div>
+
+      <h2>{{ _('Images') }} {{ render_extra_in_heading(item.images|length) }}</h2>
+
+    </div>
+    <div>
+
+      {%- if g.user.has_permission('news_item.update') %}
+      <div class="button-row button-row--nowrap is-right-aligned">
+        <a class="button is-compact" href="{{ url_for('.image_create_form', item_id=item.id) }}">{{ render_icon('add') }} <span>{{ _('Add image') }}</span></a>
+        <div class="dropdown">
+          <button class="dropdown-toggle button is-compact"><span>{{ render_icon('chevron-down') }}</span></button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            {%- if item.featured_image is not none %}
+            <li><a class="dropdown-item" href="{{ url_for('.image_unset_featured', item_id=item.id) }}" data-action="image-unset-featured">{{ _('Unset featured image') }}</a></li>
+            {%- else %}
+            <li><span class="dropdown-label dimmed">{{ _('Unset featured image') }}</span></li>
+            {%- endif %}
+          </ol>
+        </div>
+      </div>
+      {%- endif %}
+
+    </div>
+  </div>
+
+  {%- if item.images %}
+  <div class="two-column">
+    {%- for image in item.images|sort(attribute='number') %}
+    <div>
+      <div class="box">
+        <details class="newspost-images">
+          <summary>#{{ image.number }}{% if (item.featured_image is not none) and (image.id == item.featured_image.id) %} {{ render_tag('featured') }}{% endif %}</summary>
+          <div class="row row--space-between mb" style="margin-top: 0;">
+            <div>
+
+              <div class="data-label">{{ _('ID') }}</div>
+              <div class="data-value monospace">{{ image.id }}</div>
+
+              <div class="data-label">{{ _('Filename') }}</div>
+              <div class="data-value monospace">{{ image.filename }}</div>
+
+              <div class="data-label">{{ _('Alternative text') }}</div>
+              <div class="data-value">{{ image.alt_text|fallback }}</div>
+
+              <div class="data-label">{{ _('Caption') }}</div>
+              <div class="data-value">{{ image.caption|fallback }}</div>
+
+              <div class="data-label">{{ _('Source') }}</div>
+              <div class="data-value">{{ image.attribution|fallback }}</div>
+
+            </div>
+
+            {%- if g.user.has_permission('news_item.update') %}
+            <div>
+              <div class="button-row button-row--nowrap is-right-aligned">
+                <a class="button is-compact" href="{{ url_for('.image_update_form', image_id=image.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+                <div class="dropdown">
+                  <button class="dropdown-toggle button is-compact"><span>{{ render_icon('chevron-down') }}</span></button>
+                  <ol class="dropdown-menu dropdown-menu--right">
+                    {%- if (item.featured_image is not none) and (image.id == item.featured_image.id) %}
+                    <li><a class="dropdown-item" href="{{ url_for('.image_unset_featured', item_id=item.id) }}" data-action="image-unset-featured">{{ _('Unset image as featured') }}</a></li>
+                    <li><span class="dropdown-label dimmed">{{ _('Delete image') }}</span></li>
+                    {%- else %}
+                    <li><a class="dropdown-item" href="{{ url_for('.image_set_featured', image_id=image.id) }}" data-action="image-set-featured">{{ _('Set image as featured') }}</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('.image_delete', image_id=image.id) }}" data-action="image-delete">{{ _('Delete image') }}</a></li>
+                    {%- endif %}
+                  </ol>
+                </div>
+              </div>
+            </div>
+            {%- endif %}
+
+          </div>
+
+          <div class="data-label">{{ _('Preview') }}</div>
+          <div class="data-value">
+            <img src="{{ image.url_path }}" style="border: #cccccc solid 1px; display: block;" loading="lazy">
+          </div>
+
+        </details>
+      </div>
+    </div>
+    {%- endfor %}
+  </div>
+  {%- else %}
+  <div class="box no-data-message">{{ _('none') }}</div>
+  {%- endif %}
+
+
+  <h2>{{ _('Preview') }}</h2>
+
+  <div class="box preview-background" style="padding: 0;">
+<iframe src="{{ url_for('.item_view_version_preview', version_id=version.id) }}" title="News item preview" style="border: none; height: 60rem; width: 100%;" sandbox></iframe>
+  </div>
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  onDomReady(() => {
+    confirmed_post_on_click_then_reload('[data-action="item-publish-now"]', '{{ _('Publish news post now?') }}');
+    confirmed_post_on_click_then_reload('[data-action="item-unpublish"]', '{{ _('Unpublish news post?') }}');
+    confirmed_post_on_click_then_reload('[data-action="image-set-featured"]', '{{ _('Set image as featured?') }}');
+    confirmed_delete_on_click_then_reload('[data-action="image-unset-featured"]', '{{ _('Unset image as featured?') }}');
+    confirmed_delete_on_click_then_reload('[data-action="image-delete"]', '{{ _('Delete image?') }}');
+  });
+</script>
+{% endblock %}

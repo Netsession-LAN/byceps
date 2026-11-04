@@ -1,0 +1,40 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set simple_layout = true %}
+{% set current_page = 'guest_server' %}
+{% set page_title = _('Register guest server') %}
+
+{% block body %}
+
+  <nav class="breadcrumbs">
+    <ol>
+      <li><a href="{{ url_for('.index') }}">{{ _('Guest Servers') }}</a></li>
+    </ol>
+  </nav>
+  <h1 class="title">{{ page_title }}</h1>
+
+  {%- if address_quantity is none %}
+  <form action="{{ url_for('.create') }}" method="get">
+    <div class="main-body-box">
+      {{ form_field(form.address_quantity) }}
+    </div>
+
+    {{ form_buttons(_('Continue')) }}
+  </form>
+  {%- else %}
+  <form action="{{ url_for('.create', address_quantity=address_quantity) }}" method="post">
+    <div class="main-body-box">
+      {{ form_field(form.description, caption=_('Vendor, model number, what does it look like?'), autofocus=true) }}
+      {%- with suffix = ('.' + domain) if domain else '' %}
+        {%- for address_index in address_indexes %}
+      {{ form_field(form|attr('hostname' ~ address_index), size=20, placeholder='myserver%d'|format(address_index), suffix=suffix, caption=_('Just the hostname. The suffix <code>%(suffix)s</code> will be added automatically.', suffix=suffix), autofocus=loop.first) }}
+        {%- endfor %}
+      {%- endwith %}
+      {{ form_field(form.notes, style='height: 8rem;') }}
+    </div>
+
+    {{ form_buttons(_('Register guest server')) }}
+  </form>
+  {%- endif %}
+
+{%- endblock %}

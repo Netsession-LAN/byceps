@@ -1,0 +1,34 @@
+"""
+byceps.services.orga.dbmodels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from byceps.database import db
+from byceps.services.brand.dbmodels import DbBrand
+from byceps.services.brand.models import BrandID
+from byceps.services.user.dbmodels import DbUser
+from byceps.services.user.models import UserID
+
+
+class DbOrgaFlag(db.Model):
+    """A user's organizer status for a specific brand."""
+
+    __tablename__ = 'orga_flags'
+
+    user_id: Mapped[UserID] = mapped_column(
+        db.Uuid, db.ForeignKey('users.id'), primary_key=True
+    )
+    user: Mapped[DbUser] = relationship()
+    brand_id: Mapped[BrandID] = mapped_column(
+        db.UnicodeText, db.ForeignKey('brands.id'), primary_key=True
+    )
+    brand: Mapped[DbBrand] = relationship()
+
+    def __init__(self, user_id: UserID, brand_id: BrandID) -> None:
+        self.user_id = user_id
+        self.brand_id = brand_id

@@ -1,0 +1,64 @@
+{% extends 'layout/admin/shop/storefront.html' %}
+{% from 'macros/admin/shop/storefront.html' import render_enabled_payment_gateways, render_storefront_status %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set page_title = [_('Storefront'), storefront.id] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ storefront.id }}</h1>
+    </div>
+    {%- if g.user.has_permission('shop.update') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.update_form', storefront_id=storefront.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  <div class="box">
+    <div class="grid" style="--column-min-width: 10rem;">
+      <div>
+        <div class="data-label">{{ _('Shop') }}</div>
+        <div class="data-value"><a href="{{ url_for('shop_shop_admin.dashboard', shop_id=shop.id) }}">{{ shop.title }}</a></div>
+      </div>
+      <div>
+        <div class="data-label">{{ _('Order number sequence') }}</div>
+        <div class="data-value">
+          <div class="row">
+            <div>{{ storefront.order_number_sequence.prefix }}</div>
+            <div>
+              {%- if storefront.order_number_sequence.archived %}
+              {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+              {%- endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="data-label">{{ _('Catalog') }}</div>
+        <div class="data-value">
+          {%- with catalog = storefront.catalog %}
+            {%- if catalog %}
+          <a href="{{ url_for('shop_catalog_admin.catalog_view', catalog_id=catalog.id) }}">{{ catalog.title }}</a>
+            {%- else %}
+          {{ None|fallback }}
+            {%- endif %}
+          {%- endwith %}
+        </div>
+      </div>
+      <div>
+        <div class="data-label">{{ _('Payment gateways') }}</div>
+        <div class="data-value">{{ render_enabled_payment_gateways(storefront.enabled_payment_gateways) }}</div>
+      </div>
+      <div>
+        <div class="data-label">{{ _('Status') }}</div>
+        <div class="data-value">{{ render_storefront_status(storefront) }}</div>
+      </div>
+    </div>
+  </div>
+
+{%- endblock %}

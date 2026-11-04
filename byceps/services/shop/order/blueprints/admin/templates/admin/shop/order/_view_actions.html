@@ -1,0 +1,42 @@
+{%- from 'macros/icons.html' import render_icon %}
+
+
+    <div class="dropdown">
+      <button class="dropdown-toggle button"><span>{{ _('Actions') }}</span> {{ render_icon('chevron-down') }}</button>
+      <ol class="dropdown-menu dropdown-menu--right">
+        <li><a class="dropdown-item" href="{{ url_for('.add_note_form', order_id=order.id) }}">{{ render_icon('note') }} {{ _('Add note') }}</a></li>
+        <li class="dropdown-divider"></li>
+
+        <li><a class="dropdown-item" href="{{ url_for('.export', order_id=order.id) }}" download="{{ order.order_number }}.xml">{{ render_icon('download') }} {{ _('Export for Lexware (XML)') }}</a></li>
+
+        <li><a class="dropdown-item" href="{{ url_for('.download_invoice', order_id=order.id, mode='draft') }}">{{ render_icon('invoice') }} {{ _('Download invoice draft') }}</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('.download_invoice', order_id=order.id) }}">{{ render_icon('invoice') }} {{ _('Download invoice') }}</a></li>
+
+        {%- if not order.is_canceled %}
+        <li class="dropdown-divider"></li>
+
+          {%- if order.is_open %}
+        <li><a class="dropdown-item" href="{{ url_for('.resend_email_for_incoming_order_to_orderer', order_id=order.id) }}" data-action="order-resend-incoming-notification">{{ render_icon('email') }} {{ _('Resend confirmation email') }}</a></li>
+          {%- endif %}
+
+          {%- if order.is_open and g.user.has_permission('shop_order.mark_as_paid') %}
+        <li><a class="dropdown-item" href="{{ url_for('.mark_as_paid_form', order_id=order.id) }}">{{ render_icon('payment') }} {{ _('Mark order as paid') }}</a></li>
+          {%- endif %}
+
+          {%- if g.user.has_permission('shop_order.cancel') %}
+        <li><a class="dropdown-item" href="{{ url_for('.cancel_form', order_id=order.id) }}">{{ render_icon('disabled') }} {{ _('Cancel order') }}</a></li>
+          {%- endif %}
+
+        {%- endif %}
+
+        {%- if order.is_processing_required %}
+        <li class="dropdown-divider"></li>
+          {%- if order.is_processed %}
+        <li><a class="dropdown-item" href="{{ url_for('.unset_shipped_flag', order_id=order.id) }}" data-action="order-unflag-shipped">{{ render_icon('shipping') }} {{ _('Mark as <strong>not</strong> shipped')|safe }}</a></li>
+          {%- else %}
+        <li><a class="dropdown-item" href="{{ url_for('.set_shipped_flag', order_id=order.id) }}" data-action="order-flag-shipped">{{ render_icon('shipping') }} {{ _('Mark as shipped') }}</a></li>
+          {%- endif %}
+        {%- endif %}
+
+      </ol>
+    </div>

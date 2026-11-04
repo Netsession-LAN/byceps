@@ -1,0 +1,83 @@
+{% extends 'layout/admin/page.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set page_title = [site.title, _('Pages')] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Pages') }} {{ render_extra_in_heading(pages|length) }}</h1>
+    </div>
+  {%- if g.user.has_permission('page.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', site_id=site.id) }}">{{ render_icon('add') }} <span>{{ _('Create page') }}</span></a>
+        <a class="button" href="{{ url_for('.copy_select_source_site_form', target_site_id=site.id) }}">{{ render_icon('copy') }} <span>{{ _('Copy pages') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if pages %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th colspan="2">{{ _('Name') }}</th>
+        <th>{{ _('Language') }}</th>
+        <th>{{ _('URL path') }}</th>
+        <th>{{ _('Navigation menu') }}</th>
+        <th>{{ _('Latest change') }}</th>
+        <th>{{ _('by') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for page in pages|sort(attribute='name') %}
+      <tr>
+        <td><a href="{{ url_for('.view_current_version', page_id=page.id) }}"><strong>{{ page.name }}</strong></a></td>
+        <td>
+          {%- if page.hidden -%}
+          {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+          {%- endif -%}
+        </td>
+        <td>{{ page.language_code }}</td>
+        <td class="monospace">{{ page.url_path }}</td>
+        <td>
+          {%- with menu = page.nav_menu %}
+            {%- if menu %}
+          <a href="{{ url_for('site_navigation_admin.view', menu_id=menu.id) }}">{{ menu.name }} ({{ menu.language_code }})</a>
+              {%- if menu.hidden %}
+          {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+              {%- endif %}
+            {%- else %}
+          {{ _('not assigned')|dim }}
+            {%- endif %}
+          {%- endwith %}
+        </td>
+        <td class="nowrap">
+          {%- if g.user.has_permission('page.view_history') %}
+          {{ render_icon('history') }} <a href="{{ url_for('.history', page_id=page.id) }}" title="{{ _('View change history') }}">{{ page.current_version.created_at|datetimeformat }}</a>
+          {%- else %}
+          {{ page.current_version.created_at|datetimeformat }}
+          {%- endif %}
+        </td>
+        <td>{{ render_user_avatar_and_name(users_by_id[page.current_version.creator_id], size=20) }}</td>
+        <td>
+          <div class="button-row is-compact is-right-aligned">
+            {%- if g.user.has_permission('page.update') %}
+            <a href="{{ url_for('.update_form', page_id=page.id) }}" class="button is-compact" title="{{ _('Edit') }}">{{ render_icon('edit') }}</a>
+            {%- endif %}
+          </div>
+        </td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No pages exist for this site.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

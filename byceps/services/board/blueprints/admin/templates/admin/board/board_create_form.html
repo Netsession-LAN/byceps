@@ -1,0 +1,27 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'board_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Create board') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.board_index_for_brand', brand_id=brand.id), brand.title) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.board_create', brand_id=brand.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.board_id, placeholder=brand.id, autofocus='autofocus') }}
+
+      <p>{{ _('A board can be used for a single party as well as for multiple or even all partys of the same brand.') }}
+      <p>{{ _('Hint: If the board should be used only for a specific party, use the ID <em>of that party</em> as ID for the board. If, however, it should be used for multiple parties, use the ID <em>of the brand</em> as ID for the board.') }}</p>
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

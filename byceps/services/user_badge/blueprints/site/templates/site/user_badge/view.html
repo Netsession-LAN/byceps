@@ -1,0 +1,50 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/user.html' import render_user_avatar %}
+{% from 'macros/user_badge.html' import render_user_badge %}
+{% set current_page = 'user_badge' %}
+{% set page_title = [_('Badges'), badge.label] %}
+
+{% block head %}
+<style>
+a.awardee {
+  border: none;
+  display: block;
+  text-decoration: none;
+}
+
+a.awardee:hover .avatar {
+  outline: currentColor solid 1px;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+
+  <nav class="breadcrumbs">
+    <ol>
+      <li><a href="{{ url_for('.index') }}">{{ _('Badges') }}</a></li>
+    </ol>
+  </nav>
+  <h1 class="title">{{ badge.label }}</h1>
+
+  <div class="main-body-box">
+    <div class="row is-vcentered">
+      <div>{{ render_user_badge(badge, 64) }}</div>
+      {%- if badge.description %}
+      <div class="column--grow">{{ badge.description|safe }}</div>
+      {%- endif %}
+    </div>
+  </div>
+
+  <h2>{{ _('Awarded to %(awardee_count)s users', awardee_count=awardees|length) }}</h2>
+  <div class="main-body-box">
+    <ul class="list-grid">
+      {%- for awardee in awardees %}
+      <li><a class="awardee" href="{{ url_for('user_profile.view', user_id=awardee.id) }}">
+{{ render_user_avatar(awardee, size=64, orga=awardee.id in orga_ids) }}
+      </a></li>
+      {%- endfor %}
+    </ul>
+  </div>
+
+{%- endblock %}

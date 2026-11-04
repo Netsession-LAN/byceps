@@ -1,0 +1,21 @@
+{%- from 'macros/user_badge.html' import render_user_badge_linked %}
+
+
+{%- if badges_with_awarding_quantity %}
+<div class="block">
+  <h2 class="title">{{ _('Badges') }}</h2>
+
+  <div style="display: grid; gap: 2rem; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));">
+  {%- for badge, quantity in badges_with_awarding_quantity|items|sort(attribute='0.label') %}
+    <div style="display: flex; flex-direction: column; row-gap: 0.5rem;">
+      <div class="centered">{{ render_user_badge_linked(badge, 96) }}</div>
+      <div class="centered">{{ badge.label }}</div>
+      {%- if quantity > 1 %}
+      <div class="centered dimmed">&times;{{ quantity }}</div>
+      {%- endif %}
+    </div>
+  {%- endfor %}
+  </div>
+
+</div>
+{%- endif %}

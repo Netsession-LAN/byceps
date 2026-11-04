@@ -1,0 +1,36 @@
+{% from 'macros/admin/brand.html' import render_brand_avatar %}
+{% from 'macros/admin/dashboard.html' import render_cell %}
+
+
+<h2>{{ _('Active Shops') }}</h2>
+
+<div class="grid">
+
+{%- if active_shops_with_brands_and_open_orders_counts %}
+  {%- for shop, brand, open_orders_count in active_shops_with_brands_and_open_orders_counts %}
+    {%- call render_cell() %}
+
+  <a href="{{ url_for('shop_shop_admin.dashboard', shop_id=shop.id) }}" class="disguised">
+    <div class="row mb">
+      <div>{{ render_brand_avatar(brand, '40') }}</div>
+      <div class="column--grow">{{ shop.title }}</div>
+    </div>
+  </a>
+
+  <div class="small">
+      {%- if open_orders_count %}
+    <a href="{{ url_for('shop_order_admin.index_for_shop', shop_id=shop.id, only_payment_state='open') }}" class="disguised" style="display: block;"><strong style="color: #ee3322;">{{ open_orders_count }}</strong> {{ ngettext('open order', 'open orders', open_orders_count) }}</a>
+      {%- else %}
+    {{ _('No open orders')|dim }}
+      {%- endif %}
+  </div>
+
+    {%- endcall %}
+  {%- endfor %}
+{%- else %}
+  {%- call render_cell() %}
+  <div style="display: grid; height: 100%; place-items: center;">{{ _('No active shops')|dim }}</div>
+  {%- endcall %}
+{%- endif %}
+
+</div>

@@ -1,0 +1,90 @@
+a.dashboard-section-link {
+  color: #666666;
+  font-size: 0.75rem; /* 12px / 16px */
+  margin: 0 0.5rem 1rem 0.5rem;
+}
+
+a.dashboard-section-link:not(:hover) {
+  text-decoration: none;
+}
+
+a.dashboard-section-link:hover {
+  color: currentColor;
+}
+
+.grid .cell--fitted {
+  align-self: start;
+}
+
+.grid .cell--higher {
+  grid-row: span 2;
+}
+
+.grid .cell--wider {
+  grid-column: span 2;
+}
+
+.cell a:not(.disguised) {
+  color: currentColor;
+  text-decoration: none;
+}
+
+.cell a:hover .box {
+  background-color: #f4f4f4;
+}
+
+.cell .box {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.cell-icon {
+  font-size: 5rem; /* 80px / 16px */
+  opacity: 0.075;
+  position: absolute;
+  right: 0.25rem;
+  top: 0;
+}
+
+.cell :is(.box, .cell-icon-wrapper) {
+  /* Keep cell icon in the background. */
+  position: relative;
+}
+
+.cell-label {
+  color: #888888;
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.cell .progress {
+  height: 0.25rem;
+}
+
+.cell .progress-label {
+  color: #888888;
+  text-align: right;
+}
+
+.cell .small {
+  font-size: 0.6875rem;
+}
+
+.bigstats {
+  margin-bottom: 0;
+}
+
+.bigstats figcaption {
+  font-weight: normal;
+}
+
+
+/* recent users */
+
+.supplement {
+  color: #888888;
+  font-size: 0.6875rem; /* 11px / 16px */
+  margin-top: 0.15rem;
+}

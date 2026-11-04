@@ -1,0 +1,8 @@
+{%- from 'macros/user.html' import render_user_avatar %}
+
+
+    <div class="creator">
+      {{ render_user_avatar(posting.creator, size=96, orga=posting.creator.is_orga) }}
+    </div>
+
+{% include 'site/board/_posting_view_aside_extra.html' %}

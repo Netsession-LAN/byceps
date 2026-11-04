@@ -1,0 +1,26 @@
+{%- from 'macros/admin/user.html' import render_user_flag_deleted, render_user_flag_suspended, render_user_flag_uninitialized, render_user_microcard %}
+
+{%- if users %}
+<table class="itemlist is-vcentered">
+  <tbody>
+    {%- for user in users %}
+    <tr>
+      <td>{{ render_user_microcard(user) }}</td>
+      <td>
+      {%- if not user.initialized %}
+        {{- render_user_flag_uninitialized() }}
+      {%- endif -%}
+      {%- if user.suspended %}
+        {{ render_user_flag_suspended() }}
+      {%- endif -%}
+      {%- if user.deleted %}
+        {{ render_user_flag_deleted() }}
+      {%- endif -%}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<div class="box no-data-message">{{ _('none') }}</div>
+{%- endif %}

@@ -1,0 +1,905 @@
+"""
+byceps.services.user.blueprints.admin.views
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from datetime import datetime
+
+from flask import abort, g, request
+from flask_babel import gettext
+from secret_type import secret
+
+from byceps.services.authn.password import authn_password_service
+from byceps.services.authn.session import authn_session_service
+from byceps.services.authn import signals as authn_signals
+from byceps.services.authz import authz_service, signals as authz_signals
+from byceps.services.authz.models import Permission, PermissionID, Role
+from byceps.services.country import country_service
+from byceps.services.orga_team import orga_team_service
+from byceps.services.shop.order import order_service
+from byceps.services.shop.shop import shop_service
+from byceps.services.site import site_service
+from byceps.services.user import (
+    signals as user_signals,
+    user_command_service,
+    user_creation_service,
+    user_email_address_service,
+    user_service,
+)
+from byceps.services.user.errors import NothingChangedError
+from byceps.services.user.models import UserFilter, UserForAdmin
+from byceps.services.user_badge import user_badge_awarding_service
+from byceps.util.authz import permission_registry
+from byceps.util.framework.blueprint import create_blueprint
+from byceps.util.framework.flash import flash_error, flash_notice, flash_success
+from byceps.util.framework.templating import templated
+from byceps.util.result import Err, Ok
+from byceps.util.views import (
+    permission_required,
+    redirect_to,
+    respond_no_content,
+)
+
+from . import service
+from .forms import (
+    ACCOUNT_DELETION_VERIFICATION_TEXT,
+    ChangeDetailsForm,
+    ChangeEmailAddressForm,
+    ChangeScreenNameForm,
+    CreateAccountForm,
+    DeleteAccountForm,
+    InvalidateEmailAddressForm,
+    SetPasswordForm,
+    SuspendAccountForm,
+)
+
+
+blueprint = create_blueprint('user_admin', __name__)
+
+
+@blueprint.get('/', defaults={'page': 1})
+@blueprint.get('/pages/<int:page>')
+@permission_required('user.view')
+@templated
+def index(page):
+    """List users."""
+    per_page = request.args.get('per_page', type=int, default=20)
+    search_term = request.args.get('search_term', default='').strip()
+    only = request.args.get('only')
+
+    user_filter = UserFilter.__members__.get(only, UserFilter.none)
+
+    users = user_service.get_users_paginated(
+        page,
+        per_page,
+        search_term=search_term,
+        user_filter=user_filter,
+    )
+
+    user_ids = {user.id for user in users.items}
+    recent_login_datetimes_by_user_id = (
+        authn_session_service.find_recent_logins_for_users(user_ids)
+    )
+
+    users.items = [
+        (user, recent_login_datetimes_by_user_id.get(user.id)) for user in users
+    ]
+
+    return {
+        'users': users,
+        'search_term': search_term,
+        'only': only,
+        'UserFilter': UserFilter,
+        'user_filter': user_filter,
+    }
+
+
+@blueprint.get('/<uuid:user_id>')
+@permission_required('user.view')
+@templated
+def view(user_id):
+    """Show a user's internal profile."""
+    user = _get_user_for_admin_or_404(user_id)
+    email_address_data = user_service.get_email_address_data(user.id)
+    user_detail = user_service.get_detail(user.id)
+
+    locale = user_service.find_locale(user.id)
+
+    recent_login = authn_session_service.find_recent_login(user.id)
+    days_since_recent_login = _calculate_days_since(recent_login)
+
+    orga_activities = orga_team_service.get_orga_activities_for_user(user.id)
+
+    newsletter_subscription_states = list(
+        service.get_newsletter_subscription_states(user.id)
+    )
+    newsletter_subscription_count = sum(
+        1 for _, subscribed in newsletter_subscription_states if subscribed
+    )
+
+    orders = order_service.get_orders_placed_by_user(user.id)
+
+    order_shop_ids = {order.shop_id for order in orders}
+    shops = shop_service.find_shops(order_shop_ids)
+    shops_by_id = {shop.id: shop for shop in shops}
+
+    parties_and_tickets = service.get_parties_and_tickets(user.id)
+    ticket_count = sum(len(tickets) for _, tickets in parties_and_tickets)
+
+    attended_parties = service.get_attended_parties(user.id)
+
+    badges_with_awarding_quantity = (
+        user_badge_awarding_service.get_badges_awarded_to_user(user.id)
+    )
+    badge_count = len(badges_with_awarding_quantity)
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'email_address_data': email_address_data,
+        'user_locale': locale,
+        'recent_login': recent_login,
+        'days_since_recent_login': days_since_recent_login,
+        'user_detail': user_detail,
+        'orga_activities': orga_activities,
+        'newsletter_subscription_count': newsletter_subscription_count,
+        'newsletter_subscription_states': newsletter_subscription_states,
+        'orders': orders,
+        'shops_by_id': shops_by_id,
+        'parties_and_tickets': parties_and_tickets,
+        'ticket_count': ticket_count,
+        'attended_parties': attended_parties,
+        'badge_count': badge_count,
+        'badges_with_awarding_quantity': badges_with_awarding_quantity,
+    }
+
+
+def _calculate_days_since(dt: datetime | None) -> int | None:
+    if dt is None:
+        return None
+
+    return (datetime.utcnow().date() - dt.date()).days
+
+
+# -------------------------------------------------------------------- #
+# account
+
+
+@blueprint.get('/create')
+@permission_required('user.create')
+@templated
+def create_account_form(erroneous_form=None):
+    """Show a form to create a user account."""
+    form = erroneous_form if erroneous_form else CreateAccountForm()
+    form.set_site_choices()
+
+    return {'form': form}
+
+
+@blueprint.post('/')
+@permission_required('user.create')
+def create_account():
+    """Create a user account."""
+    form = CreateAccountForm(request.form)
+    form.set_site_choices()
+
+    if not form.validate():
+        return create_account_form(form)
+
+    screen_name = form.screen_name.data.strip()
+    first_name = form.first_name.data.strip()
+    last_name = form.last_name.data.strip()
+    email_address = form.email_address.data
+    password = secret(form.password.data)
+    site_id_for_email = form.site_id.data
+
+    if site_id_for_email:
+        site_for_email = site_service.get_site(site_id_for_email)
+    else:
+        site_for_email = None
+
+    initiator = g.user.as_user()
+
+    creation_result = user_creation_service.create_user(
+        screen_name,
+        email_address,
+        password,
+        first_name=first_name,
+        last_name=last_name,
+        creation_method='admin app',
+        creator=initiator,
+        # Do not pass site ID here; the account is not created on a site.
+        ip_address=request.remote_addr,
+    )
+    if creation_result.is_err():
+        flash_error(
+            gettext(
+                'User "%(screen_name)s" could not be created.',
+                screen_name=screen_name,
+            )
+        )
+        return create_account_form(form)
+
+    user, event = creation_result.unwrap()
+
+    flash_success(
+        gettext(
+            'User "%(screen_name)s" has been created.',
+            screen_name=user.screen_name,
+        )
+    )
+
+    if site_for_email:
+        user_creation_service.request_email_address_confirmation(
+            user, email_address, site_for_email.id
+        ).unwrap()
+        flash_success(
+            gettext('An email has been sent to the corresponding address.'),
+            icon='email',
+        )
+
+    user_signals.account_created.send(None, event=event)
+
+    return redirect_to('.view', user_id=user.id)
+
+
+@blueprint.post('/<uuid:user_id>/initialize')
+@permission_required('user.administrate')
+@respond_no_content
+def initialize_account(user_id):
+    """Initialize the user account."""
+    user = _get_user_or_404(user_id)
+
+    initiator = g.user.as_user()
+
+    user_command_service.initialize_account(user, initiator=initiator)
+
+    flash_success(
+        gettext(
+            "User '%(screen_name)s' has been initialized.",
+            screen_name=user.screen_name,
+        )
+    )
+
+
+@blueprint.get('/<uuid:user_id>/suspend')
+@permission_required('user.administrate')
+@templated
+def suspend_account_form(user_id, erroneous_form=None):
+    """Show form to suspend the user account."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    if user.suspended:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' is already suspended.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = erroneous_form if erroneous_form else SuspendAccountForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/suspend')
+@permission_required('user.administrate')
+def suspend_account(user_id):
+    """Suspend the user account."""
+    user = _get_user_or_404(user_id)
+
+    if user.suspended:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' is already suspended.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = SuspendAccountForm(request.form)
+    if not form.validate():
+        return suspend_account_form(user.id, form)
+
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    event = user_command_service.suspend_account(user, initiator, reason)
+
+    user_signals.account_suspended.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "User '%(screen_name)s' has been suspended.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+@blueprint.get('/<uuid:user_id>/unsuspend')
+@permission_required('user.administrate')
+@templated
+def unsuspend_account_form(user_id, erroneous_form=None):
+    """Show form to unsuspend the user account."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    if not user.suspended:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' is not suspended.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = erroneous_form if erroneous_form else SuspendAccountForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/unsuspend')
+@permission_required('user.administrate')
+def unsuspend_account(user_id):
+    """Unsuspend the user account."""
+    user = _get_user_or_404(user_id)
+
+    if not user.suspended:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' is not suspended.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = SuspendAccountForm(request.form)
+    if not form.validate():
+        return unsuspend_account_form(user.id, form)
+
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    event = user_command_service.unsuspend_account(user, initiator, reason)
+
+    user_signals.account_unsuspended.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "User '%(screen_name)s' has been unsuspended.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+@blueprint.get('/<uuid:user_id>/delete')
+@permission_required('user.administrate')
+@templated
+def delete_account_form(user_id, erroneous_form=None):
+    """Show form to delete the user account."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    if user.deleted:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' has already been deleted.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = erroneous_form if erroneous_form else DeleteAccountForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+        'verification_text': ACCOUNT_DELETION_VERIFICATION_TEXT,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/delete')
+@permission_required('user.administrate')
+def delete_account(user_id):
+    """Delete the user account."""
+    user = _get_user_or_404(user_id)
+
+    if user.deleted:
+        flash_error(
+            gettext(
+                "User '%(screen_name)s' has already been deleted.",
+                screen_name=user.screen_name,
+            )
+        )
+        return redirect_to('.view', user_id=user.id)
+
+    form = DeleteAccountForm(request.form)
+    if not form.validate():
+        return delete_account_form(user.id, form)
+
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    event = user_command_service.delete_account(user, initiator, reason)
+
+    user_signals.account_deleted.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "User '%(screen_name)s' has been deleted.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+# -------------------------------------------------------------------- #
+# screen name
+
+
+@blueprint.get('/<uuid:user_id>/change_screen_name')
+@permission_required('user.administrate')
+@templated
+def change_screen_name_form(user_id, erroneous_form=None):
+    """Show form to change the user's screen name."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    form = erroneous_form if erroneous_form else ChangeScreenNameForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/change_screen_name')
+@permission_required('user.administrate')
+def change_screen_name(user_id):
+    """Change the user's screen name."""
+    user = _get_user_or_404(user_id)
+
+    form = ChangeScreenNameForm(request.form)
+    if not form.validate():
+        return change_screen_name_form(user.id, form)
+
+    old_screen_name = user.screen_name
+    new_screen_name = form.screen_name.data.strip()
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    event = user_command_service.change_screen_name(
+        user, new_screen_name, initiator, reason=reason
+    )
+
+    user_signals.screen_name_changed.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "User '%(old_screen_name)s' has been renamed to '%(new_screen_name)s'.",
+            old_screen_name=old_screen_name,
+            new_screen_name=new_screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+# -------------------------------------------------------------------- #
+# email address
+
+
+@blueprint.get('/<uuid:user_id>/change_email_address')
+@permission_required('user.administrate')
+@templated
+def change_email_address_form(user_id, erroneous_form=None):
+    """Show form to change the user's e-mail address."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    form = erroneous_form if erroneous_form else ChangeEmailAddressForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/change_email_address')
+@permission_required('user.administrate')
+def change_email_address(user_id):
+    """Change the user's e-mail address."""
+    user = _get_user_or_404(user_id)
+
+    form = ChangeEmailAddressForm(request.form)
+    if not form.validate():
+        return change_email_address_form(user.id, form)
+
+    new_email_address = form.email_address.data.strip()
+    verified = False
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    event = user_command_service.change_email_address(
+        user, new_email_address, verified, initiator, reason=reason
+    )
+
+    user_signals.email_address_changed.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "Email address for user '%(screen_name)s' has been updated.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+@blueprint.get('/<uuid:user_id>/invalidate_email_address')
+@permission_required('user.administrate')
+@templated
+def invalidate_email_address_form(user_id, erroneous_form=None):
+    """Show form to invalidate the email address assigned with the account."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    email_address = user_service.get_email_address_data(user_id)
+    if not email_address.verified:
+        flash_error(gettext('Email address is already invalidated.'))
+        return redirect_to('.view', user_id=user.id)
+
+    form = erroneous_form if erroneous_form else InvalidateEmailAddressForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/invalidate_email_address')
+@permission_required('user.administrate')
+def invalidate_email_address(user_id):
+    """Invalidate the email address assigned with the account."""
+    user = _get_user_or_404(user_id)
+
+    form = InvalidateEmailAddressForm(request.form)
+    if not form.validate():
+        return invalidate_email_address_form(user.id, form)
+
+    initiator = g.user.as_user()
+    reason = form.reason.data.strip()
+
+    invalidation_result = user_email_address_service.invalidate_email_address(
+        user, reason, initiator=initiator
+    )
+
+    if invalidation_result.is_err():
+        flash_error(invalidation_result.unwrap_err())
+        return redirect_to('.view', user_id=user.id)
+
+    event = invalidation_result.unwrap()
+
+    user_signals.email_address_invalidated.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "The email address of user '%(screen_name)s' has been invalidated.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+# -------------------------------------------------------------------- #
+# details
+
+
+@blueprint.get('/<uuid:user_id>/details')
+@permission_required('user.administrate')
+@templated
+def change_details_form(user_id, erroneous_form=None):
+    """Show a form to change the user's details."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    detail = user_service.get_detail(user_id)
+
+    form = erroneous_form if erroneous_form else ChangeDetailsForm(obj=detail)
+    country_names = country_service.get_country_names()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+        'country_names': country_names,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/details')
+@permission_required('user.administrate')
+def change_details(user_id):
+    """Change the user's details."""
+    user = _get_user_or_404(user_id)
+
+    form = ChangeDetailsForm(request.form)
+    if not form.validate():
+        return change_details_form(user.id, form)
+
+    first_name = form.first_name.data.strip()
+    last_name = form.last_name.data.strip()
+    date_of_birth = form.date_of_birth.data
+    country = form.country.data.strip()
+    postal_code = form.postal_code.data.strip()
+    city = form.city.data.strip()
+    street = form.street.data.strip()
+    phone_number = form.phone_number.data.strip()
+    initiator = g.user.as_user()
+
+    update_result = user_command_service.update_user_details(
+        user.id,
+        first_name,
+        last_name,
+        date_of_birth,
+        country,
+        postal_code,
+        city,
+        street,
+        phone_number,
+        initiator,
+    )
+
+    match update_result:
+        case Ok(event):
+            flash_success(gettext('Changes have been saved.'))
+            user_signals.details_updated.send(None, event=event)
+        case Err(NothingChangedError()):
+            flash_notice(gettext('Nothing has been changed.'))
+        case Err(msg):
+            flash_error(gettext('An unexpected error occurred.') + '\n' + msg)
+
+    return redirect_to('.view', user_id=user.id)
+
+
+# -------------------------------------------------------------------- #
+# authentication
+
+
+@blueprint.get('/<uuid:user_id>/password')
+@permission_required('user.set_password')
+@templated
+def set_password_form(user_id, erroneous_form=None):
+    """Show a form to set a new password for the user."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    form = erroneous_form if erroneous_form else SetPasswordForm()
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'form': form,
+    }
+
+
+@blueprint.post('/<uuid:user_id>/password')
+@permission_required('user.set_password')
+def set_password(user_id):
+    """Set a new password for the user."""
+    user = _get_user_or_404(user_id)
+
+    form = SetPasswordForm(request.form)
+    if not form.validate():
+        return set_password_form(user.id, form)
+
+    new_password = secret(form.password.data)
+    initiator = g.user.as_user()
+
+    event = authn_password_service.update_password_hash(
+        user, new_password, initiator
+    )
+
+    authn_signals.password_updated.send(None, event=event)
+
+    flash_success(
+        gettext(
+            "New password has been set for user '%(screen_name)s'.",
+            screen_name=user.screen_name,
+        )
+    )
+
+    return redirect_to('.view', user_id=user.id)
+
+
+# -------------------------------------------------------------------- #
+# authorization
+
+
+@blueprint.get('/<uuid:user_id>/permissions')
+@permission_required('user.view')
+@templated
+def view_permissions(user_id):
+    """Show user's permissions."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    user_permission_ids_by_role = (
+        authz_service.get_permission_ids_by_role_for_user(user.id)
+    )
+
+    permissions_by_role = _index_permissions_by_role(
+        user_permission_ids_by_role
+    )
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'permissions_by_role': permissions_by_role,
+    }
+
+
+@blueprint.get('/<uuid:user_id>/roles/assignment')
+@permission_required('role.assign')
+@templated
+def manage_roles(user_id):
+    """Manage what roles are assigned to the user."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    permission_ids_by_role = authz_service.get_permission_ids_by_role()
+
+    permissions_by_role = _index_permissions_by_role(permission_ids_by_role)
+
+    user_role_ids = authz_service.find_role_ids_for_user(user.id)
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'permissions_by_role': permissions_by_role,
+        'user_role_ids': user_role_ids,
+    }
+
+
+def _index_permissions_by_role(
+    permission_ids_by_role: dict[Role, frozenset[PermissionID]],
+) -> dict[Role, frozenset[Permission]]:
+    registered_permissions_by_id = {
+        permission.id: permission
+        for permission in permission_registry.get_registered_permissions()
+    }
+
+    return {
+        role: frozenset(
+            registered_permissions_by_id[permission_id]
+            for permission_id in permission_ids
+            if permission_id in registered_permissions_by_id
+        )
+        for role, permission_ids in permission_ids_by_role.items()
+    }
+
+
+@blueprint.post('/<uuid:user_id>/roles/<role_id>')
+@permission_required('role.assign')
+@respond_no_content
+def role_assign(user_id, role_id):
+    """Assign the role to the user."""
+    user = _get_user_or_404(user_id)
+    role = _get_role_or_404(role_id)
+    initiator = g.user.as_user()
+
+    event = authz_service.assign_role_to_user(
+        role.id, user, initiator=initiator
+    )
+
+    if event is not None:
+        authz_signals.role_assigned_to_user.send(None, event=event)
+
+    flash_success(
+        gettext(
+            '%(role_title)s has been assigned to "%(screen_name)s".',
+            screen_name=user.screen_name,
+            role_title=role.title,
+        )
+    )
+
+
+@blueprint.delete('/<uuid:user_id>/roles/<role_id>')
+@permission_required('role.assign')
+@respond_no_content
+def role_deassign(user_id, role_id):
+    """Deassign the role from the user."""
+    user = _get_user_or_404(user_id)
+    role = _get_role_or_404(role_id)
+    initiator = g.user.as_user()
+
+    event = authz_service.deassign_role_from_user(
+        role.id, user, initiator=initiator
+    ).unwrap()
+
+    authz_signals.role_deassigned_from_user.send(None, event=event)
+
+    flash_success(
+        gettext(
+            '%(role_title)s has been withdrawn from "%(screen_name)s".',
+            screen_name=user.screen_name,
+            role_title=role.title,
+        )
+    )
+
+
+# -------------------------------------------------------------------- #
+# events
+
+
+LOGIN_EVENT_TYPES = frozenset(
+    ['user-logged-in', 'user-logged-in-to-admin', 'user-logged-in-to-site']
+)
+
+
+@blueprint.get('/<uuid:user_id>/events')
+@permission_required('user.view')
+@templated
+def view_events(user_id):
+    """Show user's events."""
+    user = _get_user_for_admin_or_404(user_id)
+
+    log_entries = list(service.get_log_entries(user))
+
+    include_logins = request.args.get('include_logins', default='yes') == 'yes'
+    if not include_logins:
+        log_entries = [
+            entry
+            for entry in log_entries
+            if entry['event_type'] not in LOGIN_EVENT_TYPES
+        ]
+
+    return {
+        'profile_user': user,
+        'user': user,
+        'log_entries': log_entries,
+        'logins_included': include_logins,
+    }
+
+
+# -------------------------------------------------------------------- #
+# helpers
+
+
+def _get_user_for_admin_or_404(user_id) -> UserForAdmin:
+    user = user_service.find_user_for_admin(user_id)
+
+    if user is None:
+        abort(404)
+
+    return user
+
+
+def _get_user_or_404(user_id):
+    user = user_service.find_user(user_id)
+
+    if user is None:
+        abort(404)
+
+    return user
+
+
+def _get_role_or_404(role_id):
+    role = authz_service.find_role(role_id)
+
+    if role is None:
+        abort(404)
+
+    return role

@@ -1,0 +1,46 @@
+{%- from 'macros/admin/ticketing.html' import render_ticket_flag_revoked, render_ticket_flag_user_checked_in %}
+{%- from 'macros/admin/user.html' import render_user_microcard %}
+{%- from 'macros/misc.html' import render_tag %}
+
+{%- if tickets %}
+<table class="itemlist is-vcentered is-wide">
+  <thead>
+    <tr>
+      <th>{{ _('Code') }}</th>
+      <th>{{ _('User') }}</th>
+      <th>{{ _('Owner') }}</th>
+      <th>{{ _('Category') }}</th>
+      <th>{{ _('Seat') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for ticket in tickets|sort(attribute='created_at') %}
+    <tr>
+      <td>
+        <a href="{{ url_for('ticketing_admin.view_ticket', ticket_id=ticket.id) }}"><strong>{{ ticket.code }}</strong></a>
+        {%- if ticket.revoked %}<br>{{ render_ticket_flag_revoked() }}{% endif -%}
+        {%- if ticket.user_checked_in %}<br>{{ render_ticket_flag_user_checked_in() }}{% endif -%}
+      </td>
+      <td>
+        {%- if ticket.used_by -%}
+        {{ render_user_microcard(ticket.used_by) }}
+        {%- else -%}
+        {{ render_tag(_('available'), class='color-info') }}
+        {%- endif -%}
+      </td>
+      <td>{{ render_user_microcard(ticket.owned_by, tiny_avatar=True) }}</td>
+      <td>{{ ticket.category.title }}</td>
+      <td>
+        {%- if ticket.occupied_seat -%}
+        {{ ticket.occupied_seat.label|fallback(_('unnamed')) }}
+        {%- else -%}
+        {{ render_tag(_('no seat'), class='color-info') }}
+        {%- endif -%}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<div class="box no-data-message">{{ _('none') }}</div>
+{%- endif %}

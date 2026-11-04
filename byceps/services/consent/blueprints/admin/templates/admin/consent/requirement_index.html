@@ -1,0 +1,60 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page = 'consent_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Required Consents') %}
+
+{% block body %}
+
+<div class="row row--space-between block">
+  <div>
+    <h1 class="title">{{ page_title }} {{ render_extra_in_heading(subjects_with_consent_counts|length) }}</h1>
+  </div>
+  {%- if g.user.has_permission('consent.administrate') %}
+  <div>
+    <div class="button-row is-right-aligned">
+      <a class="button" href="{{ url_for('.requirement_create_form', brand_id=brand.id) }}">{{ render_icon('add') }} <span>{{ _('Create consent requirement') }}</span></a>
+    </div>
+  </div>
+  {%- endif %}
+</div>
+
+{%- if subjects_with_consent_counts -%}
+<table class="itemlist is-vcentered is-wide">
+  <thead>
+    <tr>
+      <th>{{ _('Title') }}<br>{{ _('Name') }}</th>
+      <th class="number">{{ _('Consents') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for subject, count in subjects_with_consent_counts -%}
+    <tr>
+      <td><strong>{{ subject.title }}</strong><br>{{ subject.name|dim }}</td>
+      <td class="bignumber number">{{ count|numberformat }}</td>
+      <td>
+        {%- if g.user.has_permission('consent.administrate') %}
+        <div class="button-row is-compact is-right-aligned">
+          <a class="button is-compact color-danger" href="{{ url_for('.requirement_delete', brand_id=brand.id, subject_id=subject.id) }}" data-action="requirement-delete" title="{{ _('Delete') }}">{{ render_icon('delete') }}</a>
+        </div>
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor -%}
+  </tbody>
+</table>
+{%- else -%}
+<div class="box no-data-message">{{ _('None defined') }}</div>
+{%- endif -%}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+onDomReady(() => {
+  confirmed_delete_on_click_then_reload('[data-action="requirement-delete"]', '{{ _('Delete consent requirement?') }}');
+});
+</script>
+{% endblock %}

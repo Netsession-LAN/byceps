@@ -1,0 +1,73 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink, render_main_tabs %}
+{% from 'macros/admin/user.html' import render_most_important_user_flag %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/user.html' import render_user_avatar, render_user_screen_name %}
+{% set current_page = 'user_admin' %}
+
+{% block before_body %}
+<style>
+.user-head {
+  align-items: center;
+  display: flex;
+  margin: calc(var(--inner-gutter) / 2) 0 var(--inner-gutter) 0;
+}
+
+.user-head .avatar {
+  border: #cccccc solid 1px;
+  margin-right: 0.75rem;
+}
+
+.user-head :is(.title, .subtitle) {
+  margin: 0 !important;
+  padding: 0;
+}
+
+.user-head .subtitle {
+  font-size: 1.125rem; /* 18px / 16px */
+  opacity: 0.7;
+}
+
+.user-head .flags {
+  margin-top: 0.25rem;
+}
+</style>
+
+  {{ render_backlink(url_for('.index'), _('Users')) }}
+
+  <div class="user-head">
+    <div>{{ render_user_avatar(profile_user, size=96) }}</div>
+    <div>
+      <h1 class="title">{{ render_user_screen_name(profile_user) }}</h1>
+      <div class="subtitle">{{ profile_user.detail.full_name|fallback }}</div>
+      <div class="flags">{{ render_most_important_user_flag(profile_user) }}</div>
+    </div>
+  </div>
+
+  {%- with party = current_page_party, user_id = current_tab_user_id %}
+{{
+  render_main_tabs(
+    Navigation()
+      .add_item(
+        url_for('.view', user_id=user_id),
+        _('Overview'),
+        id='profile',
+        required_permission='user.view',
+        icon='user')
+      .add_item(
+        url_for('.view_events', user_id=user_id),
+        _('Events'),
+        id='events',
+        required_permission='user.view',
+        icon='history')
+      .add_item(
+        url_for('.view_permissions', user_id=user_id),
+        _('Permissions'),
+        id='permissions',
+        required_permission='user.view',
+        icon='permission')
+    , current_tab
+  )
+}}
+  {%- endwith %}
+{%- endblock %}

@@ -1,0 +1,61 @@
+{%- from 'macros/admin.html' import render_main_tabs %}
+
+
+{%- with navigation = Navigation(_('Party'))
+    .add_item(
+      url_for('admin_dashboard.view_party', party_id=party.id),
+      _('Dashboard'),
+      id='admin_dashboard_party',
+      required_permission='party.view',
+      icon='dashboard')
+    .add_item(
+      url_for('whereabouts_admin.index', party_id=party.id),
+      _('Orga Whereabouts'),
+      id='whereabouts_admin',
+      required_permission='whereabouts.view',
+      icon='location')
+    .add_item(
+      url_for('orga_team_admin.teams_for_party', party_id=party.id),
+      _('Organizers'),
+      id='orga_team_admin.teams',
+      required_permission='orga_team.view',
+      icon='users')
+    .add_item(
+      url_for('ticketing_admin.index_for_party', party_id=party.id),
+      _('Tickets'),
+      id='ticketing_admin',
+      required_permission='ticketing.view',
+      icon='ticket')
+    .add_item(
+      url_for('seating_admin.index_for_party', party_id=party.id),
+      _('Seating Plans'),
+      id='seating_admin',
+      required_permission='seating.view',
+      icon='seating-area')
+    .add_item(
+      url_for('ticketing_checkin_admin.index', party_id=party.id),
+      _('Check-In'),
+      id='ticketing_checkin_admin',
+      required_permission='ticketing.checkin',
+      icon='ticketing-checkin')
+    .add_item(
+      url_for('guest_server_admin.server_index', party_id=party.id),
+      _('Guest Servers'),
+      id='guest_server_admin',
+      required_permission='guest_server.view',
+      icon='server')
+    .add_item(
+      url_for('party_admin.view', party_id=party.id),
+      _('Settings'),
+      id='party_admin',
+      required_permission='party.view',
+      icon='settings')
+    .add_item(
+      url_for('more_admin.view_party', party_id=party.id),
+      _('More'),
+      id='more_admin_party',
+      required_permission='admin.access',
+      icon='ellipsis-h')
+-%}
+{{ render_main_tabs(navigation, current_page) }}
+{%- endwith %}

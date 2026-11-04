@@ -1,0 +1,36 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'parties_admin' %}
+{% set current_page_brand = brand %}
+{% set page_title = _('Create party') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index_for_brand', brand_id=brand.id), brand.title) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create', brand_id=brand.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.id, placeholder='%s-42'|format(brand.id), autofocus='autofocus') }}
+      {{ form_field(form.title, placeholder='%s 42'|format(brand.title)) }}
+
+      <div class="form-control-block row">
+        <div>
+          {{ form_field(form.starts_at) }}
+        </div>
+        <div>
+          {{ form_field(form.ends_at) }}
+        </div>
+      </div>
+
+      {{ form_field(form.max_ticket_quantity, type='number', min=0, max=99999, style='width: 5.5rem;') }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

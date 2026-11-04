@@ -1,0 +1,117 @@
+{% extends 'layout/base.html' %}
+{% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
+{% from 'macros/misc.html' import render_tag %}
+{% set page_title = [tournament.title, _('Teilnehmer')] %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+{% endblock %}
+
+{% block subnav %}
+{% endblock %}
+
+{% block body %}
+  {{ render_tournament_header(tournament, 'overview', crumb_label=_('Teilnehmer'), show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
+
+  <div class="row row--space-between block">
+    <h2 class="title">{{ _('Teilnehmer') }}</h2>
+    <div>
+      {%- if tournament.registration_mode.value == 'solo' and registration_state.can_register %}
+      <form action="{{ url_for('netsession_tourney.register', slug=tournament.slug) }}" method="post">
+        <button type="submit" class="button color-primary">{{ _('Registrieren') }}</button>
+      </form>
+      {%- elif tournament.registration_mode.value == 'mixed' and registration_state.can_register %}
+      <form action="{{ url_for('netsession_tourney.register', slug=tournament.slug) }}" method="post">
+        <button type="submit" class="button color-primary">{{ _('Solo registrieren') }}</button>
+      </form>
+      {%- elif registration_state.can_unregister %}
+      <form action="{{ url_for('netsession_tourney.unregister', slug=tournament.slug) }}" method="post">
+        <button type="submit" class="button is-outlined">{{ _('Abmelden') }}</button>
+      </form>
+      {%- elif registration_state.is_full %}
+      <span class="dimmed">{{ _('Anmeldung nicht möglich, Turnier ist voll.') }}</span>
+      {%- elif tournament.registration_mode.value != 'solo' %}
+      <span class="dimmed">{{ _('Team-Registrierung unten') }}</span>
+      {%- endif %}
+    </div>
+  </div>
+
+  <p class="dimmed mb">
+    {{ registration_state.active_participant_count }}
+    {%- if tournament.participant_limit is not none %}
+      / {{ tournament.participant_limit }}
+    {%- endif %}
+    {{ _('Teilnehmer') }}
+  </p>
+
+  {%- if captain_team %}
+  <section class="ns-tourney-panel mb">
+    <h2>{{ _('Mein Team') }}</h2>
+    <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=captain_team.id) }}" class="button color-primary">
+      {{ _('Teamseite öffnen') }}
+    </a>
+  </section>
+  {%- endif %}
+
+  {%- if registration_state.can_register and tournament.registration_mode.value != 'solo' %}
+  <section class="ns-tourney-panel mb">
+    <h2>{{ _('Team anmelden') }}</h2>
+    <a href="{{ url_for('netsession_tourney.create_team_form', slug=tournament.slug) }}" class="button color-primary">
+      {{ _('Team anmelden / Invite-Code') }}
+    </a>
+  </section>
+  {%- endif %}
+
+  <div class="ns-tourney-panel">
+    {%- if participants %}
+    <table class="itemlist is-vcentered is-wide">
+      <thead>
+        <tr>
+          <th>{{ _('Name') }}</th>
+          <th>{{ _('Typ') }}</th>
+          <th>{{ _('Seed') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Check-in') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for participant in participants %}
+        <tr>
+          <td>
+            <strong>
+              {%- if participant.type.value == 'team' %}
+                <a href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+              {%- elif participant.user_id %}
+                <a href="{{ url_for('netsession_tourney.view_player', slug=tournament.slug, participant_id=participant.id) }}">{{ participant.name }}</a>
+              {%- else %}
+                {{ participant.name }}
+              {%- endif %}
+            </strong>
+            {%- set members = members_by_participant_id.get(participant.id, []) %}
+            {%- if members %}
+            <br>
+            <small class="dimmed">{{ _('Mitglieder') }}: {{ members|length }}</small>
+            <ul class="compact mt">
+            {%- for member in members %}
+              {%- set user = users_by_id.get(member.user_id) %}
+              <li>
+                {{ (user.screen_name if user and user.screen_name else member.user_id)|string }}
+                ({{ member.role.value }})
+              </li>
+            {%- endfor %}
+            </ul>
+            {%- endif %}
+          </td>
+          <td>{{ participant.type.value }}</td>
+          <td>{{ participant.seed|fallback('') }}</td>
+          <td>{{ render_tag(participant.status.value) }}</td>
+          <td>{{ participant.checkin_state.value }}</td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <p class="dimmed">{{ _('Keine Teilnehmer vorhanden.') }}</p>
+    {%- endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% from 'macros/seating.html' import render_seat_link %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% from 'macros/user.html' import render_user_avatar, render_user_link %}
+{% set current_page = 'attendees' %}
+{% set page_title = _('Attendees') %}
+
+{% block head %}
+    <style>
+      .attendees-list {
+        margin-bottom: 2rem;
+      }
+
+      .attendee {
+        align-items: center;
+        display: flex;
+      }
+
+      .attendee-avatar {
+        margin-right: 0.75rem;
+      }
+
+      .attendee-seats {
+        margin: 0.4rem 0;
+      }
+    </style>
+{%- endblock %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.attendees') }}" class="single-row unobtrusive mb">
+    <input type="search" name="search_term" placeholder="{{ _('Username') }}"{%- if search_term %} value="{{ search_term }}"{% endif %} class="form-control" style="width: 12rem;">
+    <button type="submit" class="button" title="{{ _('Search') }}">{{ render_icon('search') }}</button>
+    {%- if search_term %}
+    <a href="{{ url_for('.attendees') }}" class="button" title="{{ _('Remove search term constraint') }}">{{ render_icon('remove') }}</a>
+    {%- endif %}
+  </form>
+
+  {%- if search_term %}
+  <small>
+    <div class="row row--space-between mb">
+      <div>
+        <p><strong>{{ attendees.total }}</strong> {{ _('results for search term') }} &quot;<strong>{{ search_term }}</strong>&quot;</p>
+      </div>
+      <div>
+        <p><a href="{{ url_for('.attendees') }}">{{ _('all attendees') }}</a></p>
+      </div>
+    </div>
+  </small>
+  {%- endif %}
+
+  {%- if attendees.items %}
+  <table class="itemlist is-wide attendees-list">
+    <thead>
+      <tr>
+        <th>{{ _('User') }}</th>
+        <th>{{ _('Seat') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for attendee in attendees.items %}
+      <tr>
+        <td>
+          <div class="attendee">
+            <div class="attendee-avatar">{{ render_user_avatar(attendee.user, size=32, orga=attendee.is_orga) }}</div>
+            <div class="attendee-name">{{ render_user_link(attendee.user) }}</div>
+          </div>
+        </td>
+        <td>
+          <div class="attendee-seats">
+            {%- for ticket in attendee.tickets %}
+            <div class="row row--space-between">
+              <div>
+              {%- with seat = ticket.seat %}
+                {%- if seat %}
+                {{ render_seat_link(seat) }}
+                {%- else %}
+                {{ _('not chosen')|dim }} ({{ ticket.category_title }})
+                {%- endif %}
+              {%- endwith %}
+              </div>
+              {%- if ticket.checked_in %}
+              <div>{{ render_tag(_('checked in')) }}</div>
+              {%- endif %}
+            </div>
+            {%- endfor %}
+          </div>
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <p class="dimmed">{{ _('No attendees found.') }}</p>
+  {%- endif %}
+
+{{ render_pagination_nav(attendees, '.attendees', {
+  'per_page': per_page,
+  'search_term': search_term if search_term else None,
+}) }}
+
+{%- endblock %}

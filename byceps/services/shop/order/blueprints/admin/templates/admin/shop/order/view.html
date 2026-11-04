@@ -1,0 +1,150 @@
+{% extends 'layout/admin/shop/order.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/shop/order.html' import render_order_payment_state, render_order_overdue_tag %}
+{% set page_title = order.order_number %}
+
+{% block head %}
+  <style>
+    .order-status-bar {
+      display: flex;
+      flex-direction: column;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .order-status-flag {
+      align-items: center;
+      display: flex;
+      opacity: 0.25;
+    }
+    .order-status-flag.set {
+      opacity: 1;
+    }
+
+    .order-status-flag-icon {
+      font-size: 200%;
+      margin-right: 0.75rem;
+    }
+  </style>
+{%- endblock %}
+
+{% block body %}
+
+  <div class="row row--space-between">
+    <div>
+      <h1 class="title">{{ render_order_payment_state(order.payment_state) }} {{ render_order_overdue_tag(order) }} {{ order.order_number }}</h1>
+    </div>
+    {%- if g.user.has_any_permission(
+      'shop_order.cancel',
+      'shop_order.mark_as_paid',
+      'shop_order.update'
+    ) %}
+    <div>
+      <div class="button-row is-right-aligned">
+{% include 'admin/shop/order/_view_actions.html' %}
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  <div class="row row--space-between">
+    <div class="column--grow">
+
+      <h2>{{ _('Orderer') }}</h2>
+      <div class="box">
+{% include 'admin/shop/order/_view_orderer.html' %}
+      </div>
+
+    </div>
+    <div class="column--grow">
+
+      <h2>&nbsp;</h2>
+      <div class="box">
+
+{% include 'admin/shop/order/_view_status_flags.html' %}
+
+        <div class="data-label">{{ _('Date of creation') }}</div>
+        <div class="data-value">{{ order.created_at|datetimeformat }}</div>
+
+        <div class="data-label">{{ ngettext('Invoice', 'Invoices', order.invoices|length) }}</div>
+        <div class="data-value">
+        {%- if order.invoices %}
+          {%- for invoice in order.invoices|sort(attribute='number') %}
+            {%- if invoice.url %}<a href="{{ invoice.url }}">{% endif %}
+            {{- invoice.number }}
+            {%- if invoice.url %}</a>{% endif %}
+            {%- if not loop.last %}<br>{% endif %}
+          {%- endfor %}
+        {%- else %}
+        {{ _('none')|dim }}
+        {%- endif %}
+        </div>
+
+        {%- if order.is_canceled %}
+        <div class="data-label">{{ _('Reason for cancellation') }}</div>
+        <div class="data-value">{{ order.cancellation_reason|fallback }}</div>
+        {%- endif %}
+
+      </div>
+
+    </div>
+  </div>
+
+  <h2>{{ _('Products') }}</h2>
+{% include 'admin/shop/order/_view_products.html' %}
+
+  <h2>{{ ngettext('Payment', 'Payments', order.payments|length) }}</h2>
+  {%- if order.payments %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Date of creation') }}</th>
+        <th>{{ _('Payment method') }}</th>
+        <th class="number">{{ _('Amount') }}</th>
+        <th>{{ _('Additional fields') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for payment in order.payments|sort(attribute='created_at') %}
+      <tr>
+        <td>{{ payment.created_at|datetimeformat }}</td>
+        <td>{{ render_order_payment_method(payment.method) }}</td>
+        <td class="number">{{ payment.amount|moneyformat }}</td>
+        <td>
+          <div class="monospace nowrap" style="overflow-x: auto; width: 20rem;">
+            {%- for key, value in payment.additional_data|dictsort %}
+            {{ key }} = {{ value }}{% if not loop.last %}<br>{% endif %}
+            {%- endfor %}
+          </div>
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box">
+    {{ _('none')|dim }}
+  </div>
+  {%- endif %}
+
+  <h2>{{ _('Events') }} {{ render_extra_in_heading(log_entries|length) }}</h2>
+{% include 'admin/shop/order/_view_events.html' %}
+
+  <h2>{{ _('Tickets') }} {{ render_extra_in_heading(tickets|length) }}</h2>
+{% include 'admin/ticketing/_ticket_list.html' %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        confirmed_post_on_click_then_reload('[data-action="order-resend-incoming-notification"]', '{{ _('Resend confirmation email?') }}');
+
+        confirmed_post_on_click_then_reload('[data-action="order-flag-shipped"]', '{{ _('Mark as shipped?') }}');
+        confirmed_delete_on_click_then_reload('[data-action="order-unflag-shipped"]', '{{ _('Mark as not shipped?') }}');
+      });
+
+      enableCopyToClipboard('order-address-copy-trigger');
+    </script>
+{%- endblock %}

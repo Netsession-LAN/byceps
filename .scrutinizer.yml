@@ -1,0 +1,19 @@
+build:
+  nodes:
+    analysis:
+      tests:
+        override:
+          - js-scrutinizer-run
+          - py-scrutinizer-run
+
+filter:
+  paths:
+    - "byceps/"
+  excluded_paths:
+    - "byceps/static/behavior/vendor/"
+
+tools:
+  python_analyzer:
+    config:
+      duplication_detector:
+        enabled: false

@@ -1,0 +1,31 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'user_badge_admin' %}
+{% set page_title = _('Award Badge') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('user_admin.view', user_id=awardee.id), awardee.screen_name) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.award', awardee_id=awardee.id) }}" method="post">
+    <div class="box">
+      <div class="block">
+        <label class="form-label">{{ _('User') }}</label>
+        <div>
+          {{ render_user_avatar_and_admin_link(awardee, size=20) }}
+        </div>
+      </div>
+
+      {{ form_field(form.badge_id, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Award badge')) }}
+  </form>
+
+{%- endblock %}

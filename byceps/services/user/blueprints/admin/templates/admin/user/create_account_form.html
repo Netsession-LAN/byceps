@@ -1,0 +1,36 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'user' %}
+{% set page_title = _('Create user account') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index'), _('Users')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create_account') }}" method="post" class="disable-submit-button-on-submit">
+    <div class="box">
+      {{ form_field(form.screen_name, autofocus='autofocus') }}
+
+      <div class="form-control-block row">
+        <div class="column--grow">
+          {{ form_field(form.first_name) }}
+        </div>
+        <div class="column--grow">
+          {{ form_field(form.last_name) }}
+        </div>
+      </div>
+
+      {{ form_field(form.email_address, type='email') }}
+      {{ form_field(form.password) }}
+      {{ form_field(form.site_id, caption=_('The email to activate the account will use this site as its sender.')) }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

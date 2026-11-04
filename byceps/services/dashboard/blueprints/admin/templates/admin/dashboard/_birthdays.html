@@ -1,0 +1,15 @@
+{% from 'macros/admin/dashboard.html' import render_cell %}
+{% from 'macros/admin/orga.html' import render_upcoming_birthday_items %}
+
+
+<h2>{{ _('Upcoming Birthdays') }}</h2>
+
+{%- call render_cell('birthday', 'cell--wider', boxed=false) %}
+  <ol class="itemlist is-wide birthdays" style="min-height: 7rem;">
+{{ render_upcoming_birthday_items(orgas_with_next_birthdays) }}
+  </ol>
+{%- endcall %}
+
+<div class="mt" style="text-align: right;">
+  <a class="dashboard-section-link" href="{{ url_for('orga_admin.birthdays') }}">{{ _('All birthdays') }} &rarr;</a>
+</div>

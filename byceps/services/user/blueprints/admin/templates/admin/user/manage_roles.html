@@ -1,0 +1,86 @@
+{% extends 'layout/admin/user.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_tab = 'permissions' %}
+{% set current_tab_user_id = user.id %}
+{% set page_title = [_('Users'), _('Assign permissions'), user.screen_name] %}
+
+{% block head %}
+  <style>
+    ul.permissions {
+      margin: 0;
+      padding-left: 1em;
+    }
+
+    ul.permissions li + li {
+      margin-top: 0.5em;
+    }
+  </style>
+{%- endblock %}
+
+{% block body %}
+
+  <h2>{{ _('Permissions') }}</h2>
+
+  {%- if permissions_by_role %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Role') }}</th>
+        <th>{{ _('Permissions') }}</th>
+        {%- if g.user.has_permission('role.assign') %}
+        <th></th>
+        <th></th>
+        {%- endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {%- for role, permissions in permissions_by_role|items|sort(attribute='0.id') %}
+        {%- with user_has_role = (role.id in user_role_ids) %}
+      <tr>
+        <td{% if not user_has_role %} class="dimmed"{% endif %}>
+          <strong>{{ role.title }}</strong><br>
+          <span class="monospace">{{ role.id|dim }}</span>
+        </td>
+        <td{% if not user_has_role %} class="dimmed"{% endif %}>
+          {%- if permissions %}
+          <ul class="permissions">
+            {%- for permission in permissions|sort(attribute='id') %}
+            <li>{{ permission.title }}<br><span class="monospace">{{ permission.id|dim }}</span></li>
+            {%- endfor %}
+          </ul>
+          {%- else %}
+          <p class="dimmed">{{ _('none') }}</p>
+          {%- endif %}
+        </td>
+        {%- if g.user.has_permission('role.assign') %}
+        <td>
+          {%- if not user_has_role %}
+          <a class="button is-compact color-success" href="{{ url_for('.role_assign', user_id=user.id, role_id=role.id) }}" data-action="role-assign" title="{{ _('Assign role') }}">{{ render_icon('add') }}</a>
+          {%- endif %}
+        </td>
+        <td>
+          {%- if user_has_role %}
+          <a class="button is-compact color-danger" href="{{ url_for('.role_deassign', user_id=user.id, role_id=role.id) }}" data-action="role-deassign" title="{{ _('Unassign role') }}">{{ render_icon('remove') }}</a>
+          {%- endif %}
+        </td>
+        {%- endif %}
+      </tr>
+        {%- endwith %}
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('There are no roles that could be assigned to the user.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        confirmed_post_on_click_then_reload('[data-action="role-assign"]', '{{ _('Assign role?') }}');
+        confirmed_delete_on_click_then_reload('[data-action="role-deassign"]', '{{ _('Unassign role?') }}');
+      });
+    </script>
+{%- endblock %}

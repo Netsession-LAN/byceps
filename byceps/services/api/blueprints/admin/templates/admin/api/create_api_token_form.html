@@ -1,0 +1,24 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_checkboxes %}
+{% set current_page = 'api_admin' %}
+{% set page_title = _('Create API token') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index'), _('API Tokens')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create_api_token') }}" method="post">
+    <div class="box">
+      {{ form_field(form.description) }}
+      {{ form_field_checkboxes(form.permissions) }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

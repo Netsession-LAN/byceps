@@ -1,0 +1,35 @@
+{% from 'macros/icons.html' import render_icon %}
+
+
+{% macro render_main_tabs(navigation, current_tab) -%}
+  <nav class="main-tabs">
+    <ol>
+    {%- for item in navigation.get_items() %}
+      {%- with is_current = (item.id is not none) and (item.id == current_tab) %}
+      <li><a href="{{ item.endpoint }}" class="main-tab{% if is_current %} main-tab--current{% endif %}">
+        {%- if item.icon %}
+        <div class="row">
+          <div>{{ render_icon(item.icon) }}</div>
+          <div>{{ item.label }}</div>
+        </div>
+        {%- else %}
+        {{ item.label }}
+        {%- endif %}
+      </a></li>
+      {%- endwith %}
+    {%- endfor %}
+    </ol>
+  </nav>
+{%- endmacro %}
+
+
+{% macro render_extra_in_heading(value, label=None) -%}
+  <small>{{ value }}{% if label %} {{ label }}{% endif %}</small>
+{%- endmacro %}
+
+
+{% macro render_backlink(url, label) -%}
+  <nav class="button-row">
+    <a class="button is-clear is-compact" href="{{ url }}">{{ render_icon('arrow-left') }} <span>{{ label }}</span></a>
+  </nav>
+{%- endmacro %}

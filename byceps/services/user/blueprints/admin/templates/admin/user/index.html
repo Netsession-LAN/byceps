@@ -1,0 +1,65 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_main_tabs %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% set current_page = 'user_admin' %}
+{% set page_title = _('Users') %}
+
+{% block body %}
+
+  <div class="block row row--space-between">
+    <div>
+      <h1 class="title">{{ page_title }}</h1>
+    </div>
+    {%- if g.user.has_permission('user.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_account_form') }}">{{ render_icon('add') }} <span>{{ _('Create') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  <div class="block row row--space-between row--wrap">
+    <div>
+
+{{
+  render_main_tabs(
+    Navigation()
+      .add_item(url_for('.index'), _('all'), id='none', icon='users')
+      .add_item(url_for('.index', only='active'), _('active'), id='active', icon='enabled')
+      .add_item(url_for('.index', only='uninitialized'), _('not initialized'), id='uninitialized', icon='pending')
+      .add_item(url_for('.index', only='suspended'), _('suspended'), id='suspended', icon='lock')
+      .add_item(url_for('.index', only='deleted'), _('deleted'), id='deleted', icon='delete')
+      .add_item(url_for('.index', search_term=search_term), _('Search'), id='search', icon='search', precondition=search_term)
+    , 'search' if search_term else user_filter.name
+  )
+}}
+
+    </div>
+    <div>
+
+      <form action="{{ url_for('.index') }}" class="single-row">
+        <input type="search" name="search_term" placeholder="{{ _('username, first name, last name, email address') }}" title="{{ _('username, first name, last name, email address') }}"{%- if search_term %} value="{{ search_term }}"{% endif %} class="form-control">
+        <button type="submit" class="button" title="{{ _('Search') }}">{{ render_icon('search') }}</button>
+        <a href="{{ url_for('.index') }}" class="button{% if not search_term %} dimmed{% endif %}" title="{{ _('Remove search term constraint') }}">{{ render_icon('remove') }}</a>
+      </form>
+
+    </div>
+  </div>
+
+  {%- with users = users.items %}
+{% include 'admin/user/_user_list.html' %}
+  {%- endwith %}
+
+  <div class="block centered">
+    <small><strong>{{ users.total }}</strong> {{ ngettext('result', 'results', users.total) }}</small>
+  </div>
+
+  {{ render_pagination_nav(users, '.index', {
+      'only': only if only else None,
+      'search_term': search_term if search_term else None,
+  }) }}
+
+{%- endblock %}

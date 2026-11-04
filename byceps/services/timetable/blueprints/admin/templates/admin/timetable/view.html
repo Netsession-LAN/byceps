@@ -1,0 +1,94 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/forms.html' import form_buttons %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'timetable_admin' %}
+{% set current_page_party = party %}
+{% set page_title = _('Timetable') %}
+
+{% block body %}
+
+<div class="row row--space-between block">
+  <div>
+    <h1 class="title">
+      {{ page_title }}
+      {%- if timetable and timetable.hidden %}
+      {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+      {%- endif %}
+    </h1>
+  </div>
+{%- if timetable and g.user.has_permission('timetable.update') %}
+  <div>
+    <div class="button-row button-row--nowrap is-right-aligned">
+      <a class="button" href="{{ url_for('.item_create_form', timetable_id=timetable.id) }}">{{ render_icon('add') }} <span>{{ _('Create item') }}</span></a>
+    </div>
+  </div>
+{%- endif %}
+</div>
+
+{%- if timetable %}
+  {%- if timetable.items %}
+  {%- for day, items in timetable.items %}
+<h2 class="title">{{ day|dateformat('full', rebase=False) }}</h2>
+<table class="itemlist is-wide timetable">
+  <thead>
+    <tr>
+      <th>{{ _('When?') }}</th>
+      <th>{{ _('What?') }}</th>
+      <th width="25%">{{ _('Where?') }}</th>
+      <th>{{ _('Link') }}</th>
+      <th>{{ _('Visibility') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for item in items %}
+    <tr>
+      <td class="nowrap{% if item.hidden %} dimmed{% endif %}">{{ item.scheduled_at|timeformat('short', rebase=False) }}</td>
+      <td{% if item.hidden %} class="dimmed"{% endif %}>{{ item.description|safe }}</td>
+      <td{% if item.hidden %} class="dimmed"{% endif %}>
+        {%- if item.location %}
+        {{ item.location }}
+        {%- endif %}
+      </td>
+      <td{% if item.hidden %} class="dimmed"{% endif %}>
+        {%- if item.link_target %}
+        <a href="{{ item.link_target }}">{% if item.link_label %}{{ item.link_label }}{% else %}Link{% endif %}</a>
+        {%- endif %}
+      </td>
+      <td>
+        {%- if item.hidden %}
+        {{ render_tag('hidden', class='color-disabled', icon='hidden') }}
+        {%- endif %}
+      </td>
+      <td>
+        {%- if g.user.has_permission('timetable.update') %}
+        <div class="button-row button-row--nowrap is-compact is-right-aligned">
+          <a href="{{ url_for('.item_update_form', item_id=item.id) }}" class="button is-compact" title="{{ _('Edit') }}">{{ render_icon('edit') }}</a>
+          <a href="{{ url_for('.item_delete', item_id=item.id) }}" data-action="delete-item" class="button is-compact color-danger" title="{{ _('Delete') }}">{{ render_icon('delete') }}</a>
+        </div>
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+  {%- endfor %}
+  {%- else %}
+  <div class="box no-data-message">{{ _('No entries') }}</div>
+  {%- endif %}
+{%- elif g.user.has_permission('timetable.administrate') %}
+<form action="{{ url_for('.create', party_id=party.id) }}" method="post">
+  {{ form_buttons(_('Create')) }}
+</form>
+{%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+onDomReady(() => {
+  confirmed_delete_on_click_then_reload('[data-action="delete-item"]', '{{ _('Really delete it?') }}');
+});
+</script>
+{% endblock %}

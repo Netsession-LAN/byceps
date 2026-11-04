@@ -1,0 +1,20 @@
+{% extends 'layout/admin/user.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_tab = 'profile' %}
+{% set current_tab_user_id = user.id %}
+{% set page_title = _('Change email address') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.change_email_address', user_id=user.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.email_address, autofocus='autofocus') }}
+      {{ form_field(form.reason, caption=_('The reason will be saved as <em>internal</em> remark.')|safe) }}
+    </div>
+
+    {{ form_buttons(_('Change')) }}
+  </form>
+
+{%- endblock %}

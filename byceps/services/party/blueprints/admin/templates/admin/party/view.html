@@ -1,0 +1,112 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'party_admin' %}
+{% set current_page_party = party %}
+{% set page_title = party.title %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+
+      <h1 class="title">
+        {{ party.title }}
+        {%- if party.hidden %}
+        {{ render_tag(_('hidden'), class='tag--outlined', icon='hidden') }}
+        {%- endif %}
+        {%- if party.canceled %}
+        {{ render_tag(pgettext('party', 'canceled'), class='color-danger', icon='disabled') }}
+        {%- endif %}
+        {%- if party.archived %}
+        {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- endif %}
+      </h1>
+
+    </div>
+    <div>
+
+      <div class="button-row is-right-aligned">
+        {%- if g.user.has_permission('party.update') %}
+        <a class="button" href="{{ url_for('.update_form', party_id=party.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+        {%- endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('ID') }}</div>
+    <div class="data-value mb">{{ party.id }}</div>
+
+    <div class="row mb">
+      <div>
+
+        <div class="data-label">{{ _('Start') }}</div>
+        <div class="data-value">{{ party.starts_at|dateformat }}, {{ party.starts_at|timeformat('short') }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('End') }}</div>
+        <div class="data-value">{{ party.ends_at|dateformat }}, {{ party.ends_at|timeformat('short') }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Days') }}</div>
+        <div class="data-value">
+          {%- for day in days %}
+            {{ render_tag(day|dateformat('E'), class='color-disabled--light') }}
+          {%- endfor %}
+        </div>
+
+      </div>
+    </div>
+
+    <div class="data-label">{{ _('Maximum number of tickets') }}</div>
+    <div class="data-value mb">{{ party.max_ticket_quantity|numberformat if (party.max_ticket_quantity is not none) else _('not defined')|dim }}</div>
+
+    <div class="row">
+      <div>
+
+        <div class="data-label">{{ _('Ticket management') }}</div>
+        <div class="data-value">{{ render_tag(_('open'), class='color-success') if party.ticket_management_enabled else render_tag(_('closed'), class='color-disabled', icon='disabled') }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Seat management') }}</div>
+        <div class="data-value">{{ render_tag(_('open'), class='color-success') if party.seat_management_enabled else render_tag(_('closed'), class='color-disabled', icon='disabled') }}</div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <h2>{{ _('Settings') }} {{ render_extra_in_heading(settings|length) }}</h2>
+
+  {%- if settings %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Value') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for setting in settings|sort(attribute='name') %}
+      <tr>
+        <td class="monospace">{{ setting.name }}</td>
+        <td class="monospace">{{ setting.value }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No settings defined.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

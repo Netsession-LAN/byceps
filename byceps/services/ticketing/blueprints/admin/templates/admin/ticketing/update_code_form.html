@@ -1,0 +1,20 @@
+{% extends 'layout/admin/ticketing.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'ticket' %}
+{% set current_page_party = party %}
+{% set current_tab = 'tickets' %}
+{% set page_title = _('Change ticket code') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.update_code', ticket_id=ticket.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.code, autofocus='autofocus') }}
+    </div>
+
+    {{ form_buttons(_('Change')) }}
+  </form>
+
+{%- endblock %}

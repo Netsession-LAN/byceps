@@ -1,0 +1,96 @@
+{% from 'macros/admin/user.html' import render_user_admin_link %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/user.html' import render_user_avatar %}
+
+
+{% macro render_upcoming_birthday_items(orgas_with_next_birthdays) %}
+  {%- if orgas_with_next_birthdays %}
+    {%- for user, birthday in orgas_with_next_birthdays %}
+      {%- with days_until_next_birthday = birthday.days_until_next_birthday, is_today = birthday.is_today %}
+        {%- with relative_days_label = render_relative_days_until(days_until_next_birthday) %}
+  <li{% if is_today %} class="hastoday"{% elif days_until_next_birthday > 14 %} class="dimmed"{% endif %}>
+    {{ render_user_avatar(user, size=24) }}
+    <div>
+      {{ _('%(user)s will be %(adjective)s %(age)s years old %(when)s.',
+        user=render_user_admin_link(user),
+        adjective=render_random_age_adjective(),
+        age=birthday.age if is_today else birthday.age + 1,
+        when=render_time_element(birthday.date_of_birth, relative_days_label)) }}
+      {% if is_today %}{{ render_icon('birthday') }}{% endif %}
+    </div>
+  </li>
+        {%- endwith %}
+      {%- endwith %}
+    {%- endfor %}
+  {%- else %}
+  <li class="dimmed">{{ _('No upcoming birthdays.') }}</li>
+  {%- endif %}
+{%- endmacro %}
+
+
+{% macro render_relative_days_until(days_until_next_birthday) %}
+  {%- set is_soon = (days_until_next_birthday <= 7) %}
+
+  {%- if is_soon %}<strong>{% endif %}
+
+  {%- if days_until_next_birthday == 0 -%}
+  {{ _('today') }}
+  {%- elif days_until_next_birthday == 1 -%}
+  {{ _('tomorrow') }}
+  {%- else -%}
+  {{ _('in %(days)s days', days=days_until_next_birthday) }}
+  {%- endif %}
+
+  {%- if is_soon %}</strong>{% endif %}
+{%- endmacro %}
+
+
+{% macro render_time_element(date, label) -%}
+  <time datetime="{{ date.isoformat() }}" title="{{ date|dateformat }}">{{ label }}</time>
+{%- endmacro %}
+
+
+{% macro render_random_age_adjective() %}
+  {%- set adjectives = [
+    _('agile'),
+    _('bombastic'),
+    _('breathtaking'),
+    _('colossal'),
+    _('contemplative'),
+    _('crass'),
+    _('cute'),
+    _('dearest'),
+    _('delicate'),
+    _('enviable'),
+    _('epic'),
+    _('exhilarating'),
+    _('fantastic'),
+    _('flattering'),
+    _('full'),
+    _('impressive'),
+    _('incredible'),
+    _('ineffable'),
+    _('insane'),
+    _('inscrutable'),
+    _('invaluable'),
+    _('invigorating'),
+    _('legendary'),
+    _('lively'),
+    _('manageable'),
+    _('merciless'),
+    _('passable'),
+    _('phenomenal'),
+    _('refreshing'),
+    _('remarkable'),
+    _('sensational'),
+    _('sickly-sweet'),
+    _('sporty'),
+    _('staggering'),
+    _('sweet'),
+    _('tender'),
+    _('terrific'),
+    _('unfathomable'),
+    _('wild'),
+  ] %}
+  {{- adjectives|random }}
+{%- endmacro %}

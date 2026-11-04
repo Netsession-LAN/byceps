@@ -1,0 +1,42 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/admin/brand.html' import render_brand_admin_link, render_brand_avatar %}
+{% from 'macros/forms.html' import form_buttons, form_field_check, form_field %}
+{% set current_page = 'sites_admin' %}
+{% set page_title = _('Create site') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index'), _('Sites')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create', brand_id=brand.id) }}" method="post">
+    <div class="box">
+      <div class="mb">
+        <label class="form-label">{{ _('Brand') }}</label>
+        <div>
+          {{ render_brand_avatar(brand, '64') }}<br>
+          {{ render_brand_admin_link(brand) }}
+        </div>
+      </div>
+
+      {{ form_field(form.id, placeholder='intranet', caption=_('Has to be unique.'), autofocus='autofocus') }}
+      {{ form_field(form.title, placeholder='Intranet', caption=_('Has to be unique.')) }}
+      {{ form_field(form.server_name, placeholder='www.example.com', caption=_('Has to be unique.')) }}
+      {{ form_field(form.party_id) }}
+      {{ form_field(form.board_id) }}
+      {{ form_field(form.storefront_id) }}
+      {{ form_field_check(form.is_intranet) }}
+      {{ form_field_check(form.enabled) }}
+      {{ form_field_check(form.user_account_creation_enabled) }}
+      {{ form_field_check(form.login_enabled) }}
+      {{ form_field_check(form.check_in_on_login) }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

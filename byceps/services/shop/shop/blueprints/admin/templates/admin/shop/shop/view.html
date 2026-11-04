@@ -1,0 +1,63 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'shop_shop_admin' %}
+{% set current_page_brand = brand %}
+{% set current_page_shop = shop %}
+{% set page_title = _('Shop') %}
+
+{% block body %}
+
+  <div class="box">
+    <div class="row">
+      <div>
+
+        <div class="data-label">{{ _('ID') }}</div>
+        <div class="data-value">{{ shop.id }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Currency') }}</div>
+        <div class="data-value">{{ shop.currency.code }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Status') }}</div>
+        <div class="data-value">
+        {%- if shop.archived %}
+          {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- else %}
+          {{ render_tag(_('active'), class='color-success', icon='success') }}
+        {%- endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <h2>{{ _('Settings') }} {{ render_extra_in_heading(settings|length) }}</h2>
+  {%- if settings %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Value') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for key, value in settings|dictsort %}
+      <tr>
+        <td class="monospace">{{ key }}</td>
+        <td class="monospace">{{ value }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No settings defined.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

@@ -1,0 +1,30 @@
+{% extends 'layout/admin/base.html' %}
+{% set current_page = 'newsletter_admin' %}
+{% set page_title = _('Newsletter') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  {%- if lists %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Title') }}<br>{{ _('ID') }}</th>
+        <th class="number">{{ _('Subscribers') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for list in lists %}
+        <tr>
+          <td><a href="{{ url_for('.view_subscriptions', list_id=list.id) }}"><strong>{{ list.title }}</strong></a><div class="dimmed">{{ list.id }}</div></td>
+          <td class="bignumber number">{{ list.subscriber_count }}</td>
+        </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No subscription lists exist.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

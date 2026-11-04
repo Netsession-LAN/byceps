@@ -1,0 +1,95 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% from 'macros/user.html' import render_user_avatar, render_user_screen_name %}
+{% set current_page = 'orga_team' %}
+{% set page_title = _('Team') %}
+
+{% block head %}
+  <style>
+    .orga-overview {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem 1rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .orga-overview--centered {
+      justify-content: center;
+    }
+
+    .orga-overview li.orga {
+      align-items: center;
+      display: flex;
+      font-size: 0.9rem;
+      padding: 0;
+      text-align: left;
+    }
+
+    .orga-overview .orga-avatar {
+      margin-right: 1rem;
+    }
+
+    .orga-overview .orga-details {
+      margin: 0.75rem 0 0 0;
+      padding: 0;
+    }
+
+    @media (min-width: 28rem) {
+      .orga-overview {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .orga-overview li.orga {
+        flex-direction: column;
+        text-align: center;
+        width: 12rem;
+      }
+
+      .orga-overview .orga-avatar {
+        margin-right: 0;
+      }
+    }
+  </style>
+{%- endblock %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+{{ render_snippet('orga_team_intro', ignore_if_unknown=True)|safe }}
+
+  {%- for team_name, orgas in teams %}
+    {%- if group_by_team %}
+  <h2>{{ team_name }}</h2>
+    {%- endif %}
+    <ol class="orga-overview{% if not group_by_team %} orga-overview--centered{% endif %}">
+    {%- for orga in orgas %}
+    <li class="orga">
+      <div class="orga-avatar">
+        {{ render_user_avatar(orga.user, size=96, orga=True) }}
+      </div>
+      <div class="orga-details">
+        <strong>{{ render_user_screen_name(orga.user) }}</strong><br>
+        {%- if orga.full_name %}
+        {{ orga.full_name }}<br>
+        {%- endif -%}
+        {%- filter dim %}
+        {{ orga.team_name }}
+        {%- if orga.duties %} ({{ orga.duties }}){% endif %}
+        {%- endfilter %}
+      </div>
+    </li>
+    {%- endfor %}
+  </ol>
+  {%- endfor %}
+
+{%- endblock %}

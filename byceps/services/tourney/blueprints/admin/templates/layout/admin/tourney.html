@@ -1,0 +1,24 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_main_tabs %}
+{% set current_page = 'tourney_admin' %}
+
+{% block before_body %}
+  {%- with party = current_page_party %}
+{{
+  render_main_tabs(
+    Navigation()
+      .add_item(
+        url_for('tourney_tourney_admin.index', party_id=party.id),
+        _('Tourneys'),
+        id='tourneys',
+        required_permission='tourney.view')
+      .add_item(
+        url_for('tourney_category_admin.index', party_id=party.id),
+        _('Categories'),
+        id='categories',
+        required_permission='tourney_category.view')
+    , current_tab
+  )
+}}
+  {%- endwith %}
+{%- endblock %}

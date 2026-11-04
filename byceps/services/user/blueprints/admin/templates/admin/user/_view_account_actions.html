@@ -1,0 +1,34 @@
+{%- from 'macros/icons.html' import render_icon %}
+
+  {%- if not user.deleted and g.user.has_any_permission('user.administrate', 'user.set_password') %}
+  <div class="button-row is-compact is-right-aligned">
+    <div class="dropdown">
+      <button class="dropdown-toggle button is-compact"><span>{{ _('Actions') }}</span> {{ render_icon('chevron-down') }}</button>
+      <ol class="dropdown-menu dropdown-menu--right">
+        {%- if g.user.has_permission('user.set_password') %}
+        <li><a class="dropdown-item" href="{{ url_for('.set_password', user_id=user.id) }}">{{ render_icon('password') }} {{ _('Set new password') }}</a></li>
+        {%- endif %}
+        {%- if g.user.has_permission('user.administrate') %}
+
+          {%- if not user.initialized %}
+        <li><a class="dropdown-item" href="{{ url_for('.initialize_account', user_id=user.id) }}" data-action="user-initialize">{{ render_icon('enabled') }} {{ _('Initialize') }}</a></li>
+          {%- endif %}
+
+          {%- if not user.suspended %}
+        <li><a class="dropdown-item" href="{{ url_for('.suspend_account', user_id=user.id) }}">{{ render_icon('lock') }} {{ _('Suspend') }}</a></li>
+          {%- else %}
+        <li><a class="dropdown-item" href="{{ url_for('.unsuspend_account', user_id=user.id) }}">{{ render_icon('unlock') }} {{ _('Unsuspend') }}</a></li>
+          {%- endif %}
+
+        <li><a class="dropdown-item" href="{{ url_for('.change_screen_name_form', user_id=user.id) }}">{{ render_icon('edit') }} {{ _('Change username') }}</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('.change_email_address_form', user_id=user.id) }}">{{ render_icon('edit') }} {{ _('Change email address') }}</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('.invalidate_email_address_form', user_id=user.id) }}">{{ render_icon('disabled') }} {{ _('Invalidate email address') }}</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('.change_details_form', user_id=user.id) }}">{{ render_icon('edit') }} {{ _('Change personal data') }}</a></li>
+        <li class="dropdown-divider"></li>
+        <li><a class="dropdown-item color--danger" href="{{ url_for('.delete_account_form', user_id=user.id) }}">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+
+        {%- endif %}
+      </ol>
+    </div>
+  </div>
+  {%- endif %}

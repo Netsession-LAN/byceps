@@ -1,0 +1,45 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+{% set current_page = 'news' %}
+{% set page_title = _('News Archive') %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ _('News Archive') }}</h1>
+
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Date') }}</th>
+        <th>{{ _('Title') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for item in headlines.items %}
+      <tr>
+        <td>
+        {%- if item.published %}
+          {{ item.published_at|dateformat('medium') }}
+        {%- else %}
+          {{ render_tag(_('Draft')) }}
+        {%- endif %}
+        </td>
+        <td><a href="{{ url_for('.view', slug=item.slug) }}">{{ item.title }}</a></td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+
+{{ render_pagination_nav(headlines, 'news.archive', {
+  'per_page': per_page,
+}) }}
+
+{%- endblock %}

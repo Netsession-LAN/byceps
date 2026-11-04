@@ -1,0 +1,40 @@
+{%- from 'macros/dashboard.html' import render_continuative_link %}
+{%- from 'macros/misc.html' import render_tag %}
+{%- from 'macros/seating.html' import render_seat_link %}
+
+<h2>{{ _('Tickets') }}</h2>
+
+{%- if tickets %}
+<table class="itemlist is-compact is-wide">
+  <thead>
+    <tr>
+      <th>{{ _('Code') }}</th>
+      <th>{{ _('Seat') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for ticket in tickets %}
+    <tr>
+      <td>{{ ticket.code }}</td>
+      <td>
+        {%- if ticket.occupied_seat -%}
+        {{ render_seat_link(ticket.occupied_seat) }}
+        {%- else -%}
+        {{ render_tag(_('not chosen'), class='color-danger') }}
+        {%- endif -%}
+      </td>
+      <td>
+        {%- if ticket.user_checked_in %}
+        {{ render_tag(_('checked in'), class='color-success') }}
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<p class="dimmed">{{ _('You do not use a ticket yet.') }}</p>
+{%- endif %}
+
+{{ render_continuative_link(url_for('ticketing.index_mine'), _('Ticket management')) }}

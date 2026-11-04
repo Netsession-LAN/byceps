@@ -1,0 +1,34 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field_check, form_field %}
+{% set current_page = 'site_admin' %}
+{% set current_page_site = site %}
+{% set page_title = _('Edit site') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.view', site_id=site.id), site.title) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.update', site_id=site.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.title, caption=_('Has to be unique.'), autofocus='autofocus') }}
+      {{ form_field(form.server_name, caption=_('Has to be unique.')) }}
+      {{ form_field(form.party_id) }}
+      {{ form_field(form.board_id) }}
+      {{ form_field(form.storefront_id) }}
+      {{ form_field_check(form.is_intranet) }}
+      {{ form_field_check(form.enabled) }}
+      {{ form_field_check(form.user_account_creation_enabled) }}
+      {{ form_field_check(form.login_enabled) }}
+      {{ form_field_check(form.check_in_on_login) }}
+      {{ form_field_check(form.archived) }}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}

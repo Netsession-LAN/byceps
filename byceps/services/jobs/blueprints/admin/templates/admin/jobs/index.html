@@ -1,0 +1,23 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% set current_page = 'jobs_admin' %}
+{% set page_title = _('Background Jobs') %}
+
+{% block head %}
+<style>
+.page-body .container {
+  max-width: 100vw;
+  width: auto;
+}
+</style>
+{%- endblock %}
+
+{% block before_body %}
+{{ render_backlink(url_for('maintenance_admin.index'), _('Maintenance')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <object data="/rq/" type="text/html" class="box" style="height: 1200px; padding: 0; width: 100%;"></object>
+
+{%- endblock %}

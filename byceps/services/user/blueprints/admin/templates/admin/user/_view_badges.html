@@ -1,0 +1,28 @@
+{%- from 'macros/admin/user_badge.html' import render_user_badges_list %}
+{%- from 'macros/admin.html' import render_extra_in_heading %}
+{%- from 'macros/icons.html' import render_icon %}
+
+<div class="row row--space-between is-vcentered block">
+  <div>
+
+    <h2 style="margin: 0;">{{ _('Badges') }} {{ render_extra_in_heading(badges_with_awarding_quantity|length) }}</h2>
+
+  </div>
+  <div>
+
+    {%- if g.user.has_permission('user_badge.award') %}
+    <div class="button-row is-compact is-right-aligned">
+      <a class="button is-compact" href="{{ url_for('user_badge_admin.award_form', awardee_id=user.id) }}">{{ render_icon('add') }} <span>{{ _('Award badge') }}</span></a>
+    </div>
+    {%- endif %}
+
+  </div>
+</div>
+
+{%- if badges_with_awarding_quantity %}
+{{ render_user_badges_list(badges_with_awarding_quantity) }}
+{%- else %}
+<div class="box">
+  {{ _('none')|dim }}
+</div>
+{%- endif %}

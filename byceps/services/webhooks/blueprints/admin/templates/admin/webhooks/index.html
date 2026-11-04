@@ -1,0 +1,127 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'webhook_admin' %}
+{% set page_title = _('Webhooks') %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ page_title }} {{ render_extra_in_heading(webhooks|length) }}</h1>
+    </div>
+  {%- if g.user.has_permission('webhook.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form') }}">{{ render_icon('add') }} <span>{{ _('Create webhook') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if webhooks %}
+    {%- for webhook in webhooks %}
+  <div class="box box--marked {{ 'color-success' if webhook.enabled else 'color-disabled' }}">
+
+    <div class="row row--space-between">
+      <div>
+        {{ render_tag(_('enabled'), class='color-success') if webhook.enabled else render_tag(_('disabled'), class='color-disabled') }}
+        <strong style="margin-left: 0.15rem;">{{ webhook.description|fallback }}</strong>
+      </div>
+      {%- if g.user.has_permission('webhook.administrate') %}
+      <div>
+        <div class="button-row is-compact is-right-aligned">
+          <a class="button" href="{{ url_for('.update_form', webhook_id=webhook.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+          <a class="button" href="{{ url_for('.test', webhook_id=webhook.id) }}" data-action="webhook-test">{{ render_icon('webhook') }} <span>{{ _('Test') }}</span></a>
+          <div class="dropdown">
+            <button class="dropdown-toggle button"><span>{{ render_icon('chevron-down') }}</span></button>
+            <ol class="dropdown-menu dropdown-menu--right">
+              <li><a class="dropdown-item color--danger" href="{{ url_for('.delete', webhook_id=webhook.id) }}" data-action="webhook-delete">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      {%- endif %}
+    </div>
+
+    <div class="data-label">{{ _('URL') }}</div>
+    <div class="data-value mb">{{ webhook.url }}</div>
+
+    <div class="grid" style="--column-min-width: 465px;">
+      <div style="overflow-x: auto;">
+
+        <div class="data-label">{{ _('Format') }}</div>
+        <div class="data-value">{{ get_outgoing_webhook_format_label(webhook.format) }}</div>
+
+        <div class="data-label">{{ _('Additional fields') }}</div>
+        <div class="data-value">{{ webhook.extra_fields|fallback }}</div>
+
+        <div class="data-label">{{ _('Text prefix') }}</div>
+        <div class="data-value">{{ webhook.text_prefix|fallback }}</div>
+
+      </div>
+      <div>
+
+        <div class="row mb">
+          <div style="flex-basis: 50%;">
+
+            <div class="data-label">{{ _('Event types') }}</div>
+            <div class="data-value">
+              <details style="font-size: 0.75rem;">
+                <summary>{{ webhook.event_types|length }} {{ ngettext('event', 'events', webhook.event_types|length) }}</summary>
+                <ul style="padding-left: 0.75rem;">
+                  {%- for event_name in webhook.event_types|sort %}
+                  <li>{{ event_name }}</li>
+                  {%- endfor %}
+                </ul>
+              </details>
+            </div>
+
+          </div>
+
+          <div style="flex-basis: 50%;">
+            <div class="data-label">{{ _('Event filters') }}</div>
+            <div class="data-value">
+              <details style="font-size: 0.75rem;">
+                <summary>{{ webhook.event_filters|length }} {{ ngettext('filter', 'filters', webhook.event_filters|length) }}</summary>
+                <ul style="padding-left: 0.75rem;">
+                  {%- for event_name, event_filters in webhook.event_filters|dictsort %}
+                  <li>
+                    {{ event_name }}
+                    {%- if event_filters %}
+                    <ul style="padding-left: 1rem;">
+                      {%- for key, value in event_filters|dictsort %}
+                      <li>{{ key }} in {{ value }}</li>
+                      {%- endfor %}
+                    </ul>
+                    {%- endif %}
+                  </li>
+                  {%- endfor %}
+                </ul>
+              </details>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>{# .grid #}
+
+  </div>{# .box #}
+    {%- endfor %}
+  {%- else %}
+  <div class="box no-data-message">{{ _('No webhooks defined.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  onDomReady(() => {
+    confirmed_delete_on_click_then_reload('[data-action="webhook-delete"]', '{{ _('Delete webhook?') }}');
+    post_on_click_then_reload('[data-action="webhook-test"]');
+  });
+</script>
+{% endblock %}

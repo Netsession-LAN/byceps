@@ -1,0 +1,130 @@
+{% extends 'layout/admin/user.html' %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_tab = 'profile' %}
+{% set current_tab_user_id = user.id %}
+{% set page_title = [_('Users'), user.screen_name] %}
+
+{% block head %}
+<style>
+.radio-tab-component {
+  margin-top: 2rem;
+}
+
+.radio-tab-component > input[type='radio'] {
+  position: absolute;
+  left: -10000px;
+}
+
+#tabs-rb-account:checked ~ .radio-tabs #tabs-tab-account,
+#tabs-rb-personal:checked ~ .radio-tabs #tabs-tab-personal,
+#tabs-rb-newsletter:checked ~ .radio-tabs #tabs-tab-newsletter,
+#tabs-rb-orders:checked ~ .radio-tabs #tabs-tab-orders,
+#tabs-rb-tickets:checked ~ .radio-tabs #tabs-tab-tickets,
+#tabs-rb-badges:checked ~ .radio-tabs #tabs-tab-badges,
+#tabs-rb-attended-parties:checked ~ .radio-tabs #tabs-tab-attended-parties,
+#tabs-rb-orga-activities:checked ~ .radio-tabs #tabs-tab-orga-activities {
+  /* copied from `.tabs-tab--current` */
+  border-color: #1199ff;
+  color: currentColor;
+  cursor: default;
+}
+
+.radio-panel {
+  display: none;
+}
+
+#tabs-rb-account:checked ~ .radio-panels #tabs-panel-account,
+#tabs-rb-personal:checked ~ .radio-panels #tabs-panel-personal,
+#tabs-rb-newsletter:checked ~ .radio-panels #tabs-panel-newsletter,
+#tabs-rb-orders:checked ~ .radio-panels #tabs-panel-orders,
+#tabs-rb-tickets:checked ~ .radio-panels #tabs-panel-tickets,
+#tabs-rb-badges:checked ~ .radio-panels #tabs-panel-badges,
+#tabs-rb-attended-parties:checked ~ .radio-panels #tabs-panel-attended-parties,
+#tabs-rb-orga-activities:checked ~ .radio-panels #tabs-panel-orga-activities {
+  display: block;
+}
+
+.tab-item-count {
+  background-color: #aaaaaa;
+  border-radius: 9px/50%;
+}
+</style>
+{% endblock %}
+
+{% macro render_count(count) -%}
+  {{ render_tag(count, class='tab-item-count') }}
+{%- endmacro %}
+
+{% block body %}
+
+  <div class="radio-tab-component">
+
+    <input type="radio" name="user-sections-state" id="tabs-rb-account" checked>
+    <input type="radio" name="user-sections-state" id="tabs-rb-personal">
+    <input type="radio" name="user-sections-state" id="tabs-rb-newsletter">
+    <input type="radio" name="user-sections-state" id="tabs-rb-orders">
+    <input type="radio" name="user-sections-state" id="tabs-rb-tickets">
+    <input type="radio" name="user-sections-state" id="tabs-rb-attended-parties">
+    <input type="radio" name="user-sections-state" id="tabs-rb-badges">
+    <input type="radio" name="user-sections-state" id="tabs-rb-orga-activities">
+
+    <ol class="radio-tabs tabs">
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-account" id="tabs-tab-account">{{ _('Account') }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-personal" id="tabs-tab-personal">{{ _('Personal Data') }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-newsletter" id="tabs-tab-newsletter">{{ _('Newsletters') }} {{ render_count(newsletter_subscription_count) }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-orders" id="tabs-tab-orders">{{ _('Orders') }} {{ render_count(orders|length) }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-tickets" id="tabs-tab-tickets">{{ _('Tickets') }} {{ render_count(ticket_count) }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-attended-parties" id="tabs-tab-attended-parties">{{ _('Attended Parties') }} {{ render_count(attended_parties|length) }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-badges" id="tabs-tab-badges">{{ _('Badges') }} {{ render_count(badge_count) }}</label></li>
+      <li><label class="radio-tab tabs-tab" for="tabs-rb-orga-activities" id="tabs-tab-orga-activities">{{ _('Orga teams') }} {{ render_count(orga_activities|length) }}</label></li>
+    </ol>
+
+    <div class="radio-panels">
+
+      <div class="radio-panel" id="tabs-panel-account">
+{% include 'admin/user/_view_account.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-personal">
+{% include 'admin/user/_view_personal.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-newsletter">
+{% include 'admin/user/_view_newsletter.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-orders">
+{% include 'admin/user/_view_orders.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-tickets">
+{% include 'admin/user/_view_tickets.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-attended-parties">
+{% include 'admin/user/_view_attended_parties.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-badges">
+{% include 'admin/user/_view_badges.html' %}
+      </div>
+
+      <div class="radio-panel" id="tabs-panel-orga-activities">
+{% include 'admin/user/_view_orga_activities.html' %}
+      </div>
+
+    </div>
+
+  </div>
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  enableCopyToClipboard('user-id-copy-trigger');
+
+  onDomReady(() => {
+    confirmed_post_on_click_then_reload('[data-action="user-initialize"]', '{{ _('Initialize account?') }}');
+  });
+</script>
+{% endblock %}

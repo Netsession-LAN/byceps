@@ -1,0 +1,147 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'site_admin' %}
+{% set current_page_site = site %}
+{% set page_title = [site.id, _('Site')] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+
+      <h1 class="title">
+        {{ site.title }}
+        {%- if not site.enabled %}
+        {{ render_tag(_('disabled'), class='color-disabled', icon='disabled') }}
+        {%- endif %}
+        {%- if site.archived %}
+        {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- endif %}
+      </h1>
+
+    </div>
+    <div>
+
+      {%- if g.user.has_permission('site.update') %}
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.update_form', site_id=site.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+      </div>
+      {%- endif %}
+
+    </div>
+  </div>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('ID') }}</div>
+    <div class="data-value">{{ site.id }}</div>
+
+    <div class="data-label">{{ _('Server name') }}</div>
+    <div class="data-value mb"><a href="https://{{ site.server_name }}/" class="disguised">{{ site.server_name }}</a></div>
+
+    <div class="row mb">
+      <div>
+
+        <div class="data-label">{{ _('User registration') }}</div>
+        <div class="data-value">{{ render_tag(_('open'), class='color-success') if site.user_account_creation_enabled else render_tag(_('closed'), class='color-disabled', icon='disabled') }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('User login') }}</div>
+        <div class="data-value">{{ render_tag(_('open'), class='color-success') if site.login_enabled else render_tag(_('closed'), class='color-disabled', icon='disabled') }}</div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Check in attendees on login to this site') }}</div>
+        <div class="data-value">{{ render_tag(_('yes'), class='color-warning') if site.check_in_on_login else render_tag(_('no'), class='color-disabled') }}</div>
+
+      </div>
+    </div>
+
+    <div class="data-label">{{ _('Party') }}</div>
+    <div class="data-value">{% if site.party_id %}<a href="{{ url_for('admin_dashboard.view_party', party_id=site.party_id) }}">{{ site.party_id }}</a>{% else %}{{ _('not assigned')|dim }}{% endif %}</div>
+
+    <div class="data-label">{{ _('Board') }}</div>
+    <div class="data-value">
+      {%- if board %}
+      <a href="{{ url_for('board_admin.board_view', board_id=board.id) }}">{{ board.id }}</a>
+      {%- else %}
+      {{ _('not assigned')|dim }}
+      {%- endif %}
+    </div>
+
+    <div class="data-label">{{ _('Storefront') }}</div>
+    <div class="data-value">
+      {%- if storefront %}
+      <a href="{{ url_for('shop_storefront_admin.view', storefront_id=storefront.id) }}">{{ storefront.id }}</a>
+      {%- else %}
+      {{ _('not assigned')|dim }}
+      {%- endif %}
+    </div>
+
+    <div class="data-label">{{ _('Mode') }}</div>
+    <div class="data-value">
+      {%- if site.is_intranet %}
+      {{ render_tag(_('Intranet'), class='color-info') }}
+      {%- else %}
+      {{ render_tag(_('normal'), class='tag--outlined') }}
+      {%- endif %}
+    </div>
+
+  </div>
+
+  <div class="row row--space-between is-vcentered">
+    <div>
+      <h2>{{ _('News Channels') }} {{ render_extra_in_heading(news_channels|length) }}</h2>
+    </div>
+  {%- if g.user.has_permission('site.update') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button is-compact" href="{{ url_for('.assign_news_channels_form', site_id=site.id) }}">{{ _('Assign news channels') }}</a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if news_channels %}
+  <table class="itemlist">
+    <tbody>
+    {%- for channel in news_channels|sort(attribute='id') %}
+      <tr>
+        <td><a href="{{ url_for('news_admin.channel_view', channel_id=channel.id) }}">{{ channel.id }}</a></td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No news channels are assigned to this site.') }}</div>
+  {%- endif %}
+
+  <h2>{{ _('Settings') }} {{ render_extra_in_heading(settings|length) }}</h2>
+
+  {%- if settings %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Value') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for setting in settings|sort(attribute='name') %}
+      <tr>
+        <td class="monospace">{{ setting.name }}</td>
+        <td class="monospace">{{ setting.value }}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No settings defined.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

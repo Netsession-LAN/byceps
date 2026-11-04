@@ -1,0 +1,93 @@
+{%- from 'macros/admin/brand.html' import render_brand_avatar %}
+
+
+{%- with
+  brand = current_page_brand|default,
+  party = current_page_party|default,
+  site = current_page_site|default,
+  shop = current_page_shop|default
+%}
+        <div class="container header-nav">
+          <div class="header-nav-crumbs">
+
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_global') }}">Home</a>
+
+  {%- if party %}
+    {%- with brand = get_brand_for_party(party) %}
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_brand', brand_id=brand.id) }}">
+              {{ render_brand_avatar(brand, '40') }}
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Brand') }}</div>
+                {{ brand.title }}
+              </div>
+            </a>
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_party', party_id=party.id) }}">
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Party') }}</div>
+                {{ party.title }}
+              </div>
+            </a>
+    {%- endwith %}
+  {%- elif site %}
+    {%- with brand = get_brand_for_site(site) %}
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_brand', brand_id=brand.id) }}">
+              {{ render_brand_avatar(brand, '40') }}
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Brand') }}</div>
+                {{ brand.title }}
+              </div>
+            </a>
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_site', site_id=site.id) }}">
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Site') }}</div>
+                {{ site.title }}
+              </div>
+            </a>
+    {%- endwith %}
+  {%- elif shop %}
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_brand', brand_id=brand.id) }}">
+              {{ render_brand_avatar(brand, '40') }}
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Brand') }}</div>
+                {{ brand.title }}
+              </div>
+            </a>
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('shop_shop_admin.dashboard', shop_id=shop.id) }}">
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Shop') }}</div>
+                {{ shop.title }}
+              </div>
+            </a>
+  {%- elif brand %}
+            <span class="header-nav-crumb-separator"></span>
+            <a class="header-nav-crumb" href="{{ url_for('admin_dashboard.view_brand', brand_id=brand.id) }}">
+              {{ render_brand_avatar(brand, '40') }}
+              <div>
+                <div class="header-nav-crumb-meta">{{ _('Brand') }}</div>
+                {{ brand.title }}
+              </div>
+            </a>
+  {%- endif %}
+
+          </div>
+
+  {%- if party %}
+{% include 'layout/admin/_header_nav_party.html' %}
+  {%- elif site %}
+{% include 'layout/admin/_header_nav_site.html' %}
+  {%- elif shop %}
+{% include 'layout/admin/_header_nav_shop.html' %}
+  {%- elif brand %}
+{% include 'layout/admin/_header_nav_brand.html' %}
+  {%- else %}
+{% include 'layout/admin/_header_nav_global.html' %}
+  {%- endif %}
+
+        </div>
+{%- endwith %}

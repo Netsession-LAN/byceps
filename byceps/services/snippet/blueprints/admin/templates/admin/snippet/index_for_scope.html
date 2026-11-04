@@ -1,0 +1,64 @@
+{% extends 'layout/admin/snippet.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set page_title = ['%s/%s'|format(scope.type_, scope.name), _('Snippets')] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Snippets') }} {{ render_extra_in_heading(snippets|length) }}</h1>
+    </div>
+  {%- if g.user.has_permission('snippet.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', scope_type=scope.type_, scope_name=scope.name) }}">{{ render_icon('add') }} <span>{{ _('Create snippet') }}</span></a>
+        <a class="button" href="{{ url_for('.copy_select_source_scope_form', target_scope_type=scope.type_, target_scope_name=scope.name) }}">{{ render_icon('copy') }} <span>{{ _('Copy snippets') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  <div class="block"><strong>{{ _('Scope') }}:</strong> {{ scope.type_ }}/{{ scope.name }}</div>
+
+  {%- if snippets %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Language') }}</th>
+        <th>{{ _('Latest change') }}</th>
+        <th>{{ _('by') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for snippet in snippets|sort(attribute='name') %}
+      <tr>
+        <td class="nowrap"><a href="{{ url_for('.view_current_version', snippet_id=snippet.id) }}"><strong>{{ snippet.name }}</strong></a></td>
+        <td>{{ snippet.language_code }}</td>
+        <td class="nowrap">
+          {%- if g.user.has_permission('snippet.view_history') %}
+          {{ render_icon('history') }} <a href="{{ url_for('.history', snippet_id=snippet.id) }}" title="{{ _('View change history') }}">{{ snippet.current_version.created_at|datetimeformat }}</a>
+          {%- else %}
+          {{ snippet.current_version.created_at|datetimeformat }}
+          {%- endif %}
+        </td>
+        <td>{{ render_user_avatar_and_name(users_by_id[snippet.current_version.creator_id], size=20) }}</td>
+        <td>
+          {%- if g.user.has_permission('snippet.update') %}
+          <div class="button-row is-compact is-right-aligned">
+            <a href="{{ url_for('.update_form', snippet_id=snippet.id) }}" class="button is-compact" title="{{ _('Edit') }}">{{ render_icon('edit') }}</a>
+          </div>
+          {%- endif %}
+        </td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No snippets exist in this scope.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

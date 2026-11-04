@@ -1,0 +1,104 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'admin/netsession_tourney/logo/_subtabs.html' import render_logo_subtabs %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'logos' %}
+{% set page_title = [_('Logos'), _('Turnier-Sponsor-Logos'), party.title] %}
+
+{% block body %}
+  <h1 class="title">{{ _('Logos') }}</h1>
+  {{ render_logo_subtabs(party, current_logo_subtab) }}
+
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <form action="{{ url_for('.sponsor_logo_upload', party_id=party.id) }}" method="post" enctype="multipart/form-data" class="mb">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Sponsor-Logo hochladen') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Diese Logos erscheinen in gesponserten Turnieren als Banner unter dem Titel.') }}</p>
+          </div>
+        </div>
+
+        <div class="ns-admin-form-grid">
+          {{ render_field(upload_form.file, _('PNG, JPG oder SVG. Für Banner ist eine breite, transparente Variante sinnvoll.')) }}
+          {{ render_field(upload_form.label, _('Interne Bezeichnung für die Auswahl im Turnierformular.')) }}
+          {{ render_field(upload_form.target_url, _('Optionaler Link, der in der User-Ansicht beim Klick auf das Sponsor-Logo geöffnet wird.')) }}
+        </div>
+
+        <div class="ns-admin-form-callout">{{ _('Empfohlen als Banner-Logo mit transparenter Fläche. In der User-Ansicht wird max-height 1.4em verwendet.') }}</div>
+
+        <div class="ns-admin-form-callout">{{ _('Neu hochgeladene Sponsor-Logos stehen systemweit auch in anderen Partys und Brands zur Auswahl bereit.') }}</div>
+
+        <div class="ns-admin-form-actions">
+          <button type="submit" class="button color-primary">{{ _('Hochladen') }}</button>
+        </div>
+      </section>
+    </div>
+  </form>
+  {%- endif %}
+
+  <section class="box ns-admin-form-section">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Turnier-Sponsor-Logos') }} {{ render_extra_in_heading(logo_assets|length) }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Diese Banner stehen gesponserten Turnieren inklusive optionalem Sponsor-Link zur Verfügung.') }}</p>
+      </div>
+    </div>
+
+    {%- if logo_assets %}
+    <table class="itemlist is-vcentered ns-admin-asset-table">
+      <thead>
+        <tr>
+          <th>{{ _('Vorschau') }}</th>
+          <th>{{ _('Name') }}</th>
+          <th>{{ _('Link') }}</th>
+          <th>{{ _('Quelle') }}</th>
+          <th>{{ _('Pfad') }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for logo_asset in logo_assets %}
+        <tr>
+          <td>
+            <span class="ns-tourney-admin-logo-preview ns-tourney-admin-logo-preview--banner">
+              <img src="{{ logo_asset.url_path }}" alt="{{ logo_asset.label }}" style="max-height: 34px; max-width: 240px;">
+            </span>
+          </td>
+          <td><strong>{{ logo_asset.label }}</strong></td>
+          <td>
+            {%- if logo_asset.target_url %}
+            <a href="{{ logo_asset.target_url }}" target="_blank" rel="noopener">{{ logo_asset.target_url }}</a>
+            {%- else %}
+            <span class="dimmed">-</span>
+            {%- endif %}
+          </td>
+          <td><code>{{ logo_asset.party_id }}</code></td>
+          <td><code>{{ logo_asset.url_path }}</code></td>
+          <td>
+            {%- if g.user.has_permission('netsession_tourney.manage') -%}
+            <div class="dropdown">
+              <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+              <ol class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('.sponsor_logo_update_form', logo_asset_id=logo_asset.id) }}">{{ render_icon('edit') }} {{ _('Bearbeiten') }}</a></li>
+                <li>
+                  <form action="{{ url_for('.sponsor_logo_delete', logo_asset_id=logo_asset.id) }}" method="post" style="margin: 0;" onsubmit="return confirm({{ _('Bist du sicher, dass du dieses Sponsorlogo löschen willst?')|tojson }});">
+                    <button type="submit" class="dropdown-item">{{ _('Löschen') }}</button>
+                  </form>
+                </li>
+              </ol>
+            </div>
+            {%- endif -%}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Sponsor-Logos vorhanden.') }}</div>
+    {%- endif %}
+  </section>
+{% endblock %}

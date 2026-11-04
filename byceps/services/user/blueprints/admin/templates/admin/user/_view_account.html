@@ -1,0 +1,63 @@
+{%- from 'macros/icons.html' import render_icon %}
+{%- from 'macros/misc.html' import render_tag %}
+
+<div class="row row--space-between is-vcentered block">
+  <div>
+
+    <h2 style="margin: 0;">{{ _('Account') }}</h2>
+
+  </div>
+  <div>
+
+{% include 'admin/user/_view_account_actions.html' %}
+
+  </div>
+</div>
+
+<div class="box">
+
+  <div class="data-label">{{ _('ID') }}</div>
+  <div class="row mb">
+    <div>
+      <div class="data-value">{{ user.id }}</div>
+    </div>
+    <div>
+      <input id="user-id-field" value="{{ user.id }}" style="position: fixed; top: -1000px;" readonly>
+      <button id="user-id-copy-trigger" data-field-id="user-id-field" class="button is-compact" title="{{ _('Copy to clipboard') }}"><span>{{ render_icon('clipboard') }}</span></button>
+    </div>
+  </div>
+
+  <div class="data-label">{{ _('Date of creation') }}</div>
+  <div class="data-value">{{ user.created_at|datetimeformat }}</div>
+
+  <div class="data-label">{{ _('Last login') }}</div>
+  <div class="data-value">
+    {%- if recent_login -%}
+    {{ recent_login|datetimeformat }}
+      {%- if (days_since_recent_login is not none) and (days_since_recent_login > 1) %}
+    <span class="dimmed">({{ _('%(days)s days ago', days=days_since_recent_login) }})</span>
+      {%- endif %}
+    {%- else -%}
+    {{ _('unknown')|dim }}
+    {%- endif -%}
+  </div>
+
+  <div class="data-label">{{ _('Email address') }}</div>
+  <div class="data-value">
+    {%- if email_address_data.address %}
+    <a href="mailto:{{ email_address_data.address }}">{{ email_address_data.address }}</a>
+      {%- if not email_address_data.verified %}
+    {{ render_tag(_('unverified'), class='color-warning') }}
+      {%- endif %}
+    {%- else %}
+    {{ _('none')|dim }}
+    {%- endif %}
+  </div>
+
+  <div class="data-label">{{ _('Locale') }}</div>
+  <div class="data-value">{{ (user_locale.get_display_name(g.user.locale) if user_locale else None)|fallback }}</div>
+
+  <div class="data-label">{{ _('Legacy ID') }}</div>
+  <div class="data-value">{{ user.legacy_id|fallback }}</div>
+
+</div>

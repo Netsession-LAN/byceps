@@ -1,0 +1,35 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/misc.html' import render_notification_block %}
+{% set current_page = 'admin_dashboard_global' %}
+{% set page_title = _('Dashboard') %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin_dashboard.css') }}">
+{%- endblock %}
+
+{% block body %}
+
+  {%- if not demo_data_exists %}
+{%- call render_notification_block(category='info', icon='info') -%}
+  <p>{{ _('This looks like a brand-new installation of BYCEPS. Do you want to <a href="%(url)s">create demonstration data</a>?', url=url_for('demo_data_admin.index')) }}</p>
+{%- endcall %}
+  {%- endif %}
+
+{% include 'admin/dashboard/_active_brands.html' %}
+
+  {%- with show_brand_avatar = True %}
+{% include 'admin/dashboard/_current_parties.html' %}
+{% include 'admin/dashboard/_active_shops.html' %}
+  {%- endwith %}
+
+
+  <div class="row row--space-between row--wrap">
+    <div style="flex: 1;">
+{% include 'admin/dashboard/_users.html' %}
+    </div>
+    <div style="flex: 1;">
+{% include 'admin/dashboard/_birthdays.html' %}
+    </div>
+  </div>
+
+{%- endblock %}

@@ -1,0 +1,17 @@
+"""
+byceps.services.currency.currency_service
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from moneyed import CAD, CHF, Currency, DKK, EUR, GBP, NOK, SEK, USD
+
+
+_CURRENCIES = [CAD, CHF, DKK, EUR, GBP, NOK, SEK, USD]
+
+
+def get_currencies() -> list[Currency]:
+    """Return list of supported currencies."""
+    return _CURRENCIES

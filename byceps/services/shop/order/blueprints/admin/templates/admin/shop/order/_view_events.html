@@ -1,0 +1,205 @@
+{%- from 'macros/admin/log.html' import render_log_entries, render_log_entry, render_log_reason, render_log_user %}
+{%- from 'macros/admin/shop/order.html' import render_order_payment_state %}
+
+
+{%- if log_entries %}
+  {%- call render_log_entries() %}
+    {%- for log_entry in log_entries|sort(attribute='occurred_at', reverse=True) %}
+      {%- if log_entry.event_type == 'order-placed' %}
+        {%- call render_log_entry('add', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has <strong>placed</strong> order <a href="%(order_url)s">%(order_number)s</a>.',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-canceled-before-paid' %}
+        {%- call render_log_entry('disabled', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has marked order <a href="%(order_url)s">%(order_number)s</a> as %(new_payment_state)s (previously %(former_payment_state)s).',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+            former_payment_state=render_order_payment_state(PaymentState[log_entry.data.former_payment_state]),
+            new_payment_state=render_order_payment_state(PaymentState.canceled_before_paid),
+          ) }}
+          {{ render_log_reason(log_entry.data.reason) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-paid' %}
+        {%- call render_log_entry('success', log_entry.occurred_at) %}
+          {%- set payment_method %}
+            {{ render_order_payment_method(log_entry.data.payment_method) }}
+            {%- if 'paypal_transaction_id' in log_entry.data %}
+            (<a href="https://www.paypal.com/activity/payment/{{ log_entry.data.paypal_transaction_id }}">{{ log_entry.data.paypal_transaction_id }}</a>)
+            {%- endif %}
+            {%- if 'stripe_payment_id' in log_entry.data %}
+            (<a href="https://dashboard.stripe.com/payments/{{ log_entry.data.stripe_payment_id }}">{{ log_entry.data.stripe_payment_id }}</a>)
+            {%- endif %}
+          {%- endset %}
+          {{ _(
+            '%(initiator)s has marked order <a href="%(order_url)s">%(order_number)s</a> as %(new_payment_state)s via %(payment_method)s (previously %(former_payment_state)s).',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+            former_payment_state=render_order_payment_state(PaymentState[log_entry.data.former_payment_state]),
+            new_payment_state=render_order_payment_state(PaymentState.paid),
+            payment_method=payment_method,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-canceled-after-paid' %}
+        {%- call render_log_entry('disabled', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has marked order <a href="%(order_url)s">%(order_number)s</a> as %(new_payment_state)s (previously %(former_payment_state)s).',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+            former_payment_state=render_order_payment_state(PaymentState[log_entry.data.former_payment_state]),
+            new_payment_state=render_order_payment_state(PaymentState.canceled_after_paid),
+          ) }}
+          {{ render_log_reason(log_entry.data.reason) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-cancellation-requested' %}
+        {%- call render_log_entry('disabled', log_entry.occurred_at) %}
+          {{ '%(initiator)s has requested cancellation of the order.'|format(initiator=render_log_user(log_entry.initiator))|safe }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-invoice-created' %}
+        {%- call render_log_entry('invoice', log_entry.occurred_at) %}
+          {{ _(
+            'Invoice %(invoice_number)s was created for order <a href="%(order_url)s">%(order_number)s</a>.',
+            invoice_number=log_entry.data.invoice_number,
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-note-added' %}
+        {%- call render_log_entry('note', log_entry.occurred_at) %}
+          {{ _(
+            '%(author)s has added a <strong>note</strong> to order <a href="%(order_url)s">%(order_number)s</a>:',
+            author=render_log_user(log_entry.author),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+          <blockquote>{{ log_entry.data.text }}</blockquote>
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-orderer-updated' %}
+        {%- call render_log_entry('user', log_entry.occurred_at) %}
+          <div class="block">
+          {{ _(
+            '%(initiator)s has <strong>updated the orderer</strong> of order <a href="%(order_url)s">%(order_number)s</a>:',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+          </div>
+          <table class="index">
+            <thead>
+              <tr>
+                <th>{{ _('Attribute') }}</th>
+                <th>{{ _('old') }}</th>
+                <th>{{ _('new') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+            {%- for key, values in log_entry.fields|items|sort %}
+              <tr>
+                <th>{{ key }}</th>
+                <td>{{ values['old']|fallback }}</td>
+                <td>{{ values['new']|fallback }}</td>
+              </tr>
+            {%- endfor %}
+            </tbody>
+          </table>
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-payment-created' %}
+        {%- call render_log_entry('payment', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has <strong>added a payment</strong> for order <a href="%(order_url)s">%(order_number)s</a>.',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-shipped' %}
+        {%- call render_log_entry('shipping', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has marked order <a href="%(order_url)s">%(order_number)s</a> as <strong>shipped</strong>.',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-shipped-withdrawn' %}
+        {%- call render_log_entry('remove', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has marked order <a href="%(order_url)s">%(order_number)s</a> as <strong>not shipped</strong>.',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'order-placed-confirmation-email-resent' %}
+        {%- call render_log_entry('email', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has <strong>re-triggered sending</strong> of the confirmation email for order <a href="%(order_url)s">%(order_number)s</a>.',
+            initiator=render_log_user(log_entry.initiator),
+            order_url=url_for('shop_order_admin.view', order_id=log_entry.order_id),
+            order_number=log_entry.order_number,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'badge-awarded' %}
+        {%- call render_log_entry('badge', log_entry.occurred_at) %}
+          {{ _(
+            'Badge "%(badge)s" has been <strong>awarded</strong> to %(awardee)s.',
+            badge=log_entry.badge_label,
+            awardee=render_log_user(log_entry.awardee),
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'ticket-bundle-created' %}
+        {%- call render_log_entry('ticket', log_entry.occurred_at) %}
+          {{ _(
+            'A <a href="%(url)s">ticket bundle</a> with %(ticket_quantity)s tickets of category "%(ticket_category)s" has been created.',
+            url=url_for('ticketing_admin.view_bundle', bundle_id=log_entry.bundle_id),
+            ticket_quantity=log_entry.ticket_quantity,
+            ticket_category=log_entry.ticket_category_title|fallback('unknown'),
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'ticket-bundle-revoked' %}
+        {%- call render_log_entry('ticket', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has <strong>revoked</strong> the <a href="%(url)s">ticket bundle</a>.',
+            initiator=(render_log_user(log_entry.initiator) if (log_entry.initiator is defined) else _('Someone')),
+            url=url_for('ticketing_admin.view_bundle', bundle_id=log_entry.bundle_id),
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'ticket-created' %}
+        {%- call render_log_entry('ticket', log_entry.occurred_at) %}
+          {{ _(
+            '<a href="%(url)s">Ticket %(code)s</a> has been <strong>created</strong>.',
+            url=url_for('ticketing_admin.view_ticket', ticket_id=log_entry.ticket_id),
+            code=log_entry.ticket_code,
+          ) }}
+        {%- endcall %}
+      {%- elif log_entry.event_type == 'ticket-revoked' %}
+        {%- call render_log_entry('ticket', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has <strong>revoked</strong> <a href="%(url)s">ticket %(code)s</a>.',
+            initiator=(render_log_user(log_entry.initiator) if (log_entry.initiator is defined) else _('Someone')),
+            url=url_for('ticketing_admin.view_ticket', ticket_id=log_entry.ticket_id),
+            code=log_entry.ticket_code,
+          ) }}
+        {%- endcall %}
+      {%- else %}
+        {%- call render_log_entry('disabled', log_entry.occurred_at) %}
+          {{ _(
+            '%(initiator)s has initiated <strong>unknown event</strong> "%(event_type)s".',
+            initiator=render_log_user(log_entry.initiator),
+            event_type=log_entry.event_type,
+          ) }}
+        {%- endcall %}
+      {%- endif %}
+    {%- endfor %}
+  {%- endcall %}
+{%- else %}
+<div class="box no-data-message">{{ _('No data yet.') }}</div>
+{%- endif %}

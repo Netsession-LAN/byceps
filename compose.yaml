@@ -1,0 +1,124 @@
+x-byceps-base: &byceps-base
+  build: .
+  volumes:
+    - ./data:/home/byceps/data
+    - ./docker/byceps/config.toml:/home/byceps/config.toml:ro
+  depends_on:
+    - db
+    - redis
+
+x-byceps-base-env: &byceps-base-env
+  BYCEPS_CONFIG_FILE: /home/byceps/config.toml
+
+services:
+
+  db:
+    image: "postgres:17"
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: byceps
+      POSTGRES_USER: byceps
+    networks:
+      - byceps
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: "redis:7"
+    networks:
+      - byceps
+
+  byceps-apps:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    networks:
+      - byceps
+      - proxy
+
+  byceps-worker:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    command: uv run --no-sync byceps worker
+    networks:
+      - byceps
+
+  byceps-discord-outbox:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    command: >
+      sh -c "while true; do
+      uv run --no-sync python scripts/netsession_tourney/process_discord_outbox.py --limit 50;
+      sleep 15;
+      done"
+    restart: unless-stopped
+    networks:
+      - byceps
+
+  byceps-browser-push-outbox:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    command: >
+      sh -c "while true; do
+      uv run --no-sync byceps process-netsession-tourney-browser-push-outbox --limit 50;
+      sleep 15;
+      done"
+    restart: unless-stopped
+    networks:
+      - byceps
+
+  byceps-discord-dm-outbox:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    command: >
+      sh -c "while true; do
+      uv run --no-sync byceps process-netsession-tourney-discord-dm-outbox --limit 50;
+      sleep 15;
+      done"
+    restart: unless-stopped
+    networks:
+      - byceps
+
+  byceps-discord-bot:
+    <<: *byceps-base
+    environment:
+      <<: *byceps-base-env
+    command: >
+      sh -c "while true; do
+      uv run --no-sync byceps run-netsession-tourney-discord-bot;
+      sleep 15;
+      done"
+    restart: unless-stopped
+    networks:
+      - byceps
+
+  web:
+    image: nginx
+    volumes:
+      - ./docker/nginx/includes:/etc/nginx/includes:ro
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      - .:/var/www/byceps:ro
+    depends_on:
+      - byceps-apps
+    environment:
+      SERVER_NAME_ADMIN: admin.byceps.example
+      SERVER_NAME_API: api.byceps.example
+      SERVER_NAME_SITE: cozylan.example
+      UWSGI_ADDRESS: byceps-apps:5000
+    ports:
+      - "8080:80"
+    networks:
+      - proxy
+
+volumes:
+  db-data:
+
+networks:
+  byceps:
+  proxy:

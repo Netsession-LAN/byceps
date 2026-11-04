@@ -1,0 +1,86 @@
+"""
+byceps.services.orga_presence.dbmodels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from byceps.database import db
+from byceps.services.party.models import PartyID
+from byceps.services.user.dbmodels import DbUser
+from byceps.services.user.models import UserID
+
+
+class DbTimeSlot(db.Model):
+    """A time slot at a party."""
+
+    __tablename__ = 'orga_time_slots'
+    __mapper_args__ = {
+        'polymorphic_on': 'type',
+        'polymorphic_identity': 'time_slot',
+    }
+
+    id: Mapped[UUID] = mapped_column(db.Uuid, primary_key=True)
+    party_id: Mapped[PartyID] = mapped_column(
+        db.UnicodeText, db.ForeignKey('parties.id'), index=True
+    )
+    type: Mapped[str] = mapped_column(db.UnicodeText, index=True)
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+
+
+class DbPresence(DbTimeSlot):
+    """The scheduled presence of an organizer at a party."""
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'orga_presence',
+    }
+
+    orga_id: Mapped[UserID] = mapped_column(
+        db.Uuid, db.ForeignKey('users.id'), nullable=True
+    )
+    orga: Mapped[DbUser] = relationship()
+
+    def __init__(
+        self,
+        time_slot_id: UUID,
+        party_id: PartyID,
+        starts_at: datetime,
+        ends_at: datetime,
+        orga_id: UserID,
+    ) -> None:
+        self.id = time_slot_id
+        self.party_id = party_id
+        self.starts_at = starts_at
+        self.ends_at = ends_at
+        self.orga_id = orga_id
+
+
+class DbTask(DbTimeSlot):
+    """A scheduled task connected to a party."""
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'task',
+    }
+
+    title: Mapped[str] = mapped_column(db.UnicodeText, nullable=True)
+
+    def __init__(
+        self,
+        time_slot_id: UUID,
+        party_id: PartyID,
+        starts_at: datetime,
+        ends_at: datetime,
+        title: str,
+    ) -> None:
+        self.id = time_slot_id
+        self.party_id = party_id
+        self.starts_at = starts_at
+        self.ends_at = ends_at
+        self.title = title

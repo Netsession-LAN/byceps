@@ -1,0 +1,55 @@
+{% extends 'layout/admin/ticketing.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page_party = party %}
+{% set current_tab = 'categories' %}
+{% set page_title = [_('Ticket categories'), party.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Ticket categories') }} {{ render_extra_in_heading(categories_with_ticket_counts|length) }}</h1>
+    </div>
+    {%- if g.user.has_permission('ticketing.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Create category') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if categories_with_ticket_counts %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Title') }}<br>{{ _('ID') }}</th>
+        <th class="number">{{ _('Tickets') }}<sup>*</sup></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for category, ticket_count in categories_with_ticket_counts|sort(attribute='0.title') %}
+        <tr>
+          <td><strong>{{ category.title }}</strong><br><span class="dimmed">{{ category.id }}</span></td>
+          <td class="bignumber number"><a href="{{ url_for('ticketing_admin.index_for_party', party_id=party.id, category=category.id) }}">{{ ticket_count }}</a></td>
+          <td>
+            {%- if g.user.has_permission('ticketing.administrate') %}
+            <div class="button-row is-compact is-right-aligned">
+              <a href="{{ url_for('.update_form', category_id=category.id) }}" class="button is-compact" title="{{ _('Edit') }}">{{ render_icon('edit') }}</a>
+            </div>
+            {%- endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  <small>
+    <p style="text-align: right;"><sup>*)</sup> {{ _('created, non-revoked tickets') }}</p>
+  </small>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No ticket categories exist for this party.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

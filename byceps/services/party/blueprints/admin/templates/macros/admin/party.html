@@ -1,0 +1,94 @@
+{% from 'macros/admin/brand.html' import render_brand_avatar %}
+{% from 'macros/misc.html' import render_progress_bar, render_tag %}
+
+
+{%- macro render_party(party, days, ticket_sale_stats, show_brand_avatar=True) %}
+  <div class="box box--marked {{ 'color-danger' if party.canceled else ('color-disabled' if party.archived else 'color-success') }}">
+    <div class="row row--space-between">
+
+      <div style="width: 40%;">
+        <div class="row" style="margin-bottom: 0.5rem;">
+          {%- if show_brand_avatar %}
+          <div>
+            <div style="margin-right: -0.25rem;">{{ render_brand_avatar(party.brand, '40') }}</div>
+          </div>
+          {%- endif %}
+          <div>
+            <a href="{{ url_for('admin_dashboard.view_party', party_id=party.id) }}" class="disguised" style="display: block;">
+              <strong>{{ party.title }}</strong><br>
+              <span class="monospace">{{ party.id }}</span>
+            </a>
+          </div>
+        </div>
+
+        {%- if party.hidden %}
+        {{ render_tag(_('hidden'), class='tag--outlined', icon='hidden') }}
+        {%- endif %}
+
+        {%- if party.canceled %}
+        {{ render_tag(pgettext('party', 'canceled'), class='color-danger', icon='disabled') }}
+        {%- endif %}
+
+        {%- if party.archived %}
+        {{ render_tag(_('archived'), class='color-disabled', icon='archived') }}
+        {%- endif %}
+      </div>
+
+      <div style="width: 30%;">
+        <div>
+          <div style="font-size: 0.75rem;">
+            {{- party.starts_at|dateformat }}, {{ party.starts_at|timeformat('short') }} {{ _('until') }}<br>
+            {{- party.ends_at|dateformat }}, {{ party.ends_at|timeformat('short') }}
+          </div>
+
+          {%- for day in days %}
+          {{ render_tag(day|dateformat('E'), class='color-disabled--light') }}
+          {%- endfor %}
+
+          {%- if party.is_over %}
+          {{ render_tag(_('over'), class='color-disabled') }}
+          {%- endif %}
+        </div>
+      </div>
+
+      <div style="width: 30%;">
+        <div class="mb">
+        {{ _render_ticket_sale_stats(ticket_sale_stats) }}
+        </div>
+
+        {%- if party.ticket_management_enabled %}
+        {{ render_tag(_('Ticket management') ~ ' ' ~ _('open'), class='color-success', icon='ticket') }}<br>
+        {%- endif %}
+
+        {%- if party.seat_management_enabled %}
+        {{ render_tag(_('Seat management') ~ ' ' ~ _('open'), class='color-success', icon='seating-area') }}<br>
+        {%- endif %}
+      </div>
+
+    </div>{# .row #}
+  </div>{# .box #}
+{%- endmacro %}
+
+
+{% macro _render_ticket_sale_stats(ticket_sale_stats) -%}
+  {%- with tickets_total_max_specified = (ticket_sale_stats.tickets_max is not none) %}
+  <div class="progress" style="height: 0.25rem;">
+    {%- if tickets_total_max_specified %}
+    {{ render_progress_bar(ticket_sale_stats.tickets_sold, ticket_sale_stats.tickets_max, 'color-success') }}
+    {%- endif %}
+  </div>
+
+  <div style="font-size: 0.75rem; text-align: center;">
+    <strong>{{ ticket_sale_stats.tickets_sold|numberformat }}</strong>
+    {{ _('of') }}
+    <strong>{{ ticket_sale_stats.tickets_max|numberformat if tickets_total_max_specified else '?' }}</strong>
+    {{ _('tickets sold') }}
+  </div>
+
+    {%- if tickets_total_max_specified and ticket_sale_stats.tickets_sold >= ticket_sale_stats.tickets_max %}
+  <div style="text-align: center;">
+  {{ render_tag(_('sold out'), class='color-success', icon='ticket') }}
+  </div>
+    {%- endif %}
+  {%- endwith %}
+{%- endmacro %}

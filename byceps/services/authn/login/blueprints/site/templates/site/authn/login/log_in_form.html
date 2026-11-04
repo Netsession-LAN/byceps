@@ -1,0 +1,72 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field_check, form_field %}
+{% from 'macros/misc.html' import render_notification %}
+{% set simple_layout = true %}
+{% set current_page = 'authn_login' %}
+{% set page_title = _('Log in') %}
+
+
+{% block head %}
+<style>
+.login-component {
+  margin-inline: auto;
+  max-width: 24rem;
+  width: 100%;
+}
+
+.login-component-help {
+  margin-top: 2rem;
+}
+
+#login-failed-notice {
+  max-height: 4rem;
+  overflow-y: hidden;
+  transition: max-height 1s ease-out;
+}
+
+#login-failed-notice.hidden {
+  max-height: 0;
+  transition: max-height 0s;
+}
+</style>
+{%- endblock %}
+
+{% block body %}
+
+<div class="login-component">
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  {%- if login_enabled %}
+  <form action="{{ url_for('.log_in') }}" method="post" id="login-form">
+    <div class="main-body-box">
+      {{ form_field(form.username, maxlength=40, autofocus='autofocus') }}
+      {{ form_field(form.password, maxlength=100) }}
+      {{ form_field_check(form.permanent, _('permanently stay logged in')) }}
+
+      <div id="login-failed-notice" class="hidden">
+{{ render_notification(_('Login failed.'), category='danger', icon='warning') }}
+      </div>
+    </div>
+
+    {{ form_buttons(_('Log in')) }}
+  </form>
+
+  <div class="login-component-help">
+    {% if g.site.user_account_creation_enabled %}
+    <p>{{ _('Not registered yet?') }} <a href="{{ url_for('user_creation.create_form') }}">{{ _('Create an account.') }}</a></p>
+    <p>{{ _('Confirmation email not received yet?') }} <a href="{{ url_for('user_email_address.request_confirmation_email_form') }}">{{ _('Request it again.') }}</a></p>
+    {%- endif %}
+    <p>{{ _('Forgot your password?') }} <a href="{{ url_for('authn_password.request_reset_form') }}">{{ _('Set new password.') }}</a></p>
+  </div>
+  {%- else %}
+{{ render_notification(_('Login is disabled.'), category='warning', icon='warning') }}
+  {%- endif %}
+
+</div>
+
+{%- endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='behavior/login.js') }}"></script>
+{%- endblock %}

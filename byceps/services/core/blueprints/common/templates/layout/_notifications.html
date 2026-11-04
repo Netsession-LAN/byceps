@@ -1,0 +1,12 @@
+{%- from 'macros/misc.html' import render_notification %}
+
+
+{%- with flashed_messages = get_flashed_messages() %}
+  {%- if flashed_messages %}
+    {%- for message in flashed_messages %}
+      {%- with text = message.text|safe if message.text_is_safe else message.text %}
+{{ render_notification(text, category=message.category, icon=message.icon) }}
+      {%- endwith %}
+    {%- endfor %}
+  {%- endif %}
+{%- endwith %}

@@ -1,0 +1,29 @@
+{% from 'macros/admin/brand.html' import render_brand_avatar %}
+{% from 'macros/admin/dashboard.html' import render_cell %}
+
+
+<div class="row row--space-between is-vcentered">
+  <div>
+    <h2>{{ _('Active Brands') }}</h2>
+  </div>
+  <div>
+    <a class="dashboard-section-link" href="{{ url_for('brand_admin.index') }}">{{ _('All brands') }} &rarr;</a>
+  </div>
+</div>
+
+<div class="grid" style="--column-min-width: 120px;">
+
+{%- if active_brands %}
+  {%- for brand in active_brands|sort(attribute='title') %}
+    {%- call render_cell(href=url_for('admin_dashboard.view_brand', brand_id=brand.id), additional_classes='centered') %}
+  <div>{{ render_brand_avatar(brand, '64') }}</div>
+  <div style="margin-top: 0.5rem;">{{ brand.title }}</div>
+    {%- endcall %}
+  {%- endfor %}
+{%- else %}
+  {%- call render_cell() %}
+  <div style="display: grid; height: 100%; place-items: center;">{{ _('No active brands')|dim }}</div>
+  {%- endcall %}
+{%- endif %}
+
+</div>

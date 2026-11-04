@@ -1,0 +1,37 @@
+# Python 3 bytecode
+__pycache__
+
+/.eggs
+
+# virtual environment
+/.venv
+
+# autoenv
+.autoenv
+.autoenv.leave
+.env
+.env.leave
+
+# test-related
+/.coverage
+/.pytest_cache
+*.egg-info
+
+# cache data
+.cache
+.mypy_cache
+
+# user data
+/data
+
+# documentation
+/docs/_build
+
+# custom configurations
+/config/*.toml
+/docker/byceps/*.toml
+
+# l10n
+messages.pot
+
+secret_key.txt

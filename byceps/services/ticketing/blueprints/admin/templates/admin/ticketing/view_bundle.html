@@ -1,0 +1,55 @@
+{% extends 'layout/admin/ticketing.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/admin/shop/order.html' import render_order_link %}
+{% from 'macros/admin/user.html' import render_user_avatar_and_admin_link %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page_party = party %}
+{% set current_tab = 'bundles' %}
+{% set page_title = [_('Ticket bundle'), bundle.id] %}
+
+{% block body %}
+
+  <h1 class="title">
+    {{ render_icon('ticket-bundle') }} {{ bundle.id }}
+    {%- if bundle.revoked %} {{ render_tag(_('revoked'), class='color-danger nowrap', icon='disabled') }}{% endif -%}
+  </h1>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('ID') }}</div>
+    <div class="data-value">{{ bundle.id }}</div>
+
+    <div class="data-label">{{ _('Created') }}</div>
+    <div class="data-value mb">{{ bundle.created_at|datetimeformat }}</div>
+
+    <div class="row mb">
+      <div>
+
+        <div class="data-label">{{ _('Category') }}</div>
+        <div class="data-value"><a href="{{ url_for('ticketing_category_admin.index', party_id=party.id) }}">{{ bundle.ticket_category.title }}</a></div>
+
+      </div>
+      <div>
+
+        <div class="data-label">{{ _('Ticket quantity') }}</div>
+        <div class="data-value">{{ bundle.ticket_quantity }}</div>
+
+      </div>
+    </div>
+
+    <div class="data-label">{{ _('Order') }}</div>
+    <div class="data-value">{{ render_order_link(order) if order else None|fallback(_('not specified')) }}</div>
+
+    <div class="data-label">{{ _('Description') }}</div>
+    <div class="data-value mb">{{ bundle.label|fallback }}</div>
+
+    <div class="data-label">{{ _('Owner') }}</div>
+    <div class="data-value">{{ render_user_avatar_and_admin_link(bundle.owned_by, size=20) }}</div>
+
+  </div>
+
+  <h2>{{ _('Tickets') }} {{ render_extra_in_heading(tickets|length) }}</h1>
+{% include 'admin/ticketing/_ticket_list.html' %}
+
+{%- endblock %}

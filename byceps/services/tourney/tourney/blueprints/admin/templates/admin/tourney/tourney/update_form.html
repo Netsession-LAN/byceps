@@ -1,0 +1,29 @@
+{% extends 'layout/admin/tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_check %}
+{% set current_page_party = party %}
+{% set current_tab = 'tourneys' %}
+{% set page_title = _('Edit tourney') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index', party_id=party.id), _('Tourneys')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.update', tourney_id=tourney.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.title, autofocus='autofocus') }}
+      {{ form_field(form.subtitle) }}
+      {{ form_field(form.logo_url) }}
+      {{ form_field(form.category_id) }}
+      {{ form_field(form.max_participant_count, min=0, max=999, style='width: 4rem;') }}
+      {{ form_field(form.starts_at) }}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}

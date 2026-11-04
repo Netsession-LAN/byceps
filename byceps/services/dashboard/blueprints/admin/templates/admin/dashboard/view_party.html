@@ -1,0 +1,109 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/dashboard.html' import render_bigstats_cell, render_cell %}
+{% from 'macros/misc.html' import render_distribution_bar, render_progress_bar, render_tag %}
+{% set current_page = 'admin_dashboard_party' %}
+{% set current_page_party = party %}
+{% set page_title = [_('Dashboard'), party.title] %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin_dashboard.css') }}">
+{%- endblock %}
+
+{% block body %}
+
+  <div class="grid">
+
+    {%- call render_cell('date') %}
+      <div class="cell-label">{{ _('Date') }}</div>
+      <div>
+        <div style="font-size: 0.75rem;">
+          {{- party.starts_at|dateformat }}, {{ party.starts_at|timeformat('short') }} {{ _('until') }}<br>
+          {{- party.ends_at|dateformat }}, {{ party.ends_at|timeformat('short') -}}
+        </div>
+
+        {%- for day in days %}
+        {{ render_tag(day|dateformat('E'), class='color-disabled--light') }}
+        {%- endfor %}
+
+        {%- if party.canceled %}
+        {{ render_tag(pgettext('party', 'canceled'), class='color-danger') }}
+        {%- elif party.is_over %}
+        {{ render_tag(_('over'), class='color-disabled') }}
+        {%- endif %}
+      </div>
+    {%- endcall %}
+
+    {{ render_bigstats_cell(days_until_party|numberformat, ngettext('day until the party', 'days until the party', days_until_party), icon_name='date') }}
+
+    {{ render_bigstats_cell(orga_count, ngettext('organizer in %(team_count)s teams', 'organizers in %(team_count)s teams', orga_count, team_count='<strong>%d</strong>'|format(orga_team_count)|safe), href=url_for('orga_team_admin.teams_for_party', party_id=party.id), icon_name='users') }}
+
+    {{ render_bigstats_cell(seat_count|numberformat, ngettext('seat in %(area_count)s areas', 'seats in %(area_count)s areas', seat_count, area_count='<strong>%d</strong>'|format(seating_area_count)|safe), href=url_for('seating_admin.index_for_party', party_id=party.id), icon_name='seating-area') }}
+
+    {%- call render_cell('ticket', href=url_for('ticketing_admin.index_for_party', party_id=party.id)) %}
+      <div class="cell-label">{{ _('tickets sold') }}</div>
+      {%- with tickets_total_max_specified = (ticket_sale_stats.tickets_max is not none) %}
+      <div class="progress mt">
+        {%- if tickets_total_max_specified %}
+        {{ render_progress_bar(ticket_sale_stats.tickets_sold, ticket_sale_stats.tickets_max, 'color-success') }}
+        {%- endif %}
+      </div>
+      <div class="row row--space-between small">
+        <div style="font-weight: bold;">{{ ticket_sale_stats.tickets_sold|numberformat }}</div>
+        {%- if tickets_total_max_specified and ticket_sale_stats.tickets_sold >= ticket_sale_stats.tickets_max %}
+        <div>{{ render_tag(_('sold out')) }}</div>
+        {%- endif %}
+        <div class="dimmed">{{ _('of') }} {{ ticket_sale_stats.tickets_max|numberformat if tickets_total_max_specified else '?' }}</div>
+      </div>
+      {%- endwith %}
+    {%- endcall %}
+
+    {%- call render_cell('seating-area', href=url_for('seating_admin.index_for_party', party_id=party.id)) %}
+      <div class="cell-label">{{ _('seats occupied') }}</div>
+      <div class="progress mt">
+        {{ render_progress_bar(seat_utilization.occupied, seat_utilization.total, 'color-success') }}
+      </div>
+      <div class="row row--space-between small">
+        <div style="font-weight: bold;">{{ seat_utilization.occupied|numberformat }}</div>
+        <div class="dimmed">{{ _('of') }} {{ seat_utilization.total|numberformat }}</div>
+      </div>
+    {%- endcall %}
+
+    {%- call render_cell('ticketing-checkin', href=url_for('ticketing_checkin_admin.index', party_id=party.id)) %}
+      <div class="cell-label">{{ _('tickets checked in') }}</div>
+      <div class="progress mt">
+        {{ render_progress_bar(tickets_checked_in, ticket_sale_stats.tickets_sold, 'color-success') }}
+      </div>
+      <div class="row row--space-between small">
+        <div style="font-weight: bold;">{{ tickets_checked_in|numberformat }}</div>
+        <div class="dimmed">{{ _('of') }} {{ ticket_sale_stats.tickets_sold|numberformat }}</div>
+      </div>
+    {%- endcall %}
+
+  {%- if g.user.has_permission('guest_server.view') %}
+    {%- call render_cell('server', href=url_for('guest_server_admin.server_index', party_id=party.id)) %}
+      <div class="cell-label">{{ _('Guest Servers') }}</div>
+      <div class="mt">
+{{ render_distribution_bar(
+  [
+    (guest_server_quantities_by_status.pending, 'color-info'),
+    (guest_server_quantities_by_status.approved, 'color-warning'),
+    (guest_server_quantities_by_status.checked_in, 'color-success'),
+    (guest_server_quantities_by_status.checked_out, 'color-disabled'),
+  ],
+  guest_server_quantities_by_status.total,
+) }}
+      </div>
+      <div class="row row--space-between small">
+        {%- if guest_server_quantities_by_status.pending %}
+        <div><strong>{{ guest_server_quantities_by_status.pending }}</strong> {{ _('pending') }}</div>
+        {%- endif %}
+        {%- if guest_server_quantities_by_status.checked_in %}
+        <div><strong>{{ guest_server_quantities_by_status.checked_in }}</strong> {{ _('checked in') }}</div>
+        {%- endif %}
+      </div>
+    {%- endcall %}
+  {%- endif %}
+
+  </div>
+
+{%- endblock %}

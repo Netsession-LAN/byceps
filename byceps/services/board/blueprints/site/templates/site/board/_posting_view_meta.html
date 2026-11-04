@@ -1,0 +1,22 @@
+{%- from 'macros/board.html' import render_flag_hidden, render_flag_new %}
+{%- from 'macros/misc.html' import render_tag %}
+{%- from 'macros/user.html' import render_user_link %}
+
+
+      <div class="user-comment-meta-top">
+        <span class="user-link">{{ render_user_link(posting.creator) }}</span>
+
+        {%- if posting.creator_id == topic.creator_id %}
+        <span>{{ render_tag(_('Topic starter'), class='tag--outlined') }}</span>
+        {%- endif %}
+
+        <a href="{{ url_for('.posting_view', posting_id=posting.id, _external=True) }}" class="user-comment-permalink" title="{{ _('Permalink to this post') }}">{{ posting.created_at|dateformat }}, {{ posting.created_at|timeformat('short') }}</a>
+
+        {%- if posting.unseen %}
+        <span>{{ render_flag_new() }}</span>
+        {%- endif %}
+
+        {%- if posting.hidden %}
+        <span>{{ render_flag_hidden(posting.hidden_by) }}</span>
+        {%- endif %}
+      </div>

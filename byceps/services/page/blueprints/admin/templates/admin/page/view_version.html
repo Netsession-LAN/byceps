@@ -1,0 +1,97 @@
+{% extends 'layout/admin/page.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'macros/user.html' import render_user_avatar_and_name %}
+{% set page_title = [_('View page version'), site.title] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">
+        {{ page.name }}
+        {%- if page.hidden %}
+        {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+        {%- endif %}
+      </h1>
+    </div>
+    {%- if g.user.has_permission('page.update') -%}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.update_form', page_id=page.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+        <div class="dropdown">
+          <button class="dropdown-toggle button"><span>{{ render_icon('chevron-down') }}</span></button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            <li><a class="dropdown-item" href="{{ url_for('.set_nav_menu', page_id=page.id) }}">{{ render_icon('navigation') }} <span>{{ _('Set navigation menu') }}</span></a></li>
+            {%- if g.user.has_permission('page.delete') %}
+            <li class="dropdown-divider"></li>
+            <li><a class="dropdown-item color--danger" href="{{ url_for('.delete', page_id=page.id) }}" data-action="page-delete">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+            {%- endif %}
+          </ol>
+        </div>
+      </div>
+    </div>
+    {%- endif -%}
+  </div>
+
+  <div class="box">
+    <div class="row">
+      <div style="flex-basis: 50%;">
+
+        <div class="data-label">{{ _('Language') }}</div>
+        <div class="data-value">{{ page.language_code }}</div>
+
+        <div class="data-label">{{ _('URL path') }}</div>
+        <div class="data-value monospace">{{ page.url_path }}</div>
+
+        <div class="data-label">{{ _('Navigation menu') }}</div>
+        <div class="data-value">
+        {%- if nav_menu %}
+        <a href="{{ url_for('site_navigation_admin.view', menu_id=nav_menu.id) }}">{{ nav_menu.name }} ({{ nav_menu.language_code }})</a>
+          {%- if nav_menu.hidden %}
+        {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+          {%- endif %}
+        {%- else %}
+        {{ _('not assigned')|dim }}
+        {%- endif %}
+        </div>
+
+      </div>
+      <div style="flex-basis: 50%;">
+
+        <div class="data-label">{{ _('Version') }}</div>
+        <div class="data-value">
+          {{- version.id -}}
+          {%- if is_current_version %}
+          {{ render_tag(_('current'), class='color-success') }}
+          {%- else %}
+          {{ render_tag(_('outdated'), class='color-warning') }}<br>
+          <a href="{{ url_for('.view_current_version', page_id=page.id) }}">{{ _('View current version') }}</a>
+          {%- endif %}
+        </div>
+
+        <div class="data-label">{{ _('Created') }}</div>
+        <div class="data-value">
+          {{ version.created_at|datetimeformat }} {{ _('by') }} {{ render_user_avatar_and_name(creator, size=16) }}<br>
+          <a href="{{ url_for('.history', page_id=page.id) }}">{{ render_icon('history') }} {{ _('View change history') }}</a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <h2>{{ _('Preview') }}</h2>
+
+  <div class="box preview-background" style="padding: 0;">
+<iframe src="{{ url_for('.view_version_preview', version_id=version.id) }}" title="Preview" style="border: none; height: 60rem; width: 100%;" sandbox></iframe>
+  </div>
+
+{%- endblock %}
+
+{% block scripts %}
+    <script>
+      onDomReady(() => {
+        confirmed_delete_on_click('[data-action="page-delete"]', '{{ _('Delete page?') }}');
+      });
+    </script>
+{% endblock %}

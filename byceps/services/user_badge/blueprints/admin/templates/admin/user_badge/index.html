@@ -1,0 +1,63 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin/brand.html' import render_brand_avatar %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set current_page = 'user_badge_admin' %}
+{% set page_title = _('Badges') %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">{{ _('Badges') }} {{ render_extra_in_heading(badges|length) }}</h1>
+    </div>
+  {%- if g.user.has_permission('user_badge.create') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.create_form') }}">{{ render_icon('add') }} <span>{{ _('Create badge') }}</span></a>
+      </div>
+    </div>
+  {%- endif %}
+  </div>
+
+  {%- if badges %}
+  <table class="itemlist is-vcentered is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Image') }}</th>
+        <th>{{ _('Label') }}<br>{{ _('Slug') }}</th>
+        <th>{{ _('Brand') }}</th>
+        <th></th>
+        <th class="number">{{ _('Awarded') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for badge in badges|sort(attribute='label') %}
+      <tr>
+        <td><span class="user-badge size-32"><img src="{{ badge.image_url_path }}"></span></td>
+        <td>
+          <a href="{{ url_for('user_badge_admin.view', badge_id=badge.id) }}" class="disguised"><strong>{{ badge.label }}</strong></a><br>
+          {{ badge.slug|dim }}
+        </td>
+        <td>
+          {%- if badge.brand %}
+          <div class="row is-compact is-vcentered">
+            <div>{{ render_brand_avatar(badge.brand, '32') }}</div>
+            <div>{{ badge.brand.title }}</div>
+          </div>
+          {%- else %}
+          <em>{{ _('unrestricted') }}</em>
+          {%- endif %}
+        </td>
+        <td>{{ render_tag(_('featured')) if badge.featured else '' }}</td>
+        <td class="bignumber number">{{ badge.awarding_count }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No badges defined.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

@@ -1,0 +1,123 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_check_field as render_admin_check_field, render_field as render_admin_field %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% set current_page_party = party %}
+{% set current_tab = 'notifications' %}
+{% set page_title = [_('Netsession Turniere'), _('Notifications'), party.title] %}
+
+{% block body %}
+  {{
+    render_page_header(
+      [
+        {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+        {'label': _('Notifications'), 'url': none},
+      ],
+      party.title,
+      _('Browser-Notifications'),
+      _('Globale Browser-Push- und Discord-Benachrichtigungen für alle Netsession-Turniere dieser Party.'),
+      badge_label=_('Aktiv') if browser_push_config.enabled or discord_dm_config.enabled else _('Inaktiv'),
+      badge_class='status-live' if browser_push_config.enabled or discord_dm_config.enabled else 'status-closed',
+      summary_items=[
+        {'label': _('VAPID Public Key'), 'value': _('vorhanden') if browser_push_config.vapid_public_key else '-'},
+        {'label': _('Discord Bot Token'), 'value': _('vorhanden') if discord_dm_bot_token_masked else '-'},
+        {'label': _('Turniere'), 'value': tournaments|length},
+      ]
+    )
+  }}
+
+  <form action="{{ url_for('.notifications_update', party_id=party.id) }}" method="post" class="ns-admin-form-shell block">
+    <section class="ns-admin-form-section">
+      <div class="ns-admin-form-section-header">
+        <h2 class="ns-admin-form-section-title">{{ _('Global') }}</h2>
+        <p class="ns-admin-form-section-text">
+          {{ _('Wenn aktiviert, können beteiligte User Browser-Benachrichtigungen global für ihre Turniere und Matches einschalten.') }}
+        </p>
+      </div>
+
+      <div class="ns-admin-form-grid">
+        {{ render_admin_check_field(browser_push_form.enabled, _('Schaltet Browser-Push für alle Netsession-Turniere dieser Party global ein oder aus.')) }}
+      </div>
+    </section>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+    </div>
+  </form>
+
+  <form action="{{ url_for('.notifications_discord_dm_update', party_id=party.id) }}" method="post" class="ns-admin-form-shell block">
+    <section class="ns-admin-form-section">
+      <div class="ns-admin-form-section-header">
+        <h2 class="ns-admin-form-section-title">{{ _('Discord Private Notifications') }}</h2>
+        <p class="ns-admin-form-section-text">
+          {{ _('Technische Konfiguration für Discord-Privatnachrichten. Diese Daten gelten party-weit, die fachliche Aktivierung erfolgt pro Turnier im Discord-Tab.') }}
+        </p>
+      </div>
+
+      <div class="ns-admin-form-callout mb">{{ _('Bot Token (maskiert)') }}: {{ discord_dm_bot_token_masked|fallback('-') }}</div>
+
+      <div class="ns-admin-form-grid">
+        {{ render_admin_check_field(discord_dm_form.enabled, _('Schaltet Discord-Privatbenachrichtigungen für diese Party global ein oder aus.')) }}
+        {{ render_admin_field(discord_dm_form.application_id, _('Discord Application ID des Bots.')) }}
+        {{ render_admin_field(discord_dm_form.bot_token, _('Discord Bot Token. Leer lassen, um den bereits gespeicherten Wert beizubehalten.')) }}
+        {{ render_admin_field(discord_dm_form.default_event_mask, _('Optionale Standard-Event-Mask für neue Turniere, z. B. tournament_live, match_ready, result_submitted.')) }}
+      </div>
+    </section>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Discord speichern') }}</button>
+    </div>
+  </form>
+
+  <form action="{{ url_for('.notifications_discord_dm_send_test', party_id=party.id) }}" method="post" class="ns-admin-form-shell block">
+    <section class="ns-admin-form-section">
+      <div class="ns-admin-form-section-header">
+        <h2 class="ns-admin-form-section-title">{{ _('Discord-Test') }}</h2>
+        <p class="ns-admin-form-section-text">
+          {{ _('Sendet eine Testnachricht an deinen verbundenen Discord-Account, um Bot-Token und Zustellung direkt zu prüfen.') }}
+        </p>
+      </div>
+
+      <div class="ns-admin-form-actions">
+        <button type="submit" class="button color-primary">{{ _('Testnachricht an mich senden') }}</button>
+      </div>
+    </section>
+  </form>
+
+  <section class="ns-admin-form-shell">
+    <section class="ns-admin-form-section">
+      <div class="ns-admin-form-section-header">
+        <h2 class="ns-admin-form-section-title">{{ _('Abdeckung pro Turnier') }}</h2>
+        <p class="ns-admin-form-section-text">
+          {{ _('Zeigt, wie viele beteiligte User pro Turnier aktuell mindestens eine aktive Browser-Subscription haben.') }}
+        </p>
+      </div>
+
+      {%- if tournaments %}
+      <table class="itemlist is-vcentered is-wide">
+        <thead>
+          <tr>
+            <th>{{ _('Turnier') }}</th>
+            <th>{{ _('Status') }}</th>
+            <th>{{ _('Aktive Browser-Subscriptions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for tournament in tournaments %}
+          <tr>
+            <td>
+              <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='notifications') }}" class="disguised">
+                <strong>{{ tournament.title }}</strong>
+              </a>
+            </td>
+            <td>{{ tournament.status.value }}</td>
+            <td>{{ subscribed_counts_by_tournament_id.get(tournament.id, 0) }}</td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      {%- else %}
+      <div class="ns-admin-form-callout no-data-message">{{ _('Keine Turniere vorhanden.') }}</div>
+      {%- endif %}
+    </section>
+  </section>
+{% endblock %}

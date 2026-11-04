@@ -1,0 +1,21 @@
+{%- from 'macros/forms.html' import form_buttons %}
+{%- from 'macros/user.html' import render_user_avatar %}
+
+  <article class="user-comment">
+    <aside class="user-comment-aside">
+      <div class="creator">
+        {{ render_user_avatar(g.user.as_user(), size=96, orga=is_current_user_orga) }}
+      </div>
+    </aside>
+    <div class="user-comment-main">
+      <div class="body">
+        <form action="{{ url_for('.posting_create', topic_id=topic.id) }}" method="post" class="board-posting-create-form-inline">
+          {{ form.body(class='form-control collapsible collapsed') }}
+          <div class="collapsible-neighbor">
+{% include 'site/board/_posting_form_body_supplement.html' -%}
+          {{ form_buttons(_('Add'), cancel_button=True) }}
+          </div>
+        </form>
+      </div>
+    </div>
+  </article>

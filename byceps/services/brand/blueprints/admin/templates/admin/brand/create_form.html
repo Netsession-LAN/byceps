@@ -1,0 +1,25 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set current_page = 'brands_admin' %}
+{% set page_title = _('Create Brand') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index'), _('Brands')) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create') }}" method="post">
+    <div class="box">
+      {{ form_field(form.id, placeholder='superlan', autofocus='autofocus') }}
+      {{ form_field(form.title, placeholder='SuperLAN') }}
+      {{ form_field(form.currency) }}
+    </div>
+
+    {{ form_buttons(_('Create')) }}
+  </form>
+
+{%- endblock %}

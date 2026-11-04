@@ -1,0 +1,121 @@
+{% extends 'layout/admin/ticketing.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/pagination.html' import render_pagination_nav %}
+{% set current_page_party = party %}
+{% set current_tab = 'tickets' %}
+{% set page_title = ['Tickets', party.title] %}
+
+{% block body %}
+
+  <h1 class="title">{{ _('Tickets') }} {{ render_extra_in_heading(tickets.total) }}</h1>
+
+  <div class="row row--space-between is-vcentered block">
+    <div>
+
+      <form action="{{ url_for('.index_for_party', party_id=party.id) }}" class="single-row">
+      <input type="search" name="search_term" placeholder="{{ _('ticket code') }}"{%- if search_term %} value="{{ search_term }}"{% endif %} class="form-control">
+        <button type="submit" class="button" title="{{ _('Search') }}">{{ render_icon('search') }}</button>
+        <a href="{{ url_for('.index_for_party', party_id=party.id) }}" class="button{% if not search_term %} dimmed{% endif %}" title="{{ _('Remove search term constraint') }}">{{ render_icon('remove') }}</a>
+      </form>
+
+    </div>
+    <div>
+
+      <div class="row">
+        <div>
+
+          <div class="dropdown">
+            <span>{{ _('Category') }}:</span>
+            <button class="dropdown-toggle button is-compact">
+              <span>
+                {%- if filter_category %}
+                {{ filter_category.title }}
+                {%- else %}
+                {{ _('all') }}
+                {%- endif %}
+              </span>
+              {{ render_icon('chevron-down') }}
+            </button>
+            <ol class="dropdown-menu dropdown-menu--right">
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(category=None)) }}">{{ _('all') }}</a></li>
+              <li class="dropdown-divider"></li>
+              {%- for category in categories|sort(attribute='title') %}
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(category=category.id)) }}">{{ category.title }}</a></li>
+              {%- endfor %}
+            </ol>
+          </div>
+
+        </div>
+        <div>
+
+          <div class="dropdown">
+            <span>{{ _('revoked') }}:</span>
+            <button class="dropdown-toggle button is-compact">
+              <span>
+                {%- if filter_revoked is not none %}
+                  {%- if filter_revoked.name == 'select' %}
+                {{ _('yes') }}
+                  {%- elif filter_revoked.name == 'reject' %}
+                {{ _('no') }}
+                  {%- endif %}
+                {%- else %}
+                {{ _('unfiltered') }}
+                {%- endif %}
+              </span>
+              {{ render_icon('chevron-down') }}
+            </button>
+            <ol class="dropdown-menu dropdown-menu--right">
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(revoked=None)) }}">{{ _('unfiltered') }}</a></li>
+              <li class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(revoked='select')) }}">{{ _('yes') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(revoked='reject')) }}">{{ _('no') }}</a></li>
+            </ol>
+          </div>
+
+        </div>
+        <div>
+
+          <div class="dropdown">
+            <span>{{ _('checked in') }}:</span>
+            <button class="dropdown-toggle button is-compact">
+              <span>
+                {%- if filter_checked_in is not none %}
+                  {%- if filter_checked_in.name == 'select' %}
+                {{ _('yes') }}
+                  {%- elif filter_checked_in.name == 'reject' %}
+                {{ _('no') }}
+                  {%- endif %}
+                {%- else %}
+                {{ _('unfiltered') }}
+                {%- endif %}
+              </span>
+              {{ render_icon('chevron-down') }}
+            </button>
+            <ol class="dropdown-menu dropdown-menu--right">
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(checked_in=None)) }}">{{ _('unfiltered') }}</a></li>
+              <li class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(checked_in='select')) }}">{{ _('yes') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('.index_for_party', party_id=party.id, **get_filter_args(checked_in='reject')) }}">{{ _('no') }}</a></li>
+            </ol>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {%- with tickets = tickets.items %}
+{% include 'admin/ticketing/_ticket_list.html' %}
+  {%- endwith %}
+
+{{ render_pagination_nav(tickets, '.index_for_party', {
+  'party_id': party.id,
+  'per_page': per_page,
+  'category': filter_category.id if filter_category else None,
+  'revoked': filter_revoked.name if filter_revoked else None,
+  'checked_in': filter_checked_in.name if filter_checked_in else None,
+}) }}
+
+{%- endblock %}

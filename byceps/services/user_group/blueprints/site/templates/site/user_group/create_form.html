@@ -1,0 +1,20 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/forms.html' import form_buttons, form_field %}
+{% set simple_layout = true %}
+{% set current_page = 'user_group' %}
+{% set page_title = _('Create user group') %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.create') }}" method="post">
+    <div class="main-body-box">
+      {{ form_field(form.title, autofocus='autofocus') }}
+      {{ form_field(form.description) }}
+    </div>
+
+    {{ form_buttons(_('Create'), cancel_url=url_for('.index')) }}
+  </form>
+
+{%- endblock %}

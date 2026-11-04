@@ -1,0 +1,22 @@
+{% extends 'layout/base.html' %}
+{% from 'macros/subnav.html' import render_subnav_for_menu_id %}
+
+{% block head %}
+  {%- if head %}
+{{ head|safe }}
+  {%- endif -%}
+{% endblock %}
+
+{% block subnav %}
+  {%- if subnav_menu_id|default %}
+{{ render_subnav_for_menu_id(subnav_menu_id, current_page) }}
+  {%- endif %}
+{% endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+{{ body|safe }}
+
+{%- endblock %}

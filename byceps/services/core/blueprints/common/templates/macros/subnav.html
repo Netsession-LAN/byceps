@@ -1,0 +1,32 @@
+{% from 'macros/icons.html' import render_icon %}
+
+
+{% macro render_subnav_for_menu_id(menu_id, current_page) -%}
+  {%- with nav_items = get_nav_menu_items_for_menu_id(menu_id) %}
+    {%- if nav_items %}
+{%- call render_subnav() %}
+      {%- for item in nav_items %}
+        {{ render_subnav_item(item.target, item.label, item.current_page_id, current_page) }}
+      {%- endfor %}
+{%- endcall %}
+    {%- endif %}
+  {%- endwith %}
+{%- endmacro %}
+
+
+{% macro render_subnav() -%}
+  <ol class="tabs is-hcentered">
+{{ caller() }}
+  </ol>
+{%- endmacro %}
+
+
+{% macro render_subnav_item(url, label, id, current_page_id, icon=None) -%}
+  {%- with is_current = (id == current_page_id) -%}
+    <li>
+      {%- if is_current %}<span class="tabs-tab tabs-tab--current">{% else %}<a class="tabs-tab" href="{{ url }}">{% endif -%}
+      <span>{% if icon %}{{ render_icon(icon) }} {% endif %}{{ label }}</span>
+      {%- if is_current %}</span>{% else %}</a>{% endif -%}
+    </li>
+  {%- endwith %}
+{%- endmacro %}

@@ -1,0 +1,48 @@
+{% extends 'layout/admin/netsession_tourney.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
+{% from 'admin/netsession_tourney/_field_macros.html' import render_field %}
+{% set current_page_party = party %}
+{% set current_tab = 'tournaments' %}
+{% set hide_netsession_main_tabs = true %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Preis bearbeiten'), _('Platz') ~ ' ' ~ prize.position] %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes'), _('Zurück zu Preisen')) }}
+{{ super() }}
+{% endblock %}
+
+{% block body %}
+  {{ render_page_header(
+    [
+      {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
+      {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
+      {'label': _('Preise'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes')},
+      {'label': _('Platz') ~ ' ' ~ prize.position, 'url': none},
+    ],
+    tournament.title,
+    _('Preis bearbeiten') ~ ': ' ~ _('Platz') ~ ' ' ~ prize.position,
+    _('Bearbeite Platzierung, Beschreibung und Format dieses Preises in einem sauberen Editor.')
+  ) }}
+
+  <form action="{{ url_for('.tournament_prize_update', party_id=party.id, tournament_id=tournament.id, prize_id=prize.id) }}" method="post">
+    <div class="ns-admin-form-shell">
+      <section class="box ns-admin-form-section">
+        <div class="ns-admin-form-section-head">
+          <div>
+            <h2 class="ns-admin-form-section-title">{{ _('Preisdefinition') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Lege Platzierung, Inhalt und Format eines Preises fest.') }}</p>
+          </div>
+        </div>
+        {{ render_field(form.position, _('Numerische Platzierung dieses Preises, z. B. 1 für Platz 1.'), autofocus='autofocus') }}
+        {{ render_field(form.body_format, _('Wähle, ob die Beschreibung als HTML oder Markdown gespeichert wird.')) }}
+        {{ render_field(form.body, _('Inhaltliche Beschreibung des Preises. Kann Geld, Hardware, Gutscheine oder Hinweise enthalten.'), rows=12) }}
+      </section>
+    </div>
+
+    <div class="ns-admin-form-actions">
+      <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
+      <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes') }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
+    </div>
+  </form>
+{% endblock %}

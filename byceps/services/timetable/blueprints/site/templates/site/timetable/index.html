@@ -1,0 +1,43 @@
+{% extends 'layout/base.html' %}
+{% set current_page = 'timetable' %}
+{% set page_title = _('Timetable') %}
+
+{% block body %}
+
+<h1 class="title">{{ page_title }}</h1>
+
+{{ render_snippet('timetable_intro', ignore_if_unknown=True)|safe }}
+
+  {%- for day, items in timetable.items %}
+<h2 class="title">{{ day|dateformat('full', rebase=False) }}</h2>
+<table class="itemlist is-wide timetable">
+  <thead>
+    <tr>
+      <th style="width: 4.5rem;">{{ _('When?') }}</th>
+      <th>{{ _('What?') }}</th>
+      <th style="width: 25%;">{{ _('Where?') }}</th>
+      <th style="width: 6rem;"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {%- for item in items %}
+    <tr>
+      <td class="nowrap">{{ item.scheduled_at|timeformat('short', rebase=False) }}</td>
+      <td>{{ item.description|safe }}</td>
+      <td>
+        {%- if item.location %}
+        {{ item.location }}
+        {%- endif %}
+      </td>
+      <td>
+        {%- if item.link_target %}
+        <a href="{{ item.link_target }}">{% if item.link_label %}{{ item.link_label }}{% else %}Link{% endif %}</a>
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table>
+  {%- endfor %}
+
+{%- endblock %}

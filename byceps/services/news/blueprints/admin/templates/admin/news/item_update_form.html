@@ -1,0 +1,55 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_radio %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_page = 'news_admin' %}
+{% set current_page_brand = item.brand %}
+{% set page_title = _('Edit news post') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.item_view', item_id=item.id), _('News post') ~ ' "%s"'|format(item.title)) }}
+{%- endblock %}
+
+{% block body %}
+
+  <h1 class="title">{{ page_title }}</h1>
+
+  <form action="{{ url_for('.item_update', item_id=item.id) }}" method="post">
+    <div class="box">
+      {{ form_field(form.slug, caption='<strong>'|safe ~ _('Attention') ~ ':</strong> '|safe ~ _('Changing the slug affects the news post\'s permalink!')) }}
+      {{ form_field(form.title, autofocus='autofocus') }}
+      {{ form_field_radio(form.body_format) }}
+      {{ form_field(form.body, class='monospace') }}
+
+      {%- if item.images %}
+      <div class="dropdown mb">
+        <button class="dropdown-toggle button is-compact"><span>{{ _('Insert image') }}</span> {{ render_icon('chevron-down') }}</button>
+        <ol class="dropdown-menu">
+        {%- for image in item.images|sort(attribute='number') %}
+          <li><a class="dropdown-item" data-action="insert-image-{{ image.number }}">#{{ image.number }}</a></li>
+        {%- endfor %}
+        </ol>
+      </div>
+      {%- endif %}
+    </div>
+
+    {{ form_buttons(_('Save')) }}
+  </form>
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+  onDomReady(() => {
+    const textArea = document.querySelector('#body');
+    document.querySelectorAll('a[data-action^="insert-image-"]').forEach(function(triggerElement) {
+      triggerElement.addEventListener('click', function(event) {
+        const imageId = triggerElement.getAttribute('data-action').substr(13);
+        textArea.setRangeText('{{ '{{' }} render_image(' + imageId + ') }}', textArea.selectionEnd, textArea.selectionEnd);
+        textArea.focus();
+        event.preventDefault();
+      });
+    });
+  });
+</script>
+{% endblock %}

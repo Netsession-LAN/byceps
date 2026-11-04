@@ -1,0 +1,127 @@
+"""
+:Copyright: 2014-2026 Jochen Kupperschmidt
+:License: Revised BSD (see `LICENSE` file for details)
+"""
+
+import pytest
+
+from byceps.services.ticketing import (
+    ticket_creation_service,
+    ticket_user_management_service,
+)
+from byceps.services.ticketing.log import ticket_log_service
+
+
+@pytest.fixture()
+def ticket(admin_app, category, ticket_owner):
+    return ticket_creation_service.create_ticket(category, ticket_owner)
+
+
+def test_appoint_and_withdraw_user_manager(
+    admin_app, ticket_owner, ticket, ticket_manager
+):
+    assert ticket.user_managed_by_id is None
+
+    # appoint user manager
+
+    appoint_user_manager_result = (
+        ticket_user_management_service.appoint_user_manager(
+            ticket.id, ticket_manager, ticket_owner
+        )
+    )
+    assert appoint_user_manager_result.is_ok()
+    assert ticket.user_managed_by_id == ticket_manager.id
+
+    log_entries_after_appointment = ticket_log_service.get_entries_for_ticket(
+        ticket.id
+    )
+    assert len(log_entries_after_appointment) == 1
+
+    appointment_log_entry = log_entries_after_appointment[0]
+    assert_log_entry(
+        appointment_log_entry,
+        'user-manager-appointed',
+        {
+            'appointed_user_manager_id': str(ticket_manager.id),
+            'initiator_id': str(ticket_owner.id),
+        },
+    )
+
+    # withdraw user manager
+
+    withdraw_user_manager_result = (
+        ticket_user_management_service.withdraw_user_manager(
+            ticket.id, ticket_owner
+        )
+    )
+    assert withdraw_user_manager_result.is_ok()
+    assert ticket.user_managed_by_id is None
+
+    log_entries_after_withdrawal = ticket_log_service.get_entries_for_ticket(
+        ticket.id
+    )
+    assert len(log_entries_after_withdrawal) == 2
+
+    withdrawal_log_entry = log_entries_after_withdrawal[1]
+    assert_log_entry(
+        withdrawal_log_entry,
+        'user-manager-withdrawn',
+        {'initiator_id': str(ticket_owner.id)},
+    )
+
+
+def test_appoint_and_withdraw_user(admin_app, ticket_owner, ticket, make_user):
+    ticket_user = make_user()
+
+    assert ticket.used_by_id is None
+
+    # appoint user
+
+    appoint_user_result = ticket_user_management_service.appoint_user(
+        ticket.id, ticket_user, ticket_owner
+    )
+    assert appoint_user_result.is_ok()
+    assert ticket.used_by_id == ticket_user.id
+
+    log_entries_after_appointment = ticket_log_service.get_entries_for_ticket(
+        ticket.id
+    )
+    assert len(log_entries_after_appointment) == 1
+
+    appointment_log_entry = log_entries_after_appointment[0]
+    assert_log_entry(
+        appointment_log_entry,
+        'user-appointed',
+        {
+            'appointed_user_id': str(ticket_user.id),
+            'initiator_id': str(ticket_owner.id),
+        },
+    )
+
+    # withdraw user
+
+    withdraw_user_result = ticket_user_management_service.withdraw_user(
+        ticket.id, ticket_owner
+    )
+    assert withdraw_user_result.is_ok()
+    assert ticket.used_by_id is None
+
+    log_entries_after_withdrawal = ticket_log_service.get_entries_for_ticket(
+        ticket.id
+    )
+    assert len(log_entries_after_withdrawal) == 2
+
+    withdrawal_log_entry = log_entries_after_withdrawal[1]
+    assert_log_entry(
+        withdrawal_log_entry,
+        'user-withdrawn',
+        {'initiator_id': str(ticket_owner.id)},
+    )
+
+
+# helpers
+
+
+def assert_log_entry(log_entry, event_type, data):
+    assert log_entry.event_type == event_type
+    assert log_entry.data == data

@@ -1,0 +1,8 @@
+{% from 'macros/icons.html' import render_icon %}
+
+
+{% macro render_continuative_link(href, label) -%}
+<div class="continuative-link">
+  <a class="disguised" href="{{ href }}">{{ label }}</a> {{ render_icon('arrow-right') }}
+</div>
+{%- endmacro %}

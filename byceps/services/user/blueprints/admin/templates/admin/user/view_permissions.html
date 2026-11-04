@@ -1,0 +1,69 @@
+{% extends 'layout/admin/user.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% set current_tab = 'permissions' %}
+{% set current_tab_user_id = user.id %}
+{% set page_title = [_('Users'), _('Permissions'), user.screen_name] %}
+
+{% block head %}
+  <style>
+    ul.permissions {
+      margin: 0;
+      padding-left: 1em;
+    }
+
+    ul.permissions li + li {
+      margin-top: 0.5em;
+    }
+  </style>
+{%- endblock %}
+
+{% block body %}
+
+  <div class="row row--space-between is-vcentered">
+    <div>
+      <h2>{{ _('Permissions') }}</h2>
+    </div>
+    <div>
+      {%- if g.user.has_permission('role.assign') %}
+      <div class="button-row is-right-aligned">
+        <a class="button is-compact" href="{{ url_for('.manage_roles', user_id=user.id) }}">{{ render_icon('permission') }} <span>{{ _('Manage roles') }}</span></a>
+      </div>
+      {%- endif %}
+    </div>
+  </div>
+
+  {%- if permissions_by_role %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Role') }}</th>
+        <th>{{ _('Permissions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for role, permissions in permissions_by_role|items|sort(attribute='0.id') %}
+      <tr>
+        <td>
+          <strong>{{ role.title }}</strong><br>
+          <span class="monospace">{{ role.id|dim }}</span>
+        </td>
+        <td>
+          {%- if permissions %}
+          <ul class="permissions">
+            {%- for permission in permissions|sort(attribute='id') %}
+            <li>{{ permission.title }}<br><span class="monospace">{{ permission.id|dim }}</span></li>
+            {%- endfor %}
+          </ul>
+          {%- else %}
+          <p class="dimmed">{{ _('none') }}</p>
+          {%- endif %}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No permissions are assigned to the user.') }}</div>
+  {%- endif %}
+
+{%- endblock %}

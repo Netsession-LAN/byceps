@@ -1,0 +1,133 @@
+{% extends 'layout/admin/site/navigation.html' %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% set page_title = [_('Menu'), menu.name] %}
+
+{% block body %}
+
+  <div class="row row--space-between block">
+    <div>
+      <h1 class="title">
+        {{- menu.name }} ({{ menu.language_code }})
+        {%- if menu.hidden %}
+        {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+        {%- endif -%}
+      </h1>
+    </div>
+    {%- if g.user.has_permission('site_navigation.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <a class="button" href="{{ url_for('.menu_update_form', menu_id=menu.id) }}">{{ render_icon('edit') }} <span>{{ _('Edit') }}</span></a>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  <div class="box">
+
+    <div class="data-label">{{ _('Language') }}</div>
+    <div class="data-value">{{ menu.language_code }}</div>
+
+  </div>
+
+  <div class="row row--space-between is-vcentered">
+    <div>
+      <h2>{{ _('Items') }}</h2>
+    </div>
+    {%- if g.user.has_permission('site_navigation.administrate') %}
+    <div>
+      <div class="button-row is-right-aligned">
+        <div class="dropdown">
+          <button class="dropdown-toggle button is-compact">{{ render_icon('add') }} <span>{{ _('Create menu item') }}</span> {{ render_icon('chevron-down') }}</button>
+          <ol class="dropdown-menu dropdown-menu--right">
+            <li><a class="dropdown-item" href="{{ url_for('.item_create_page_form', menu_id=menu.id) }}">{{ _('Page') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('.item_create_view_form', menu_id=menu.id) }}">{{ _('View') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('.item_create_url_form', menu_id=menu.id) }}">{{ _('URL') }}</a></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if menu.items %}
+  <table class="itemlist is-wide">
+    <thead>
+      <tr>
+        <th>{{ _('Position') }}</th>
+        <th>{{ _('Label') }}</th>
+        <th>{{ _('Target type') }}</th>
+        <th>{{ _('Target') }}</th>
+        <th>{{ _('Current page ID') }}</th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for item in menu.items|sort(attribute='position') %}
+      <tr>
+        <td>{{ item.position }}</td>
+        <td>{{ item.label }}</td>
+        <td>
+          {%- if item.target_type.name == 'endpoint' -%}
+          {{- _('Endpoint') -}}
+          {%- elif item.target_type.name == 'page' -%}
+          {{- _('Page') -}}
+          {%- elif item.target_type.name == 'url' -%}
+          {{- _('URL') -}}
+          {%- elif item.target_type.name == 'view' -%}
+          {{- _('View') -}}
+          {%- else -%}
+          {{- '?' -}}
+          {%- endif -%}
+        </td>
+        <td>{{ item.target }}</td>
+        <td>{{ item.current_page_id }}</td>
+        <td>
+          {%- if item.hidden -%}
+          {{ render_tag(_('hidden'), class='color-disabled', icon='hidden') }}
+          {%- endif -%}
+        </td>
+        <td>
+          {%- if g.user.has_permission('site_navigation.administrate') -%}
+          <div class="button-row is-right-aligned">
+            <div class="dropdown">
+              <button class="dropdown-toggle button is-compact">{{ render_icon('chevron-down') }}</button>
+              <ol class="dropdown-menu dropdown-menu--right">
+                <li><a class="dropdown-item" href="{{ url_for('.item_update_form', item_id=item.id) }}">{{ render_icon('edit') }} {{ _('Edit') }}</a></li>
+                {%- if item.hidden %}
+                <li><a class="dropdown-item" href="{{ url_for('.item_unhide', item_id=item.id) }}" data-action="item-unhide">{{ render_icon('view') }} {{ _('Make visible') }}</a></li>
+                {%- else %}
+                <li><a class="dropdown-item" href="{{ url_for('.item_hide', item_id=item.id) }}" data-action="item-hide">{{ render_icon('hidden') }} {{ _('Hide') }}</a></li>
+                {%- endif %}
+                <li class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('.item_move_up', item_id=item.id) }}" data-action="item-move-up">{{ render_icon('arrow-up') }} {{ _('Move up') }}</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('.item_move_down', item_id=item.id) }}" data-action="item-move-down">{{ render_icon('arrow-down') }} {{ _('Move down') }}</a></li>
+                <li class="dropdown-divider"></li>
+                <li><a class="dropdown-item color--danger" href="{{ url_for('.item_delete', item_id=item.id) }}" data-action="item-delete">{{ render_icon('delete') }} {{ _('Delete') }}</a></li>
+              </ol>
+            </div>
+          </div>
+          {%- endif -%}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="box no-data-message">{{ _('No menu items exist.') }}</div>
+  {%- endif %}
+
+{%- endblock %}
+
+{% block scripts %}
+<script>
+onDomReady(() => {
+  post_on_click_then_reload('[data-action="item-hide"]');
+  post_on_click_then_reload('[data-action="item-unhide"]');
+  post_on_click_then_reload('[data-action="item-move-up"]');
+  post_on_click_then_reload('[data-action="item-move-down"]');
+  confirmed_delete_on_click_then_reload('[data-action="item-delete"]', '{{ _('Delete menu item?') }}');
+});
+</script>
+{%- endblock %}
