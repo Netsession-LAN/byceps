@@ -615,7 +615,7 @@ class StageForm(LocalizedForm):
         lazy_gettext('Name'), validators=[InputRequired(), Length(max=120)]
     )
     round_count = IntegerField(
-        lazy_gettext('Round count'),
+        lazy_gettext('Rundenanzahl'),
         validators=[Optional(), NumberRange(min=1, max=20)],
     )
     swiss_threshold = SelectField(

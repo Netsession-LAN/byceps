@@ -111,7 +111,7 @@
         </div>
 
         <div class="ns-admin-stage-field-group" data-stage-setting="round_count">
-          {{ render_field(form.round_count, _('Wie viele Runden erzeugt werden sollen. Relevant für League- und Round-Robin-basierte Stages.')) }}
+          {{ render_field(form.round_count, _('Leer lassen: jeder spielt gegen jeden (alle Runden). Eine Zahl erzeugt nur so viele Runden – dann spielen nicht alle gegeneinander. Für League und Round Robin.')) }}
         </div>
         <div class="ns-admin-stage-field-group" data-stage-setting="swiss_threshold">
           {{ render_field(form.swiss_threshold, _('Entscheidungsschwelle für Swiss. Bei 2/3/4 gilt jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird daraus automatisch als 3/5/7 abgeleitet.')) }}

@@ -10,7 +10,11 @@
     </div>
 
     <div class="ns-admin-form-grid">
-      {{ render_field(form.slug, _('Eindeutiger URL-Teil des Turniers, zum Beispiel cs2-5on5. Nach Erstellung möglichst nicht mehr ändern.'), autofocus='autofocus') }}
+      {%- if tournament is defined %}
+      {{ render_field(form.slug, _('URL-Teil des Turniers. Lässt sich nach dem Anlegen nicht mehr ändern, damit bestehende Links (z. B. in Discord) gültig bleiben.'), readonly='readonly') }}
+      {%- else %}
+      {{ render_field(form.slug, _('Eindeutiger URL-Teil des Turniers, zum Beispiel cs2-5on5. Lässt sich nach dem Anlegen nicht mehr ändern.'), autofocus='autofocus') }}
+      {%- endif %}
       {{ render_field(form.title, _('Sichtbarer Haupttitel des Turniers.')) }}
       {{ render_field(form.subtitle, _('Optionaler Untertitel, zum Beispiel Modus, Skill-Bracket oder Hinweis.')) }}
       {{ render_field(form.category_id, _('Kategorie für Sortierung und Darstellung in der User-Ansicht.')) }}

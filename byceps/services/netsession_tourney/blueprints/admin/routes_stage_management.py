@@ -21,6 +21,7 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
+from .datetime_fields import serialize_utc_as_local
 from ...forms import (
     StageBuilderMainForm,
     StageBuilderPreliminaryForm,
@@ -80,7 +81,6 @@ from .wizard_helpers import (
     _clear_stage_builder_wizard_state,
     _deserialize_datetime_local,
     _get_stage_builder_wizard_state,
-    _serialize_datetime_local,
     _set_stage_builder_wizard_state,
 )
 
@@ -1223,7 +1223,7 @@ def register(blueprint):
                 erroneous_round_start_values_by_round_no or {}
             ).get(
                 round_preview.round_no,
-                _serialize_datetime_local(round_preview.suggested_starts_at) or '',
+                serialize_utc_as_local(round_preview.suggested_starts_at) or '',
             )
 
 

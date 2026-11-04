@@ -85,6 +85,7 @@ from .engines.registry import (
 )
 from .flatout2 import get_flatout2_mode_label
 from .browser_push_endpoint import validate_push_subscription
+from .rule_template_links import change_rule_template_slug
 from .tournament_closing import validate_can_close
 from .team_coins_and_readiness import (
     get_unrefunded_registration_coins,
@@ -95,10 +96,6 @@ from .eligibility import (
 )
 from .result_report_mode import (
     RESULT_REPORT_MODE_ADMIN_ONLY,
-    RESULT_REPORT_MODE_BOTH_MUST_CONFIRM,
-    RESULT_REPORT_MODE_LOSER_CAN_REPORT,
-    RESULT_REPORT_MODE_WINNER_CAN_REPORT,
-    RESULT_REPORT_MODES,
     determine_post_report_state as _determine_post_report_state,
     get_stage_result_report_mode as _get_stage_result_report_mode,
     is_stage_result_reporting_admin_only,
@@ -524,7 +521,7 @@ def update_tournament_rule_template(
     ):
         return Err('Rule template slug is already in use.')
 
-    db_rule_template.slug = normalized_slug
+    change_rule_template_slug(db_rule_template, normalized_slug)
     db_rule_template.title = normalized_title
     db_rule_template.body_format = body_format.value
     db_rule_template.body = normalized_body

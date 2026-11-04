@@ -3037,3 +3037,32 @@ def test_team_is_no_longer_ready_when_a_member_leaves(
         select(DbNetsessionTourneyParticipant.status).filter_by(id=team.id)
     )
     assert status == ParticipantStatus.forming.value
+
+
+def test_changing_a_rule_template_slug_keeps_tournaments_linked(
+    admin_app, isolated_party, admin_user
+):
+    party = isolated_party
+    template = tourney_service.create_tournament_rule_template(
+        party.id, 'rules-old', 'Regeln', RuleTemplateBodyFormat.markdown, 'Fair'
+    ).unwrap()
+    tournament = tourney_service.create_tournament(
+        party.id,
+        'ns-rules-' + generate_token().lower(),
+        'NS Rules',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+        rules_page_slug='rules-old',
+    ).unwrap()
+
+    assert tourney_service.update_tournament_rule_template(
+        template.id,
+        'rules-new',
+        'Regeln',
+        RuleTemplateBodyFormat.markdown,
+        'Fair',
+    ).is_ok()
+
+    reloaded = tourney_service.find_tournament_for_party(party.id, tournament.id)
+    assert reloaded.rules_page_slug == 'rules-new'
