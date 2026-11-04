@@ -68,7 +68,6 @@
       <thead>
         <tr>
           <th>{{ _('Name') }}</th>
-          <th>{{ _('Typ') }}</th>
           <th>{{ _('Seed') }}</th>
           <th>{{ _('Status') }}</th>
           <th>{{ _('Check-in') }}</th>
@@ -102,7 +101,6 @@
             </ul>
             {%- endif %}
           </td>
-          <td>{{ participant.type.value }}</td>
           <td>{{ participant.seed|fallback('') }}</td>
           <td>{{ render_tag(participant.status.value) }}</td>
           <td>{{ participant.checkin_state.value }}</td>

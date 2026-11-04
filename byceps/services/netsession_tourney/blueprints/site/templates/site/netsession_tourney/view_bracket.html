@@ -1,6 +1,7 @@
 {% extends 'layout/base.html' %}
 {% from 'site/netsession_tourney/_tournament_header.html' import render_tournament_header %}
 {% set page_title = [tournament.title, _('Bracket')] %}
+{% set is_solo_tournament = tournament.registration_mode.value == 'solo' %}
 {% set netsession_tourney_icons_url = url_for('netsession_tourney.static', filename='style/netsession_tourney_icons.svg') %}
 
 {% block head %}
@@ -89,7 +90,7 @@
                   {%- if item.is_placeholder|default(false) %}
                   {{ _('TBA') }}
                   {%- else %}
-                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {{ item.match.state|ns_match_state }}
                   {%- endif %}
                 </span>
               </div>
@@ -149,7 +150,7 @@
                   {%- if item.is_placeholder|default(false) %}
                   {{ _('TBA') }}
                   {%- else %}
-                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {{ item.match.state|ns_match_state }}
                   {%- endif %}
                 </span>
               </div>
@@ -296,7 +297,7 @@
               >
                 <header class="ns-tourney-swiss-pool-head">
                   <span class="ns-tourney-swiss-pool-label">{{ pool.label }}</span>
-                  <span class="ns-tourney-swiss-pool-meta">{{ pool.participant_count }} {{ _('Teams') }}</span>
+                  <span class="ns-tourney-swiss-pool-meta">{{ pool.participant_count }} {{ _('Spieler') if is_solo_tournament else ngettext('Team', 'Teams', pool.participant_count) }}</span>
                 </header>
                 <div class="ns-tourney-swiss-pool-body">
                   {%- for item in pool.matches %}
@@ -329,7 +330,7 @@
                   >
                     <div class="ns-tourney-swiss-match-meta">
                       <span class="ns-tourney-swiss-match-label">{{ item.match_label }}</span>
-                      <span class="ns-tourney-swiss-match-state">{{ item.match.state.value|replace('_', ' ')|title }}</span>
+                      <span class="ns-tourney-swiss-match-state">{{ item.match.state|ns_match_state }}</span>
                     </div>
                     <div class="ns-tourney-swiss-match-slots">
                       <span
@@ -418,14 +419,14 @@
                       </span>
                     </div>
                     {%- endfor %}
-                    {%- for _ in range(outcome.pending_count) %}
+                    {%- for _pending in range(outcome.pending_count) %}
                     <div class="ns-tourney-swiss-outcome-entry is-tbd">
                       <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
                     </div>
                     {%- endfor %}
                   </div>
                   {%- else %}
-                  {{ outcome.count }} {{ _('Teams') }}
+                  {{ outcome.count }} {{ _('Spieler') if is_solo_tournament else ngettext('Team', 'Teams', outcome.count) }}
                   {%- endif %}
                 </div>
               </article>
@@ -494,7 +495,7 @@
                   {%- if item.is_placeholder|default(false) %}
                   {{ _('TBA') }}
                   {%- else %}
-                  {{ item.match.state.value|replace('_', ' ')|title }}
+                  {{ item.match.state|ns_match_state }}
                   {%- endif %}
                 </span>
               </div>
@@ -557,9 +558,9 @@
             >
               <div class="ns-tourney-bracket-match-meta">
                 <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
-                  {{ match_label|replace('_', ' ') }}
+                  {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
-                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
               </div>
               <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
               {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
@@ -761,9 +762,9 @@
             >
               <div class="ns-tourney-bracket-match-meta">
                 <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
-                  {{ match_label|replace('_', ' ') }}
+                  {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
-                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
               </div>
               <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
               {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
@@ -1304,7 +1305,7 @@
         const cardHeightByDensity = getPxVar('--ns-card-height', cardMinHeight + 28);
         const rowGap = getPxVar('--ns-row-gap', 8);
         const cardInset = getPxVar('--ns-card-inset', 6);
-        const cardInnerWidth = 150;
+        const cardInnerWidth = getPxVar('--ns-card-width', 150);
         const roundWidth = Math.max(
           roundWidthFromCss,
           cardInnerWidth + (cardInset * 2)
@@ -1354,9 +1355,7 @@
 
           cards.forEach((card) => {
             let cardLeft = cardOffsetX;
-            if (card === consolationCard) {
-              cardLeft = cardOffsetX + roundStride;
-            }
+            // The match for third place goes below the final, same column.
 
             card.style.left = `${cardLeft}px`;
             card.style.right = 'auto';
@@ -1364,7 +1363,7 @@
             card.style.height = `${cardHeight}px`;
             let top = topByCard.get(card);
             if (card === consolationCard && Number.isFinite(primaryFinalTop)) {
-              top = primaryFinalTop;
+              top = primaryFinalTop + (cardHeight * 1.5) + rowGap;
             }
             if (!Number.isFinite(top)) {
               top = nextTop;

@@ -299,7 +299,7 @@ def _build_swiss_bracket_sections(
                 qualified_row_position = qualified_source_row_position - 0.85
                 qualified_outcome = {
                     'id': f"swiss-round-{round_layout['round_no']}-qualified",
-                    'label': gettext('Qualified'),
+                    'label': gettext('Weiter'),
                     'tone': 'qualified',
                     'count': qualified_count,
                     'participants': _build_outcome_participant_rows(
@@ -324,7 +324,7 @@ def _build_swiss_bracket_sections(
                 eliminated_row_position = eliminated_source_row_position + 0.85
                 eliminated_outcome = {
                     'id': f"swiss-round-{round_layout['round_no']}-eliminated",
-                    'label': gettext('Eliminated'),
+                    'label': gettext('Raus'),
                     'tone': 'eliminated',
                     'count': eliminated_count,
                     'participants': _build_outcome_participant_rows(
@@ -385,7 +385,7 @@ def _build_swiss_bracket_sections(
             rounds.append(
                 {
                     'round_no': None,
-                    'display_title': '',
+                    'display_title': gettext('Ergebnis'),
                     'is_sidecar': True,
                     'pools': [],
                     'outcomes': logical_rounds[-1]['outcomes'],

@@ -982,7 +982,7 @@
                       </span>
                     </div>
                     {%- endfor %}
-                    {%- for _ in range(outcome.pending_count) %}
+                    {%- for _pending in range(outcome.pending_count) %}
                     <div class="ns-tourney-swiss-outcome-entry is-tbd">
                       <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
                     </div>
@@ -1138,7 +1138,7 @@
             >
               <div class="ns-tourney-bracket-match-meta">
                 <a href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=item.match.id, return_to='stages', stage_id=selected_stage.id) }}" class="disguised ns-tourney-bracket-match-label">
-                  {{ match_label|replace('_', ' ') }}
+                  {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
                 <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
               </div>
@@ -1980,9 +1980,7 @@
 
             cards.forEach((card) => {
               let cardLeft = cardOffsetX;
-              if (card === consolationCard) {
-                cardLeft = cardOffsetX + roundStride;
-              }
+              // The match for third place goes below the final, same column.
 
               card.style.left = `${cardLeft}px`;
               card.style.right = 'auto';
@@ -1990,7 +1988,7 @@
               card.style.height = `${cardHeight}px`;
               let top = topByCard.get(card);
               if (card === consolationCard && Number.isFinite(primaryFinalTop)) {
-                top = primaryFinalTop;
+                top = primaryFinalTop + (cardHeight * 1.5) + rowGap;
               }
               if (!Number.isFinite(top)) {
                 top = nextTop;

@@ -957,7 +957,8 @@ body.ns-tourney-bracket-expanded .page-footer {
 }
 
 .ns-tourney-bracket-stage {
-  --ns-round-width: 158px;
+  --ns-round-width: 196px;
+  --ns-card-width: 188px;
   --ns-round-column-gap: 18px;
   --ns-round-title-height: 36px;
   --ns-round-header-gap: 14px;
@@ -972,7 +973,8 @@ body.ns-tourney-bracket-expanded .page-footer {
 }
 
 .ns-tourney-bracket-stage.is-density-ultra {
-  --ns-round-width: 156px;
+  --ns-round-width: 178px;
+  --ns-card-width: 172px;
   --ns-round-column-gap: 14px;
   --ns-round-title-height: 32px;
   --ns-round-header-gap: 12px;
@@ -1006,7 +1008,8 @@ body.ns-tourney-bracket-expanded .page-footer {
 }
 
 .ns-tourney-bracket-stage.is-density-comfortable {
-  --ns-round-width: 162px;
+  --ns-round-width: 208px;
+  --ns-card-width: 196px;
   --ns-round-column-gap: 20px;
   --ns-round-title-height: 40px;
   --ns-round-header-gap: 16px;
@@ -1057,14 +1060,6 @@ body.ns-tourney-bracket-expanded .page-footer {
   margin: 0.06rem 0 0;
   font-size: 0.54rem;
   opacity: 0.62;
-}
-
-.ns-tourney-bracket-round:nth-child(odd) {
-  background: transparent;
-}
-
-.ns-tourney-bracket-round:nth-child(even) {
-  background: transparent;
 }
 
 .ns-tourney-swiss-board {
@@ -1687,6 +1682,7 @@ body.ns-tourney-bracket-expanded .page-footer {
   position: relative;
   z-index: 1;
   min-width: 1.45rem;
+  padding-right: 0.3rem;
 }
 
 .ns-tourney-bracket-name {

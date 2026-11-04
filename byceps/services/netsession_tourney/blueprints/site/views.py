@@ -193,8 +193,6 @@ from .user_state_helpers import (
     _get_captain_team_for_current_user,
     _get_current_user_coin_balance,
     _get_current_user_tournament_membership,
-    _get_open_match_state_class_name,
-    _get_open_match_state_label,
     _get_party_coin_settings,
     _get_registration_state_for_tournament,
     _get_seat_data_by_user_id,
@@ -202,9 +200,11 @@ from .user_state_helpers import (
     _is_match_involving_user,
 )
 from .timetable_helpers import _build_party_timetable
+from .match_state_labels import bracket_label, open_class_name, open_label
 
 
 blueprint = create_blueprint('netsession_tourney', __name__)
+blueprint.add_app_template_filter(bracket_label, 'ns_match_state')
 
 
 def _build_public_tournament_status(tournament) -> dict[str, str]:
@@ -688,8 +688,8 @@ def open_matches():
                 'participants_label': ' vs '.join(participant_names),
                 'tournament_title': tournament.title,
                 'stage_name': stage.name if stage is not None else gettext('Stage'),
-                'state_label': _get_open_match_state_label(match.state),
-                'state_class_name': _get_open_match_state_class_name(match.state),
+                'state_label': open_label(match.state),
+                'state_class_name': open_class_name(match.state),
                 'scheduled_label': (
                     format_datetime(match.scheduled_at, 'short')
                     if match.scheduled_at is not None

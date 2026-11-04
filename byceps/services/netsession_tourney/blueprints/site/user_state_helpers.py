@@ -254,32 +254,6 @@ def _is_match_involving_user(
     return False
 
 
-def _get_open_match_state_label(state: MatchState) -> str:
-    if state == MatchState.ready:
-        return gettext('Spielbereit')
-    if state == MatchState.in_progress:
-        return gettext('Live')
-    if state == MatchState.pending_confirmation:
-        return gettext('Wartet auf Bestätigung')
-    if state == MatchState.needs_admin_review:
-        return gettext('Admin-Review')
-
-    return state.value.replace('_', ' ').title()
-
-
-def _get_open_match_state_class_name(state: MatchState) -> str:
-    if state == MatchState.ready:
-        return 'is-ready'
-    if state == MatchState.in_progress:
-        return 'is-live'
-    if state == MatchState.pending_confirmation:
-        return 'is-pending-confirmation'
-    if state == MatchState.needs_admin_review:
-        return 'is-needs-review'
-
-    return ''
-
-
 def _format_team_member_role_label(role: TeamMemberRole) -> str:
     if role == TeamMemberRole.captain:
         return gettext('Teamkapitän')
