@@ -742,6 +742,7 @@ def register(blueprint):
         return {
             'party': party,
             'tournament': tournament,
+            'stages': get_stages_for_tournament(party.id, tournament.id),
             'form': form,
         }
 
@@ -870,9 +871,7 @@ def register(blueprint):
                 flash_success(gettext('Tournament has been updated.'))
                 if mode_changed:
                     flash_success(
-                        gettext(
-                            'Tournament mode has been changed. Existing stages have been deleted.'
-                        )
+                        gettext('Modus geändert, alte Stages wurden gelöscht.')
                     )
                 if registration_mode_changed:
                     flash_success(gettext('Registration mode has been changed.'))

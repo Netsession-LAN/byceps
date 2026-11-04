@@ -30,11 +30,24 @@
     ]
   ) }}
 
-  <form action="{{ url_for('.update', party_id=party.id, tournament_id=tournament.id) }}" method="post" enctype="multipart/form-data" data-ns-admin-tourney-form>
+  <form action="{{ url_for('.update', party_id=party.id, tournament_id=tournament.id) }}" method="post" enctype="multipart/form-data" data-ns-admin-tourney-form
+    {%- if tournament.status.value == 'draft' and stages %} data-mode-change-confirm="{{ _('Beim Moduswechsel werden die vorhandenen Stages (%(count)s) samt Matches gelöscht. Fortfahren?', count=stages|length) }}" data-current-mode="{{ tournament.mode.value }}"{% endif %}>
     {% include 'admin/netsession_tourney/_form.html' %}
     <div class="ns-admin-form-actions">
       <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
       <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
     </div>
   </form>
+  <script>
+    (() => {
+      const form = document.querySelector('form[data-mode-change-confirm]');
+      form?.addEventListener('submit', (event) => {
+        const mode = form.querySelector('select[name="mode"]');
+        if (mode && mode.value !== form.dataset.currentMode
+            && !confirm(form.dataset.modeChangeConfirm)) {
+          event.preventDefault();
+        }
+      });
+    })();
+  </script>
 {% endblock %}
