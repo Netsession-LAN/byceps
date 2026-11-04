@@ -161,6 +161,7 @@ from .presentation_helpers import (
     _get_stage_duration_minutes,
     _select_builder_stage_section,
 )
+from .elimination_ranking import rank_by_elimination
 from .ranking_helpers import (
     _are_all_rankable_matches_completed,
     _build_ffa_ranking_rows,
@@ -1464,6 +1465,10 @@ def view_ranking(slug):
             stage_type=StageType.swiss if is_swiss_tournament else None,
         )
     )
+    if not (is_ffa_scoring_tournament or is_flatout2_tournament):
+        ranking = rank_by_elimination(
+            ranking, stages, matches, slots_by_match_id, results_by_match_id
+        )
     has_ranking_data = _has_rankable_results(
         matches, slots_by_match_id, results_by_match_id
     )
