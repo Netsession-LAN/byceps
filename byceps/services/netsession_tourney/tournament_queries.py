@@ -402,3 +402,51 @@ def _db_stage_to_model_with_effective_status(
         return replace(stage, status=StageStatus.draft)
 
     return stage
+
+
+def get_user_active_participation_tournament_ids(
+    party_id: PartyID, tournament_ids: set[TournamentID], user_id: UserID
+) -> set[TournamentID]:
+    if not tournament_ids:
+        return set()
+
+    direct_rows = db.session.scalars(
+        select(DbNetsessionTourneyParticipant.tournament_id)
+        .join(
+            DbNetsessionTourneyTournament,
+            DbNetsessionTourneyParticipant.tournament_id
+            == DbNetsessionTourneyTournament.id,
+        )
+        .filter(DbNetsessionTourneyTournament.party_id == party_id)
+        .filter(DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids))
+        .filter(DbNetsessionTourneyParticipant.user_id == user_id)
+        .filter(
+            DbNetsessionTourneyParticipant.status.in_(
+                ACTIVE_PARTICIPANT_STATUS_VALUES
+            )
+        )
+    ).all()
+
+    team_rows = db.session.scalars(
+        select(DbNetsessionTourneyParticipant.tournament_id)
+        .join(
+            DbNetsessionTourneyTeamMember,
+            DbNetsessionTourneyTeamMember.participant_id
+            == DbNetsessionTourneyParticipant.id,
+        )
+        .join(
+            DbNetsessionTourneyTournament,
+            DbNetsessionTourneyParticipant.tournament_id
+            == DbNetsessionTourneyTournament.id,
+        )
+        .filter(DbNetsessionTourneyTournament.party_id == party_id)
+        .filter(DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids))
+        .filter(DbNetsessionTourneyTeamMember.user_id == user_id)
+        .filter(
+            DbNetsessionTourneyParticipant.status.in_(
+                ACTIVE_PARTICIPANT_STATUS_VALUES
+            )
+        )
+    ).all()
+
+    return set(direct_rows).union(team_rows)
