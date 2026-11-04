@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
 
 from byceps.database import db
@@ -32,6 +33,13 @@ from byceps.services.netsession_tourney.models import (
     TournamentStatus,
 )
 from byceps.services.netsession_tourney import service as tourney_service
+
+
+@pytest.fixture
+def isolated_party(make_party, brand):
+    """A party of its own, as the session-wide `party` fixture accumulates
+    tournament categories from other tests."""
+    return make_party(brand)
 
 
 def test_duel_happy_path_with_idempotent_result_report(
@@ -71,6 +79,12 @@ def test_duel_happy_path_with_idempotent_result_report(
         tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
+    # Players may only report results while the tournament is live.
+    publish_result = tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    )
+    assert publish_result.is_ok()
+
     generation_result = tourney_service.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
@@ -106,7 +120,10 @@ def test_duel_happy_path_with_idempotent_result_report(
     assert result1.id == result2.id
 
 
-def test_tournament_categories_can_be_created_and_reordered(admin_app, party):
+def test_tournament_categories_can_be_created_and_reordered(
+    admin_app, isolated_party
+):
+    party = isolated_party
     create_main_result = tourney_service.create_tournament_category(
         party.id, 'Hauptturnier'
     )
@@ -193,8 +210,9 @@ def test_tournament_rule_templates_can_be_created_and_updated(
 
 
 def test_tournaments_are_sorted_by_category_position(
-    admin_app, party, admin_user
+    admin_app, isolated_party, admin_user
 ):
+    party = isolated_party
     main_category_result = tourney_service.create_tournament_category(
         party.id, 'Hauptturnier'
     )
@@ -801,6 +819,11 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
             party.id, tournament.id, participant
         ).is_ok()
 
+    publish_result = tourney_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    )
+    assert publish_result.is_ok()
+
     generation_result = tourney_service.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
@@ -837,6 +860,17 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
 
     assert grand_final_1 is not None
     assert grand_final_2 is not None
+
+    # Play the bracket up to the grand final, so that grand final #1 has its
+    # actual participants (winner bracket side in slot 1).
+    _complete_ready_matches(
+        party.id,
+        tournament.id,
+        admin_user,
+        excluded_match_ids={grand_final_1.id, grand_final_2.id},
+    )
+    db_grand_final_1 = db.session.get(DbNetsessionTourneyMatch, grand_final_1.id)
+    assert db_grand_final_1.state == 'ready'
 
     report_result = tourney_service.report_result(
         party.id,
@@ -1028,6 +1062,7 @@ def test_admin_can_create_team_and_manage_team_members(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=5,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -1093,6 +1128,7 @@ def test_admin_can_reassign_team_captain(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=5,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -1515,6 +1551,7 @@ def test_solo_tournament_forces_team_size_to_one(admin_app, party, admin_user):
         RegistrationMode.solo,
         admin_user,
         team_size=7,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -1532,6 +1569,7 @@ def test_ffa_tournament_allows_team_only_registration_modes(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=5,
+        substitute_count=0,
     )
 
     assert create_result.is_ok()
@@ -1727,10 +1765,11 @@ def test_builder_round_robin_group_stage_is_not_split_again_after_materializatio
         generation_basis='ready',
         main_stage_type=StageType.double_elimination,
         main_stage_size=16,
+        max_players_per_match=None,
         preliminary_type=StageType.round_robin_groups,
         round_robin_builder_mode='standard',
         round_robin_group_count=None,
-        swiss_round_count=None,
+        swiss_threshold=None,
         match_duration_minutes=None,
         max_matches_per_round=None,
         break_between_rounds_minutes=None,
@@ -1801,10 +1840,11 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
         generation_basis='ready',
         main_stage_type=StageType.double_elimination,
         main_stage_size=16,
+        max_players_per_match=None,
         preliminary_type=StageType.round_robin_groups,
         round_robin_builder_mode='standard',
         round_robin_group_count=None,
-        swiss_round_count=None,
+        swiss_threshold=None,
         match_duration_minutes=None,
         max_matches_per_round=None,
         break_between_rounds_minutes=None,
@@ -1900,8 +1940,11 @@ def test_mode_change_deletes_existing_stages(
         title=tournament.title,
         subtitle=tournament.subtitle,
         logo_url=tournament.logo_url,
+        is_sponsored=False,
+        sponsor_logo_url=None,
         game=tournament.game,
         starts_at=tournament.starts_at,
+        visible_on_site=True,
         rules_page_slug=tournament.rules_page_slug,
         registration_open=tournament.registration_open,
         registration_deadline=tournament.registration_deadline,
@@ -1943,8 +1986,11 @@ def test_registration_mode_can_be_changed_in_draft_without_active_participants(
         title=tournament.title,
         subtitle=tournament.subtitle,
         logo_url=tournament.logo_url,
+        is_sponsored=False,
+        sponsor_logo_url=None,
         game=tournament.game,
         starts_at=tournament.starts_at,
+        visible_on_site=True,
         rules_page_slug=tournament.rules_page_slug,
         registration_open=tournament.registration_open,
         registration_deadline=tournament.registration_deadline,
@@ -1952,6 +1998,7 @@ def test_registration_mode_can_be_changed_in_draft_without_active_participants(
         checkin_open_at=tournament.checkin_open_at,
         checkin_close_at=tournament.checkin_close_at,
         team_size=5,
+        substitute_count=0,
         participant_limit=tournament.participant_limit,
     )
     assert update_result.is_ok()
@@ -1987,8 +2034,11 @@ def test_registration_mode_change_is_blocked_with_active_participants(
         title=tournament.title,
         subtitle=tournament.subtitle,
         logo_url=tournament.logo_url,
+        is_sponsored=False,
+        sponsor_logo_url=None,
         game=tournament.game,
         starts_at=tournament.starts_at,
+        visible_on_site=True,
         rules_page_slug=tournament.rules_page_slug,
         registration_open=tournament.registration_open,
         registration_deadline=tournament.registration_deadline,
@@ -1996,6 +2046,7 @@ def test_registration_mode_change_is_blocked_with_active_participants(
         checkin_open_at=tournament.checkin_open_at,
         checkin_close_at=tournament.checkin_close_at,
         team_size=5,
+        substitute_count=0,
         participant_limit=tournament.participant_limit,
     )
     assert update_result.is_err()
@@ -2143,21 +2194,22 @@ def test_ffa_single_elimination_stage_generates_knockout_matches(
 
     slots_by_match_id = tourney_service.get_match_slots({match.id for match in matches})
     round1_matches = [match for match in matches if match.round_no == 1]
-    single_player_round1_matches = [
-        match
-        for match in round1_matches
-        if len(
+    round1_player_counts = [
+        len(
             [
                 slot
                 for slot in slots_by_match_id[match.id]
                 if slot.participant_id is not None
             ]
         )
-        == 1
+        for match in round1_matches
     ]
-    assert len(single_player_round1_matches) == 1
-    # Bye match should be auto-completed and not block progression.
-    assert single_player_round1_matches[0].state.value == 'completed'
+    # Players are distributed evenly over the first round (9 players with at
+    # most 4 per match -> 3+3+3), so there is no single-player match.
+    assert sum(round1_player_counts) == 9
+    assert max(round1_player_counts) <= 4
+    assert max(round1_player_counts) - min(round1_player_counts) <= 1
+    assert 1 not in round1_player_counts
 
 
 def test_join_team_respects_team_size(
@@ -2174,6 +2226,7 @@ def test_join_team_respects_team_size(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=2,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -2277,6 +2330,7 @@ def test_team_only_tournament_blocks_solo_register_route(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=5,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -2289,7 +2343,7 @@ def test_team_only_tournament_blocks_solo_register_route(
         user,
     )
     assert register_result.is_err()
-    assert 'team registration' in register_result.unwrap_err().lower()
+    assert 'team-anmeldung' in register_result.unwrap_err().lower()
 
 
 def test_team_captain_can_toggle_ready_state(
@@ -2305,6 +2359,7 @@ def test_team_captain_can_toggle_ready_state(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=2,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -2378,6 +2433,7 @@ def test_captain_can_add_and_remove_team_member(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=3,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -2441,6 +2497,7 @@ def test_captain_can_regenerate_team_invite_code(
         RegistrationMode.team_captain_managed,
         admin_user,
         team_size=5,
+        substitute_count=0,
     )
     assert create_result.is_ok()
     tournament = create_result.unwrap()
@@ -2576,3 +2633,36 @@ def _assign_party_ticket_to_user(party_id, user, make_ticket_category) -> None:
         ticket.id, user, user
     )
     assert appoint_result.is_ok()
+
+
+def _complete_ready_matches(
+    party_id, tournament_id, admin_user, *, excluded_match_ids
+) -> None:
+    """Report slot 1 as winner for every ready match (except the excluded
+    ones) until no such match is left."""
+    for _ in range(100):
+        ready_matches = [
+            match
+            for match in tourney_service.get_matches_for_tournament(
+                party_id, tournament_id
+            )
+            if match.state.value == 'ready' and match.id not in excluded_match_ids
+        ]
+        if not ready_matches:
+            return
+
+        for match in ready_matches:
+            result = tourney_service.report_result(
+                party_id,
+                tournament_id,
+                match.id,
+                admin_user.id,
+                idempotency_key='complete-ready-' + generate_token(),
+                winner_slot=1,
+                score={'display': '1:0'},
+                actor_is_admin_or_referee=True,
+                admin_comment='Test bracket progression',
+            )
+            assert result.is_ok()
+
+    raise AssertionError('Bracket did not settle.')
