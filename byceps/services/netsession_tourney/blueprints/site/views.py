@@ -1055,7 +1055,7 @@ def view_bracket(slug):
         else []
     )
     if builder_stage_bracket_sections:
-        is_ffa_single_elimination_tournament = False
+        is_ffa_single_elimination_tournament = is_ffa_scoring_tournament = False
     selected_builder_bracket_section = None
     builder_bracket_tab_rows = []
     if builder_stage_bracket_sections:
