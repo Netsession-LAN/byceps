@@ -496,7 +496,7 @@ def register(blueprint):
                 _clear_create_wizard_state(party.id)
                 flash_success(
                     gettext(
-                        'Tournament "%(title)s" has been created.',
+                        'Turnier „%(title)s“ wurde angelegt.',
                         title=tournament.title,
                     )
                 )

@@ -29,7 +29,7 @@
     none,
     [
       {'label': _('Typ'), 'value': participant.type.value|replace('_', ' ')|title},
-      {'label': _('Status'), 'value': participant.status.value|replace('_', ' ')|title},
+      {'label': _('Status'), 'value': participant.status|ns_label},
       {'label': _('Teamkapitän') if is_team else _('Teilnehmer'), 'value': users_by_id.get(participant.manager_user_id).screen_name if participant.manager_user_id and users_by_id.get(participant.manager_user_id) else '-'},
       {'label': _('Aktive Teilnehmer'), 'value': active_participant_count},
     ]
@@ -83,7 +83,7 @@
                 {%- elif member.role.value == 'substitute' -%}
                   {{ _('Ersatzspieler') }}
                 {%- else -%}
-                  {{ _('Player') }}
+                  {{ _('Spieler') }}
                 {%- endif -%}
               </span>
             </td>

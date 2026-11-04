@@ -3,17 +3,17 @@
 {% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
 {% set current_page_party = party %}
 {% set current_tab = 'notifications' %}
-{% set page_title = [_('Netsession Turniere'), _('Notifications'), party.title] %}
+{% set page_title = [_('Netsession Turniere'), _('Benachrichtigungen'), party.title] %}
 
 {% block body %}
   {{
     render_page_header(
       [
         {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
-        {'label': _('Notifications'), 'url': none},
+        {'label': _('Benachrichtigungen'), 'url': none},
       ],
       party.title,
-      _('Browser-Notifications'),
+      _('Browser-Benachrichtigungen'),
       _('Globale Browser-Push- und Discord-Benachrichtigungen für alle Netsession-Turniere dieser Party.'),
       badge_label=_('Aktiv') if browser_push_config.enabled or discord_dm_config.enabled else _('Inaktiv'),
       badge_class='status-live' if browser_push_config.enabled or discord_dm_config.enabled else 'status-closed',
@@ -47,7 +47,7 @@
   <form action="{{ url_for('.notifications_discord_dm_update', party_id=party.id) }}" method="post" class="ns-admin-form-shell block">
     <section class="ns-admin-form-section">
       <div class="ns-admin-form-section-header">
-        <h2 class="ns-admin-form-section-title">{{ _('Discord Private Notifications') }}</h2>
+        <h2 class="ns-admin-form-section-title">{{ _('Discord-Privatnachrichten') }}</h2>
         <p class="ns-admin-form-section-text">
           {{ _('Technische Konfiguration für Discord-Privatnachrichten. Diese Daten gelten party-weit, die fachliche Aktivierung erfolgt pro Turnier im Discord-Tab.') }}
         </p>
@@ -98,7 +98,7 @@
           <tr>
             <th>{{ _('Turnier') }}</th>
             <th>{{ _('Status') }}</th>
-            <th>{{ _('Aktive Browser-Subscriptions') }}</th>
+            <th>{{ _('Aktive Browser-Abos') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -109,7 +109,7 @@
                 <strong>{{ tournament.title }}</strong>
               </a>
             </td>
-            <td>{{ tournament.status.value }}</td>
+            <td>{{ tournament.status|ns_label }}</td>
             <td>{{ subscribed_counts_by_tournament_id.get(tournament.id, 0) }}</td>
           </tr>
         {%- endfor %}

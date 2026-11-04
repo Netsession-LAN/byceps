@@ -26,8 +26,8 @@
     'status-draft',
     [
       {'label': _('Turnier'), 'value': tournament.title},
-      {'label': _('Modus'), 'value': tournament.mode.value|replace('_', ' ')|title},
-      {'label': _('Registrierung'), 'value': tournament.registration_mode.value|replace('_', ' ')|title},
+      {'label': _('Modus'), 'value': tournament.mode|ns_label},
+      {'label': _('Registrierung'), 'value': tournament.registration_mode|ns_label},
     ]
   ) }}
 

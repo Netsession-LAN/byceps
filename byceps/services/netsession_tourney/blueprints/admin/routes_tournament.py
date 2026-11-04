@@ -868,13 +868,13 @@ def register(blueprint):
                 if set_admin_result.is_err():
                     flash_error(set_admin_result.unwrap_err())
 
-                flash_success(gettext('Tournament has been updated.'))
+                flash_success(gettext('Turnier wurde gespeichert.'))
                 if mode_changed:
                     flash_success(
                         gettext('Modus geändert, alte Stages wurden gelöscht.')
                     )
                 if registration_mode_changed:
-                    flash_success(gettext('Registration mode has been changed.'))
+                    flash_success(gettext('Anmeldemodus wurde geändert.'))
             case Err(message):
                 flash_error(message)
                 return update_form(party.id, tournament.id, form)
@@ -890,7 +890,7 @@ def register(blueprint):
 
         match publish_tournament(party.id, tournament.id, g.user.as_user()):
             case Ok(_):
-                flash_success(gettext('Tournament has been published.'))
+                flash_success(gettext('Turnier wurde veröffentlicht.'))
             case Err(message):
                 flash_error(message)
 
@@ -905,7 +905,7 @@ def register(blueprint):
 
         match unpublish_tournament(party.id, tournament.id, g.user.as_user()):
             case Ok(_):
-                flash_success(gettext('Tournament has been moved back to draft.'))
+                flash_success(gettext('Turnier ist wieder ein Entwurf.'))
             case Err(message):
                 flash_error(message)
 
@@ -920,7 +920,7 @@ def register(blueprint):
 
         match close_tournament(party.id, tournament.id, g.user.as_user()):
             case Ok(_):
-                flash_success(gettext('Tournament has been closed.'))
+                flash_success(gettext('Turnier wurde abgeschlossen.'))
             case Err(message):
                 flash_error(message)
 
@@ -935,7 +935,7 @@ def register(blueprint):
 
         match cancel_tournament(party.id, tournament.id, g.user.as_user()):
             case Ok(_):
-                flash_success(gettext('Tournament has been canceled.'))
+                flash_success(gettext('Turnier wurde abgesagt.'))
             case Err(message):
                 flash_error(message)
 
@@ -950,7 +950,7 @@ def register(blueprint):
 
         match delete_tournament(party.id, tournament.id, g.user.as_user()):
             case Ok(_):
-                flash_success(gettext('Tournament has been deleted.'))
+                flash_success(gettext('Turnier wurde gelöscht.'))
                 return redirect_to('.index', party_id=party.id)
             case Err(message):
                 flash_error(message)

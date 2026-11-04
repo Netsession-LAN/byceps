@@ -48,7 +48,7 @@
           {%- endif %}
         </td>
         <td>{% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}</td>
-        <td>{{ tournament.status.value }}</td>
+        <td>{{ tournament.status|ns_label }}</td>
       </tr>
     {%- endfor %}
     </tbody>

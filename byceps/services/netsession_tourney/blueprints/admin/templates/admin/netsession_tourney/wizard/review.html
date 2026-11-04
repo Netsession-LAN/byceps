@@ -49,7 +49,7 @@
           <dd class="ns-admin-review-value">{{ state.mode }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Registration mode') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Anmeldemodus') }}</dt>
           <dd class="ns-admin-review-value">{{ state.registration_mode }}</dd>
         </div>
         <div class="ns-admin-review-item">
@@ -111,7 +111,7 @@
 
       <dl class="ns-admin-review-grid">
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Title') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Titel') }}</dt>
           <dd class="ns-admin-review-value">{{ state.title }}</dd>
         </div>
         <div class="ns-admin-review-item">
@@ -171,15 +171,15 @@
           <dd class="ns-admin-review-value">{{ state.starts_at|fallback('-') }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Visible on site') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Auf der Website sichtbar') }}</dt>
           <dd class="ns-admin-review-value">{{ 'yes' if state.visible_on_site else 'no' }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Registration open') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Anmeldung offen') }}</dt>
           <dd class="ns-admin-review-value">{{ 'yes' if state.registration_open else 'no' }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Registration deadline') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Anmeldeschluss') }}</dt>
           <dd class="ns-admin-review-value">{{ state.registration_deadline|fallback('-') }}</dd>
         </div>
         <div class="ns-admin-review-item">

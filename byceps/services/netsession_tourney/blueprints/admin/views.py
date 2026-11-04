@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from byceps.util.framework.blueprint import create_blueprint
 
+from ...enum_labels import enum_label
+
 from . import routes_create
 from . import routes_overview
 from . import routes_participants_matches
@@ -18,6 +20,7 @@ from . import routes_tournament
 
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
+blueprint.add_app_template_filter(enum_label, 'ns_label')
 
 routes_overview.register(blueprint)
 routes_create.register(blueprint)

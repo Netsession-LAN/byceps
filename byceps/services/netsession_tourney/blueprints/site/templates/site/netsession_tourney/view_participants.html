@@ -95,15 +95,15 @@
               {%- set user = users_by_id.get(member.user_id) %}
               <li>
                 {{ (user.screen_name if user and user.screen_name else member.user_id)|string }}
-                ({{ member.role.value }})
+                ({{ member.role|ns_label }})
               </li>
             {%- endfor %}
             </ul>
             {%- endif %}
           </td>
           <td>{{ participant.seed|fallback('') }}</td>
-          <td>{{ render_tag(participant.status.value) }}</td>
-          <td>{{ participant.checkin_state.value }}</td>
+          <td>{{ render_tag(participant.status|ns_label) }}</td>
+          <td>{{ participant.checkin_state|ns_label }}</td>
         </tr>
       {%- endfor %}
       </tbody>

@@ -18,10 +18,10 @@
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
       {'label': _('Preise'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes')},
-      {'label': _('Preis hinzufuegen'), 'url': none},
+      {'label': _('Preis hinzufügen'), 'url': none},
     ],
     tournament.title,
-    _('Preis hinzufuegen'),
+    _('Preis hinzufügen'),
     _('Lege Platzierung, Beschreibung und Format dieses Preises in einem sauberen Editor fest.')
   ) }}
   <form action="{{ url_for('.tournament_prize_create', party_id=party.id, tournament_id=tournament.id) }}" method="post">

@@ -19,7 +19,7 @@ register_permissions(
             'participate',
             lazy_gettext('Participate in Netsession tournaments'),
         ),
-        ('report_result', lazy_gettext('Report Netsession match results')),
+        ('report_result', lazy_gettext('Netsession-Matchergebnisse melden')),
         ('manage', lazy_gettext('Manage Netsession tournaments')),
         ('admin', lazy_gettext('Administer Netsession tournaments')),
     ],

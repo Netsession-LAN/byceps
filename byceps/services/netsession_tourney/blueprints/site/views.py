@@ -200,13 +200,13 @@ from .user_state_helpers import (
     _is_match_involving_user,
 )
 from .timetable_helpers import _build_party_timetable
-from .match_state_labels import bracket_label, open_class_name, open_label
+from .match_state_labels import open_class_name, open_label, register_filters
 from .round_robin_groups_display import add_round_robin_groups
 from .stage_tabs import build_stage_tab_rows
 
 
 blueprint = create_blueprint('netsession_tourney', __name__)
-blueprint.add_app_template_filter(bracket_label, 'ns_match_state')
+register_filters(blueprint)
 
 
 def _build_public_tournament_status(tournament) -> dict[str, str]:
@@ -2020,7 +2020,7 @@ def create_team_form(slug):
         if registration_state['insufficient_coins']:
             flash_error(gettext('Du hast aktuell nicht genügend Coins für dieses Turnier.'))
         else:
-            flash_error(gettext('Team-Anmeldungen sind aktuell nicht verfuegbar.'))
+            flash_error(gettext('Team-Anmeldungen sind aktuell nicht verfügbar.'))
         return redirect_to('.view_participants', slug=slug)
 
     current_page_id = _get_main_nav_current_page_id()
@@ -2050,7 +2050,7 @@ def create_team(slug):
 
     form = TeamCreationForm(form_fields)
     if not form.validate():
-        flash_error(gettext('Ungueltige Teamdaten.'))
+        flash_error(gettext('Ungültige Teamdaten.'))
         return redirect_to('.create_team_form', slug=slug)
 
     user = user_service.get_user(g.user.id)
@@ -2104,7 +2104,7 @@ def update_team(slug, participant_id):
 
     form = TeamCreationForm(form_fields)
     if tournament.status == TournamentStatus.draft and not form.validate():
-        flash_error(gettext('Ungueltige Teamdaten.'))
+        flash_error(gettext('Ungültige Teamdaten.'))
         return redirect_to(
             '.view_team', slug=slug, participant_id=participant_id
         )
@@ -2155,7 +2155,7 @@ def join_team(slug):
     tournament = _get_tournament_or_404(slug)
     form = TeamJoinForm(request.form)
     if not form.validate():
-        flash_error(gettext('Ungueltiger Invite-Code.'))
+        flash_error(gettext('Ungültiger Invite-Code.'))
         return redirect_to('.create_team_form', slug=slug)
 
     user = user_service.get_user(g.user.id)
@@ -2244,7 +2244,7 @@ def add_team_member(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
     form = TeamMemberAddForm(request.form)
     if not form.validate():
-        flash_error(gettext('Ungueltige Teammitglied-Daten.'))
+        flash_error(gettext('Ungültige Teammitglied-Daten.'))
         return redirect_to('.view_team', slug=slug, participant_id=participant_id)
 
     screen_name = form.screen_name.data.strip()
@@ -2262,7 +2262,7 @@ def add_team_member(slug, participant_id):
         user,
     )
     if result.is_ok():
-        flash_success(gettext('Teammitglied wurde hinzugefuegt.'))
+        flash_success(gettext('Teammitglied wurde hinzugefügt.'))
     else:
         flash_error(result.unwrap_err())
 
@@ -2297,7 +2297,7 @@ def report_match_result(slug, match_id):
     tournament = _get_tournament_or_404(slug)
     form = MatchScoreReportForm(request.form)
     if not form.validate():
-        flash_error(gettext('Ungueltige Ergebnisdaten.'))
+        flash_error(gettext('Ungültige Ergebnisdaten.'))
         return redirect_to('.view_match', slug=slug, match_id=match_id)
 
     slots = sorted(
@@ -2330,7 +2330,7 @@ def report_match_result(slug, match_id):
     if any(slot.participant_id is None for slot in slots):
         flash_error(
             gettext(
-                'Beide Teilnehmer muessen gesetzt sein, bevor ein Ergebnis gemeldet werden kann.'
+                'Beide Teilnehmer müssen gesetzt sein, bevor ein Ergebnis gemeldet werden kann.'
             )
         )
         return redirect_to('.view_match', slug=slug, match_id=match_id)
@@ -2373,7 +2373,7 @@ def report_match_result(slug, match_id):
     )
 
     if result.is_ok():
-        flash_success(gettext('Result has been submitted.'))
+        flash_success(gettext('Ergebnis wurde übermittelt.'))
     else:
         flash_error(result.unwrap_err())
 
@@ -2390,7 +2390,7 @@ def post_match_chat(slug, match_id):
     tournament = _get_tournament_or_404(slug)
     form = MatchChatMessageForm(request.form)
     if not form.validate():
-        flash_error(gettext('Ungueltige Chat-Nachricht.'))
+        flash_error(gettext('Ungültige Chat-Nachricht.'))
         return redirect_to('.view_match', slug=slug, match_id=match_id)
 
     is_admin_or_referee = g.user.has_permission(
@@ -2406,7 +2406,7 @@ def post_match_chat(slug, match_id):
         actor_is_admin_or_referee=is_admin_or_referee,
     )
     if result.is_ok():
-        flash_success(gettext('Message has been posted.'))
+        flash_success(gettext('Nachricht wurde gesendet.'))
     else:
         flash_error(result.unwrap_err())
 

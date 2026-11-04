@@ -24,7 +24,7 @@ class _SingleEliminationEngine(StageEngine):
         self, stage: Stage, participant_ids: list[ParticipantID]
     ) -> Result[None, str]:
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
 
         return Ok(None)
 
@@ -166,7 +166,7 @@ class _DoubleEliminationEngine(StageEngine):
     ) -> Result[None, str]:
         del stage
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
         return Ok(None)
 
     def _generate_for_two(self, bracket_slots) -> list[MatchSpec]:
@@ -354,7 +354,7 @@ class _GauntletEngine(StageEngine):
     ) -> Result[None, str]:
         del stage
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
         return Ok(None)
 
     def generate(
@@ -446,7 +446,7 @@ class _SwissEngine(StageEngine):
         self, stage: Stage, participant_ids: list[ParticipantID]
     ) -> Result[None, str]:
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
 
         threshold = _get_swiss_threshold(stage.settings)
         if threshold is not None and threshold not in {2, 3, 4}:
@@ -457,7 +457,7 @@ class _SwissEngine(StageEngine):
             return Err('Swiss requires at least 1 round.')
         if threshold is None and round_count % 2 == 0:
             return Err(
-                'Swiss requires an odd round count so win/loss thresholds are symmetric.'
+                'Swiss braucht eine ungerade Rundenanzahl, damit die Sieg-/Niederlagen-Schwellen gleich sind.'
             )
 
         return Ok(None)
@@ -566,7 +566,7 @@ class _RoundRobinEngine(StageEngine):
     ) -> Result[None, str]:
         del stage
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
         return Ok(None)
 
     def generate(
@@ -615,7 +615,7 @@ class _RoundRobinGroupsEngine(StageEngine):
     ) -> Result[None, str]:
         del stage
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
         return Ok(None)
 
     def generate(
@@ -682,7 +682,7 @@ class _FfaSimpleEngine(StageEngine):
     ) -> Result[None, str]:
         del stage
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
         return Ok(None)
 
     def generate(
@@ -753,11 +753,11 @@ class _FfaKnockoutEngine(StageEngine):
         self, stage: Stage, participant_ids: list[ParticipantID]
     ) -> Result[None, str]:
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
 
         max_players = _get_max_players_per_match(stage.settings)
         if max_players < 2:
-            return Err('Maximum players per match must be at least 2.')
+            return Err('Maximale Spieler pro Match müssen mindestens 2 sein.')
 
         return Ok(None)
 
@@ -882,15 +882,15 @@ class _Flatout2KnockoutEngine(StageEngine):
         self, stage: Stage, participant_ids: list[ParticipantID]
     ) -> Result[None, str]:
         if len(participant_ids) < 2:
-            return Err('At least 2 participants are required.')
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
 
         max_players = _get_max_players_per_match(stage.settings)
         if max_players < self.qualifier_count_per_match * 2:
             return Err(
-                'Maximum players per match must be at least 6 for FlatOut 2.'
+                'Für FlatOut 2 müssen es mindestens 6 Spieler pro Match sein.'
             )
         if max_players > self.max_supported_players_per_match:
-            return Err('FlatOut 2 supports at most 8 players per match.')
+            return Err('FlatOut 2 erlaubt höchstens 8 Spieler pro Match.')
 
         return Ok(None)
 

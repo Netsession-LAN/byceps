@@ -711,7 +711,7 @@ def register(blueprint):
             registration_mode=tournament.registration_mode.value,
         )
         if not form.validate():
-            flash_error(gettext('Invalid stage data.'))
+            flash_error(gettext('Ungültige Stage-Daten.'))
             return stage_create_form(party.id, tournament.id, form)
 
         stages = get_stages_for_tournament(party.id, tournament.id)
@@ -743,7 +743,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Stage has been created.'))
+                flash_success(gettext('Stage wurde angelegt.'))
             case Err(message):
                 flash_error(message)
                 return stage_create_form(party.id, tournament.id, form)
@@ -876,7 +876,7 @@ def register(blueprint):
                 case Ok(matches):
                     flash_success(
                         gettext(
-                            '%(count)s matches have been generated.',
+                            '%(count)s Matches wurden erzeugt.',
                             count=len(matches),
                         )
                     )
@@ -1025,7 +1025,7 @@ def register(blueprint):
             case Ok(matches):
                 flash_success(
                     gettext(
-                        '%(count)s matches have been generated.',
+                        '%(count)s Matches wurden erzeugt.',
                         count=len(matches),
                     )
                 )
@@ -1382,7 +1382,7 @@ def register(blueprint):
             registration_mode=tournament.registration_mode.value,
         )
         if not form.validate():
-            flash_error(gettext('Invalid stage data.'))
+            flash_error(gettext('Ungültige Stage-Daten.'))
             return stage_update_form(party.id, tournament.id, stage_id, form)
 
         stages = get_stages_for_tournament(party.id, tournament.id)
@@ -1427,7 +1427,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Stage has been updated.'))
+                flash_success(gettext('Stage wurde gespeichert.'))
             case Err(message):
                 flash_error(message)
                 return stage_update_form(party.id, tournament.id, stage_id, form)
@@ -1512,7 +1512,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Stage has been deleted.'))
+                flash_success(gettext('Stage wurde gelöscht.'))
             case Err(message):
                 flash_error(message)
 

@@ -26,10 +26,10 @@ def validate_registration_open(
     tournament: Tournament, now: datetime
 ) -> Result[None, str]:
     if tournament.status != TournamentStatus.draft:
-        return Err('Registration is only possible while tournament is in draft.')
+        return Err('Anmelden ist nur möglich, solange das Turnier ein Entwurf ist.')
 
     if not tournament.registration_open:
-        return Err('Registration is closed.')
+        return Err('Die Anmeldung ist geschlossen.')
 
     if (
         tournament.registration_deadline is not None
@@ -46,19 +46,19 @@ def validate_publishable(
     participants: list[Participant],
 ) -> Result[None, str]:
     if tournament.status != TournamentStatus.draft:
-        return Err('Only draft tournaments can be published.')
+        return Err('Nur Turniere im Entwurf können veröffentlicht werden.')
 
     if not stages:
-        return Err('At least one stage is required.')
+        return Err('Es wird mindestens eine Stage benötigt.')
 
     if len(select_bracket_ready_participants(participants)) < 2:
-        return Err('At least two ready participants are required.')
+        return Err('Es werden mindestens zwei bereite Teilnehmer benötigt.')
 
     for stage in stages:
         spec = get_stage_type_spec(stage.type)
         if not spec.publishable:
             return Err(
-                f'Stage type "{stage.type.value}" is disabled or beta only.'
+                f'Stage-Typ „{stage.type.value}“ ist deaktiviert oder nur in der Beta verfügbar.'
             )
 
     return Ok(None)

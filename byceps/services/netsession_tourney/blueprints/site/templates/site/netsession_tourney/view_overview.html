@@ -44,7 +44,7 @@
         </div>
         {%- if tournament.registration_mode.value != 'solo' %}
         <div class="ns-tourney-overview-fact">
-          <h2>{{ _('Teamgroesse') }}</h2>
+          <h2>{{ _('Teamgröße') }}</h2>
           <p>
             {{ tournament.team_size|fallback('-') }}
             {%- if tournament.substitute_count %}
@@ -62,9 +62,9 @@
             <br>
             <span class="dimmed">
               {%- if tournament.coin_refund_policy.value == 'until_end_of_round_1' -%}
-                {{ _('Rueckgabe bis einschliesslich Runde 1') }}
+                {{ _('Rückgabe bis einschließlich Runde 1') }}
               {%- else -%}
-                {{ _('Rueckgabe bis Turnierende') }}
+                {{ _('Rückgabe bis Turnierende') }}
               {%- endif -%}
             </span>
             {%- endif %}
@@ -121,8 +121,8 @@
                   <a
                     href="{{ url_for('netsession_tourney.view_team', slug=tournament.slug, participant_id=current_participant.id) }}"
                     class="button is-outlined ns-tourney-overview-user-team-edit"
-                    aria-label="{{ _('Team oeffnen') }}"
-                    title="{{ _('Team oeffnen') }}"
+                    aria-label="{{ _('Team öffnen') }}"
+                    title="{{ _('Team öffnen') }}"
                   >
                     {{ render_icon('edit') }}
                   </a>
@@ -166,7 +166,7 @@
               {%- endif %}
             </div>
           {%- else %}
-          <p class="dimmed">{{ _('Du bist aktuell nicht f?r dieses Turnier angemeldet.') }}</p>
+          <p class="dimmed">{{ _('Du bist aktuell nicht für dieses Turnier angemeldet.') }}</p>
           {%- endif %}
         </section>
         {%- endif %}
@@ -242,7 +242,7 @@
   {%- if registration_state.can_register or registration_state.can_unregister or registration_state.is_full or captain_team or registration_state.insufficient_coins %}
   <section class="ns-tourney-panel mt ns-tourney-overview-actions">
     {%- if coin_settings.enabled and current_user_coin_balance %}
-    <p class="ns-tourney-meta ns-tourney-overview-coins-meta">Deine verf&uuml;gbaren Coins: <strong class="ns-tourney-overview-coins-value">{{ current_user_coin_balance.available_coins }}</strong></p>
+    <p class="ns-tourney-meta ns-tourney-overview-coins-meta">Deine verfügbaren Coins: <strong class="ns-tourney-overview-coins-value">{{ current_user_coin_balance.available_coins }}</strong></p>
     {%- endif %}
     {%- if captain_team and registration_state.can_unregister %}
     <div class="button-row ns-tourney-overview-manage-row">

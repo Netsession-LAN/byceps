@@ -28,14 +28,14 @@
       <div class="ns-admin-form-section-head">
         <div>
           <h2 class="ns-admin-form-section-title">{{ _('Grundregeln') }}</h2>
-          <p class="ns-admin-form-section-text">Aktiviert Coins global und legt fest, wie viele Coins ein Ticket standardm&auml;&szlig;ig verleiht. Kategorie-Werte &uuml;berschreiben den Default. Mehrere Tickets stapeln sich nicht.</p>
+          <p class="ns-admin-form-section-text">Aktiviert Coins global und legt fest, wie viele Coins ein Ticket standardmäßig verleiht. Kategorie-Werte überschreiben den Default. Mehrere Tickets stapeln sich nicht.</p>
         </div>
       </div>
 
       <form action="{{ url_for('.coins_update', party_id=party.id) }}" method="post">
         <div class="ns-admin-form-grid">
-          {{ render_check_field(settings_form.enabled, 'Wenn deaktiviert, werden Coins in Admin- und User-UI komplett ausgeblendet und bei Registrierungen nicht gepr&uuml;ft.') }}
-          {{ render_field(settings_form.default_coin_amount, 'Default-Coins f&uuml;r einen User mit g&uuml;ltigem Ticket, falls f&uuml;r seine Ticket-Kategorie kein eigener Wert gesetzt ist.') }}
+          {{ render_check_field(settings_form.enabled, 'Wenn deaktiviert, werden Coins in Admin- und User-UI komplett ausgeblendet und bei Registrierungen nicht geprüft.') }}
+          {{ render_field(settings_form.default_coin_amount, 'Default-Coins für einen User mit gültigem Ticket, falls für seine Ticket-Kategorie kein eigener Wert gesetzt ist.') }}
         </div>
 
         <div class="ns-admin-coin-category-list">
@@ -70,7 +70,7 @@
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div>
-          <h2 class="ns-admin-form-section-title">{{ _('User-Korrektur') }}</h2>
+          <h2 class="ns-admin-form-section-title">{{ _('Korrektur für Benutzer') }}</h2>
           <p class="ns-admin-form-section-text">{{ _('Suche einen User und korrigiere sein Coin-Konto manuell. Die Basis aus Tickets bleibt davon getrennt.') }}</p>
         </div>
       </div>
@@ -79,7 +79,7 @@
         <div class="ns-admin-form-grid">
           <div class="form-control-block">
             <div class="ns-admin-field-head">
-              <label class="form-label ns-admin-form-label" for="screen_name">{{ _('User suchen') }}</label>
+              <label class="form-label ns-admin-form-label" for="screen_name">{{ _('Benutzer suchen') }}</label>
             </div>
             <input
               type="text"
@@ -99,7 +99,7 @@
       {{ form_datalist('ns-admin-coin-screen-names', suggested_screen_names) }}
 
       {%- if searched_screen_name and selected_user is none %}
-      <p class="dimmed">{{ _('Kein passender User gefunden.') }}</p>
+      <p class="dimmed">{{ _('Kein passender Benutzer gefunden.') }}</p>
       {%- endif %}
 
       {%- if selected_user and selected_user_balance %}
@@ -123,7 +123,7 @@
               <strong>{{ selected_user_balance.registration_delta_amount }}</strong>
             </div>
             <div>
-              <span class="data-label">Verf&uuml;gbar</span>
+              <span class="data-label">Verfügbar</span>
               <strong>{{ selected_user_balance.available_coins }}</strong>
             </div>
           </div>
@@ -134,7 +134,7 @@
           <div class="ns-admin-form-grid ns-admin-coin-adjust-grid">
             {{ render_field(adjustment_form.plus_amount, _('Coins manuell gutschreiben. Nur eines der beiden Felder verwenden.')) }}
             {{ render_field(adjustment_form.minus_amount, _('Coins manuell abziehen. Nur eines der beiden Felder verwenden.')) }}
-            {{ render_field(adjustment_form.note, 'Optionaler kurzer Grund f&uuml;r die manuelle Korrektur.') }}
+            {{ render_field(adjustment_form.note, 'Optionaler kurzer Grund für die manuelle Korrektur.') }}
           </div>
           <div class="ns-admin-form-actions ns-admin-coin-adjust-actions">
             <button type="submit" class="button color-primary">{{ _('Coins anpassen') }}</button>
@@ -164,9 +164,9 @@
                     {%- elif entry.kind.value == 'tournament_registration_charge' -%}
                       {{ _('Turnieranmeldung') }}
                     {%- elif entry.kind.value == 'tournament_registration_refund' -%}
-                      R&uuml;ckgabe
+                      Rückgabe
                     {%- else -%}
-                      {{ entry.kind.value }}
+                      {{ entry.kind|ns_label }}
                     {%- endif -%}
                   </td>
                   <td class="ns-admin-coin-ledger-amount">{{ '%+d'|format(entry.amount_delta) }}</td>

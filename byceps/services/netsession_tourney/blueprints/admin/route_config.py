@@ -26,8 +26,8 @@ DISCORD_DM_EVENT_CHOICES = [
     ('tournament_live', gettext('Turnier live')),
     ('tournament_canceled', gettext('Turnier abgesagt')),
     ('match_ready', gettext('Match spielbereit')),
-    ('flatout2_host_assigned', gettext('FlatOut 2 Host ausgew?hlt')),
-    ('result_submitted', gettext('Ergebnis ?bermittelt')),
+    ('flatout2_host_assigned', gettext('FlatOut 2 Host ausgewählt')),
+    ('result_submitted', gettext('Ergebnis übermittelt')),
 ]
 DISCORD_FORUM_EVENT_CHOICES = [
     ('manual_announcement', gettext('Manuelle Turniermeldung')),

@@ -7,6 +7,7 @@ German labels for match states, shown to players.
 
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.enum_labels import enum_label
 from byceps.services.netsession_tourney.models import MatchState
 
 
@@ -49,3 +50,8 @@ def open_class_name(state: MatchState) -> str:
         MatchState.pending_confirmation: 'is-pending-confirmation',
         MatchState.needs_admin_review: 'is-needs-review',
     }.get(state, '')
+
+
+def register_filters(blueprint) -> None:
+    blueprint.add_app_template_filter(bracket_label, 'ns_match_state')
+    blueprint.add_app_template_filter(enum_label, 'ns_label')

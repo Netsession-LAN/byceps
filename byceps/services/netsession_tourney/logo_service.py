@@ -94,7 +94,7 @@ def upload_logo_image(
     try:
         upload.store(stream, path, create_parent_path_if_nonexistent=True)
     except FileExistsError:
-        return Err('Logo file already exists.')
+        return Err('Diese Logo-Datei gibt es bereits.')
 
     db_logo_asset = DbNetsessionTourneyLogoAsset(
         logo_asset_id,
@@ -141,11 +141,11 @@ def set_logo_label_for_url(
 ) -> Result[None, str]:
     normalized_label = _normalize_label(label)
     if normalized_label is None:
-        return Err('Logo name must not be empty.')
+        return Err('Der Logo-Name darf nicht leer sein.')
 
     filename = _get_filename_from_logo_url_path(party_id, logo_url_path)
     if filename is None:
-        return Err('Invalid logo URL.')
+        return Err('Ungültige Logo-Adresse.')
 
     db_logo_asset = db.session.scalars(
         select(DbNetsessionTourneyLogoAsset).filter_by(
@@ -156,7 +156,7 @@ def set_logo_label_for_url(
     if db_logo_asset is None:
         file_path = _get_logo_directory_path(party_id) / filename
         if not file_path.exists() or not file_path.is_file():
-            return Err('Unknown logo file.')
+            return Err('Unbekannte Logo-Datei.')
 
         db_logo_asset = DbNetsessionTourneyLogoAsset(
             LogoAssetID(generate_uuid7()),
@@ -410,11 +410,11 @@ def set_tournament_logo_label(
 ) -> Result[TournamentLogoAsset, str]:
     db_asset = db.session.get(DbNetsessionTourneyTournamentLogoAsset, logo_asset_id)
     if db_asset is None:
-        return Err('Unknown tournament logo.')
+        return Err('Unbekanntes Turnierlogo.')
 
     normalized_label = _normalize_label(label)
     if normalized_label is None:
-        return Err('Logo name must not be empty.')
+        return Err('Der Logo-Name darf nicht leer sein.')
 
     db_asset.label = normalized_label
     db_asset.uploaded_by_user_id = actor.id
@@ -443,11 +443,11 @@ def set_sponsor_logo_label(
 ) -> Result[SponsorLogoAsset, str]:
     db_asset = db.session.get(DbNetsessionTourneySponsorLogoAsset, logo_asset_id)
     if db_asset is None:
-        return Err('Unknown sponsor logo.')
+        return Err('Unbekanntes Sponsor-Logo.')
 
     normalized_label = _normalize_label(label)
     if normalized_label is None:
-        return Err('Logo name must not be empty.')
+        return Err('Der Logo-Name darf nicht leer sein.')
 
     db_asset.label = normalized_label
     db_asset.target_url = normalize_target_url(target_url)
@@ -509,7 +509,7 @@ def delete_tournament_logo_asset(
 ) -> Result[None, str]:
     db_asset = db.session.get(DbNetsessionTourneyTournamentLogoAsset, logo_asset_id)
     if db_asset is None:
-        return Err('Unknown tournament logo.')
+        return Err('Unbekanntes Turnierlogo.')
 
     logo_url = _to_tournament_logo_url_path(db_asset.party_id, db_asset.filename)
     usage_count = len(
@@ -519,7 +519,7 @@ def delete_tournament_logo_asset(
     )
     if usage_count > 0:
         return Err(
-            f'Logo is used by {usage_count} tournament(s) and cannot be deleted.'
+            f'Das Logo wird von {usage_count} Turnier(en) verwendet und kann nicht gelöscht werden.'
         )
 
     file_path = (
@@ -536,7 +536,7 @@ def delete_sponsor_logo_asset(
 ) -> Result[None, str]:
     db_asset = db.session.get(DbNetsessionTourneySponsorLogoAsset, logo_asset_id)
     if db_asset is None:
-        return Err('Unknown sponsor logo.')
+        return Err('Unbekanntes Sponsor-Logo.')
 
     logo_url = _to_sponsor_logo_url_path(db_asset.party_id, db_asset.filename)
     usage_count = len(
@@ -548,7 +548,7 @@ def delete_sponsor_logo_asset(
     )
     if usage_count > 0:
         return Err(
-            f'Logo is used by {usage_count} sponsored tournament(s) and cannot be deleted.'
+            f'Das Logo wird von {usage_count} gesponserten Turnier(en) verwendet und kann nicht gelöscht werden.'
         )
 
     file_path = _get_sponsor_logo_directory_path(db_asset.party_id) / db_asset.filename
@@ -731,7 +731,7 @@ def _upload_asset_image(
     try:
         upload.store(stream, path, create_parent_path_if_nonexistent=True)
     except FileExistsError:
-        return Err('Logo file already exists.')
+        return Err('Diese Logo-Datei gibt es bereits.')
 
     asset_label = _determine_logo_label(label, original_filename, filename)
     asset_target_url = normalize_target_url(target_url)

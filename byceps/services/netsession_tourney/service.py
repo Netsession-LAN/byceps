@@ -331,11 +331,11 @@ def create_tournament_category(
 ) -> Result[TournamentCategory, str]:
     normalized_title = title.strip()
     if not normalized_title:
-        return Err('Category title is required.')
+        return Err('Bitte einen Titel für die Kategorie angeben.')
 
     db_party = db.session.get(DbParty, party_id)
     if db_party is None:
-        return Err('Unknown party.')
+        return Err('Unbekannte Party.')
 
     existing_db_category = db.session.scalar(
         select(DbNetsessionTourneyTournamentCategory).filter_by(
@@ -343,7 +343,7 @@ def create_tournament_category(
         )
     )
     if existing_db_category is not None:
-        return Err('Category title is already in use.')
+        return Err('Diesen Kategorietitel gibt es bereits.')
 
     db_category = DbNetsessionTourneyTournamentCategory(
         TournamentCategoryID(generate_uuid7()),
@@ -361,11 +361,11 @@ def update_tournament_category(
 ) -> Result[TournamentCategory, str]:
     db_category = _find_db_tournament_category(category_id)
     if db_category is None:
-        return Err('Unknown category.')
+        return Err('Unbekannte Kategorie.')
 
     normalized_title = title.strip()
     if not normalized_title:
-        return Err('Category title is required.')
+        return Err('Bitte einen Titel für die Kategorie angeben.')
 
     existing_db_category = db.session.scalar(
         select(DbNetsessionTourneyTournamentCategory).filter_by(
@@ -374,7 +374,7 @@ def update_tournament_category(
         )
     )
     if existing_db_category is not None and existing_db_category.id != db_category.id:
-        return Err('Category title is already in use.')
+        return Err('Diesen Kategorietitel gibt es bereits.')
 
     db_category.title = normalized_title
     db.session.commit()
@@ -387,11 +387,11 @@ def move_tournament_category_up(
 ) -> Result[None, str]:
     db_category = _find_db_tournament_category(category_id)
     if db_category is None:
-        return Err('Unknown category.')
+        return Err('Unbekannte Kategorie.')
 
     db_category_list = db_category.party.netsession_tourney_tournament_categories
     if db_category.position == 1:
-        return Err('Category is already at the top.')
+        return Err('Die Kategorie steht bereits ganz oben.')
 
     db_popped_category = db_category_list.pop(db_category.position - 1)
     db_category_list.insert(db_popped_category.position - 2, db_popped_category)
@@ -405,11 +405,11 @@ def move_tournament_category_down(
 ) -> Result[None, str]:
     db_category = _find_db_tournament_category(category_id)
     if db_category is None:
-        return Err('Unknown category.')
+        return Err('Unbekannte Kategorie.')
 
     db_category_list = db_category.party.netsession_tourney_tournament_categories
     if db_category.position == len(db_category_list):
-        return Err('Category is already at the bottom.')
+        return Err('Die Kategorie steht bereits ganz unten.')
 
     db_popped_category = db_category_list.pop(db_category.position - 1)
     db_category_list.insert(db_popped_category.position, db_popped_category)
@@ -452,15 +452,15 @@ def create_tournament_rule_template(
     normalized_body = body.strip()
 
     if not normalized_slug:
-        return Err('Rule template slug is required.')
+        return Err('Bitte einen Slug für die Regel-Vorlage angeben.')
     if not normalized_title:
-        return Err('Rule template title is required.')
+        return Err('Bitte einen Titel für die Regel-Vorlage angeben.')
     if not normalized_body:
-        return Err('Rule template body is required.')
+        return Err('Bitte einen Text für die Regel-Vorlage angeben.')
 
     db_party = db.session.get(DbParty, party_id)
     if db_party is None:
-        return Err('Unknown party.')
+        return Err('Unbekannte Party.')
 
     existing_db_rule_template = db.session.scalar(
         select(DbNetsessionTourneyTournamentRuleTemplate).filter_by(
@@ -469,7 +469,7 @@ def create_tournament_rule_template(
         )
     )
     if existing_db_rule_template is not None:
-        return Err('Rule template slug is already in use.')
+        return Err('Diesen Slug verwendet bereits eine andere Regel-Vorlage.')
 
     now = datetime.utcnow()
     db_rule_template = DbNetsessionTourneyTournamentRuleTemplate(
@@ -496,18 +496,18 @@ def update_tournament_rule_template(
 ) -> Result[TournamentRuleTemplate, str]:
     db_rule_template = _find_db_tournament_rule_template(rule_template_id)
     if db_rule_template is None:
-        return Err('Unknown rule template.')
+        return Err('Unbekannte Regel-Vorlage.')
 
     normalized_slug = slug.strip()
     normalized_title = title.strip()
     normalized_body = body.strip()
 
     if not normalized_slug:
-        return Err('Rule template slug is required.')
+        return Err('Bitte einen Slug für die Regel-Vorlage angeben.')
     if not normalized_title:
-        return Err('Rule template title is required.')
+        return Err('Bitte einen Titel für die Regel-Vorlage angeben.')
     if not normalized_body:
-        return Err('Rule template body is required.')
+        return Err('Bitte einen Text für die Regel-Vorlage angeben.')
 
     existing_db_rule_template = db.session.scalar(
         select(DbNetsessionTourneyTournamentRuleTemplate).filter_by(
@@ -519,7 +519,7 @@ def update_tournament_rule_template(
         existing_db_rule_template is not None
         and existing_db_rule_template.id != db_rule_template.id
     ):
-        return Err('Rule template slug is already in use.')
+        return Err('Diesen Slug verwendet bereits eine andere Regel-Vorlage.')
 
     change_rule_template_slug(db_rule_template, normalized_slug)
     db_rule_template.title = normalized_title
@@ -587,9 +587,9 @@ def create_tournament_prize(
 
     normalized_body = body.strip()
     if position < 1:
-        return Err('Prize position must be at least 1.')
+        return Err('Die Platzierung des Preises muss mindestens 1 sein.')
     if not normalized_body:
-        return Err('Prize description is required.')
+        return Err('Bitte eine Beschreibung für den Preis angeben.')
 
     existing_db_prize = db.session.scalar(
         select(DbNetsessionTourneyTournamentPrize).filter_by(
@@ -598,7 +598,7 @@ def create_tournament_prize(
         )
     )
     if existing_db_prize is not None:
-        return Err('A prize for this position already exists.')
+        return Err('Für diese Platzierung gibt es bereits einen Preis.')
 
     now = datetime.utcnow()
     db_prize = DbNetsessionTourneyTournamentPrize(
@@ -623,13 +623,13 @@ def update_tournament_prize(
 ) -> Result[TournamentPrize, str]:
     db_prize = _find_db_tournament_prize(prize_id)
     if db_prize is None:
-        return Err('Unknown prize.')
+        return Err('Unbekannter Preis.')
 
     normalized_body = body.strip()
     if position < 1:
-        return Err('Prize position must be at least 1.')
+        return Err('Die Platzierung des Preises muss mindestens 1 sein.')
     if not normalized_body:
-        return Err('Prize description is required.')
+        return Err('Bitte eine Beschreibung für den Preis angeben.')
 
     existing_db_prize = db.session.scalar(
         select(DbNetsessionTourneyTournamentPrize).filter_by(
@@ -638,7 +638,7 @@ def update_tournament_prize(
         )
     )
     if existing_db_prize is not None and existing_db_prize.id != db_prize.id:
-        return Err('A prize for this position already exists.')
+        return Err('Für diese Platzierung gibt es bereits einen Preis.')
 
     db_prize.position = position
     db_prize.body_format = body_format.value
@@ -652,7 +652,7 @@ def update_tournament_prize(
 def delete_tournament_prize(prize_id: TournamentPrizeID) -> Result[None, str]:
     db_prize = _find_db_tournament_prize(prize_id)
     if db_prize is None:
-        return Err('Unknown prize.')
+        return Err('Unbekannter Preis.')
 
     db.session.delete(db_prize)
     db.session.commit()
@@ -751,7 +751,7 @@ def create_tournament(
         return Err(coin_cost_validation_result.unwrap_err())
 
     if find_tournament_by_slug_for_party(party_id, slug) is not None:
-        return Err('Slug is already in use.')
+        return Err('Dieser Slug wird bereits verwendet.')
 
     resolved_category_id_result = _resolve_tournament_category_id_for_party(
         party_id, category_id
@@ -913,7 +913,7 @@ def update_tournament(
     if mode_changed:
         if db_tournament.status != TournamentStatus.draft.value:
             return Err(
-                'Tournament mode can only be changed while tournament is in draft.'
+                'Der Turniermodus lässt sich nur im Entwurf ändern.'
             )
 
         deleted_stage_count = _delete_all_stages_for_tournament(tournament_id)
@@ -922,7 +922,7 @@ def update_tournament(
     if registration_mode_changed:
         if db_tournament.status != TournamentStatus.draft.value:
             return Err(
-                'Registration mode can only be changed while tournament is in draft.'
+                'Der Anmeldemodus lässt sich nur im Entwurf ändern.'
             )
 
         has_active_participants = bool(
@@ -938,7 +938,7 @@ def update_tournament(
         )
         if has_active_participants:
             return Err(
-                'Registration mode can only be changed while no active participants exist.'
+                'Der Anmeldemodus lässt sich nur ändern, solange es keine aktiven Teilnehmer gibt.'
             )
 
         db_tournament.registration_mode = registration_mode.value
@@ -1163,11 +1163,11 @@ def configure_coin_settings(
     _ = initiator
 
     if default_coin_amount < 0:
-        return Err('Default coin amount must not be negative.')
+        return Err('Die Standard-Coins dürfen nicht negativ sein.')
 
     for amount in ticket_category_coin_amounts.values():
         if amount < 0:
-            return Err('Ticket category coin amounts must not be negative.')
+            return Err('Die Coins pro Ticketkategorie dürfen nicht negativ sein.')
 
     now = datetime.utcnow()
     db_settings = db.session.get(DbNetsessionTourneyCoinSettings, party_id)
@@ -1283,7 +1283,7 @@ def adjust_user_coins(
     initiator: User,
 ) -> Result[UserCoinBalance, str]:
     if amount_delta == 0:
-        return Err('Amount delta must not be zero.')
+        return Err('Der Betrag darf nicht 0 sein.')
     if get_user_coin_balance(party_id, user_id).available_coins + amount_delta < 0:
         return Err('Das Coin-Guthaben darf nicht negativ werden.')
 
@@ -1426,24 +1426,24 @@ def build_stage_builder_plan(
         StageType.double_elimination,
         StageType.double_elimination_double_grand_final,
     }:
-        return Err('Main Stage type is not supported by the builder.')
+        return Err('Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.')
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Main Stage size is invalid.')
+        return Err('Ungültige Größe der Main Stage.')
 
     if generation_basis != 'ready':
-        return Err('Generation basis is invalid.')
+        return Err('Ungültige Grundlage für die Erzeugung.')
 
     if preliminary_type not in {
         None,
         StageType.round_robin_groups,
         StageType.swiss,
     }:
-        return Err('Preliminary stage type is not supported by the builder.')
+        return Err('Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.')
 
     if preliminary_type == StageType.round_robin_groups:
         if round_robin_builder_mode not in {None, 'standard', 'manual_group_count'}:
-            return Err('Round-Robin strategy is invalid.')
+            return Err('Ungültige Round-Robin-Strategie.')
         if round_robin_builder_mode == 'manual_group_count':
             if round_robin_group_count is None or round_robin_group_count < 2:
                 return Err(
@@ -1457,18 +1457,18 @@ def build_stage_builder_plan(
     if match_duration_minutes is not None and (
         match_duration_minutes < 1 or match_duration_minutes > 240
     ):
-        return Err('Match duration is invalid.')
+        return Err('Ungültige Matchdauer.')
 
     if max_matches_per_round is not None and (
         max_matches_per_round < 1 or max_matches_per_round > 256
     ):
-        return Err('Maximum matches per round is invalid.')
+        return Err('Ungültige Höchstzahl an Matches pro Runde.')
 
     if break_between_rounds_minutes is not None and (
         break_between_rounds_minutes < 0
         or break_between_rounds_minutes > 240
     ):
-        return Err('Break between rounds is invalid.')
+        return Err('Ungültige Pause zwischen den Runden.')
 
     now = datetime.utcnow()
     created_stages: list[DbNetsessionTourneyStage] = []
@@ -1648,24 +1648,24 @@ def preview_stage_builder_plan(
         StageType.double_elimination,
         StageType.double_elimination_double_grand_final,
     }:
-        return Err('Main Stage type is not supported by the builder.')
+        return Err('Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.')
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Main Stage size is invalid.')
+        return Err('Ungültige Größe der Main Stage.')
 
     if generation_basis != 'ready':
-        return Err('Generation basis is invalid.')
+        return Err('Ungültige Grundlage für die Erzeugung.')
 
     if preliminary_type not in {
         None,
         StageType.round_robin_groups,
         StageType.swiss,
     }:
-        return Err('Preliminary stage type is not supported by the builder.')
+        return Err('Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.')
 
     if preliminary_type == StageType.round_robin_groups:
         if round_robin_builder_mode not in {None, 'standard', 'manual_group_count'}:
-            return Err('Round-Robin strategy is invalid.')
+            return Err('Ungültige Round-Robin-Strategie.')
         if round_robin_builder_mode == 'manual_group_count':
             if round_robin_group_count is None or round_robin_group_count < 2:
                 return Err(
@@ -1762,21 +1762,21 @@ def _build_ffa_stage_builder_plan(
     if match_duration_minutes is not None and (
         match_duration_minutes < 1 or match_duration_minutes > 240
     ):
-        return Err('Match duration is invalid.')
+        return Err('Ungültige Matchdauer.')
 
     if max_matches_per_round is not None and (
         max_matches_per_round < 1 or max_matches_per_round > 256
     ):
-        return Err('Maximum matches per round is invalid.')
+        return Err('Ungültige Höchstzahl an Matches pro Runde.')
 
     if break_between_rounds_minutes is not None and (
         break_between_rounds_minutes < 0
         or break_between_rounds_minutes > 240
     ):
-        return Err('Break between rounds is invalid.')
+        return Err('Ungültige Pause zwischen den Runden.')
 
     if max_players_per_match is None:
-        return Err('Maximum players per match is required for the FFA builder.')
+        return Err('Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.')
 
     participants = get_participants_for_tournament(party_id, tournament_id)
     ready_participants = domain_service.select_ready_participants(participants)
@@ -1973,7 +1973,7 @@ def _preview_ffa_stage_builder_plan(
         return Err(validation_result.unwrap_err())
 
     if max_players_per_match is None:
-        return Err('Maximum players per match is required for the FFA builder.')
+        return Err('Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.')
 
     participants = get_participants_for_tournament(party_id, tournament_id)
     ready_participants = domain_service.select_ready_participants(participants)
@@ -2069,32 +2069,32 @@ def _validate_ffa_stage_builder_settings(
         StageType.ffa_flatout2_single_elimination,
     }
     if main_stage_type not in allowed_ffa_stage_types:
-        return Err('Main Stage type is not supported by the FFA builder.')
+        return Err('Dieser Main-Stage-Typ wird vom FFA-Baukasten nicht unterstützt.')
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Main Stage size is invalid.')
+        return Err('Ungültige Größe der Main Stage.')
 
     if generation_basis != 'ready':
-        return Err('Generation basis is invalid.')
+        return Err('Ungültige Grundlage für die Erzeugung.')
 
     if preliminary_type is not None and preliminary_type not in allowed_ffa_stage_types:
-        return Err('Preliminary stage type is not supported by the FFA builder.')
+        return Err('Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.')
 
     if max_players_per_match is None:
-        return Err('Maximum players per match is required for the FFA builder.')
+        return Err('Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.')
 
     if max_players_per_match < 2 or max_players_per_match > 64:
-        return Err('Maximum players per match is invalid.')
+        return Err('Ungültige maximale Spielerzahl pro Match.')
 
     if main_stage_type == StageType.ffa_flatout2_single_elimination and (
         max_players_per_match < 6 or max_players_per_match > 8
     ):
-        return Err('FlatOut 2 requires 6 to 8 players per match.')
+        return Err('FlatOut 2 braucht 6 bis 8 Spieler pro Match.')
 
     if preliminary_type == StageType.ffa_flatout2_single_elimination and (
         max_players_per_match < 6 or max_players_per_match > 8
     ):
-        return Err('FlatOut 2 requires 6 to 8 players per match.')
+        return Err('FlatOut 2 braucht 6 bis 8 Spieler pro Match.')
 
     return Ok(None)
 
@@ -2150,7 +2150,7 @@ def _build_pending_structure_match_specs_for_stage(
 ) -> Result[list[MatchSpec], str]:
     engine = find_stage_engine(stage_type)
     if engine is None:
-        return Err('No engine available for this stage type yet.')
+        return Err('Für diesen Stage-Typ gibt es noch keine Match-Erzeugung.')
 
     preview_stage = Stage(
         id=StageID(generate_uuid7()),
@@ -2222,7 +2222,7 @@ def _preview_ffa_stage_builder_stage(
 
     engine = find_stage_engine(stage_type)
     if engine is None:
-        return Err('No engine available for this FFA builder stage type.')
+        return Err('Für diesen FFA-Stage-Typ gibt es keine Match-Erzeugung.')
 
     preview_stage = Stage(
         id=StageID(generate_uuid7()),
@@ -2462,16 +2462,16 @@ def create_stage(
     if not _is_stage_type_compatible_with_tournament_mode(
         spec.family, tournament_mode
     ):
-        return Err('Stage type is not compatible with tournament mode.')
+        return Err('Dieser Stage-Typ passt nicht zum Turniermodus.')
 
     tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
-        return Err('Stage type is not compatible with registration mode.')
+        return Err('Dieser Stage-Typ passt nicht zum Anmeldemodus.')
 
     if not spec.enabled:
-        return Err('Stage type is currently disabled.')
+        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
 
     max_order_no = db.session.scalar(
         select(db.func.max(DbNetsessionTourneyStage.order_no)).filter_by(
@@ -2518,7 +2518,7 @@ def update_stage(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.draft.value:
-        return Err('Stages can only be changed while tournament is in draft.')
+        return Err('Stages lassen sich nur im Entwurf ändern.')
 
     db_stage = db.session.scalar(
         select(DbNetsessionTourneyStage).filter_by(
@@ -2526,23 +2526,23 @@ def update_stage(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     spec = get_stage_type_spec(type_)
     tournament_mode = TournamentMode(db_tournament.mode)
     if not _is_stage_type_compatible_with_tournament_mode(
         spec.family, tournament_mode
     ):
-        return Err('Stage type is not compatible with tournament mode.')
+        return Err('Dieser Stage-Typ passt nicht zum Turniermodus.')
 
     tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
-        return Err('Stage type is not compatible with registration mode.')
+        return Err('Dieser Stage-Typ passt nicht zum Anmeldemodus.')
 
     if not spec.enabled:
-        return Err('Stage type is currently disabled.')
+        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
 
     # Matches need regeneration after structural stage changes.
     _delete_stage_matches(stage_id)
@@ -2579,7 +2579,7 @@ def delete_stage(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.draft.value:
-        return Err('Stages can only be changed while tournament is in draft.')
+        return Err('Stages lassen sich nur im Entwurf ändern.')
 
     db_stage = db.session.scalar(
         select(DbNetsessionTourneyStage).filter_by(
@@ -2587,7 +2587,7 @@ def delete_stage(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     if _is_builder_round_robin_summary_db_stage(db_stage):
         _delete_builder_generated_group_stages(
@@ -2753,10 +2753,10 @@ def cancel_tournament(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status == TournamentStatus.closed.value:
-        return Err('Closed tournaments cannot be canceled.')
+        return Err('Abgeschlossene Turniere können nicht abgesagt werden.')
 
     if db_tournament.status == TournamentStatus.canceled.value:
-        return Err('Tournament is already canceled.')
+        return Err('Das Turnier ist bereits abgesagt.')
 
     db_tournament.status = TournamentStatus.canceled.value
     db_tournament.registration_open = False
@@ -2804,18 +2804,18 @@ def send_manual_tournament_notification(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
     if not is_browser_push_enabled_for_party(party_id):
-        return Err('Browser notifications are disabled.')
+        return Err('Browser-Benachrichtigungen sind ausgeschaltet.')
 
     title = title.strip()
     body = body.strip()
     target_url = (target_url or '').strip() or None
 
     if not title:
-        return Err('A title is required.')
+        return Err('Bitte einen Titel angeben.')
     if not body:
-        return Err('A message is required.')
+        return Err('Bitte eine Nachricht angeben.')
     if target_url is not None and not target_url.startswith('/'):
-        return Err('Target URL must be relative and start with /.')
+        return Err('Die Ziel-Adresse muss relativ sein und mit / beginnen.')
 
     recipients, subscription_count = (
         _get_active_browser_push_subscription_recipients_for_tournament(
@@ -2882,7 +2882,7 @@ def unpublish_tournament(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.live.value:
-        return Err('Only live tournaments can be moved back to draft.')
+        return Err('Nur laufende Turniere können zurück in den Entwurf.')
 
     has_reported_results = (
         db.session.scalar(
@@ -2906,7 +2906,7 @@ def unpublish_tournament(
     )
     if has_reported_results:
         return Err(
-            'Tournament cannot be moved back to draft after match results have been reported.'
+            'Nachdem Ergebnisse gemeldet wurden, kann das Turnier nicht mehr zurück in den Entwurf.'
         )
 
     db_tournament.status = TournamentStatus.draft.value
@@ -3251,18 +3251,18 @@ def update_managed_team_for_captain(
 
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
-        return Err('Team management is not available right now.')
+        return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     if tournament.status == TournamentStatus.live:
         if not replace_logo:
             return Err(
-                'While tournament is live, only the team logo can be updated.'
+                'Während das Turnier läuft, lässt sich nur das Team-Logo ändern.'
             )
 
         db_participant.logo_url = (
@@ -3350,12 +3350,12 @@ def join_team_by_invite_code(
     if db_participant is None:
         return Err('Unbekannter Invite-Code.')
     if db_participant.status not in ACTIVE_PARTICIPANT_STATUS_VALUES:
-        return Err('This team is not open for joining.')
+        return Err('Diesem Team kann man nicht beitreten.')
     max_team_member_count = _get_max_team_member_count(tournament)
     if max_team_member_count is not None:
         member_count = _count_team_members(db_participant.id)
     if int(member_count or 0) >= max_team_member_count:
-        return Err('This team is already full.')
+        return Err('Dieses Team ist bereits voll.')
 
     if tournament.coin_charge_mode == CoinChargeMode.all_members:
         charge_result = _charge_coins_for_tournament_registration(
@@ -3412,14 +3412,14 @@ def add_user_participant_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Participant management is only possible while tournament is in draft.'
+            'Teilnehmer lassen sich nur im Entwurf verwalten.'
         )
     if tournament.registration_mode not in {
         RegistrationMode.solo,
         RegistrationMode.mixed,
     }:
         return Err(
-            'Direct user adding is only available for solo or mixed registration mode.'
+            'Spieler direkt hinzufügen geht nur bei Einzel- oder gemischter Anmeldung.'
         )
     if (ticket_check := _validate_user_uses_ticket_for_party(participant_user.id, party_id)).is_err():
         return ticket_check
@@ -3485,10 +3485,10 @@ def create_team_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Participant management is only possible while tournament is in draft.'
+            'Teilnehmer lassen sich nur im Entwurf verwalten.'
         )
     if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Team management is not available for solo registration mode.')
+        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
     if (ticket_check := _validate_user_uses_ticket_for_party(captain_user.id, party_id)).is_err():
         return ticket_check
     if _is_user_already_active_participant(tournament_id, captain_user.id):
@@ -3562,10 +3562,10 @@ def add_team_member_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Participant management is only possible while tournament is in draft.'
+            'Teilnehmer lassen sich nur im Entwurf verwalten.'
         )
     if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Team management is not available for solo registration mode.')
+        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
 
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant)
@@ -3581,7 +3581,7 @@ def add_team_member_by_admin(
         )
     )
     if db_participant is None:
-        return Err('Unknown team.')
+        return Err('Unbekanntes Team.')
 
     if (ticket_check := _validate_user_uses_ticket_for_party(member_user.id, party_id)).is_err():
         return ticket_check
@@ -3592,7 +3592,7 @@ def add_team_member_by_admin(
     if max_team_member_count is not None:
         member_count = _count_team_members(participant_id)
         if int(member_count or 0) >= max_team_member_count:
-            return Err('This team is already full.')
+            return Err('Dieses Team ist bereits voll.')
 
     if tournament.coin_charge_mode == CoinChargeMode.all_members:
         charge_result = _charge_coins_for_tournament_registration(
@@ -3642,7 +3642,7 @@ def remove_team_member_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Participant management is only possible while tournament is in draft.'
+            'Teilnehmer lassen sich nur im Entwurf verwalten.'
         )
 
     db_participant = db.session.scalar(
@@ -3659,7 +3659,7 @@ def remove_team_member_by_admin(
         )
     )
     if db_participant is None:
-        return Err('Unknown team.')
+        return Err('Unbekanntes Team.')
 
     db_member = db.session.scalar(
         select(DbNetsessionTourneyTeamMember).filter_by(
@@ -3668,9 +3668,9 @@ def remove_team_member_by_admin(
         )
     )
     if db_member is None:
-        return Err('Unknown team member.')
+        return Err('Unbekanntes Teammitglied.')
     if db_member.role == TeamMemberRole.captain.value:
-        return Err('Captain cannot be removed from team.')
+        return Err('Der Captain kann nicht aus dem Team entfernt werden.')
 
     db.session.delete(db_member)
     _set_registration_state_for_user(
@@ -3707,10 +3707,10 @@ def assign_team_captain_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Participant management is only possible while tournament is in draft.'
+            'Teilnehmer lassen sich nur im Entwurf verwalten.'
         )
     if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Team management is not available for solo registration mode.')
+        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
 
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant)
@@ -3726,7 +3726,7 @@ def assign_team_captain_by_admin(
         )
     )
     if db_participant is None:
-        return Err('Unknown team.')
+        return Err('Unbekanntes Team.')
 
     if db_participant.manager_user_id == member_user_id:
         return Ok(None)
@@ -3738,7 +3738,7 @@ def assign_team_captain_by_admin(
         )
     )
     if db_member is None:
-        return Err('Unknown team member.')
+        return Err('Unbekanntes Teammitglied.')
 
     db_current_captain_member = db.session.scalar(
         select(DbNetsessionTourneyTeamMember).filter_by(
@@ -3747,7 +3747,7 @@ def assign_team_captain_by_admin(
         )
     )
     if db_current_captain_member is None:
-        return Err('Current captain could not be determined.')
+        return Err('Der aktuelle Captain ließ sich nicht ermitteln.')
 
     old_captain_user_id = db_participant.manager_user_id
     db_current_captain_member.role = TeamMemberRole.player.value
@@ -3807,10 +3807,10 @@ def get_team_invite_code_for_manager(
         party_id, tournament_id, participant_id, manager_user_id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     if not db_participant.invite_code:
-        return Err('No invite code available for this team.')
+        return Err('Für dieses Team gibt es keinen Einladungscode.')
 
     return Ok(db_participant.invite_code)
 
@@ -3828,14 +3828,14 @@ def regenerate_team_invite_code_for_manager(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Team management is only possible while tournament is in draft.'
+            'Teams lassen sich nur im Entwurf verwalten.'
         )
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     invite_code = _generate_unique_invite_code_for_tournament(tournament_id)
     db_participant.invite_code = invite_code
@@ -3867,14 +3867,14 @@ def add_team_member_by_captain(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Team management is only possible while tournament is in draft.'
+            'Teams lassen sich nur im Entwurf verwalten.'
         )
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     ticket_validation_result = _validate_user_uses_ticket_for_party(
         member_user.id, party_id
@@ -3889,7 +3889,7 @@ def add_team_member_by_captain(
     if max_team_member_count is not None:
         member_count = _count_team_members(participant_id)
         if int(member_count or 0) >= max_team_member_count:
-            return Err('This team is already full.')
+            return Err('Dieses Team ist bereits voll.')
 
     if tournament.coin_charge_mode == CoinChargeMode.all_members:
         charge_result = _charge_coins_for_tournament_registration(
@@ -3958,20 +3958,20 @@ def set_managed_team_ready_state(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
         return Err(
-            'Team management is not available right now.'
+            'Die Teamverwaltung ist gerade nicht verfügbar.'
         )
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     if ready and tournament.team_size is not None:
         member_count = _count_team_members(participant_id)
         if int(member_count or 0) != tournament.team_size:
             return Err(
-                f'Team is not complete. Required team size: {tournament.team_size}.'
+                f'Das Team ist nicht vollständig. Benötigte Teamgröße: {tournament.team_size}.'
             )
 
     db_participant.status = (
@@ -4068,14 +4068,14 @@ def assign_team_captain_by_captain(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Team management is only possible while tournament is in draft.'
+            'Teams lassen sich nur im Entwurf verwalten.'
         )
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     if db_participant.manager_user_id == member_user_id:
         return Ok(None)
@@ -4087,7 +4087,7 @@ def assign_team_captain_by_captain(
         )
     )
     if db_member is None:
-        return Err('Unknown team member.')
+        return Err('Unbekanntes Teammitglied.')
 
     db_current_captain_member = db.session.scalar(
         select(DbNetsessionTourneyTeamMember).filter_by(
@@ -4096,7 +4096,7 @@ def assign_team_captain_by_captain(
         )
     )
     if db_current_captain_member is None:
-        return Err('Current captain could not be determined.')
+        return Err('Der aktuelle Captain ließ sich nicht ermitteln.')
 
     db_current_captain_member.role = TeamMemberRole.player.value
     db_member.role = TeamMemberRole.captain.value
@@ -4132,14 +4132,14 @@ def remove_team_member_by_captain(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Team management is only possible while tournament is in draft.'
+            'Teams lassen sich nur im Entwurf verwalten.'
         )
 
     db_participant = _find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
-        return Err('Team not found or not manageable by this user.')
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
     db_member = db.session.scalar(
         select(DbNetsessionTourneyTeamMember).filter_by(
@@ -4148,9 +4148,9 @@ def remove_team_member_by_captain(
         )
     )
     if db_member is None:
-        return Err('Unknown team member.')
+        return Err('Unbekanntes Teammitglied.')
     if db_member.role == TeamMemberRole.captain.value:
-        return Err('Captain cannot be removed from own team.')
+        return Err('Du kannst dich als Captain nicht selbst aus dem Team entfernen.')
 
     db.session.delete(db_member)
     _set_registration_state_for_user(
@@ -4292,7 +4292,7 @@ def remove_participant_by_admin(
 ) -> Result[Participant, str]:
     comment = comment.strip()
     if not comment:
-        return Err('A comment is required.')
+        return Err('Bitte einen Kommentar angeben.')
 
     dq_result = disqualify_participant(
         party_id,
@@ -4312,7 +4312,7 @@ def remove_participant_by_admin(
         )
     )
     if db_participant is None:
-        return Err('Unknown participant.')
+        return Err('Unbekannter Teilnehmer.')
 
     affected_user_ids = set(_get_team_member_user_ids_for_participant(participant_id))
     if db_participant.user_id is not None:
@@ -4515,7 +4515,7 @@ def set_participant_seed(
     initiator: User,
 ) -> Result[Participant, str]:
     if seed < 1:
-        return Err('Seed must be at least 1.')
+        return Err('Der Seed muss mindestens 1 sein.')
 
     if _find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
@@ -4533,12 +4533,12 @@ def set_participant_seed(
     db_participants_by_id = {item.id: item for item in db_participants}
     db_participant = db_participants_by_id.get(participant_id)
     if db_participant is None:
-        return Err('Unknown participant.')
+        return Err('Unbekannter Teilnehmer.')
 
     active_participant_count = len(db_participants)
     if seed > active_participant_count:
         return Err(
-            'Seed must not be higher than the current active participant count.'
+            'Der Seed darf nicht größer sein als die Zahl der aktiven Teilnehmer.'
         )
 
     seeded_participants = sorted(
@@ -4553,8 +4553,8 @@ def set_participant_seed(
     max_assignable_seed = len(seeded_participants) + 1
     if seed > max_assignable_seed:
         return Err(
-            'Seeds can only be assigned without gaps. '
-            f'The next available manual seed is {max_assignable_seed}.'
+            'Seeds müssen lückenlos vergeben werden. '
+            f'Der nächste freie manuelle Seed ist {max_assignable_seed}.'
         )
 
     insertion_index = seed - 1
@@ -4593,7 +4593,7 @@ def set_participant_status(
         )
     )
     if db_participant is None:
-        return Err('Unknown participant.')
+        return Err('Unbekannter Teilnehmer.')
 
     db_participant.status = status.value
 
@@ -4865,7 +4865,7 @@ def get_stage_generation_participants(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     stage = _db_stage_to_model(db_stage)
     return _select_generation_participants_for_stage(
@@ -4887,7 +4887,7 @@ def set_stage_generation_seeds(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     stage = _db_stage_to_model(db_stage)
     selected_participants_result = get_stage_generation_participants(
@@ -4898,7 +4898,7 @@ def set_stage_generation_seeds(
 
     selected_participants = selected_participants_result.unwrap()
     if len(selected_participants) < 2:
-        return Err('Not enough participants for seed assignment.')
+        return Err('Zu wenige Teilnehmer für die Seed-Vergabe.')
 
     selected_participants_by_id = {
         participant.id: participant for participant in selected_participants
@@ -4970,7 +4970,7 @@ def set_stage_generation_seeds(
     for seed, participant_id in enumerate(final_participant_ids, start=1):
         db_participant = db_participants_by_id.get(participant_id)
         if db_participant is None:
-            return Err('A participant could not be found for seed assignment.')
+            return Err('Ein Teilnehmer für die Seed-Vergabe wurde nicht gefunden.')
         db_participant.seed = seed
 
     _append_audit_log(
@@ -5024,7 +5024,7 @@ def generate_stage_matches(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     if (
         _is_stage_builder_v1_preliminary_stage(payload.stage)
@@ -5140,7 +5140,7 @@ def _build_stage_generation_payload(
         )
     )
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     stage = _db_stage_to_model(db_stage)
     if stage_settings_override:
@@ -5150,11 +5150,11 @@ def _build_stage_generation_payload(
     tournament = _db_tournament_to_model(db_tournament)
     stage_type_spec = get_stage_type_spec(stage.type)
     if not stage_type_spec.enabled:
-        return Err('Stage type is currently disabled.')
+        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
 
     engine = find_stage_engine(stage.type)
     if engine is None:
-        return Err('No engine available for this stage type yet.')
+        return Err('Für diesen Stage-Typ gibt es noch keine Match-Erzeugung.')
 
     selected_participants_result = _select_generation_participants_for_stage(
         party_id,
@@ -5719,7 +5719,7 @@ def _resolve_stage_builder_stage_for_generation(
 
     main_stage_size = _get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
-        return Err('Builder main stage size is invalid.')
+        return Err('Ungültige Größe der Main Stage im Baukasten.')
 
     if participant_count <= main_stage_size:
         return Err(
@@ -5769,7 +5769,7 @@ def _resolve_stage_builder_stage_for_generation(
             stage, participant_count=participant_count
         )
         if threshold not in SWISS_THRESHOLDS and participant_count > 1:
-            return Err('Swiss threshold is invalid.')
+            return Err('Ungültige Swiss-Schwelle.')
         return Ok(stage)
 
     return Ok(stage)
@@ -6610,7 +6610,7 @@ def _select_generation_participants_for_stage(
             if participant_id in ready_participants_by_id
         ]
         if len(selected_participants) < 2:
-            return Err('Not enough ready participants for this builder group.')
+            return Err('Zu wenige bereite Teilnehmer für diese Gruppe.')
         return Ok(selected_participants)
 
     if source_mode == 'stage_match_qualifiers':
@@ -6622,7 +6622,7 @@ def _select_generation_participants_for_stage(
                 'No source stages configured. Configure qualifier source stages first.'
             )
         if stage.id in source_stage_ids:
-            return Err('A stage cannot use itself as qualifier source.')
+            return Err('Eine Stage kann nicht ihre eigene Quelle für Qualifikanten sein.')
 
         try:
             top_n_per_match = int(
@@ -6631,7 +6631,7 @@ def _select_generation_participants_for_stage(
         except (TypeError, ValueError):
             top_n_per_match = 0
         if top_n_per_match < 1 or top_n_per_match > 16:
-            return Err('Qualifier top count per match is invalid.')
+            return Err('Ungültige Top-Anzahl pro Match für die Qualifikation.')
 
         unique_source_stage_ids = list(dict.fromkeys(source_stage_ids))
         db_source_stages = db.session.scalars(
@@ -6641,7 +6641,7 @@ def _select_generation_participants_for_stage(
             .order_by(DbNetsessionTourneyStage.order_no.asc())
         ).all()
         if len(db_source_stages) != len(unique_source_stage_ids):
-            return Err('At least one configured source stage does not exist.')
+            return Err('Mindestens eine der eingestellten Quell-Stages existiert nicht.')
 
         selected_participant_ids: list[ParticipantID] = []
         for db_source_stage in db_source_stages:
@@ -6660,7 +6660,7 @@ def _select_generation_participants_for_stage(
                         'Schließe zuerst alle Vorrunden-Matches ab.'
                     )
                 return Err(
-                    f'Source stage "{db_source_stage.name}": {message}'
+                    f'Quell-Stage „{db_source_stage.name}“: {message}'
                 )
 
             selected_participant_ids.extend(
@@ -6678,8 +6678,8 @@ def _select_generation_participants_for_stage(
         participants = domain_service.select_ready_participants(participants)
         if len(participants) < 2:
             return Err(
-                'Not enough qualified participants for this stage. '
-                'Adjust source stages or top count.'
+                'Zu wenige qualifizierte Teilnehmer für diese Stage. '
+                'Passe die Quell-Stages oder die Top-Anzahl an.'
             )
 
         return Ok(participants)
@@ -6695,13 +6695,13 @@ def _select_generation_participants_for_stage(
             'No source stages configured. Configure qualifier source stages first.'
         )
     if stage.id in source_stage_ids:
-        return Err('A stage cannot use itself as qualifier source.')
+        return Err('Eine Stage kann nicht ihre eigene Quelle für Qualifikanten sein.')
 
     selection_mode = (stage.settings or {}).get(
         'qualifier_selection_mode', 'per_stage'
     )
     if selection_mode not in {'per_stage', 'per_group'}:
-        return Err('Qualifier selection mode is invalid.')
+        return Err('Ungültige Auswahl der Qualifikanten.')
 
     unique_source_stage_ids = list(dict.fromkeys(source_stage_ids))
     db_source_stages = db.session.scalars(
@@ -6711,7 +6711,7 @@ def _select_generation_participants_for_stage(
         .order_by(DbNetsessionTourneyStage.order_no.asc())
     ).all()
     if len(db_source_stages) != len(unique_source_stage_ids):
-        return Err('At least one configured source stage does not exist.')
+        return Err('Mindestens eine der eingestellten Quell-Stages existiert nicht.')
 
     selected_participant_ids: list[ParticipantID] = []
     for db_source_stage in db_source_stages:
@@ -6723,7 +6723,7 @@ def _select_generation_participants_for_stage(
         )
         if qualifier_top_n_result.is_err():
             return Err(
-                f'Source stage "{db_source_stage.name}": '
+                f'Quell-Stage „{db_source_stage.name}“: '
                 f'{qualifier_top_n_result.unwrap_err()}'
             )
         top_n = qualifier_top_n_result.unwrap()
@@ -6743,7 +6743,7 @@ def _select_generation_participants_for_stage(
                         'Schließe zuerst alle Vorrunden-Matches ab.'
                     )
                 return Err(
-                    f'Source stage "{db_source_stage.name}": '
+                    f'Quell-Stage „{db_source_stage.name}“: '
                     f'{message}'
                 )
 
@@ -6752,9 +6752,9 @@ def _select_generation_participants_for_stage(
             ):
                 if len(ranked_group_participant_ids) < top_n:
                     return Err(
-                        f'Source stage "{db_source_stage.name}" has a group with '
-                        f'only {len(ranked_group_participant_ids)} ranked '
-                        f'participants, but top {top_n} per group is required.'
+                        f'Quell-Stage „{db_source_stage.name}“ hat eine Gruppe mit '
+                        f'nur {len(ranked_group_participant_ids)} gewerteten '
+                        f'Teilnehmern, gebraucht werden aber die Top {top_n} pro Gruppe.'
                     )
 
                 selected_participant_ids.extend(
@@ -6772,16 +6772,16 @@ def _select_generation_participants_for_stage(
                         'Schließe zuerst alle Vorrunden-Matches ab.'
                     )
                 return Err(
-                    f'Source stage "{db_source_stage.name}": '
+                    f'Quell-Stage „{db_source_stage.name}“: '
                     f'{message}'
                 )
 
             ranked_participant_ids = ranked_participant_ids_result.unwrap()
             if len(ranked_participant_ids) < top_n:
                 return Err(
-                    f'Source stage "{db_source_stage.name}" has only '
-                    f'{len(ranked_participant_ids)} ranked participants, '
-                    f'but top {top_n} is required.'
+                    f'Quell-Stage „{db_source_stage.name}“ hat nur '
+                    f'{len(ranked_participant_ids)} gewertete Teilnehmer, '
+                    f'gebraucht werden aber die Top {top_n}.'
                 )
 
             selected_participant_ids.extend(ranked_participant_ids[:top_n])
@@ -6803,8 +6803,8 @@ def _select_generation_participants_for_stage(
 
     if len(participants) < 2:
         return Err(
-            'Not enough qualified participants for this stage. '
-            'Adjust source stages or top count.'
+            'Zu wenige qualifizierte Teilnehmer für diese Stage. '
+            'Passe die Quell-Stages oder die Top-Anzahl an.'
         )
 
     return Ok(participants)
@@ -6817,11 +6817,11 @@ def _get_ranked_participant_ids_by_match_for_stage(
     top_n_per_match: int,
 ) -> Result[list[ParticipantID], str]:
     if top_n_per_match < 1:
-        return Err('qualifier top count per match is invalid.')
+        return Err('ungültige Top-Anzahl pro Match.')
 
     db_stage = db.session.get(DbNetsessionTourneyStage, stage_id)
     if db_stage is None:
-        return Err('does not exist.')
+        return Err('existiert nicht.')
 
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
@@ -6916,21 +6916,21 @@ def _get_effective_qualifier_top_n_for_source_stage(
         try:
             top_n = int(raw_top_n)
         except (TypeError, ValueError):
-            return Err('Qualifier top count is invalid.')
+            return Err('Ungültige Top-Anzahl für die Qualifikation.')
         if top_n < 1 or top_n > 128:
-            return Err('Qualifier top count must be between 1 and 128.')
+            return Err('Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.')
         return Ok(top_n)
 
     main_stage_size = _get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
-        return Err('Builder main stage size is invalid.')
+        return Err('Ungültige Größe der Main Stage im Baukasten.')
 
     if selection_mode == 'per_stage':
         return Ok(main_stage_size)
 
     if db_source_stage.type != StageType.round_robin_groups.value:
         return Err(
-            'Automatic per-group qualifier counts require a Round Robin Groups source stage.'
+            'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppen-Stage als Quelle.'
         )
 
     ranked_group_participant_ids_result = _get_ranked_participant_ids_by_group_for_stage(
@@ -6943,15 +6943,15 @@ def _get_effective_qualifier_top_n_for_source_stage(
     ranked_groups = ranked_group_participant_ids_result.unwrap()
     group_count = len(ranked_groups)
     if group_count < 1:
-        return Err('contains no ranked groups.')
+        return Err('enthält keine gewerteten Gruppen.')
     if main_stage_size % group_count != 0:
         return Err(
-            'cannot distribute qualifiers evenly from the generated groups to the configured main stage size.'
+            'die Qualifikanten aus den Gruppen lassen sich nicht gleichmäßig auf die Größe der Main Stage verteilen.'
         )
 
     top_n = main_stage_size // group_count
     if top_n < 1:
-        return Err('Qualifier top count is invalid.')
+        return Err('Ungültige Top-Anzahl für die Qualifikation.')
 
     return Ok(top_n)
 
@@ -6991,7 +6991,7 @@ def _get_ranked_participant_ids_by_group_for_stage(
     ranking_data = ranking_data_result.unwrap()
     if ranking_data.db_stage.type != StageType.round_robin_groups.value:
         return Err(
-            'group-based qualifiers are only supported for Round Robin Groups.'
+            'Qualifikation pro Gruppe gibt es nur bei Round-Robin-Gruppen.'
         )
 
     connected_participant_ids_by_participant_id: dict[
@@ -7094,7 +7094,7 @@ def _build_stage_ranking_data(
 ) -> Result[_StageRankingData, str]:
     db_stage = db.session.get(DbNetsessionTourneyStage, stage_id)
     if db_stage is None:
-        return Err('does not exist.')
+        return Err('existiert nicht.')
 
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
@@ -7923,7 +7923,7 @@ def post_match_chat_message(
         )
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     if not can_user_access_match_chat(
         party_id,
@@ -7932,13 +7932,13 @@ def post_match_chat_message(
         actor_user_id,
         is_admin_or_referee=actor_is_admin_or_referee,
     ):
-        return Err('You are not allowed to post in this match chat.')
+        return Err('Du darfst in diesem Match-Chat nicht schreiben.')
 
     body = body.strip()
     if not body:
-        return Err('Message cannot be empty.')
+        return Err('Die Nachricht darf nicht leer sein.')
     if len(body) > 2000:
-        return Err('Message is too long.')
+        return Err('Die Nachricht ist zu lang.')
 
     now = datetime.utcnow()
     db_message = DbNetsessionTourneyMatchChatMessage(
@@ -8080,7 +8080,7 @@ def report_result(
         .with_for_update()
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     db_receipt = db.session.scalar(
         select(DbNetsessionTourneyResultReportReceipt).filter_by(
@@ -8098,14 +8098,14 @@ def report_result(
 
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
     stage = _db_stage_to_model(db_stage)
     tournament = _db_tournament_to_model(db_tournament)
 
     if not actor_is_admin_or_referee:
         if tournament.status != TournamentStatus.live:
             return Err(
-                'Match results can only be reported while the tournament is live.'
+                'Ergebnisse lassen sich nur melden, während das Turnier läuft.'
             )
 
         if MatchState(db_match.state) not in {
@@ -8114,12 +8114,12 @@ def report_result(
             MatchState.pending_confirmation,
         }:
             return Err(
-                'Result reporting is not allowed in the current match state.'
+                'In diesem Match-Status lässt sich kein Ergebnis melden.'
             )
 
     if _is_match_marked_as_skipped_double_grand_final(stage, match_id):
         return Err(
-            'This match has been canceled because no bracket reset is required.'
+            'Dieses Match entfällt, weil kein zweites Finale nötig ist.'
         )
 
     db_slots = db.session.scalars(
@@ -8168,7 +8168,7 @@ def report_result(
         actor_is_admin_or_referee,
         is_match_participant_manager,
     ):
-        return Err('Actor is not allowed to report a result for this match.')
+        return Err('Du darfst für dieses Match kein Ergebnis melden.')
 
     stage_result_report_mode = _get_stage_result_report_mode(stage.settings)
     report_mode_validation_error = _validate_actor_matches_report_mode(
@@ -8495,16 +8495,16 @@ def delete_match_result_by_admin(
         .with_for_update()
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if db_stage is None:
-        return Err('Unknown stage.')
+        return Err('Unbekannte Stage.')
 
     stage = _db_stage_to_model(db_stage)
     if stage.type == StageType.swiss:
         return Err(
-            'Deleting stored results is not supported for Swiss stages yet.'
+            'Bei Swiss lassen sich gespeicherte Ergebnisse noch nicht löschen.'
         )
 
     db_result = db.session.scalar(
@@ -8513,7 +8513,7 @@ def delete_match_result_by_admin(
         .with_for_update()
     )
     if db_result is None:
-        return Err('No stored result exists for this match.')
+        return Err('Für dieses Match ist kein Ergebnis gespeichert.')
 
     blocking_match_id = _find_match_result_delete_blocker(match_id)
     if blocking_match_id is not None:
@@ -8522,13 +8522,13 @@ def delete_match_result_by_admin(
         )
         if db_blocking_match is None:
             return Err(
-                'Stored result cannot be deleted because a dependent match already has a manually reported result.'
+                'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match schon ein gemeldetes Ergebnis hat.'
             )
 
         return Err(
-            'Stored result cannot be deleted because a dependent match '
-            f'(round {db_blocking_match.round_no}, match {db_blocking_match.match_no}) '
-            'already has a manually reported result.'
+            'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match '
+            f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '
+            'schon ein gemeldetes Ergebnis hat.'
         )
 
     deleted_match_ids: set[MatchID] = set()
@@ -8720,7 +8720,7 @@ def set_match_slot_participant_by_admin(
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
-            'Match assignment is only possible while tournament is in draft.'
+            'Matches lassen sich nur im Entwurf zuweisen.'
         )
 
     db_match = db.session.scalar(
@@ -8729,7 +8729,7 @@ def set_match_slot_participant_by_admin(
         .with_for_update()
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     if db_match.state in {
         MatchState.completed.value,
@@ -8739,14 +8739,14 @@ def set_match_slot_participant_by_admin(
         MatchState.disputed.value,
     }:
         return Err(
-            'Match slot assignment is only possible for pending/ready matches.'
+            'Plätze lassen sich nur bei wartenden oder spielbereiten Matches zuweisen.'
         )
 
     db_result = db.session.scalar(
         select(DbNetsessionTourneyMatchResult).filter_by(match_id=match_id)
     )
     if db_result is not None:
-        return Err('Match slot assignment is not possible after a result exists.')
+        return Err('Sobald ein Ergebnis existiert, lassen sich keine Plätze mehr zuweisen.')
 
     db_slot = db.session.scalar(
         select(DbNetsessionTourneyMatchSlot)
@@ -8754,12 +8754,12 @@ def set_match_slot_participant_by_admin(
         .with_for_update()
     )
     if db_slot is None:
-        return Err('Unknown match slot.')
+        return Err('Unbekannter Platz im Match.')
 
     # Slots that are fed by previous matches are maintained by bracket logic.
     if db_slot.source_match_slot_id is not None:
         return Err(
-            'This slot is linked to a previous match and cannot be edited manually.'
+            'Dieser Platz hängt an einem vorherigen Match und lässt sich nicht von Hand ändern.'
         )
 
     if participant_id is not None:
@@ -8773,7 +8773,7 @@ def set_match_slot_participant_by_admin(
             )
         )
         if db_participant is None:
-            return Err('Unknown participant.')
+            return Err('Unbekannter Teilnehmer.')
 
         duplicate_in_match = db.session.scalar(
             select(DbNetsessionTourneyMatchSlot.id)
@@ -8781,7 +8781,7 @@ def set_match_slot_participant_by_admin(
             .filter(DbNetsessionTourneyMatchSlot.slot_no != slot_no)
         )
         if duplicate_in_match is not None:
-            return Err('Participant is already assigned to this match.')
+            return Err('Der Teilnehmer ist diesem Match bereits zugewiesen.')
 
         duplicate_in_round = db.session.scalar(
             select(DbNetsessionTourneyMatchSlot.id)
@@ -8796,7 +8796,7 @@ def set_match_slot_participant_by_admin(
             .filter(DbNetsessionTourneyMatchSlot.match_id != match_id)
         )
         if duplicate_in_round is not None:
-            return Err('Participant is already assigned in this round.')
+            return Err('Der Teilnehmer ist in dieser Runde bereits zugewiesen.')
 
     db_slot.participant_id = participant_id
 
@@ -8861,14 +8861,14 @@ def set_flatout2_match_host_by_admin(
         .with_for_update()
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if (
         db_stage is None
         or db_stage.type != StageType.ffa_flatout2_single_elimination.value
     ):
-        return Err('This match does not use the FlatOut 2 stage type.')
+        return Err('Dieses Match gehört zu keiner FlatOut-2-Stage.')
 
     allowed_participant_ids = {
         slot.participant_id
@@ -8879,7 +8879,7 @@ def set_flatout2_match_host_by_admin(
     }
 
     if host_participant_id is not None and host_participant_id not in allowed_participant_ids:
-        return Err('Selected host is not part of this match.')
+        return Err('Der gewählte Host spielt nicht in diesem Match.')
 
     settings = dict(db_match.settings_json or {})
     previous_host_participant_id = settings.get('host_participant_id')
@@ -8943,7 +8943,7 @@ def reschedule_match(
 
     comment = comment.strip()
     if not comment:
-        return Err('A comment is required.')
+        return Err('Bitte einen Kommentar angeben.')
 
     db_match = db.session.scalar(
         select(DbNetsessionTourneyMatch).filter_by(
@@ -8951,7 +8951,7 @@ def reschedule_match(
         )
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     db_match.scheduled_at = scheduled_at
     db_match.updated_at = datetime.utcnow()
@@ -9010,9 +9010,9 @@ def open_match_dispute(
     reason_code = reason_code.strip()
     comment = comment.strip()
     if not reason_code:
-        return Err('A reason code is required.')
+        return Err('Bitte einen Grund angeben.')
     if not comment:
-        return Err('A comment is required.')
+        return Err('Bitte einen Kommentar angeben.')
 
     db_match = db.session.scalar(
         select(DbNetsessionTourneyMatch).filter_by(
@@ -9020,7 +9020,7 @@ def open_match_dispute(
         )
     )
     if db_match is None:
-        return Err('Unknown match.')
+        return Err('Unbekanntes Match.')
 
     db_match.state = MatchState.disputed.value
     db_match.dispute_reason_code = reason_code
@@ -9078,7 +9078,7 @@ def apply_walkover_result(
 ) -> Result[MatchResult, str]:
     comment = comment.strip()
     if not comment:
-        return Err('A comment is required.')
+        return Err('Bitte einen Kommentar angeben.')
 
     return report_result(
         party_id,
@@ -9112,9 +9112,9 @@ def disqualify_participant(
     reason_code = reason_code.strip()
     comment = comment.strip()
     if not reason_code:
-        return Err('A reason code is required.')
+        return Err('Bitte einen Grund angeben.')
     if not comment:
-        return Err('A comment is required.')
+        return Err('Bitte einen Kommentar angeben.')
 
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant).filter_by(
@@ -9123,7 +9123,7 @@ def disqualify_participant(
         )
     )
     if db_participant is None:
-        return Err('Unknown participant.')
+        return Err('Unbekannter Teilnehmer.')
 
     db_participant.status = ParticipantStatus.dropped.value
 
@@ -9604,7 +9604,7 @@ def configure_discord_dm(
 ) -> Result[DiscordDmConfig, str]:
     db_party = db.session.get(DbParty, party_id)
     if db_party is None:
-        return Err('Unknown party.')
+        return Err('Unbekannte Party.')
 
     try:
         db_config = db.session.get(DbNetsessionTourneyDiscordDmConfig, party_id)
@@ -9935,14 +9935,14 @@ def configure_browser_push(
 ) -> Result[BrowserPushConfig, str]:
     db_party = db.session.get(DbParty, party_id)
     if db_party is None:
-        return Err('Unknown party.')
+        return Err('Unbekannte Party.')
 
     try:
         db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
     except DBAPIError as exc:
         if _is_missing_browser_push_table_error(exc):
             db.session.rollback()
-            return Err('Browser push tables are not installed yet.')
+            return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
         raise
 
     now = datetime.utcnow()
@@ -9979,7 +9979,7 @@ def upsert_browser_push_subscription(
     user_agent: str | None = None,
 ) -> Result[None, str]:
     if not is_browser_push_enabled_for_party(party_id):
-        return Err('Browser notifications are disabled.')
+        return Err('Browser-Benachrichtigungen sind ausgeschaltet.')
 
     endpoint = endpoint.strip()
     endpoint_p256dh = endpoint_p256dh.strip()
@@ -9999,7 +9999,7 @@ def upsert_browser_push_subscription(
     except DBAPIError as exc:
         if _is_missing_browser_push_table_error(exc):
             db.session.rollback()
-            return Err('Browser push tables are not installed yet.')
+            return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
         raise
     if db_subscription is None:
         db_subscription = DbNetsessionTourneyBrowserPushSubscription(
@@ -10388,7 +10388,7 @@ def configure_discord(
     )
     if invalid_dm_events:
         return Err(
-            'Unknown Discord-DM event(s): ' + ', '.join(invalid_dm_events)
+            'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(invalid_dm_events)
         )
 
     normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
@@ -10938,7 +10938,7 @@ def _build_discord_message_payload(
         fields.append(
             {
                 'name': 'Oeffnen',
-                'value': f'[Turnierseite oeffnen]({url})',
+                'value': f'[Turnierseite öffnen]({url})',
                 'inline': False,
             }
         )
@@ -11209,7 +11209,7 @@ def _build_discord_forum_thread_payload(
     if db_tournament.subtitle:
         description_lines.append(db_tournament.subtitle)
     description_lines.append(
-        'Der Discord-Thread fuer dieses Turnier wurde eingerichtet.'
+        'Der Discord-Thread für dieses Turnier wurde eingerichtet.'
     )
 
     fields = [
@@ -11231,7 +11231,7 @@ def _build_discord_forum_thread_payload(
         fields.append(
             {
                 'name': 'Link',
-                'value': f'[Turnierseite oeffnen]({url})',
+                'value': f'[Turnierseite öffnen]({url})',
                 'inline': False,
             }
         )
@@ -13151,7 +13151,7 @@ def _build_test_discord_dm_message_payload(
         embed['fields'].append(
             {
                 'name': 'Oeffnen',
-                'value': f'[Turnieruebersicht oeffnen]({url})',
+                'value': f'[Turnierübersicht öffnen]({url})',
                 'inline': False,
             }
         )
@@ -13236,13 +13236,13 @@ def _validate_team_size_for_registration_mode(
     team_size: int | None,
 ) -> Result[None, str]:
     if team_size is None:
-        return Err('Team size is required.')
+        return Err('Bitte eine Teamgröße angeben.')
 
     if team_size < 1 or team_size > 20:
-        return Err('Team size must be between 1 and 20.')
+        return Err('Die Teamgröße muss zwischen 1 und 20 liegen.')
 
     if registration_mode == RegistrationMode.solo and team_size != 1:
-        return Err('Team size must be 1 for solo registration mode.')
+        return Err('Bei Einzelanmeldung muss die Teamgröße 1 sein.')
 
     return Ok(None)
 
@@ -13253,13 +13253,13 @@ def _validate_substitute_count_for_registration_mode(
     substitute_count: int | None,
 ) -> Result[None, str]:
     if substitute_count is None:
-        return Err('Substitute count is required.')
+        return Err('Bitte die Anzahl der Ersatzspieler angeben.')
 
     if substitute_count < 0 or substitute_count > 20:
-        return Err('Substitute count must be between 0 and 20.')
+        return Err('Die Anzahl der Ersatzspieler muss zwischen 0 und 20 liegen.')
 
     if registration_mode == RegistrationMode.solo and substitute_count != 0:
-        return Err('Substitute count must be 0 for solo registration mode.')
+        return Err('Bei Einzelanmeldung gibt es keine Ersatzspieler.')
 
     return Ok(None)
 
@@ -13276,14 +13276,14 @@ def _validate_participant_limit(participant_limit: int | None) -> Result[None, s
         return Ok(None)
 
     if participant_limit < 2:
-        return Err('Participant limit must be at least 2.')
+        return Err('Das Teilnehmerlimit muss mindestens 2 sein.')
 
     return Ok(None)
 
 
 def _validate_coin_cost(coin_cost: int) -> Result[None, str]:
     if coin_cost < 0:
-        return Err('Coin cost must not be negative.')
+        return Err('Die Coin-Kosten dürfen nicht negativ sein.')
 
     return Ok(None)
 
@@ -13353,8 +13353,8 @@ def _validate_bracket_ready_team_sizes(
         shown_names += ', ...'
 
     return Err(
-        f'Team size requirement is not met for: {shown_names}. '
-        f'Required team size: {tournament.team_size}.'
+        f'Diese Teams haben nicht die nötige Größe: {shown_names}. '
+        f'Benötigte Teamgröße: {tournament.team_size}.'
     )
 
 
@@ -13527,13 +13527,13 @@ def _resolve_tournament_category_id_for_party(
             )
         )
         if db_category is None:
-            return Err('Unknown category.')
+            return Err('Unbekannte Kategorie.')
 
         return Ok(db_category.id)
 
     db_category = _ensure_default_tournament_category_for_party(party_id)
     if db_category is None:
-        return Err('Unknown party.')
+        return Err('Unbekannte Party.')
 
     return Ok(db_category.id)
 

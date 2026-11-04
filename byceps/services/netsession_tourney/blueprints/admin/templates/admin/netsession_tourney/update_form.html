@@ -24,8 +24,8 @@
     tournament.status.value,
     'status-' ~ tournament.status.value,
     [
-      {'label': _('Modus'), 'value': tournament.mode.value|replace('_', ' ')|title},
-      {'label': _('Registrierung'), 'value': tournament.registration_mode.value|replace('_', ' ')|title},
+      {'label': _('Modus'), 'value': tournament.mode|ns_label},
+      {'label': _('Registrierung'), 'value': tournament.registration_mode|ns_label},
       {'label': _('Teilnehmerlimit'), 'value': tournament.participant_limit|fallback('-')},
     ]
   ) }}

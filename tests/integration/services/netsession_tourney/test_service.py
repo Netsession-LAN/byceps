@@ -911,7 +911,7 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
         admin_comment='Should be blocked',
     )
     assert blocked_report_result.is_err()
-    assert 'canceled' in blocked_report_result.unwrap_err().lower()
+    assert 'entfällt' in blocked_report_result.unwrap_err().lower()
 
 
 def test_registration_limit_and_deregistration(
@@ -1533,7 +1533,7 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
     )
     assert unpublish_result.is_err()
     assert (
-        'cannot be moved back to draft'
+        'nicht mehr zurück in den entwurf'
         in unpublish_result.unwrap_err().lower()
     )
 
@@ -2059,7 +2059,7 @@ def test_registration_mode_change_is_blocked_with_active_participants(
         participant_limit=tournament.participant_limit,
     )
     assert update_result.is_err()
-    assert 'no active participants' in update_result.unwrap_err().lower()
+    assert 'keine aktiven teilnehmer' in update_result.unwrap_err().lower()
 
 
 def test_admin_can_update_and_delete_stage(
@@ -2269,7 +2269,7 @@ def test_join_team_respects_team_size(
         party.id, tournament.id, invite_code, extra_member
     )
     assert join_extra_result.is_err()
-    assert 'already full' in join_extra_result.unwrap_err().lower()
+    assert 'bereits voll' in join_extra_result.unwrap_err().lower()
 
 
 def test_user_registration_requires_ticket_for_party(
@@ -2295,7 +2295,7 @@ def test_user_registration_requires_ticket_for_party(
     )
     assert register_without_ticket_result.is_err()
     assert (
-        'ticket for this party'
+        'ticket für diese party'
         in register_without_ticket_result.unwrap_err().lower()
     )
 
@@ -2393,7 +2393,7 @@ def test_team_captain_can_toggle_ready_state(
         ready=True,
     )
     assert not_ready_yet_result.is_err()
-    assert 'not complete' in not_ready_yet_result.unwrap_err().lower()
+    assert 'nicht vollständig' in not_ready_yet_result.unwrap_err().lower()
 
     invite_code = db.session.scalar(
         select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)

@@ -211,7 +211,7 @@
       </div>
 
       <div class="ns-admin-page-hero-actions">
-        <span class="ns-admin-stage-status-badge status-{{ tournament.status.value }}">{{ tournament.status.value|upper }}</span>
+        <span class="ns-admin-stage-status-badge status-{{ tournament.status.value }}">{{ tournament.status|ns_label }}</span>
       </div>
     </div>
 
@@ -242,8 +242,8 @@
     <li>{% if current_subtab == 'participants' %}<span class="tabs-tab tabs-tab--current">{{ _('Teilnehmer') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='participants') }}">{{ _('Teilnehmer') }}</a>{% endif %}</li>
     <li>{% if current_subtab == 'matches' %}<span class="tabs-tab tabs-tab--current">{{ _('Matches') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') }}">{{ _('Matches') }}</a>{% endif %}</li>
     <li>{% if current_subtab == 'prizes' %}<span class="tabs-tab tabs-tab--current">{{ _('Preise') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes') }}">{{ _('Preise') }}</a>{% endif %}</li>
-    <li>{% if current_subtab == 'notifications' %}<span class="tabs-tab tabs-tab--current">{{ _('Browser Notifications') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='notifications') }}">{{ _('Browser Notifications') }}</a>{% endif %}</li>
-    <li>{% if current_subtab == 'discord' %}<span class="tabs-tab tabs-tab--current">{{ _('Discord Notifications') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='discord') }}">{{ _('Discord Notifications') }}</a>{% endif %}</li>
+    <li>{% if current_subtab == 'notifications' %}<span class="tabs-tab tabs-tab--current">{{ _('Browser-Benachrichtigungen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='notifications') }}">{{ _('Browser-Benachrichtigungen') }}</a>{% endif %}</li>
+    <li>{% if current_subtab == 'discord' %}<span class="tabs-tab tabs-tab--current">{{ _('Discord-Benachrichtigungen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='discord') }}">{{ _('Discord-Benachrichtigungen') }}</a>{% endif %}</li>
   </ol>
 
   {%- if current_subtab == 'overview' %}
@@ -340,21 +340,21 @@
     <div class="column">
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Modus') }}</div>
-        <div class="data-value">{{ tournament.mode.value }}</div>
+        <div class="data-value">{{ tournament.mode|ns_label }}</div>
       </div>
     </div>
 
     <div class="column">
       <div class="box column-cell--grow">
-        <div class="data-label">{{ _('Registration mode') }}</div>
-        <div class="data-value">{{ tournament.registration_mode.value }}</div>
+        <div class="data-label">{{ _('Anmeldemodus') }}</div>
+        <div class="data-value">{{ tournament.registration_mode|ns_label }}</div>
       </div>
     </div>
 
     <div class="column">
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Status') }}</div>
-        <div class="data-value">{{ render_tag(tournament.status.value) }}</div>
+        <div class="data-value">{{ render_tag(tournament.status|ns_label) }}</div>
       </div>
     </div>
 
@@ -452,7 +452,7 @@
             <th>{{ _('Teilnehmer') }}</th>
             <th>{{ _('Ergebnis') }}</th>
             <th>{{ _('Gewinner') }}</th>
-            <th>{{ _('Scheduled at') }}</th>
+            <th>{{ _('Geplant für') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -519,7 +519,7 @@
     'double_elimination': _('Double Elimination'),
     'double_elimination_double_grand_final': _('Double Elimination + Reset'),
     'swiss': _('Swiss'),
-    'round_robin_groups': _('Round Robin Groups'),
+    'round_robin_groups': _('Round-Robin-Gruppen'),
     'league': _('League'),
     'ffa_simple': _('FFA Simple'),
     'ffa_single_elimination': _('FFA Single Elimination'),
@@ -572,7 +572,7 @@
                 <span>{{ _('Runden') if stage.settings.get('builder_materialized_stage_ids') else _('Gruppen') }}: {{ row.child_stages|length }}</span>
                 {%- endif %}
                 {%- if row.kind == 'builder_container' and builder_container_preview_meta %}
-                <span>{{ _('Ready') }}: {{ builder_container_preview_meta.participant_count }}</span>
+                <span>{{ _('Bereit') }}: {{ builder_container_preview_meta.participant_count }}</span>
                 {%- if builder_container_preview_meta.distribution_summary %}
                 <span>{{ builder_container_preview_meta.distribution_summary }}</span>
                 {%- endif %}
@@ -621,7 +621,7 @@
               </span>
             </td>
             <td>
-              <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status.value }}</span>
+              <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
             </td>
             <td>
               {%- if g.user.has_permission('netsession_tourney.manage') %}
@@ -672,7 +672,7 @@
                 <span class="ns-admin-stage-type">{{ stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) }}</span>
               </td>
               <td>
-                <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status.value }}</span>
+                <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
               </td>
               <td>
                 {%- if g.user.has_permission('netsession_tourney.manage') %}
@@ -779,7 +779,7 @@
           </a>
           <span class="dimmed">{{ slots|length }} {{ _('Teilnehmer') }}</span>
         </div>
-        <span class="ns-admin-stage-status-badge status-{{ match.state.value }}">{{ match.state.value|replace('_', ' ') }}</span>
+        <span class="ns-admin-stage-status-badge status-{{ match.state.value }}">{{ match.state|ns_label }}</span>
       </header>
       <ol class="ns-admin-stage-ffa-rows">
         {%- for slot in slots|sort(attribute='slot_no') %}
@@ -893,7 +893,7 @@
                   >
                     <div class="ns-tourney-swiss-match-meta">
                       <span class="ns-tourney-swiss-match-label">{{ item.match_label }}</span>
-                      <span class="ns-tourney-swiss-match-state">{{ item.match.state.value|replace('_', ' ')|title }}</span>
+                      <span class="ns-tourney-swiss-match-state">{{ item.match.state|ns_label }}</span>
                     </div>
                     <div class="ns-tourney-swiss-match-slots">
                       <span
@@ -1140,7 +1140,7 @@
                 <a href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=item.match.id, return_to='stages', stage_id=selected_stage.id) }}" class="disguised ns-tourney-bracket-match-label">
                   {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
-                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state.value|replace('_', ' ')|title }}{% endif %}</span>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state|ns_label }}{% endif %}</span>
               </div>
               <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
               {%- set slot_scores = selected_stage_slot_scores_by_match_id.get(item.match.id, {}) %}
@@ -1277,7 +1277,7 @@
               <strong>{{ participant.name }}</strong>
             </a>
           </td>
-          <td>{{ participant.type.value }}</td>
+          <td>{{ participant.type|ns_label }}</td>
           <td>
             {%- if participant.type.value == 'team' %}
               {{ members_by_participant_id.get(participant.id, [])|length }}
@@ -1286,7 +1286,7 @@
             {%- endif %}
           </td>
           <td>{{ participant.seed|fallback('-') }}</td>
-          <td>{{ participant.status.value }}</td>
+          <td>{{ participant.status|ns_label }}</td>
           <td>
             <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
           </td>
@@ -1318,7 +1318,7 @@
       <tr>
         <th>{{ _('Match') }}</th>
         <th>{{ _('Status') }}</th>
-        <th>{{ _('Scheduled at') }}</th>
+        <th>{{ _('Geplant für') }}</th>
         <th>{{ _('Teilnehmer') }}</th>
         <th>{{ _('Aktionen') }}</th>
       </tr>
@@ -1332,7 +1332,7 @@
             <strong>{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</strong>
           </a>
         </td>
-        <td>{{ match.state.value }}</td>
+        <td>{{ match.state|ns_label }}</td>
         <td>{{ match.scheduled_at|datetimeformat if match.scheduled_at else '-' }}</td>
         <td>
           {%- for slot in slots %}
@@ -1403,7 +1403,7 @@
   <section class="box ns-admin-form-section mb">
     <div class="ns-admin-form-section-head">
       <div>
-        <h2 class="ns-admin-form-section-title">{{ _('Browser-Notifications') }}</h2>
+        <h2 class="ns-admin-form-section-title">{{ _('Browser-Benachrichtigungen') }}</h2>
         <p class="ns-admin-form-section-text">{{ _('Die User-Aktivierung ist global. Dieses Tab zeigt nur den Zustand für dieses Turnier.') }}</p>
       </div>
     </div>
@@ -1417,7 +1417,7 @@
         <strong>{{ active_participant_count }}</strong>
       </div>
       <div class="ns-admin-page-hero-item">
-        <span class="ns-admin-page-hero-label">{{ _('Mit Browser-Subscription') }}</span>
+        <span class="ns-admin-page-hero-label">{{ _('Mit Browser-Abo') }}</span>
         <strong>{{ browser_push_subscribed_participant_count }}</strong>
       </div>
     </div>
@@ -1443,8 +1443,8 @@
     <table class="itemlist is-vcentered is-wide">
       <thead>
         <tr>
-          <th>{{ _('User') }}</th>
-          <th>{{ _('Aktive Browser-Subscriptions') }}</th>
+          <th>{{ _('Benutzer') }}</th>
+          <th>{{ _('Aktive Browser-Abos') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -1496,7 +1496,7 @@
       <thead>
         <tr>
           <th>{{ _('Zeitpunkt') }}</th>
-          <th>{{ _('User') }}</th>
+          <th>{{ _('Benutzer') }}</th>
           <th>{{ _('Typ') }}</th>
           <th>{{ _('Status') }}</th>
           <th>{{ _('Versuche') }}</th>
@@ -1537,7 +1537,7 @@
   <section class="box ns-admin-form-section">
     <div class="ns-admin-form-section-head">
       <div>
-        <h2 class="ns-admin-form-section-title">{{ _('Discord Notifications') }}</h2>
+        <h2 class="ns-admin-form-section-title">{{ _('Discord-Benachrichtigungen') }}</h2>
         <p class="ns-admin-form-section-text">{{ _('Forum-Thread, Turnier-Updates und Discord-Privatbenachrichtigungen für dieses Turnier.') }}</p>
       </div>
     </div>

@@ -85,13 +85,13 @@ def register(blueprint):
 
         form = AdminParticipantAddForm(request.form)
         if not form.validate():
-            flash_error(gettext('Invalid participant data.'))
+            flash_error(gettext('Ungültige Teilnehmerdaten.'))
             return _redirect_to_related_tournament_view(party.id, tournament.id)
 
         screen_name = form.screen_name.data.strip()
         participant_user = user_service.find_user_by_screen_name(screen_name)
         if participant_user is None:
-            flash_error(gettext('Unknown user.'))
+            flash_error(gettext('Unbekannter Benutzer.'))
             return _redirect_to_related_tournament_view(party.id, tournament.id)
 
         match add_user_participant_by_admin(
@@ -101,7 +101,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Participant has been added.'))
+                flash_success(gettext('Teilnehmer wurde hinzugefügt.'))
             case Err(message):
                 flash_error(message)
 
@@ -120,13 +120,13 @@ def register(blueprint):
 
         form = AdminTeamCreateForm(form_fields)
         if not form.validate():
-            flash_error(gettext('Invalid team data.'))
+            flash_error(gettext('Ungültige Teamdaten.'))
             return _redirect_to_related_tournament_view(party.id, tournament.id)
 
         captain_screen_name = form.captain_screen_name.data.strip()
         captain_user = user_service.find_user_by_screen_name(captain_screen_name)
         if captain_user is None:
-            flash_error(gettext('Unknown user.'))
+            flash_error(gettext('Unbekannter Benutzer.'))
             return _redirect_to_related_tournament_view(party.id, tournament.id)
 
         team_logo_url = None
@@ -153,7 +153,7 @@ def register(blueprint):
             team_logo_url=team_logo_url,
         ):
             case Ok(_):
-                flash_success(gettext('Team has been created.'))
+                flash_success(gettext('Team wurde angelegt.'))
             case Err(message):
                 flash_error(message)
 
@@ -170,7 +170,7 @@ def register(blueprint):
 
         form = AdminTeamMemberAddForm(request.form)
         if not form.validate():
-            flash_error(gettext('Invalid team member data.'))
+            flash_error(gettext('Ungültige Daten zum Teammitglied.'))
             return _redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -178,7 +178,7 @@ def register(blueprint):
         screen_name = form.screen_name.data.strip()
         member_user = user_service.find_user_by_screen_name(screen_name)
         if member_user is None:
-            flash_error(gettext('Unknown user.'))
+            flash_error(gettext('Unbekannter Benutzer.'))
             return _redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -191,7 +191,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Team member has been added.'))
+                flash_success(gettext('Teammitglied wurde hinzugefügt.'))
             case Err(message):
                 flash_error(message)
 
@@ -216,7 +216,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Team member has been removed.'))
+                flash_success(gettext('Teammitglied wurde entfernt.'))
             case Err(message):
                 flash_error(message)
 
@@ -269,7 +269,7 @@ def register(blueprint):
 
         form = ParticipantSeedForm(request.form)
         if not form.validate():
-            flash_error(gettext('Invalid seed.'))
+            flash_error(gettext('Ungültiger Seed.'))
             return _redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -282,7 +282,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Seed has been updated.'))
+                flash_success(gettext('Seed wurde gespeichert.'))
             case Err(message):
                 flash_error(message)
 
@@ -301,7 +301,7 @@ def register(blueprint):
 
         form = ParticipantStatusForm(request.form)
         if not form.validate():
-            flash_error(gettext('Invalid status.'))
+            flash_error(gettext('Ungültiger Status.'))
             return _redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -315,7 +315,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Participant status has been updated.'))
+                flash_success(gettext('Status des Teilnehmers wurde gespeichert.'))
             case Err(message):
                 flash_error(message)
 
@@ -334,7 +334,7 @@ def register(blueprint):
 
         form = ParticipantDisqualifyForm(request.form)
         if not form.validate():
-            flash_error(gettext('Invalid disqualification data.'))
+            flash_error(gettext('Ungültige Angaben zur Disqualifikation.'))
             return _redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -349,7 +349,7 @@ def register(blueprint):
             correlation_id=request.headers.get('X-Correlation-ID'),
         ):
             case Ok(_):
-                flash_success(gettext('Participant has been disqualified.'))
+                flash_success(gettext('Teilnehmer wurde disqualifiziert.'))
             case Err(message):
                 flash_error(message)
 
@@ -375,7 +375,7 @@ def register(blueprint):
             comment=comment,
         ):
             case Ok(_):
-                flash_success(gettext('Participant has been removed.'))
+                flash_success(gettext('Teilnehmer wurde entfernt.'))
             case Err(message):
                 flash_error(message)
 

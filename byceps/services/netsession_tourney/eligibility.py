@@ -22,5 +22,5 @@ def validate_user_uses_ticket_for_party(
         return Ok(None)
 
     return Err(
-        'Using a ticket for this party is required to register for tournaments.'
+        'Für die Turnieranmeldung brauchst du ein Ticket für diese Party, das dir zugewiesen ist.'
     )

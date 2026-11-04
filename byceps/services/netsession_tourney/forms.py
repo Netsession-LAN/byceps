@@ -113,16 +113,16 @@ class TournamentForm(LocalizedForm):
             Regexp(
                 SLUG_REGEX,
                 message=lazy_gettext(
-                    'Lowercase letters, digits, and dash are allowed.'
+                    'Erlaubt sind Kleinbuchstaben, Ziffern und Bindestrich.'
                 ),
             ),
         ],
     )
     title = StringField(
-        lazy_gettext('Title'), validators=[InputRequired(), Length(max=120)]
+        lazy_gettext('Titel'), validators=[InputRequired(), Length(max=120)]
     )
     subtitle = StringField(
-        lazy_gettext('Subtitle'), validators=[Optional(), Length(max=120)]
+        lazy_gettext('Untertitel'), validators=[Optional(), Length(max=120)]
     )
     tournament_logo_url = SelectField(
         lazy_gettext('Turnierlogo'),
@@ -136,15 +136,15 @@ class TournamentForm(LocalizedForm):
         choices=[('', '-')],
     )
     game = StringField(
-        lazy_gettext('Game'), validators=[Optional(), Length(max=120)]
+        lazy_gettext('Spiel'), validators=[Optional(), Length(max=120)]
     )
     category_id = SelectField(
-        lazy_gettext('Category'),
+        lazy_gettext('Kategorie'),
         validators=[InputRequired()],
         choices=[],
     )
     mode = SelectField(
-        lazy_gettext('Mode'),
+        lazy_gettext('Modus'),
         validators=[InputRequired()],
         choices=[
             (TournamentMode.duel.value, 'duel'),
@@ -152,7 +152,7 @@ class TournamentForm(LocalizedForm):
         ],
     )
     registration_mode = SelectField(
-        lazy_gettext('Registration mode'),
+        lazy_gettext('Anmeldemodus'),
         validators=[InputRequired()],
         choices=[
             ('solo', 'solo'),
@@ -163,28 +163,28 @@ class TournamentForm(LocalizedForm):
     )
     starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
     visible_on_site = BooleanField(
-        lazy_gettext('visible on site'), default=True
+        lazy_gettext('auf der Website sichtbar'), default=True
     )
     rules_template_slug = SelectField(
         lazy_gettext('Regeltemplate'),
         validators=[Optional()],
         choices=[('', '-')],
     )
-    registration_open = BooleanField(lazy_gettext('registration open'))
+    registration_open = BooleanField(lazy_gettext('Anmeldung offen'))
     registration_deadline = DateTimeLocalField(
-        lazy_gettext('Registration deadline'), validators=[Optional()]
+        lazy_gettext('Anmeldeschluss'), validators=[Optional()]
     )
     roster_lock_at = DateTimeLocalField(
-        lazy_gettext('Roster lock'), validators=[Optional()]
+        lazy_gettext('Kader-Sperre'), validators=[Optional()]
     )
     checkin_open_at = DateTimeLocalField(
-        lazy_gettext('Check-in opens'), validators=[Optional()]
+        lazy_gettext('Check-in beginnt'), validators=[Optional()]
     )
     checkin_close_at = DateTimeLocalField(
-        lazy_gettext('Check-in closes'), validators=[Optional()]
+        lazy_gettext('Check-in endet'), validators=[Optional()]
     )
     team_size = SelectField(
-        lazy_gettext('Team size'),
+        lazy_gettext('Teamgröße'),
         validators=[InputRequired()],
         choices=[(str(size), str(size)) for size in range(1, 21)],
         coerce=int,
@@ -196,7 +196,7 @@ class TournamentForm(LocalizedForm):
         coerce=int,
     )
     participant_limit = SelectField(
-        lazy_gettext('Team/participant count limit'),
+        lazy_gettext('Teilnehmerlimit (Teams/Spieler)'),
         validators=[Optional()],
         choices=PARTICIPANT_LIMIT_CHOICES,
         coerce=_to_optional_int,
@@ -275,7 +275,7 @@ class TournamentForm(LocalizedForm):
 
 class TournamentCategoryForm(LocalizedForm):
     title = StringField(
-        lazy_gettext('Title'),
+        lazy_gettext('Titel'),
         validators=[InputRequired(), Length(max=40)],
     )
 
@@ -291,7 +291,7 @@ class CoinSettingsForm(LocalizedForm):
 
 class CoinAdjustmentForm(LocalizedForm):
     screen_name = StringField(
-        lazy_gettext('User'),
+        lazy_gettext('Benutzer'),
         validators=[InputRequired(), Length(max=40)],
     )
     plus_amount = IntegerField(
@@ -356,12 +356,12 @@ class SponsorLogoForm(LocalizedForm):
 
 class TournamentWizardFormatForm(LocalizedForm):
     category_id = SelectField(
-        lazy_gettext('Category'),
+        lazy_gettext('Kategorie'),
         validators=[InputRequired()],
         choices=[],
     )
     mode = SelectField(
-        lazy_gettext('Mode'),
+        lazy_gettext('Modus'),
         validators=[InputRequired()],
         choices=[
             (TournamentMode.duel.value, 'duel'),
@@ -369,7 +369,7 @@ class TournamentWizardFormatForm(LocalizedForm):
         ],
     )
     registration_mode = SelectField(
-        lazy_gettext('Registration mode'),
+        lazy_gettext('Anmeldemodus'),
         validators=[InputRequired()],
         choices=[
             ('solo', 'solo'),
@@ -379,7 +379,7 @@ class TournamentWizardFormatForm(LocalizedForm):
         ],
     )
     team_size = SelectField(
-        lazy_gettext('Team size'),
+        lazy_gettext('Teamgröße'),
         validators=[InputRequired()],
         choices=[(str(size), str(size)) for size in range(1, 21)],
         coerce=int,
@@ -391,7 +391,7 @@ class TournamentWizardFormatForm(LocalizedForm):
         coerce=int,
     )
     participant_limit = SelectField(
-        lazy_gettext('Team/participant count limit'),
+        lazy_gettext('Teilnehmerlimit (Teams/Spieler)'),
         validators=[Optional()],
         choices=PARTICIPANT_LIMIT_CHOICES,
         coerce=_to_optional_int,
@@ -456,16 +456,16 @@ class TournamentWizardDetailsForm(LocalizedForm):
             Regexp(
                 SLUG_REGEX,
                 message=lazy_gettext(
-                    'Lowercase letters, digits, and dash are allowed.'
+                    'Erlaubt sind Kleinbuchstaben, Ziffern und Bindestrich.'
                 ),
             ),
         ],
     )
     title = StringField(
-        lazy_gettext('Title'), validators=[InputRequired(), Length(max=120)]
+        lazy_gettext('Titel'), validators=[InputRequired(), Length(max=120)]
     )
     subtitle = StringField(
-        lazy_gettext('Subtitle'), validators=[Optional(), Length(max=120)]
+        lazy_gettext('Untertitel'), validators=[Optional(), Length(max=120)]
     )
     tournament_logo_url = SelectField(
         lazy_gettext('Turnierlogo'),
@@ -479,7 +479,7 @@ class TournamentWizardDetailsForm(LocalizedForm):
         choices=[('', '-')],
     )
     game = StringField(
-        lazy_gettext('Game'), validators=[Optional(), Length(max=120)]
+        lazy_gettext('Spiel'), validators=[Optional(), Length(max=120)]
     )
     rules_template_slug = SelectField(
         lazy_gettext('Regeltemplate'),
@@ -538,20 +538,20 @@ class TournamentWizardDetailsForm(LocalizedForm):
 class TournamentWizardScheduleForm(LocalizedForm):
     starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
     visible_on_site = BooleanField(
-        lazy_gettext('visible on site'), default=True
+        lazy_gettext('auf der Website sichtbar'), default=True
     )
-    registration_open = BooleanField(lazy_gettext('registration open'))
+    registration_open = BooleanField(lazy_gettext('Anmeldung offen'))
     registration_deadline = DateTimeLocalField(
-        lazy_gettext('Registration deadline'), validators=[Optional()]
+        lazy_gettext('Anmeldeschluss'), validators=[Optional()]
     )
     roster_lock_at = DateTimeLocalField(
-        lazy_gettext('Roster lock'), validators=[Optional()]
+        lazy_gettext('Kader-Sperre'), validators=[Optional()]
     )
     checkin_open_at = DateTimeLocalField(
-        lazy_gettext('Check-in opens'), validators=[Optional()]
+        lazy_gettext('Check-in beginnt'), validators=[Optional()]
     )
     checkin_close_at = DateTimeLocalField(
-        lazy_gettext('Check-in closes'), validators=[Optional()]
+        lazy_gettext('Check-in endet'), validators=[Optional()]
     )
 
 
@@ -564,7 +564,7 @@ class TournamentRuleTemplateForm(LocalizedForm):
             Regexp(
                 SLUG_REGEX,
                 message=lazy_gettext(
-                    'Lowercase letters, digits, and dash are allowed.'
+                    'Erlaubt sind Kleinbuchstaben, Ziffern und Bindestrich.'
                 ),
             ),
         ],
@@ -608,7 +608,7 @@ class TournamentPrizeForm(LocalizedForm):
 
 class StageForm(LocalizedForm):
     type = SelectField(
-        lazy_gettext('Stage type'),
+        lazy_gettext('Stage-Typ'),
         validators=[InputRequired()],
     )
     name = StringField(
@@ -625,15 +625,15 @@ class StageForm(LocalizedForm):
         coerce=_to_optional_int,
     )
     max_players_per_match = IntegerField(
-        lazy_gettext('Maximum players per match'),
+        lazy_gettext('Maximale Spieler pro Match'),
         validators=[Optional(), NumberRange(min=2, max=64)],
     )
     group_size = IntegerField(
-        lazy_gettext('Group size'),
+        lazy_gettext('Gruppengröße'),
         validators=[Optional(), NumberRange(min=2, max=64)],
     )
     placement_points = TextAreaField(
-        lazy_gettext('Placement points'),
+        lazy_gettext('Platzierungspunkte'),
         validators=[Optional(), Length(max=4000)],
     )
     points_per_kill = IntegerField(
@@ -642,15 +642,15 @@ class StageForm(LocalizedForm):
         default=1,
     )
     match_duration_minutes = IntegerField(
-        lazy_gettext('Match duration (minutes)'),
+        lazy_gettext('Matchdauer (Minuten)'),
         validators=[Optional(), NumberRange(min=1, max=240)],
     )
     max_matches_per_round = IntegerField(
-        lazy_gettext('Maximum matches per round'),
+        lazy_gettext('Maximale Matches pro Runde'),
         validators=[Optional(), NumberRange(min=1, max=256)],
     )
     break_between_rounds_minutes = IntegerField(
-        lazy_gettext('Break between rounds (minutes)'),
+        lazy_gettext('Pause zwischen Runden (Minuten)'),
         validators=[Optional(), NumberRange(min=0, max=240)],
     )
     result_report_mode = SelectField(
@@ -759,15 +759,15 @@ class StageBuilderForm(LocalizedForm):
         coerce=_to_optional_int,
     )
     match_duration_minutes = IntegerField(
-        lazy_gettext('Match duration (minutes)'),
+        lazy_gettext('Matchdauer (Minuten)'),
         validators=[Optional(), NumberRange(min=1, max=240)],
     )
     max_matches_per_round = IntegerField(
-        lazy_gettext('Maximum matches per round'),
+        lazy_gettext('Maximale Matches pro Runde'),
         validators=[Optional(), NumberRange(min=1, max=256)],
     )
     break_between_rounds_minutes = IntegerField(
-        lazy_gettext('Break between rounds (minutes)'),
+        lazy_gettext('Pause zwischen Runden (Minuten)'),
         validators=[Optional(), NumberRange(min=0, max=240)],
     )
 
@@ -926,15 +926,15 @@ class StageBuilderPreliminaryForm(LocalizedForm):
 
 class StageBuilderTimingForm(LocalizedForm):
     match_duration_minutes = IntegerField(
-        lazy_gettext('Match duration (minutes)'),
+        lazy_gettext('Matchdauer (Minuten)'),
         validators=[Optional(), NumberRange(min=1, max=240)],
     )
     max_matches_per_round = IntegerField(
-        lazy_gettext('Maximum matches per round'),
+        lazy_gettext('Maximale Matches pro Runde'),
         validators=[Optional(), NumberRange(min=1, max=256)],
     )
     break_between_rounds_minutes = IntegerField(
-        lazy_gettext('Break between rounds (minutes)'),
+        lazy_gettext('Pause zwischen Runden (Minuten)'),
         validators=[Optional(), NumberRange(min=0, max=240)],
     )
 
@@ -1043,7 +1043,7 @@ class MatchResultForm(LocalizedForm):
         validators=[InputRequired(), NumberRange(min=0, max=999)],
     )
     idempotency_key = StringField(
-        lazy_gettext('Idempotency key'),
+        lazy_gettext('Idempotenz-Schlüssel'),
         validators=[Optional(), Length(min=8, max=120)],
     )
     comment = StringField(
@@ -1054,15 +1054,15 @@ class MatchResultForm(LocalizedForm):
 
 class MatchScoreReportForm(LocalizedForm):
     slot_1_points = IntegerField(
-        lazy_gettext('Points team 1'),
+        lazy_gettext('Punkte Team 1'),
         validators=[InputRequired(), NumberRange(min=0, max=999)],
     )
     slot_2_points = IntegerField(
-        lazy_gettext('Points team 2'),
+        lazy_gettext('Punkte Team 2'),
         validators=[InputRequired(), NumberRange(min=0, max=999)],
     )
     idempotency_key = StringField(
-        lazy_gettext('Idempotency key'),
+        lazy_gettext('Idempotenz-Schlüssel'),
         validators=[Optional(), Length(min=8, max=120)],
     )
     comment = StringField(
@@ -1073,7 +1073,7 @@ class MatchScoreReportForm(LocalizedForm):
 
 class MatchChatMessageForm(LocalizedForm):
     body = StringField(
-        lazy_gettext('Message'),
+        lazy_gettext('Nachricht'),
         validators=[InputRequired(), Length(min=1, max=2000)],
     )
 
@@ -1107,7 +1107,7 @@ class MatchWalkoverForm(LocalizedForm):
         validators=[InputRequired(), NumberRange(min=1, max=64)],
     )
     idempotency_key = StringField(
-        lazy_gettext('Idempotency key'),
+        lazy_gettext('Idempotenz-Schlüssel'),
         validators=[Optional(), Length(min=8, max=120)],
     )
     comment = StringField(
@@ -1177,7 +1177,7 @@ class DiscordDmConfigForm(LocalizedForm):
         validators=[Optional(), Length(max=500)],
     )
     default_event_mask = StringField(
-        lazy_gettext('Default event mask (comma separated)'),
+        lazy_gettext('Standard-Ereignisse (kommagetrennt)'),
         validators=[Optional(), Length(max=500)],
     )
 
