@@ -9,7 +9,6 @@ Configuration models
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -63,6 +62,7 @@ class BycepsConfig:
     database: DatabaseConfig
     development: DevelopmentConfig
     discord: DiscordConfig | None
+    steam: SteamConfig | None = None
     invoiceninja: InvoiceNinjaConfig | None
     jobs: JobsConfig
     metrics: MetricsConfig
@@ -138,6 +138,10 @@ class DiscordConfig:
     client_id: str
     client_secret: str
 
+@dataclass(frozen=True)
+class SteamConfig:
+    enabled: bool
+    api_key: str | None = None
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class InvoiceNinjaConfig:
