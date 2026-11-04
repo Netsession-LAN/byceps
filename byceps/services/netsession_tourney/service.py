@@ -11747,7 +11747,6 @@ def _seed_swiss_follow_up_rounds(
     stage: Stage,
 ) -> list[MatchID]:
     newly_ready_match_ids: list[MatchID] = []
-    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
         .filter_by(tournament_id=tournament_id, stage_id=stage.id)
@@ -11863,7 +11862,7 @@ def _seed_swiss_follow_up_rounds(
                 )
 
             next_state = _calculate_match_state_for_slots(
-                tournament_status=db_tournament.status,
+                tournament_status=_get_tournament_status_value(tournament_id),
                 db_match_slots=db_match_slots,
             )
             db_match.state = next_state.value
@@ -11994,7 +11993,7 @@ def _advance_stage_from_match(
             select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
         ).all()
         next_state = _calculate_match_state_for_slots(
-            tournament_status=tournament_status,
+            tournament_status=_get_tournament_status_value(tournament_id),
             db_match_slots=db_match_slots,
         )
         db_match.state = next_state.value
