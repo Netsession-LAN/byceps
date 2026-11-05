@@ -122,14 +122,81 @@ def generate_stage_matches(
         )
 
     if stage_settings_patch:
-        merged_stage_settings = dict(db_stage.settings_json or {})
-        merged_stage_settings.update(stage_settings_patch)
-        db_stage.settings_json = merged_stage_settings
-        payload = replace(
-            payload,
-            stage=replace(payload.stage, settings=merged_stage_settings),
+        payload = _apply_stage_settings_patch(
+            db_stage, payload, stage_settings_patch
         )
 
+    matches = _persist_and_schedule_stage_matches(
+        tournament_id=tournament_id,
+        stage_id=stage_id,
+        payload=payload,
+        round_starts_at_by_round_no=round_starts_at_by_round_no,
+        match_settings_by_round_and_match_no=match_settings_by_round_and_match_no,
+    )
+
+    stage_started_now = _start_stage_if_tournament_live(db_stage, payload)
+
+    _append_matches_generated_audit_log(
+        initiator, stage_id, matches, correlation_id
+    )
+    db.session.commit()
+
+    _announce_generated_stage_matches(
+        party_id, tournament_id, stage_id, payload, matches, stage_started_now
+    )
+
+    _auto_advance_byes(
+        tournament_id, payload.stage, engine=payload.engine
+    )
+
+    _log_matches_generated(
+        tournament_id, stage_id, initiator, correlation_id, matches
+    )
+
+    return Ok(matches)
+
+
+def _log_matches_generated(
+    tournament_id: TournamentID,
+    stage_id: StageID,
+    initiator: User,
+    correlation_id: str | None,
+    matches: list[Match],
+) -> None:
+    log.info(
+        'netsession_tourney.matches_generated',
+        tournament_id=str(tournament_id),
+        stage_id=str(stage_id),
+        actor_user_id=str(initiator.id),
+        correlation_id=correlation_id,
+        match_count=len(matches),
+    )
+
+
+def _apply_stage_settings_patch(
+    db_stage: DbNetsessionTourneyStage,
+    payload: _StageGenerationPayload,
+    stage_settings_patch: dict[str, Any],
+) -> _StageGenerationPayload:
+    merged_stage_settings = dict(db_stage.settings_json or {})
+    merged_stage_settings.update(stage_settings_patch)
+    db_stage.settings_json = merged_stage_settings
+    return replace(
+        payload,
+        stage=replace(payload.stage, settings=merged_stage_settings),
+    )
+
+
+def _persist_and_schedule_stage_matches(
+    *,
+    tournament_id: TournamentID,
+    stage_id: StageID,
+    payload: _StageGenerationPayload,
+    round_starts_at_by_round_no: dict[int, datetime] | None,
+    match_settings_by_round_and_match_no: (
+        dict[tuple[int, int], dict[str, Any]] | None
+    ),
+) -> list[Match]:
     if payload.replace_existing_matches:
         _delete_stage_matches(stage_id)
     matches = _persist_generated_matches(
@@ -144,7 +211,13 @@ def generate_stage_matches(
         match_ids=[match.id for match in matches],
         round_starts_at_by_round_no=round_starts_at_by_round_no,
     )
+    return matches
 
+
+def _start_stage_if_tournament_live(
+    db_stage: DbNetsessionTourneyStage,
+    payload: _StageGenerationPayload,
+) -> bool:
     stage_started_now = False
     if (
         payload.tournament.status == TournamentStatus.live
@@ -152,7 +225,15 @@ def generate_stage_matches(
     ):
         db_stage.status = StageStatus.live.value
         stage_started_now = True
+    return stage_started_now
 
+
+def _append_matches_generated_audit_log(
+    initiator: User,
+    stage_id: StageID,
+    matches: list[Match],
+    correlation_id: str | None,
+) -> None:
     _append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
@@ -164,8 +245,16 @@ def generate_stage_matches(
         },
         created_at=datetime.utcnow(),
     )
-    db.session.commit()
 
+
+def _announce_generated_stage_matches(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    stage_id: StageID,
+    payload: _StageGenerationPayload,
+    matches: list[Match],
+    stage_started_now: bool,
+) -> None:
     if stage_started_now:
         enqueue_discord_event(
             party_id,
@@ -186,21 +275,6 @@ def generate_stage_matches(
                 continue
             _enqueue_match_ready_notifications(db_match)
         db.session.commit()
-
-    _auto_advance_byes(
-        tournament_id, payload.stage, engine=payload.engine
-    )
-
-    log.info(
-        'netsession_tourney.matches_generated',
-        tournament_id=str(tournament_id),
-        stage_id=str(stage_id),
-        actor_user_id=str(initiator.id),
-        correlation_id=correlation_id,
-        match_count=len(matches),
-    )
-
-    return Ok(matches)
 
 
 def _materialize_round_robin_builder_group_stages(

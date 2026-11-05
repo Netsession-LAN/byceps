@@ -27,87 +27,121 @@ def _sort_ranked_participant_ids(
     is_ffa_scoring_stage: bool,
 ) -> list[ParticipantID]:
     if not is_ffa_scoring_stage and stage_type == StageType.swiss.value:
-        swiss_head_to_head_scores = _build_swiss_head_to_head_scores(
+        return _sort_swiss_ranked_participant_ids(
             rows_by_participant_id, head_to_head_winner_id_by_pair
         )
-        return [
-            participant_id
-            for participant_id, _ in sorted(
-                rows_by_participant_id.items(),
-                key=lambda item: (
-                    -item[1].get('wins', 0),
-                    item[1].get('losses', 0),
-                    -item[1].get('buchholz', 0),
-                    -item[1].get('opponent_wl_sum', 0),
-                    -item[1].get('second_order_sos', 0),
-                    -swiss_head_to_head_scores.get(item[0], 0),
-                    -item[1].get('round_diff', 0),
-                    -item[1].get('round_wins', 0),
-                    (
-                        item[1]['seed']
-                        if item[1]['seed'] is not None
-                        else 999_999
-                    ),
-                    item[1]['created_at'],
-                ),
-            )
-        ]
 
     if (
         not is_ffa_scoring_stage
         and stage_type == StageType.round_robin_groups.value
     ):
-        tie_break_values_by_participant_id: dict[
-            ParticipantID, tuple[int, int, int, int]
-        ] = {}
-        participants_by_points: dict[int, list[ParticipantID]] = defaultdict(list)
-        for participant_id, row in rows_by_participant_id.items():
-            participants_by_points[row.get('match_points', 0)].append(
-                participant_id
-            )
+        return _sort_round_robin_ranked_participant_ids(
+            rows_by_participant_id, head_to_head_winner_id_by_pair
+        )
 
-        for participant_ids in participants_by_points.values():
-            direct_compare_scores = {
-                participant_id: 0 for participant_id in participant_ids
-            }
-            if (
-                len(participant_ids) == 2
-                and head_to_head_winner_id_by_pair is not None
-            ):
-                winner_id = head_to_head_winner_id_by_pair.get(
-                    frozenset(participant_ids)
-                )
-                if winner_id in direct_compare_scores:
-                    direct_compare_scores[winner_id] = 1
+    return _sort_default_ranked_participant_ids(
+        rows_by_participant_id, is_ffa_scoring_stage=is_ffa_scoring_stage
+    )
 
-            for participant_id in participant_ids:
-                row = rows_by_participant_id[participant_id]
-                tie_break_values_by_participant_id[participant_id] = (
-                    row.get('match_points', 0),
-                    direct_compare_scores[participant_id],
-                    row.get('round_diff', 0),
-                    row.get('round_wins', 0),
-                )
 
-        return [
-            participant_id
-            for participant_id, _ in sorted(
-                rows_by_participant_id.items(),
-                key=lambda item: (
-                    -tie_break_values_by_participant_id[item[0]][0],
-                    -tie_break_values_by_participant_id[item[0]][1],
-                    -tie_break_values_by_participant_id[item[0]][2],
-                    -tie_break_values_by_participant_id[item[0]][3],
-                    (
-                        item[1]['seed']
-                        if item[1]['seed'] is not None
-                        else 999_999
-                    ),
-                    item[1]['created_at'],
+def _sort_swiss_ranked_participant_ids(
+    rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
+    head_to_head_winner_id_by_pair: dict[
+        frozenset[ParticipantID], ParticipantID
+    ]
+    | None,
+) -> list[ParticipantID]:
+    swiss_head_to_head_scores = _build_swiss_head_to_head_scores(
+        rows_by_participant_id, head_to_head_winner_id_by_pair
+    )
+    return [
+        participant_id
+        for participant_id, _ in sorted(
+            rows_by_participant_id.items(),
+            key=lambda item: (
+                -item[1].get('wins', 0),
+                item[1].get('losses', 0),
+                -item[1].get('buchholz', 0),
+                -item[1].get('opponent_wl_sum', 0),
+                -item[1].get('second_order_sos', 0),
+                -swiss_head_to_head_scores.get(item[0], 0),
+                -item[1].get('round_diff', 0),
+                -item[1].get('round_wins', 0),
+                (
+                    item[1]['seed']
+                    if item[1]['seed'] is not None
+                    else 999_999
                 ),
-            )
-        ]
+                item[1]['created_at'],
+            ),
+        )
+    ]
 
+
+def _sort_round_robin_ranked_participant_ids(
+    rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
+    head_to_head_winner_id_by_pair: dict[
+        frozenset[ParticipantID], ParticipantID
+    ]
+    | None,
+) -> list[ParticipantID]:
+    tie_break_values_by_participant_id: dict[
+        ParticipantID, tuple[int, int, int, int]
+    ] = {}
+    participants_by_points: dict[int, list[ParticipantID]] = defaultdict(list)
+    for participant_id, row in rows_by_participant_id.items():
+        participants_by_points[row.get('match_points', 0)].append(
+            participant_id
+        )
+
+    for participant_ids in participants_by_points.values():
+        direct_compare_scores = {
+            participant_id: 0 for participant_id in participant_ids
+        }
+        if (
+            len(participant_ids) == 2
+            and head_to_head_winner_id_by_pair is not None
+        ):
+            winner_id = head_to_head_winner_id_by_pair.get(
+                frozenset(participant_ids)
+            )
+            if winner_id in direct_compare_scores:
+                direct_compare_scores[winner_id] = 1
+
+        for participant_id in participant_ids:
+            row = rows_by_participant_id[participant_id]
+            tie_break_values_by_participant_id[participant_id] = (
+                row.get('match_points', 0),
+                direct_compare_scores[participant_id],
+                row.get('round_diff', 0),
+                row.get('round_wins', 0),
+            )
+
+    return [
+        participant_id
+        for participant_id, _ in sorted(
+            rows_by_participant_id.items(),
+            key=lambda item: (
+                -tie_break_values_by_participant_id[item[0]][0],
+                -tie_break_values_by_participant_id[item[0]][1],
+                -tie_break_values_by_participant_id[item[0]][2],
+                -tie_break_values_by_participant_id[item[0]][3],
+                (
+                    item[1]['seed']
+                    if item[1]['seed'] is not None
+                    else 999_999
+                ),
+                item[1]['created_at'],
+            ),
+        )
+    ]
+
+
+def _sort_default_ranked_participant_ids(
+    rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
+    *,
+    is_ffa_scoring_stage: bool,
+) -> list[ParticipantID]:
     return [
         participant_id
         for participant_id, _ in sorted(

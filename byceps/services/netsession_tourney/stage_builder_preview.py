@@ -76,38 +76,17 @@ def preview_stage_builder_plan(
     if tournament_mode != TournamentMode.duel:
         return Err('Der Stage Builder V1 unterstützt diesen Turniermodus nicht.')
 
-    if main_stage_type not in {
-        StageType.single_elimination,
-        StageType.double_elimination,
-        StageType.double_elimination_double_grand_final,
-    }:
-        return Err('Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.')
-
-    if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Ungültige Größe der Main Stage.')
-
-    if generation_basis != 'ready':
-        return Err('Ungültige Grundlage für die Erzeugung.')
-
-    if preliminary_type not in {
-        None,
-        StageType.round_robin_groups,
-        StageType.swiss,
-    }:
-        return Err('Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.')
-
-    if preliminary_type == StageType.round_robin_groups:
-        if round_robin_builder_mode not in {None, 'standard', 'manual_group_count'}:
-            return Err('Ungültige Round-Robin-Strategie.')
-        if round_robin_builder_mode == 'manual_group_count':
-            if round_robin_group_count is None or round_robin_group_count < 2:
-                return Err(
-                    'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
-                )
-
-    if preliminary_type == StageType.swiss:
-        if swiss_threshold not in SWISS_THRESHOLDS:
-            return Err('Swiss preliminaries require a valid threshold.')
+    validation_error = _validate_duel_stage_builder_options(
+        generation_basis=generation_basis,
+        main_stage_type=main_stage_type,
+        main_stage_size=main_stage_size,
+        preliminary_type=preliminary_type,
+        round_robin_builder_mode=round_robin_builder_mode,
+        round_robin_group_count=round_robin_group_count,
+        swiss_threshold=swiss_threshold,
+    )
+    if validation_error is not None:
+        return Err(validation_error)
 
     participants = get_participants_for_tournament(party_id, tournament_id)
     ready_participants = domain_service.select_ready_participants(participants)
@@ -128,45 +107,122 @@ def preview_stage_builder_plan(
         return Ok(preview)
 
     if preliminary_type == StageType.round_robin_groups:
-        plan_result = _resolve_round_robin_builder_plan(
+        return _add_round_robin_preliminary_to_preview(
+            preview,
             participant_count=participant_count,
             main_stage_size=main_stage_size,
             round_robin_builder_mode=round_robin_builder_mode,
             round_robin_group_count=round_robin_group_count,
         )
-        if plan_result.is_err():
-            return Err(plan_result.unwrap_err())
-
-        plan = plan_result.unwrap()
-        group_sizes = _distribute_evenly(participant_count, plan.group_count)
-        preview.update(
-            {
-                'group_count': plan.group_count,
-                'qualifiers_per_group': plan.qualifiers_per_group,
-                'min_group_size': plan.min_group_size,
-                'max_group_size': plan.max_group_size,
-                'group_sizes': group_sizes,
-                'round_robin_builder_mode': plan.mode,
-                'match_count': sum(
-                    size * (size - 1) // 2 for size in group_sizes
-                ),
-            }
-        )
-        return Ok(preview)
 
     if preliminary_type == StageType.swiss:
-        round_count = _get_swiss_round_count_for_threshold(swiss_threshold)
-        preview.update(
-            {
-                'swiss_threshold': swiss_threshold,
-                'round_count': round_count,
-                'qualifier_count': main_stage_size,
-            }
+        return _add_swiss_preliminary_to_preview(
+            preview,
+            swiss_threshold=swiss_threshold,
+            main_stage_size=main_stage_size,
         )
-        return Ok(preview)
 
     return Ok(preview)
 
+
+def _validate_duel_stage_builder_options(
+    *,
+    generation_basis: str,
+    main_stage_type: StageType,
+    main_stage_size: int,
+    preliminary_type: StageType | None,
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+    swiss_threshold: int | None,
+) -> str | None:
+    """Return the first validation error message, or `None` if valid."""
+    if main_stage_type not in {
+        StageType.single_elimination,
+        StageType.double_elimination,
+        StageType.double_elimination_double_grand_final,
+    }:
+        return 'Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.'
+
+    if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
+        return 'Ungültige Größe der Main Stage.'
+
+    if generation_basis != 'ready':
+        return 'Ungültige Grundlage für die Erzeugung.'
+
+    if preliminary_type not in {
+        None,
+        StageType.round_robin_groups,
+        StageType.swiss,
+    }:
+        return 'Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.'
+
+    if preliminary_type == StageType.round_robin_groups:
+        if round_robin_builder_mode not in {None, 'standard', 'manual_group_count'}:
+            return 'Ungültige Round-Robin-Strategie.'
+        if round_robin_builder_mode == 'manual_group_count':
+            if round_robin_group_count is None or round_robin_group_count < 2:
+                return (
+                    'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
+                )
+
+    if preliminary_type == StageType.swiss:
+        if swiss_threshold not in SWISS_THRESHOLDS:
+            return 'Swiss preliminaries require a valid threshold.'
+
+    return None
+
+
+def _add_round_robin_preliminary_to_preview(
+    preview: dict[str, Any],
+    *,
+    participant_count: int,
+    main_stage_size: int,
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+) -> Result[dict[str, Any], str]:
+    plan_result = _resolve_round_robin_builder_plan(
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        round_robin_builder_mode=round_robin_builder_mode,
+        round_robin_group_count=round_robin_group_count,
+    )
+    if plan_result.is_err():
+        return Err(plan_result.unwrap_err())
+
+    plan = plan_result.unwrap()
+    group_sizes = _distribute_evenly(participant_count, plan.group_count)
+    preview.update(
+        {
+            'group_count': plan.group_count,
+            'qualifiers_per_group': plan.qualifiers_per_group,
+            'min_group_size': plan.min_group_size,
+            'max_group_size': plan.max_group_size,
+            'group_sizes': group_sizes,
+            'round_robin_builder_mode': plan.mode,
+            'match_count': sum(
+                size * (size - 1) // 2 for size in group_sizes
+            ),
+        }
+    )
+    return Ok(preview)
+
+
+
+def _add_swiss_preliminary_to_preview(
+    preview: dict[str, Any],
+    *,
+    swiss_threshold: int | None,
+    main_stage_size: int,
+) -> Result[dict[str, Any], str]:
+    round_count = _get_swiss_round_count_for_threshold(swiss_threshold)
+    preview.update(
+        {
+            'swiss_threshold': swiss_threshold,
+            'round_count': round_count,
+            'qualifier_count': main_stage_size,
+        }
+    )
+    return Ok(preview)
 
 def _resolve_stage_builder_stage_for_generation(
     stage: Stage,

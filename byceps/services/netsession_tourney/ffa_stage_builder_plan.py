@@ -7,6 +7,7 @@ Stage builder for FFA tournaments: creating the planned stages.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -73,8 +74,7 @@ def _build_ffa_stage_builder_plan(
     if input_error is not None:
         return Err(input_error)
 
-    participants = get_participants_for_tournament(party_id, tournament_id)
-    participant_count = len(domain_service.select_ready_participants(participants))
+    participant_count = _count_ready_participants(party_id, tournament_id)
     uses_preliminary = (
         preliminary_type is not None and participant_count > main_stage_size
     )
@@ -105,41 +105,32 @@ def _build_ffa_stage_builder_plan(
             return Err(preliminary_result.unwrap_err())
         plan = preliminary_result.unwrap()
 
-    main_preview_result = _preview_ffa_stage_builder_stage(
-        tournament_id=tournament_id,
-        stage_type=main_stage_type,
+    main_stage_result = _create_ffa_main_stage(
+        tournament_id,
+        main_stage_type,
+        main_stage_size=main_stage_size,
         participant_count=main_stage_size if uses_preliminary else participant_count,
         max_players_per_match=max_players_per_match,
-        stop_when_participants_at_most=None,
+        plan=plan,
+        preliminary_type=preliminary_type,
+        common_settings=common_settings,
+        now=now,
     )
-    if main_preview_result.is_err():
-        return Err(main_preview_result.unwrap_err())
-
-    main_stage = DbNetsessionTourneyStage(
-        StageID(generate_uuid7()),
-        tournament_id,
-        plan.next_order_no,
-        main_stage_type,
-        'Finale'
-        if main_stage_type == StageType.ffa_flatout2_single_elimination
-        else 'Hauptturnier',
-        now,
-        settings_json=_ffa_main_stage_settings(
-            common_settings(),
-            main_stage_type,
-            main_stage_size,
-            main_preview_result.unwrap(),
-            plan,
-            preliminary_type,
-        ),
-    )
-    db.session.add(main_stage)
-    created_stages = plan.created_stages + [main_stage]
+    if main_stage_result.is_err():
+        return Err(main_stage_result.unwrap_err())
+    created_stages = plan.created_stages + [main_stage_result.unwrap()]
 
     audit_created_stages(created_stages, initiator, now)
     db.session.commit()
 
     return Ok([_db_stage_to_model(stage) for stage in created_stages])
+
+
+def _count_ready_participants(
+    party_id: PartyID, tournament_id: TournamentID
+) -> int:
+    participants = get_participants_for_tournament(party_id, tournament_id)
+    return len(domain_service.select_ready_participants(participants))
 
 
 @dataclass(kw_only=True)
@@ -222,6 +213,50 @@ def _create_ffa_preliminary(
             next_order_no=2,
         )
     )
+
+
+def _create_ffa_main_stage(
+    tournament_id: TournamentID,
+    main_stage_type: StageType,
+    *,
+    main_stage_size: int,
+    participant_count: int,
+    max_players_per_match: int,
+    plan: _FfaPreliminary,
+    preliminary_type: StageType | None,
+    common_settings: Callable[[], dict[str, Any]],
+    now: datetime,
+) -> Result[DbNetsessionTourneyStage, str]:
+    main_preview_result = _preview_ffa_stage_builder_stage(
+        tournament_id=tournament_id,
+        stage_type=main_stage_type,
+        participant_count=participant_count,
+        max_players_per_match=max_players_per_match,
+        stop_when_participants_at_most=None,
+    )
+    if main_preview_result.is_err():
+        return Err(main_preview_result.unwrap_err())
+
+    main_stage = DbNetsessionTourneyStage(
+        StageID(generate_uuid7()),
+        tournament_id,
+        plan.next_order_no,
+        main_stage_type,
+        'Finale'
+        if main_stage_type == StageType.ffa_flatout2_single_elimination
+        else 'Hauptturnier',
+        now,
+        settings_json=_ffa_main_stage_settings(
+            common_settings(),
+            main_stage_type,
+            main_stage_size,
+            main_preview_result.unwrap(),
+            plan,
+            preliminary_type,
+        ),
+    )
+    db.session.add(main_stage)
+    return Ok(main_stage)
 
 
 def _ffa_main_stage_settings(

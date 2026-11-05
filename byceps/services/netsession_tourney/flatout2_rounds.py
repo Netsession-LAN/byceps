@@ -8,9 +8,7 @@ FlatOut 2: matches of the current round and the host of a match.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy import select
 
@@ -24,9 +22,15 @@ from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyStage,
 )
-from .engines.base import MatchSpec, SlotSpec, StageEngine
-from .ffa_qualifiers import (
-    _get_ffa_single_elimination_qualifier_ids,
+from .engines.base import MatchSpec, StageEngine
+from .gen_flatout2_round_parts import (
+    _apply_flatout2_match_host,
+    _build_flatout2_host_match_spec,
+    _build_flatout2_materialized_round_context,
+    _Flatout2CurrentRoundGenerationContext,
+    _get_flatout2_qualified_participants,
+    _get_flatout2_round_host_participant_ids,
+    _get_flatout2_stage_db_matches,
 )
 from .models import (
     Match,
@@ -54,15 +58,6 @@ from .tournament_queries import (
 )
 
 
-@dataclass(frozen=True, kw_only=True)
-class _Flatout2CurrentRoundGenerationContext:
-    current_round_no: int
-    total_round_count: int
-    match_nos: list[int]
-    participants: list[Participant]
-    replace_existing_matches: bool
-
-
 def _get_flatout2_current_round_generation_context(
     *,
     tournament_id: TournamentID,
@@ -80,25 +75,9 @@ def _get_flatout2_current_round_generation_context(
         return Err('Für diese FlatOut-2-Stage konnten keine Runden berechnet werden.')
 
     if (stage.settings or {}).get('builder_materialized_round_stage'):
-        first_round_no = min(spec.round_no for spec in full_specs)
-        current_round_specs = [
-            spec for spec in full_specs if spec.round_no == first_round_no
-        ]
-        try:
-            display_round_no = int(
-                (stage.settings or {}).get('builder_display_round_no')
-                or first_round_no
-            )
-        except (TypeError, ValueError):
-            display_round_no = first_round_no
-
         return Ok(
-            _Flatout2CurrentRoundGenerationContext(
-                current_round_no=display_round_no,
-                total_round_count=display_round_no,
-                match_nos=[spec.match_no for spec in current_round_specs],
-                participants=participants,
-                replace_existing_matches=True,
+            _build_flatout2_materialized_round_context(
+                stage, full_specs, participants
             )
         )
 
@@ -107,14 +86,7 @@ def _get_flatout2_current_round_generation_context(
         planned_match_nos_by_round_no[spec.round_no].append(spec.match_no)
 
     total_round_count = max(planned_match_nos_by_round_no.keys())
-    db_matches = db.session.scalars(
-        select(DbNetsessionTourneyMatch)
-        .filter_by(tournament_id=tournament_id, stage_id=stage.id)
-        .order_by(
-            DbNetsessionTourneyMatch.round_no.asc(),
-            DbNetsessionTourneyMatch.match_no.asc(),
-        )
-    ).all()
+    db_matches = _get_flatout2_stage_db_matches(tournament_id, stage.id)
 
     if not db_matches:
         return Ok(
@@ -142,39 +114,9 @@ def _get_flatout2_current_round_generation_context(
         for match in db_matches
         if match.round_no == highest_generated_round_no
     ]
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
-        defaultdict(list)
+    qualified_participants = _get_flatout2_qualified_participants(
+        previous_round_matches, participants
     )
-    for db_slot in db.session.scalars(
-        select(DbNetsessionTourneyMatchSlot).filter(
-            DbNetsessionTourneyMatchSlot.match_id.in_(
-                [match.id for match in previous_round_matches]
-            )
-        )
-    ).all():
-        slots_by_match_id[db_slot.match_id].append(db_slot)
-
-    qualified_participant_ids: list[ParticipantID] = []
-    for previous_round_match in sorted(
-        previous_round_matches, key=lambda item: item.match_no
-    ):
-        qualified_participant_ids.extend(
-            _get_ffa_single_elimination_qualifier_ids(
-                previous_round_match.id,
-                sorted(
-                    slots_by_match_id.get(previous_round_match.id, []),
-                    key=lambda item: item.slot_no,
-                ),
-                3,
-            )
-        )
-
-    participants_by_id = {participant.id: participant for participant in participants}
-    qualified_participants = [
-        participants_by_id[participant_id]
-        for participant_id in qualified_participant_ids
-        if participant_id in participants_by_id
-    ]
     if len(qualified_participants) < 2:
         return Err(
             'Es stehen noch nicht genug Qualifikanten für die nächste FlatOut-2-Runde fest.'
@@ -196,41 +138,12 @@ def _build_flatout2_current_round_match_specs(
     stage: Stage,
     context: _Flatout2CurrentRoundGenerationContext,
 ) -> Result[list[MatchSpec], str]:
-    raw_hosts_by_round = (stage.settings or {}).get('flatout2_round_hosts', {})
-    if not isinstance(raw_hosts_by_round, dict):
-        raw_hosts_by_round = {}
-
-    raw_host_ids = raw_hosts_by_round.get(str(context.current_round_no)) or []
-    if not isinstance(raw_host_ids, list):
-        raw_host_ids = []
-
-    host_participant_ids: list[ParticipantID] = []
-    for raw_host_id in raw_host_ids:
-        try:
-            host_participant_ids.append(ParticipantID(UUID(str(raw_host_id))))
-        except (TypeError, ValueError):
-            return Err(
-                'Die Host-Auswahl für die aktuelle FlatOut-2-Runde ist ungültig.'
-            )
-
-    if len(host_participant_ids) != len(context.match_nos):
-        return Err(
-            'Bitte für jedes Match der aktuellen FlatOut-2-Runde genau einen Host auswählen.'
-        )
-
-    if len(set(host_participant_ids)) != len(host_participant_ids):
-        return Err(
-            'Jeder FlatOut-2-Host darf in einer Runde nur einmal ausgewählt werden.'
-        )
-
-    allowed_participant_ids = {participant.id for participant in context.participants}
-    if any(
-        host_participant_id not in allowed_participant_ids
-        for host_participant_id in host_participant_ids
-    ):
-        return Err(
-            'Mindestens ein ausgewählter FlatOut-2-Host gehört nicht zum Teilnehmerfeld dieser Runde.'
-        )
+    host_participant_ids_result = _get_flatout2_round_host_participant_ids(
+        stage, context
+    )
+    if host_participant_ids_result.is_err():
+        return Err(host_participant_ids_result.unwrap_err())
+    host_participant_ids = host_participant_ids_result.unwrap()
 
     ordered_participant_ids = [
         participant.id
@@ -257,29 +170,9 @@ def _build_flatout2_current_round_match_specs(
         )
         offset += additional_count
 
-        slots = [
-            SlotSpec(
-                slot_no=slot_index + 1,
-                participant_id=participant_id,
-                source_match_no=None,
-            )
-            for slot_index, participant_id in enumerate(participant_ids_for_match)
-        ]
-        if len(slots) == 1:
-            slots.append(
-                SlotSpec(
-                    slot_no=2,
-                    participant_id=None,
-                    source_match_no=None,
-                )
-            )
-
         specs.append(
-            MatchSpec(
-                round_no=context.current_round_no,
-                match_no=match_no,
-                state='ready' if len(participant_ids_for_match) >= 2 else 'pending',
-                slots=slots,
+            _build_flatout2_host_match_spec(
+                context.current_round_no, match_no, participant_ids_for_match
             )
         )
 
@@ -323,24 +216,9 @@ def set_flatout2_match_host_by_admin(
     if host_participant_id is not None and host_participant_id not in allowed_participant_ids:
         return Err('Der gewählte Host spielt nicht in diesem Match.')
 
-    settings = dict(db_match.settings_json or {})
-    previous_host_participant_id = settings.get('host_participant_id')
-    if host_participant_id is None:
-        settings.pop('host_participant_id', None)
-    else:
-        settings['host_participant_id'] = str(host_participant_id)
-
-    db_match.settings_json = settings
-    db_match.updated_at = datetime.utcnow()
-    stage_settings = dict(db_stage.settings_json or {})
-    match_hosts = dict(stage_settings.get('flatout2_match_hosts') or {})
-    match_key = f'{db_match.round_no}:{db_match.match_no}'
-    if host_participant_id is None:
-        match_hosts.pop(match_key, None)
-    else:
-        match_hosts[match_key] = str(host_participant_id)
-    stage_settings['flatout2_match_hosts'] = match_hosts
-    db_stage.settings_json = stage_settings
+    previous_host_participant_id = _apply_flatout2_match_host(
+        db_match, db_stage, host_participant_id
+    )
 
     _append_audit_log(
         actor_user_id=initiator.id,

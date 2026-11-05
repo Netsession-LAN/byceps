@@ -26,6 +26,7 @@ from .generation_participants import (
 from .models import (
     Participant,
     ParticipantID,
+    Stage,
     StageID,
     TournamentID,
 )
@@ -143,58 +144,20 @@ def set_stage_generation_seeds(
         participant.id: participant for participant in selected_participants
     }
     selected_participant_ids = set(selected_participants_by_id.keys())
-    if set(auto_seed_participant_ids) != selected_participant_ids:
-        return Err(
-            'Die Teilnehmerliste hat sich geändert. Bitte die Seeding-Seite neu laden.'
-        )
+    final_participant_ids_result = _resolve_final_seed_participant_ids(
+        stage,
+        selected_participants,
+        selected_participant_ids,
+        auto_seed_participant_ids,
+        manual_seed_by_participant_id,
+    )
+    if final_participant_ids_result.is_err():
+        return Err(final_participant_ids_result.unwrap_err())
+    final_participant_ids = final_participant_ids_result.unwrap()
 
-    if _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
-        if manual_seed_by_participant_id:
-            return Err(
-                'Seeding für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
-            )
-
-        final_participant_ids = [
-            participant.id for participant in selected_participants
-        ]
-    else:
-        normalized_manual_seed_by_participant_id = {
-            participant_id: seed
-            for participant_id, seed in manual_seed_by_participant_id.items()
-            if participant_id in selected_participant_ids
-        }
-        manual_seed_values = sorted(
-            normalized_manual_seed_by_participant_id.values()
-        )
-        expected_manual_seed_values = list(
-            range(1, len(normalized_manual_seed_by_participant_id) + 1)
-        )
-        if manual_seed_values != expected_manual_seed_values:
-            return Err(
-                'Manuelle Seeds müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
-            )
-
-        manual_prefix_participant_ids = [
-            participant_id
-            for participant_id, _seed in sorted(
-                normalized_manual_seed_by_participant_id.items(),
-                key=lambda item: item[1],
-            )
-        ]
-        remaining_auto_seed_participant_ids = [
-            participant_id
-            for participant_id in auto_seed_participant_ids
-            if participant_id not in normalized_manual_seed_by_participant_id
-        ]
-        final_participant_ids = (
-            manual_prefix_participant_ids + remaining_auto_seed_participant_ids
-        )
-
-    normalized_manual_seed_by_participant_id = {
-        participant_id: seed
-        for participant_id, seed in manual_seed_by_participant_id.items()
-        if participant_id in selected_participant_ids
-    }
+    normalized_manual_seed_by_participant_id = _normalize_manual_seeds(
+        manual_seed_by_participant_id, selected_participant_ids
+    )
 
     db_participants = db.session.scalars(
         select(DbNetsessionTourneyParticipant)
@@ -212,16 +175,12 @@ def set_stage_generation_seeds(
             return Err('Ein Teilnehmer für die Seed-Vergabe wurde nicht gefunden.')
         db_participant.seed = seed
 
-    _append_audit_log(
-        actor_user_id=initiator.id,
-        object_type='stage',
-        object_id=stage_id,
-        action='stage_generation_seeds_set',
-        payload={
-            'participant_count': len(final_participant_ids),
-            'manual_seed_count': len(normalized_manual_seed_by_participant_id),
-        },
-        created_at=now,
+    _append_stage_generation_seeds_audit_log(
+        initiator,
+        stage_id,
+        participant_count=len(final_participant_ids),
+        manual_seed_count=len(normalized_manual_seed_by_participant_id),
+        now=now,
     )
 
     db.session.commit()
@@ -232,3 +191,84 @@ def set_stage_generation_seeds(
             for participant_id in final_participant_ids
         ]
     )
+
+
+def _append_stage_generation_seeds_audit_log(
+    initiator: User,
+    stage_id: StageID,
+    *,
+    participant_count: int,
+    manual_seed_count: int,
+    now: datetime,
+) -> None:
+    _append_audit_log(
+        actor_user_id=initiator.id,
+        object_type='stage',
+        object_id=stage_id,
+        action='stage_generation_seeds_set',
+        payload={
+            'participant_count': participant_count,
+            'manual_seed_count': manual_seed_count,
+        },
+        created_at=now,
+    )
+
+
+def _normalize_manual_seeds(
+    manual_seed_by_participant_id: dict[ParticipantID, int],
+    selected_participant_ids: set[ParticipantID],
+) -> dict[ParticipantID, int]:
+    return {
+        participant_id: seed
+        for participant_id, seed in manual_seed_by_participant_id.items()
+        if participant_id in selected_participant_ids
+    }
+
+
+def _resolve_final_seed_participant_ids(
+    stage: Stage,
+    selected_participants: list[Participant],
+    selected_participant_ids: set[ParticipantID],
+    auto_seed_participant_ids: list[ParticipantID],
+    manual_seed_by_participant_id: dict[ParticipantID, int],
+) -> Result[list[ParticipantID], str]:
+    if set(auto_seed_participant_ids) != selected_participant_ids:
+        return Err(
+            'Die Teilnehmerliste hat sich geändert. Bitte die Seeding-Seite neu laden.'
+        )
+
+    if _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
+        if manual_seed_by_participant_id:
+            return Err(
+                'Seeding für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
+            )
+
+        return Ok([participant.id for participant in selected_participants])
+
+    normalized_manual_seed_by_participant_id = _normalize_manual_seeds(
+        manual_seed_by_participant_id, selected_participant_ids
+    )
+    manual_seed_values = sorted(
+        normalized_manual_seed_by_participant_id.values()
+    )
+    expected_manual_seed_values = list(
+        range(1, len(normalized_manual_seed_by_participant_id) + 1)
+    )
+    if manual_seed_values != expected_manual_seed_values:
+        return Err(
+            'Manuelle Seeds müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
+        )
+
+    manual_prefix_participant_ids = [
+        participant_id
+        for participant_id, _seed in sorted(
+            normalized_manual_seed_by_participant_id.items(),
+            key=lambda item: item[1],
+        )
+    ]
+    remaining_auto_seed_participant_ids = [
+        participant_id
+        for participant_id in auto_seed_participant_ids
+        if participant_id not in normalized_manual_seed_by_participant_id
+    ]
+    return Ok(manual_prefix_participant_ids + remaining_auto_seed_participant_ids)

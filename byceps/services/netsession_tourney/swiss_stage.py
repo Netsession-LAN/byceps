@@ -8,6 +8,7 @@ Swiss stages: round layout, generation and seeding of follow-up rounds.
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 import math
 from typing import Any
@@ -173,12 +174,89 @@ def _build_full_swiss_stage_specs(
     return specs
 
 
+@dataclass(frozen=True, kw_only=True)
+class _SwissStageMatchData:
+    db_matches: list[DbNetsessionTourneyMatch]
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]]
+    results_by_match_id: dict[MatchID, DbNetsessionTourneyMatchResult]
+    participants: list[Participant]
+
+
 def _seed_swiss_follow_up_rounds(
     *,
     tournament_id: TournamentID,
     stage: Stage,
 ) -> list[MatchID]:
     newly_ready_match_ids: list[MatchID] = []
+    match_data = _load_swiss_stage_match_data(tournament_id, stage)
+    if match_data is None:
+        return []
+
+    db_matches = match_data.db_matches
+    slots_by_match_id = match_data.slots_by_match_id
+    participants = match_data.participants
+
+    round_count = _get_round_count_for_swiss_stage(
+        stage, participant_count=len(participants)
+    )
+    layout = _build_swiss_round_layout(len(participants), round_count)
+    matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(list)
+    for db_match in db_matches:
+        matches_by_round_no[db_match.round_no].append(db_match)
+
+    for round_layout in layout[1:]:
+        round_no = round_layout['round_no']
+        previous_round_matches = matches_by_round_no.get(round_no - 1, [])
+        if not previous_round_matches or any(
+            match.state != MatchState.completed.value
+            for match in previous_round_matches
+        ):
+            return []
+
+        target_matches = sorted(
+            matches_by_round_no.get(round_no, []),
+            key=lambda match: match.match_no,
+        )
+        if not target_matches:
+            return []
+
+        if any(
+            slot.participant_id is not None
+            for match in target_matches
+            for slot in slots_by_match_id.get(match.id, [])
+        ):
+            continue
+
+        seeded_specs = _build_follow_up_swiss_round_specs(
+            participants=participants,
+            db_matches=db_matches,
+            slots_by_match_id=slots_by_match_id,
+            results_by_match_id=match_data.results_by_match_id,
+            next_round_no=round_no,
+            first_match_no=target_matches[0].match_no,
+            round_count=round_count,
+        )
+        if not seeded_specs:
+            continue
+
+        _apply_seeded_swiss_specs(
+            tournament_id,
+            target_matches,
+            seeded_specs,
+            slots_by_match_id,
+            newly_ready_match_ids,
+        )
+
+    return newly_ready_match_ids
+
+
+def _load_swiss_stage_match_data(
+    tournament_id: TournamentID,
+    stage: Stage,
+) -> _SwissStageMatchData | None:
+    """Load matches, slots, results and participants of the stage, or
+    `None` if there are no matches or no participants.
+    """
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
         .filter_by(tournament_id=tournament_id, stage_id=stage.id)
@@ -188,7 +266,7 @@ def _seed_swiss_follow_up_rounds(
         )
     ).all()
     if not db_matches:
-        return []
+        return None
 
     match_ids = [match.id for match in db_matches]
     db_slots = db.session.scalars(
@@ -227,80 +305,53 @@ def _seed_swiss_follow_up_rounds(
         ).all()
     ]
     if not participants:
-        return []
+        return None
 
-    round_count = _get_round_count_for_swiss_stage(
-        stage, participant_count=len(participants)
+    return _SwissStageMatchData(
+        db_matches=db_matches,
+        slots_by_match_id=slots_by_match_id,
+        results_by_match_id=results_by_match_id,
+        participants=participants,
     )
-    layout = _build_swiss_round_layout(len(participants), round_count)
-    matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(list)
-    for db_match in db_matches:
-        matches_by_round_no[db_match.round_no].append(db_match)
 
-    for round_layout in layout[1:]:
-        round_no = round_layout['round_no']
-        previous_round_matches = matches_by_round_no.get(round_no - 1, [])
-        if not previous_round_matches or any(
-            match.state != MatchState.completed.value
-            for match in previous_round_matches
-        ):
-            return []
 
-        target_matches = sorted(
-            matches_by_round_no.get(round_no, []),
-            key=lambda match: match.match_no,
-        )
-        if not target_matches:
-            return []
-
-        if any(
-            slot.participant_id is not None
-            for match in target_matches
-            for slot in slots_by_match_id.get(match.id, [])
-        ):
+def _apply_seeded_swiss_specs(
+    tournament_id: TournamentID,
+    target_matches: list[DbNetsessionTourneyMatch],
+    seeded_specs: list[MatchSpec],
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]],
+    newly_ready_match_ids: list[MatchID],
+) -> None:
+    """Write the seeded participants into the target matches' slots and
+    collect matches that became ready in `newly_ready_match_ids`.
+    """
+    specs_by_match_no = {
+        spec.match_no: spec
+        for spec in seeded_specs
+    }
+    for db_match in target_matches:
+        spec = specs_by_match_no.get(db_match.match_no)
+        if spec is None:
             continue
 
-        seeded_specs = _build_follow_up_swiss_round_specs(
-            participants=participants,
-            db_matches=db_matches,
-            slots_by_match_id=slots_by_match_id,
-            results_by_match_id=results_by_match_id,
-            next_round_no=round_no,
-            first_match_no=target_matches[0].match_no,
-            round_count=round_count,
+        db_match_slots = sorted(
+            slots_by_match_id.get(db_match.id, []),
+            key=lambda slot: slot.slot_no,
         )
-        if not seeded_specs:
-            continue
-
-        specs_by_match_no = {
-            spec.match_no: spec
-            for spec in seeded_specs
+        participant_id_by_slot_no = {
+            slot.slot_no: slot.participant_id for slot in spec.slots
         }
-        for db_match in target_matches:
-            spec = specs_by_match_no.get(db_match.match_no)
-            if spec is None:
-                continue
-
-            db_match_slots = sorted(
-                slots_by_match_id.get(db_match.id, []),
-                key=lambda slot: slot.slot_no,
+        for db_slot in db_match_slots:
+            db_slot.participant_id = participant_id_by_slot_no.get(
+                db_slot.slot_no
             )
-            participant_id_by_slot_no = {
-                slot.slot_no: slot.participant_id for slot in spec.slots
-            }
-            for db_slot in db_match_slots:
-                db_slot.participant_id = participant_id_by_slot_no.get(
-                    db_slot.slot_no
-                )
 
-            next_state = _calculate_match_state_for_slots(
-                tournament_status=_get_tournament_status_value(tournament_id),
-                db_match_slots=db_match_slots,
-            )
-            db_match.state = next_state.value
-            if next_state == MatchState.ready:
-                if db_match.id not in newly_ready_match_ids:
-                    newly_ready_match_ids.append(db_match.id)
-            db_match.updated_at = datetime.utcnow()
-
-    return newly_ready_match_ids
+        next_state = _calculate_match_state_for_slots(
+            tournament_status=_get_tournament_status_value(tournament_id),
+            db_match_slots=db_match_slots,
+        )
+        db_match.state = next_state.value
+        if next_state == MatchState.ready:
+            if db_match.id not in newly_ready_match_ids:
+                newly_ready_match_ids.append(db_match.id)
+        db_match.updated_at = datetime.utcnow()

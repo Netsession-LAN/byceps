@@ -77,16 +77,12 @@ def _preview_ffa_stage_builder_plan(
     )
     preliminary_preview: dict[str, Any] | None = None
     if uses_preliminary:
-        preliminary_preview_result = _preview_ffa_stage_builder_stage(
+        preliminary_preview_result = _preview_ffa_stage_builder_preliminary(
             tournament_id=tournament_id,
-            stage_type=preliminary_type,
+            preliminary_type=preliminary_type,
             participant_count=participant_count,
+            main_stage_size=main_stage_size,
             max_players_per_match=max_players_per_match,
-            stop_when_participants_at_most=(
-                main_stage_size
-                if preliminary_type == StageType.ffa_flatout2_single_elimination
-                else None
-            ),
         )
         if preliminary_preview_result.is_err():
             return Err(preliminary_preview_result.unwrap_err())
@@ -109,41 +105,93 @@ def _preview_ffa_stage_builder_plan(
     main_preview = main_preview_result.unwrap()
 
     return Ok(
-        {
-            'generation_basis': generation_basis,
-            'main_stage_type': main_stage_type,
-            'participant_count': participant_count,
-            'preliminary_type': preliminary_type,
-            'needs_preliminary': participant_count > main_stage_size,
-            'uses_preliminary': uses_preliminary,
-            'generation_blocked_without_preliminary': (
+        _assemble_ffa_stage_builder_preview(
+            generation_basis=generation_basis,
+            main_stage_type=main_stage_type,
+            main_stage_size=main_stage_size,
+            participant_count=participant_count,
+            preliminary_type=preliminary_type,
+            uses_preliminary=uses_preliminary,
+            generation_blocked_without_preliminary=(
                 generation_blocked_without_preliminary
             ),
-            'max_players_per_match': max_players_per_match,
-            'qualifier_rule': (
-                'top_3'
-                if main_stage_type
-                == StageType.ffa_flatout2_single_elimination
-                else 'dynamic'
-            ),
-            'round_summaries': main_preview['round_summaries'],
-            'match_count': main_preview['match_count'],
-            'main_round_summaries': main_preview['round_summaries'],
-            'main_match_count': main_preview['match_count'],
-            'main_stage_participant_count': main_stage_participant_count,
-            'expected_final_heat_size': main_preview['expected_final_heat_size'],
-            'preliminary_round_summaries': (
-                preliminary_preview['round_summaries']
-                if preliminary_preview is not None
-                else []
-            ),
-            'preliminary_match_count': (
-                preliminary_preview['match_count']
-                if preliminary_preview is not None
-                else None
-            ),
-        }
+            max_players_per_match=max_players_per_match,
+            main_stage_participant_count=main_stage_participant_count,
+            main_preview=main_preview,
+            preliminary_preview=preliminary_preview,
+        )
     )
+
+
+def _preview_ffa_stage_builder_preliminary(
+    *,
+    tournament_id: TournamentID,
+    preliminary_type: StageType,
+    participant_count: int,
+    main_stage_size: int,
+    max_players_per_match: int,
+) -> Result[dict[str, Any], str]:
+    return _preview_ffa_stage_builder_stage(
+        tournament_id=tournament_id,
+        stage_type=preliminary_type,
+        participant_count=participant_count,
+        max_players_per_match=max_players_per_match,
+        stop_when_participants_at_most=(
+            main_stage_size
+            if preliminary_type == StageType.ffa_flatout2_single_elimination
+            else None
+        ),
+    )
+
+
+def _assemble_ffa_stage_builder_preview(
+    *,
+    generation_basis: str,
+    main_stage_type: StageType,
+    main_stage_size: int,
+    participant_count: int,
+    preliminary_type: StageType | None,
+    uses_preliminary: bool,
+    generation_blocked_without_preliminary: bool,
+    max_players_per_match: int,
+    main_stage_participant_count: int,
+    main_preview: dict[str, Any],
+    preliminary_preview: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        'generation_basis': generation_basis,
+        'main_stage_type': main_stage_type,
+        'participant_count': participant_count,
+        'preliminary_type': preliminary_type,
+        'needs_preliminary': participant_count > main_stage_size,
+        'uses_preliminary': uses_preliminary,
+        'generation_blocked_without_preliminary': (
+            generation_blocked_without_preliminary
+        ),
+        'max_players_per_match': max_players_per_match,
+        'qualifier_rule': (
+            'top_3'
+            if main_stage_type
+            == StageType.ffa_flatout2_single_elimination
+            else 'dynamic'
+        ),
+        'round_summaries': main_preview['round_summaries'],
+        'match_count': main_preview['match_count'],
+        'main_round_summaries': main_preview['round_summaries'],
+        'main_match_count': main_preview['match_count'],
+        'main_stage_participant_count': main_stage_participant_count,
+        'expected_final_heat_size': main_preview['expected_final_heat_size'],
+        'preliminary_round_summaries': (
+            preliminary_preview['round_summaries']
+            if preliminary_preview is not None
+            else []
+        ),
+        'preliminary_match_count': (
+            preliminary_preview['match_count']
+            if preliminary_preview is not None
+            else None
+        ),
+    }
 
 
 def _validate_ffa_stage_builder_settings(

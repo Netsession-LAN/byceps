@@ -39,6 +39,7 @@ from .stage_builder_settings import (
 )
 from .stage_ranking import (
     _build_stage_ranking_data,
+    _StageRankingData,
 )
 
 
@@ -167,6 +168,64 @@ def _get_ranked_participant_ids_by_group_for_stage(
             'Qualifikation pro Gruppe gibt es nur bei Round-Robin-Gruppen.'
         )
 
+    (
+        connected_participant_ids_by_participant_id,
+        first_match_no_by_participant_id,
+    ) = _build_group_participant_connections(ranking_data)
+
+    visited_participant_ids: set[ParticipantID] = set()
+    ranked_group_participant_ids: list[tuple[int, list[ParticipantID]]] = []
+
+    for participant_id in ranking_data.rows_by_participant_id:
+        if participant_id in visited_participant_ids:
+            continue
+
+        group_participant_ids = _collect_connected_participant_ids(
+            participant_id,
+            connected_participant_ids_by_participant_id,
+            visited_participant_ids,
+        )
+
+        group_rows_by_participant_id = {
+            group_participant_id: ranking_data.rows_by_participant_id[
+                group_participant_id
+            ]
+            for group_participant_id in group_participant_ids
+        }
+        sorted_group_participant_ids = _sort_ranked_participant_ids(
+            group_rows_by_participant_id,
+            stage_type=ranking_data.db_stage.type,
+            head_to_head_winner_id_by_pair=(
+                ranking_data.head_to_head_winner_id_by_pair
+            ),
+            is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
+        )
+        first_match_no = min(
+            first_match_no_by_participant_id.get(
+                group_participant_id, 999_999
+            )
+            for group_participant_id in group_participant_ids
+        )
+        ranked_group_participant_ids.append(
+            (first_match_no, sorted_group_participant_ids)
+        )
+
+    ranked_group_participant_ids.sort(key=lambda item: item[0])
+
+    return Ok(
+        [
+            sorted_group_participant_ids
+            for _, sorted_group_participant_ids in ranked_group_participant_ids
+        ]
+    )
+
+
+def _build_group_participant_connections(
+    ranking_data: _StageRankingData,
+) -> tuple[dict[ParticipantID, set[ParticipantID]], dict[ParticipantID, int]]:
+    """Return which participants played each other, and each participant's
+    first match number.
+    """
     connected_participant_ids_by_participant_id: dict[
         ParticipantID, set[ParticipantID]
     ] = defaultdict(set)
@@ -205,57 +264,33 @@ def _get_ranked_participant_ids_by_group_for_stage(
                     other_participant_id
                 ].add(participant_id)
 
-    visited_participant_ids: set[ParticipantID] = set()
-    ranked_group_participant_ids: list[tuple[int, list[ParticipantID]]] = []
+    return (
+        connected_participant_ids_by_participant_id,
+        first_match_no_by_participant_id,
+    )
 
-    for participant_id in ranking_data.rows_by_participant_id:
-        if participant_id in visited_participant_ids:
+
+def _collect_connected_participant_ids(
+    start_participant_id: ParticipantID,
+    connected_participant_ids_by_participant_id: dict[
+        ParticipantID, set[ParticipantID]
+    ],
+    visited_participant_ids: set[ParticipantID],
+) -> set[ParticipantID]:
+    """Collect the group of `start_participant_id` (and mark it visited)."""
+    stack = [start_participant_id]
+    group_participant_ids: set[ParticipantID] = set()
+    while stack:
+        current_participant_id = stack.pop()
+        if current_participant_id in visited_participant_ids:
             continue
 
-        stack = [participant_id]
-        group_participant_ids: set[ParticipantID] = set()
-        while stack:
-            current_participant_id = stack.pop()
-            if current_participant_id in visited_participant_ids:
-                continue
-
-            visited_participant_ids.add(current_participant_id)
-            group_participant_ids.add(current_participant_id)
-            stack.extend(
-                connected_participant_ids_by_participant_id.get(
-                    current_participant_id, set()
-                )
+        visited_participant_ids.add(current_participant_id)
+        group_participant_ids.add(current_participant_id)
+        stack.extend(
+            connected_participant_ids_by_participant_id.get(
+                current_participant_id, set()
             )
-
-        group_rows_by_participant_id = {
-            group_participant_id: ranking_data.rows_by_participant_id[
-                group_participant_id
-            ]
-            for group_participant_id in group_participant_ids
-        }
-        sorted_group_participant_ids = _sort_ranked_participant_ids(
-            group_rows_by_participant_id,
-            stage_type=ranking_data.db_stage.type,
-            head_to_head_winner_id_by_pair=(
-                ranking_data.head_to_head_winner_id_by_pair
-            ),
-            is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
-        )
-        first_match_no = min(
-            first_match_no_by_participant_id.get(
-                group_participant_id, 999_999
-            )
-            for group_participant_id in group_participant_ids
-        )
-        ranked_group_participant_ids.append(
-            (first_match_no, sorted_group_participant_ids)
         )
 
-    ranked_group_participant_ids.sort(key=lambda item: item[0])
-
-    return Ok(
-        [
-            sorted_group_participant_ids
-            for _, sorted_group_participant_ids in ranked_group_participant_ids
-        ]
-    )
+    return group_participant_ids
