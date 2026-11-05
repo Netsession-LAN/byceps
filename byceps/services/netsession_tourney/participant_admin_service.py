@@ -7,6 +7,7 @@ Participants managed by admins: add, status, disqualify, remove.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import select
@@ -316,7 +317,53 @@ def disqualify_participant(
 
     db_participant.status = ParticipantStatus.dropped.value
 
-    affected_matches = db.session.scalars(
+    affected_matches = _find_open_matches_for_participant(
+        tournament_id, participant_id
+    )
+
+    now = datetime.utcnow()
+    _flag_matches_for_admin_review(
+        affected_matches, initiator, participant_id, comment, correlation_id, now
+    )
+
+    _append_audit_log(
+        actor_user_id=initiator.id,
+        object_type='participant',
+        object_id=participant_id,
+        action='participant_disqualified',
+        payload={
+            'reason_code': reason_code,
+            'comment': comment,
+            'affected_match_count': len(affected_matches),
+            'correlation_id': correlation_id,
+        },
+        created_at=now,
+    )
+
+    if db_participant.manager_user_id is not None:
+        _notify_manager_of_disqualification(
+            tournament_id, db_participant, participant_id, reason_code, now
+        )
+
+    db.session.commit()
+
+    log.info(
+        'netsession_tourney.participant_disqualified',
+        tournament_id=str(tournament_id),
+        participant_id=str(participant_id),
+        actor_user_id=str(initiator.id),
+        reason_code=reason_code,
+        correlation_id=correlation_id,
+    )
+
+    return Ok(_db_participant_to_model(db_participant))
+
+
+def _find_open_matches_for_participant(
+    tournament_id: TournamentID, participant_id: ParticipantID
+) -> Sequence[DbNetsessionTourneyMatch]:
+    """Return the participant's matches that are not finished yet."""
+    return db.session.scalars(
         select(DbNetsessionTourneyMatch)
         .join(
             DbNetsessionTourneyMatchSlot,
@@ -336,8 +383,16 @@ def disqualify_participant(
         )
     ).all()
 
-    now = datetime.utcnow()
-    for db_match in affected_matches:
+
+def _flag_matches_for_admin_review(
+    db_matches: Sequence[DbNetsessionTourneyMatch],
+    initiator: User,
+    participant_id: ParticipantID,
+    comment: str,
+    correlation_id: str | None,
+    now: datetime,
+) -> None:
+    for db_match in db_matches:
         db_match.state = MatchState.needs_admin_review.value
         db_match.dispute_reason_code = 'participant_disqualified'
         db_match.dispute_comment = comment
@@ -357,41 +412,21 @@ def disqualify_participant(
             created_at=now,
         )
 
-    _append_audit_log(
-        actor_user_id=initiator.id,
-        object_type='participant',
-        object_id=participant_id,
-        action='participant_disqualified',
+
+def _notify_manager_of_disqualification(
+    tournament_id: TournamentID,
+    db_participant: DbNetsessionTourneyParticipant,
+    participant_id: ParticipantID,
+    reason_code: str,
+    now: datetime,
+) -> None:
+    _append_notification(
+        tournament_id=tournament_id,
+        user_id=db_participant.manager_user_id,
+        kind='participant_disqualified',
         payload={
+            'participant_id': str(participant_id),
             'reason_code': reason_code,
-            'comment': comment,
-            'affected_match_count': len(affected_matches),
-            'correlation_id': correlation_id,
         },
         created_at=now,
     )
-
-    if db_participant.manager_user_id is not None:
-        _append_notification(
-            tournament_id=tournament_id,
-            user_id=db_participant.manager_user_id,
-            kind='participant_disqualified',
-            payload={
-                'participant_id': str(participant_id),
-                'reason_code': reason_code,
-            },
-            created_at=now,
-        )
-
-    db.session.commit()
-
-    log.info(
-        'netsession_tourney.participant_disqualified',
-        tournament_id=str(tournament_id),
-        participant_id=str(participant_id),
-        actor_user_id=str(initiator.id),
-        reason_code=reason_code,
-        correlation_id=correlation_id,
-    )
-
-    return Ok(_db_participant_to_model(db_participant))

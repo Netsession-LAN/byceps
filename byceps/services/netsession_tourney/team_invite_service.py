@@ -15,37 +15,25 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import User, UserID
 from byceps.util.result import Err, Ok, Result
-from byceps.util.uuid import generate_uuid7
 
-from . import domain_service
 from .coin_service import (
     _charge_coins_for_tournament_registration,
 )
 from .dbmodels import (
     DbNetsessionTourneyParticipant,
-    DbNetsessionTourneyRegistration,
-    DbNetsessionTourneyTeamMember,
-)
-from .eligibility import (
-    validate_user_uses_ticket_for_party as _validate_user_uses_ticket_for_party,
 )
 from .models import (
     CoinChargeMode,
     Participant,
     ParticipantID,
     ParticipantType,
-    RegistrationID,
     RegistrationMode,
-    RegistrationState,
-    TeamMemberID,
     TeamMemberRole,
     TournamentID,
     TournamentStatus,
 )
-from .participant_state import (
-    _is_user_already_active_participant,
-)
 from .registration_service import (
+    _ensure_registration_is_registered,
     _generate_unique_invite_code_for_tournament,
 )
 from .registration_validation import (
@@ -60,10 +48,12 @@ from .team_captain_service import (
     _count_team_members,
     _find_db_managed_team_participant,
 )
+from .team_parts_membership import add_team_member
 from .tournament_queries import (
     _find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
+from .tourney_registration_checks import validate_user_can_enter_tournament
 
 
 def join_team_by_invite_code(
@@ -80,20 +70,11 @@ def join_team_by_invite_code(
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Dieses Turnier erlaubt nur Solo-Anmeldungen.')
 
-    validation_result = domain_service.validate_registration_open(
-        tournament, datetime.utcnow()
+    entry_error = validate_user_can_enter_tournament(
+        party_id, tournament_id, tournament, user.id, check_capacity=False
     )
-    if validation_result.is_err():
-        return Err(validation_result.unwrap_err())
-
-    ticket_validation_result = _validate_user_uses_ticket_for_party(
-        user.id, party_id
-    )
-    if ticket_validation_result.is_err():
-        return Err(ticket_validation_result.unwrap_err())
-
-    if _is_user_already_active_participant(tournament_id, user.id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
+    if entry_error is not None:
+        return Err(entry_error)
 
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant).filter_by(
@@ -122,32 +103,9 @@ def join_team_by_invite_code(
         if charge_result.is_err():
             return Err(charge_result.unwrap_err())
 
-    registration = db.session.scalar(
-        select(DbNetsessionTourneyRegistration).filter_by(
-            tournament_id=tournament_id, user_id=user.id
-        )
-    )
-    if registration is None:
-        db.session.add(
-            DbNetsessionTourneyRegistration(
-                RegistrationID(generate_uuid7()),
-                tournament_id,
-                user.id,
-                RegistrationState.registered,
-                datetime.utcnow(),
-            )
-        )
-    else:
-        registration.state = RegistrationState.registered.value
-
-    db.session.add(
-        DbNetsessionTourneyTeamMember(
-            TeamMemberID(generate_uuid7()),
-            db_participant.id,
-            user.id,
-            TeamMemberRole.player,
-            datetime.utcnow(),
-        )
+    _ensure_registration_is_registered(tournament_id, user.id)
+    add_team_member(
+        db_participant.id, user.id, TeamMemberRole.player, datetime.utcnow()
     )
     db.session.commit()
 

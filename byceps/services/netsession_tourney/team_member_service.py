@@ -15,14 +15,12 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import User, UserID
 from byceps.util.result import Err, Ok, Result
-from byceps.util.uuid import generate_uuid7
 
 from .coin_service import (
     _charge_coins_for_tournament_registration,
     _refund_coins_for_tournament_registration_if_available,
 )
 from .dbmodels import (
-    DbNetsessionTourneyRegistration,
     DbNetsessionTourneyTeamMember,
 )
 from .eligibility import (
@@ -31,9 +29,7 @@ from .eligibility import (
 from .models import (
     CoinChargeMode,
     ParticipantID,
-    RegistrationID,
     RegistrationState,
-    TeamMemberID,
     TeamMemberRole,
     TournamentID,
     TournamentStatus,
@@ -42,6 +38,7 @@ from .participant_state import (
     _is_user_already_active_participant,
 )
 from .registration_service import (
+    _ensure_registration_is_registered,
     _set_registration_state_for_user,
 )
 from .registration_validation import (
@@ -58,6 +55,7 @@ from .team_captain_service import (
 from .team_coins_and_readiness import (
     reset_ready_if_incomplete,
 )
+from .team_parts_membership import add_team_member
 from .tournament_queries import (
     _find_db_tournament_for_party,
 )
@@ -111,33 +109,9 @@ def add_team_member_by_captain(
         if charge_result.is_err():
             return Err(charge_result.unwrap_err())
 
-    registration = db.session.scalar(
-        select(DbNetsessionTourneyRegistration).filter_by(
-            tournament_id=tournament_id,
-            user_id=member_user.id,
-        )
-    )
-    if registration is None:
-        db.session.add(
-            DbNetsessionTourneyRegistration(
-                RegistrationID(generate_uuid7()),
-                tournament_id,
-                member_user.id,
-                RegistrationState.registered,
-                datetime.utcnow(),
-            )
-        )
-    else:
-        registration.state = RegistrationState.registered.value
-
-    db.session.add(
-        DbNetsessionTourneyTeamMember(
-            TeamMemberID(generate_uuid7()),
-            participant_id,
-            member_user.id,
-            TeamMemberRole.player,
-            datetime.utcnow(),
-        )
+    _ensure_registration_is_registered(tournament_id, member_user.id)
+    add_team_member(
+        participant_id, member_user.id, TeamMemberRole.player, datetime.utcnow()
     )
 
     _append_audit_log(

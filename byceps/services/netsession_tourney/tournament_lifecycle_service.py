@@ -285,6 +285,28 @@ def delete_tournament(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
+    # Order matters because of foreign keys.
+    _delete_stages_with_matches(tournament_id)
+    _delete_participants_and_registrations(tournament_id)
+    _delete_notifications_and_outboxes(tournament_id)
+    _delete_admins_and_prizes(tournament_id)
+
+    _append_audit_log(
+        actor_user_id=initiator.id,
+        object_type='tournament',
+        object_id=tournament_id,
+        action='tournament_deleted',
+        payload={'slug': db_tournament.slug, 'title': db_tournament.title},
+        created_at=datetime.utcnow(),
+    )
+
+    db.session.delete(db_tournament)
+    db.session.commit()
+
+    return Ok(None)
+
+
+def _delete_stages_with_matches(tournament_id: TournamentID) -> None:
     stage_ids = db.session.scalars(
         select(DbNetsessionTourneyStage.id).filter_by(tournament_id=tournament_id)
     ).all()
@@ -295,6 +317,8 @@ def delete_tournament(
         delete(DbNetsessionTourneyStage).filter_by(tournament_id=tournament_id)
     )
 
+
+def _delete_participants_and_registrations(tournament_id: TournamentID) -> None:
     participant_ids = db.session.scalars(
         select(DbNetsessionTourneyParticipant.id).filter_by(
             tournament_id=tournament_id
@@ -317,6 +341,9 @@ def delete_tournament(
             tournament_id=tournament_id
         )
     )
+
+
+def _delete_notifications_and_outboxes(tournament_id: TournamentID) -> None:
     # Delete rows referencing the tournament or its notifications explicitly,
     # independent of whether the database has `ON DELETE CASCADE` on those
     # foreign keys (tables created from the models did not).
@@ -347,6 +374,9 @@ def delete_tournament(
             tournament_id=tournament_id
         )
     )
+
+
+def _delete_admins_and_prizes(tournament_id: TournamentID) -> None:
     db.session.execute(
         delete(DbNetsessionTourneyTournamentAdmin).filter_by(
             tournament_id=tournament_id
@@ -357,17 +387,3 @@ def delete_tournament(
             tournament_id=tournament_id
         )
     )
-
-    _append_audit_log(
-        actor_user_id=initiator.id,
-        object_type='tournament',
-        object_id=tournament_id,
-        action='tournament_deleted',
-        payload={'slug': db_tournament.slug, 'title': db_tournament.title},
-        created_at=datetime.utcnow(),
-    )
-
-    db.session.delete(db_tournament)
-    db.session.commit()
-
-    return Ok(None)
