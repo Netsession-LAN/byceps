@@ -171,10 +171,10 @@ from .stage_render_helpers import (
     _build_ffa_match_detail_rows,
     _build_ffa_single_elimination_bracket_sections,
     _build_match_overview_sections,
-    _build_swiss_bracket_sections,
     _build_team_history_rows,
     _get_ffa_placement_by_slot_no,
 )
+from .swiss_public_rendering import _build_swiss_bracket_sections
 from .user_state_helpers import (
     _build_current_user_overview_match_rows,
     _build_registration_state,
