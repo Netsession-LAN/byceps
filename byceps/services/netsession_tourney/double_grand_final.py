@@ -97,33 +97,7 @@ def _update_optional_double_grand_final_state(
     if stage.type != StageType.double_elimination_double_grand_final:
         return
 
-    db_source_slot = db.session.scalar(
-        select(DbNetsessionTourneyMatchSlot).filter_by(
-            match_id=source_match_id, slot_no=1
-        )
-    )
-    if db_source_slot is None or db_source_slot.source_match_slot_id is None:
-        return  # first-round match, not grand final 1 (2 participants)
-
-    downstream_slots = db.session.scalars(
-        select(DbNetsessionTourneyMatchSlot).filter_by(
-            source_match_slot_id=db_source_slot.id
-        )
-    ).all()
-    if not downstream_slots:
-        return
-
-    downstream_slots_by_match_id = defaultdict(list)
-    for db_slot in downstream_slots:
-        downstream_slots_by_match_id[db_slot.match_id].append(db_slot)
-
-    reset_match_id = None
-    for match_id, slots in downstream_slots_by_match_id.items():
-        outcomes = {slot.source_outcome for slot in slots}
-        if outcomes == {SourceOutcome.winner.value, SourceOutcome.loser.value}:
-            reset_match_id = match_id
-            break
-
+    reset_match_id = _find_reset_match_id(source_match_id)
     if reset_match_id is None:
         return
 
@@ -144,38 +118,91 @@ def _update_optional_double_grand_final_state(
 
     should_skip_reset_match = db_source_result.winner_slot == 1
     if should_skip_reset_match:
-        if (
-            db_reset_result is not None
-            and not _is_grand_final_reset_skipped_score(db_reset_result.score_json)
-        ):
-            return
-
-        if db_reset_result is None:
-            db_reset_result = DbNetsessionTourneyMatchResult(
-                MatchResultID(generate_uuid7()),
-                reset_match_id,
-                now,
-                winner_slot=None,
-                score_json={
-                    'display': '-',
-                    DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG: True,
-                },
-                ranking_json={},
-                submitted_by_user_id=None,
-            )
-            db.session.add(db_reset_result)
-        else:
-            db_reset_result.winner_slot = None
-            db_reset_result.score_json = {
-                **(db_reset_result.score_json or {}),
-                DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG: True,
-            }
-            db_reset_result.updated_at = now
-
-        db_reset_match.state = MatchState.completed.value
-        db_reset_match.updated_at = now
+        _mark_reset_match_as_skipped(
+            db_reset_match, db_reset_result, reset_match_id, now
+        )
         return
 
+    _reopen_reset_match(db_reset_match, db_reset_result, reset_match_id, now)
+
+
+def _find_reset_match_id(source_match_id: MatchID) -> MatchID | None:
+    """Find the bracket reset match fed by both outcomes of the source match
+    (grand final 1)."""
+    db_source_slot = db.session.scalar(
+        select(DbNetsessionTourneyMatchSlot).filter_by(
+            match_id=source_match_id, slot_no=1
+        )
+    )
+    if db_source_slot is None or db_source_slot.source_match_slot_id is None:
+        return None  # first-round match, not grand final 1 (2 participants)
+
+    downstream_slots = db.session.scalars(
+        select(DbNetsessionTourneyMatchSlot).filter_by(
+            source_match_slot_id=db_source_slot.id
+        )
+    ).all()
+    if not downstream_slots:
+        return None
+
+    downstream_slots_by_match_id = defaultdict(list)
+    for db_slot in downstream_slots:
+        downstream_slots_by_match_id[db_slot.match_id].append(db_slot)
+
+    reset_match_id = None
+    for match_id, slots in downstream_slots_by_match_id.items():
+        outcomes = {slot.source_outcome for slot in slots}
+        if outcomes == {SourceOutcome.winner.value, SourceOutcome.loser.value}:
+            reset_match_id = match_id
+            break
+
+    return reset_match_id
+
+
+def _mark_reset_match_as_skipped(
+    db_reset_match: DbNetsessionTourneyMatch,
+    db_reset_result: DbNetsessionTourneyMatchResult | None,
+    reset_match_id: MatchID,
+    now: datetime,
+) -> None:
+    if (
+        db_reset_result is not None
+        and not _is_grand_final_reset_skipped_score(db_reset_result.score_json)
+    ):
+        return
+
+    if db_reset_result is None:
+        db_reset_result = DbNetsessionTourneyMatchResult(
+            MatchResultID(generate_uuid7()),
+            reset_match_id,
+            now,
+            winner_slot=None,
+            score_json={
+                'display': '-',
+                DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG: True,
+            },
+            ranking_json={},
+            submitted_by_user_id=None,
+        )
+        db.session.add(db_reset_result)
+    else:
+        db_reset_result.winner_slot = None
+        db_reset_result.score_json = {
+            **(db_reset_result.score_json or {}),
+            DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG: True,
+        }
+        db_reset_result.updated_at = now
+
+    db_reset_match.state = MatchState.completed.value
+    db_reset_match.updated_at = now
+
+
+def _reopen_reset_match(
+    db_reset_match: DbNetsessionTourneyMatch,
+    db_reset_result: DbNetsessionTourneyMatchResult | None,
+    reset_match_id: MatchID,
+    now: datetime,
+) -> None:
     if db_reset_result and _is_grand_final_reset_skipped_score(
         db_reset_result.score_json
     ):

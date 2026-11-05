@@ -200,18 +200,7 @@ def _delete_match_result_branch(
     if db_result is None:
         return
 
-    source_slot = db.session.scalar(
-        select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id, slot_no=1)
-    )
-    downstream_slots = (
-        db.session.scalars(
-            select(DbNetsessionTourneyMatchSlot).filter_by(
-                source_match_slot_id=source_slot.id
-            )
-        ).all()
-        if source_slot is not None
-        else []
-    )
+    downstream_slots = _get_downstream_slots(match_id)
     downstream_match_ids = sorted({db_slot.match_id for db_slot in downstream_slots})
 
     for downstream_match_id in downstream_match_ids:
@@ -235,6 +224,34 @@ def _delete_match_result_branch(
     db.session.delete(db_result)
     _reset_match_after_result_delete(db_match)
 
+    _clear_downstream_slots(downstream_slots)
+
+    deleted_match_ids.add(match_id)
+
+
+def _get_downstream_slots(
+    match_id: MatchID,
+) -> list[DbNetsessionTourneyMatchSlot]:
+    """Return the slots that are fed by the match's results."""
+    source_slot = db.session.scalar(
+        select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id, slot_no=1)
+    )
+    return (
+        db.session.scalars(
+            select(DbNetsessionTourneyMatchSlot).filter_by(
+                source_match_slot_id=source_slot.id
+            )
+        ).all()
+        if source_slot is not None
+        else []
+    )
+
+
+def _clear_downstream_slots(
+    downstream_slots: list[DbNetsessionTourneyMatchSlot],
+) -> None:
+    """Remove the participants from the downstream slots and reset the
+    affected matches."""
     affected_downstream_match_ids: set[MatchID] = set()
     for db_slot in downstream_slots:
         if db_slot.participant_id is not None:
@@ -251,8 +268,6 @@ def _delete_match_result_branch(
             continue
 
         _reset_match_after_result_delete(db_downstream_match)
-
-    deleted_match_ids.add(match_id)
 
 
 def _reset_match_after_result_delete(db_match: DbNetsessionTourneyMatch) -> None:

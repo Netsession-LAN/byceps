@@ -69,9 +69,7 @@ def set_match_slot_participant_by_admin(
 
     tournament = _db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Matches lassen sich nur im Entwurf zuweisen.'
-        )
+        return Err('Matches lassen sich nur im Entwurf zuweisen.')
 
     db_match = db.session.scalar(
         select(DbNetsessionTourneyMatch)
@@ -81,22 +79,9 @@ def set_match_slot_participant_by_admin(
     if db_match is None:
         return Err('Unbekanntes Match.')
 
-    if db_match.state in {
-        MatchState.completed.value,
-        MatchState.in_progress.value,
-        MatchState.pending_confirmation.value,
-        MatchState.needs_admin_review.value,
-        MatchState.disputed.value,
-    }:
-        return Err(
-            'Plätze lassen sich nur bei wartenden oder spielbereiten Matches zuweisen.'
-        )
-
-    db_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult).filter_by(match_id=match_id)
-    )
-    if db_result is not None:
-        return Err('Sobald ein Ergebnis existiert, lassen sich keine Plätze mehr zuweisen.')
+    match_error = _check_match_accepts_slot_assignment(db_match, match_id)
+    if match_error is not None:
+        return Err(match_error)
 
     db_slot = db.session.scalar(
         select(DbNetsessionTourneyMatchSlot)
@@ -113,68 +98,39 @@ def set_match_slot_participant_by_admin(
         )
 
     if participant_id is not None:
-        db_participant = db.session.scalar(
-            select(DbNetsessionTourneyParticipant)
-            .filter_by(id=participant_id, tournament_id=tournament_id)
-            .filter(
-                DbNetsessionTourneyParticipant.status.in_(
-                    ACTIVE_PARTICIPANT_STATUS_VALUES
-                )
-            )
+        participant_error = _check_participant_assignable(
+            tournament_id, db_match, match_id, slot_no, participant_id
         )
-        if db_participant is None:
-            return Err('Unbekannter Teilnehmer.')
-
-        duplicate_in_match = db.session.scalar(
-            select(DbNetsessionTourneyMatchSlot.id)
-            .filter_by(match_id=match_id, participant_id=participant_id)
-            .filter(DbNetsessionTourneyMatchSlot.slot_no != slot_no)
-        )
-        if duplicate_in_match is not None:
-            return Err('Der Teilnehmer ist diesem Match bereits zugewiesen.')
-
-        duplicate_in_round = db.session.scalar(
-            select(DbNetsessionTourneyMatchSlot.id)
-            .join(
-                DbNetsessionTourneyMatch,
-                DbNetsessionTourneyMatch.id
-                == DbNetsessionTourneyMatchSlot.match_id,
-            )
-            .filter(DbNetsessionTourneyMatch.stage_id == db_match.stage_id)
-            .filter(DbNetsessionTourneyMatch.round_no == db_match.round_no)
-            .filter(DbNetsessionTourneyMatchSlot.participant_id == participant_id)
-            .filter(DbNetsessionTourneyMatchSlot.match_id != match_id)
-        )
-        if duplicate_in_round is not None:
-            return Err('Der Teilnehmer ist in dieser Runde bereits zugewiesen.')
+        if participant_error is not None:
+            return Err(participant_error)
 
     db_slot.participant_id = participant_id
 
     previous_state = MatchState(db_match.state)
-    db_match_slots = db.session.scalars(
-        select(DbNetsessionTourneyMatchSlot)
-        .filter_by(match_id=match_id)
-        .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
-    ).all()
-    next_state = _calculate_match_state_for_slots(
-        tournament_status=db_tournament.status,
-        db_match_slots=db_match_slots,
+    next_state = _recalculate_match_state(
+        db_tournament.status, db_match, match_id
     )
-    db_match.state = next_state.value
-    db_match.updated_at = datetime.utcnow()
 
-    db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
-    if db_stage is not None:
-        stage = _db_stage_to_model(db_stage)
-        _auto_advance_byes(
-            tournament_id,
-            stage,
-            engine=find_stage_engine(stage.type),
-        )
+    _auto_advance_byes_of_match_stage(tournament_id, db_match)
 
     if previous_state != MatchState.ready and next_state == MatchState.ready:
         _enqueue_match_ready_notifications(db_match)
 
+    _append_slot_assignment_audit_log(
+        initiator, match_id, slot_no, participant_id, comment
+    )
+
+    db.session.commit()
+    return Ok(None)
+
+
+def _append_slot_assignment_audit_log(
+    initiator: User,
+    match_id: MatchID,
+    slot_no: int,
+    participant_id: ParticipantID | None,
+    comment: str | None,
+) -> None:
     _append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
@@ -190,5 +146,104 @@ def set_match_slot_participant_by_admin(
         created_at=datetime.utcnow(),
     )
 
-    db.session.commit()
-    return Ok(None)
+
+def _check_match_accepts_slot_assignment(
+    db_match: DbNetsessionTourneyMatch, match_id: MatchID
+) -> str | None:
+    """Return an error message if the match's slots must not be changed."""
+    if db_match.state in {
+        MatchState.completed.value,
+        MatchState.in_progress.value,
+        MatchState.pending_confirmation.value,
+        MatchState.needs_admin_review.value,
+        MatchState.disputed.value,
+    }:
+        return 'Plätze lassen sich nur bei wartenden oder spielbereiten Matches zuweisen.'
+
+    db_result = db.session.scalar(
+        select(DbNetsessionTourneyMatchResult).filter_by(match_id=match_id)
+    )
+    if db_result is not None:
+        return 'Sobald ein Ergebnis existiert, lassen sich keine Plätze mehr zuweisen.'
+
+    return None
+
+
+def _check_participant_assignable(
+    tournament_id: TournamentID,
+    db_match: DbNetsessionTourneyMatch,
+    match_id: MatchID,
+    slot_no: int,
+    participant_id: ParticipantID,
+) -> str | None:
+    """Return an error message if the participant must not be put into
+    that slot of the match."""
+    db_participant = db.session.scalar(
+        select(DbNetsessionTourneyParticipant)
+        .filter_by(id=participant_id, tournament_id=tournament_id)
+        .filter(
+            DbNetsessionTourneyParticipant.status.in_(
+                ACTIVE_PARTICIPANT_STATUS_VALUES
+            )
+        )
+    )
+    if db_participant is None:
+        return 'Unbekannter Teilnehmer.'
+
+    duplicate_in_match = db.session.scalar(
+        select(DbNetsessionTourneyMatchSlot.id)
+        .filter_by(match_id=match_id, participant_id=participant_id)
+        .filter(DbNetsessionTourneyMatchSlot.slot_no != slot_no)
+    )
+    if duplicate_in_match is not None:
+        return 'Der Teilnehmer ist diesem Match bereits zugewiesen.'
+
+    duplicate_in_round = db.session.scalar(
+        select(DbNetsessionTourneyMatchSlot.id)
+        .join(
+            DbNetsessionTourneyMatch,
+            DbNetsessionTourneyMatch.id
+            == DbNetsessionTourneyMatchSlot.match_id,
+        )
+        .filter(DbNetsessionTourneyMatch.stage_id == db_match.stage_id)
+        .filter(DbNetsessionTourneyMatch.round_no == db_match.round_no)
+        .filter(DbNetsessionTourneyMatchSlot.participant_id == participant_id)
+        .filter(DbNetsessionTourneyMatchSlot.match_id != match_id)
+    )
+    if duplicate_in_round is not None:
+        return 'Der Teilnehmer ist in dieser Runde bereits zugewiesen.'
+
+    return None
+
+
+def _recalculate_match_state(
+    tournament_status: str,
+    db_match: DbNetsessionTourneyMatch,
+    match_id: MatchID,
+) -> MatchState:
+    """Recalculate and store the match's state from its slots."""
+    db_match_slots = db.session.scalars(
+        select(DbNetsessionTourneyMatchSlot)
+        .filter_by(match_id=match_id)
+        .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
+    ).all()
+    next_state = _calculate_match_state_for_slots(
+        tournament_status=tournament_status,
+        db_match_slots=db_match_slots,
+    )
+    db_match.state = next_state.value
+    db_match.updated_at = datetime.utcnow()
+    return next_state
+
+
+def _auto_advance_byes_of_match_stage(
+    tournament_id: TournamentID, db_match: DbNetsessionTourneyMatch
+) -> None:
+    db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
+    if db_stage is not None:
+        stage = _db_stage_to_model(db_stage)
+        _auto_advance_byes(
+            tournament_id,
+            stage,
+            engine=find_stage_engine(stage.type),
+        )

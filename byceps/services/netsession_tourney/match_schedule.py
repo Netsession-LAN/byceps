@@ -260,22 +260,9 @@ def _schedule_generated_matches(
         fallback=0,
     )
 
-    db_matches = db.session.scalars(
-        select(DbNetsessionTourneyMatch)
-        .filter(DbNetsessionTourneyMatch.id.in_(match_ids))
-        .order_by(
-            DbNetsessionTourneyMatch.round_no.asc(),
-            DbNetsessionTourneyMatch.match_no.asc(),
-        )
-    ).all()
-    if not db_matches:
+    db_matches_by_round_no = _get_db_matches_by_round_no(match_ids)
+    if not db_matches_by_round_no:
         return
-
-    db_matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(
-        list
-    )
-    for db_match in db_matches:
-        db_matches_by_round_no[db_match.round_no].append(db_match)
 
     if (
         tournament_starts_at is None
@@ -304,20 +291,60 @@ def _schedule_generated_matches(
                 db_match.scheduled_at = round_starts_at
             continue
 
-        max_concurrent_matches = max_matches_per_round or len(db_round_matches)
-
-        wave_count = 0
-        for index, db_match in enumerate(db_round_matches):
-            wave_no = index // max_concurrent_matches
-            db_match.scheduled_at = round_starts_at + timedelta(
-                minutes=wave_no * match_duration_minutes
-            )
-            wave_count = max(wave_count, wave_no + 1)
+        wave_count = _schedule_round_matches_in_waves(
+            db_round_matches,
+            round_starts_at,
+            match_duration_minutes=match_duration_minutes,
+            max_matches_per_round=max_matches_per_round,
+        )
 
         round_starts_at += timedelta(
             minutes=(wave_count * match_duration_minutes)
             + break_between_rounds_minutes
         )
+
+
+def _get_db_matches_by_round_no(
+    match_ids: list[MatchID],
+) -> dict[int, list[DbNetsessionTourneyMatch]]:
+    db_matches = db.session.scalars(
+        select(DbNetsessionTourneyMatch)
+        .filter(DbNetsessionTourneyMatch.id.in_(match_ids))
+        .order_by(
+            DbNetsessionTourneyMatch.round_no.asc(),
+            DbNetsessionTourneyMatch.match_no.asc(),
+        )
+    ).all()
+
+    db_matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(
+        list
+    )
+    for db_match in db_matches:
+        db_matches_by_round_no[db_match.round_no].append(db_match)
+
+    return db_matches_by_round_no
+
+
+def _schedule_round_matches_in_waves(
+    db_round_matches: list[DbNetsessionTourneyMatch],
+    round_starts_at: datetime,
+    *,
+    match_duration_minutes: int,
+    max_matches_per_round: int | None,
+) -> int:
+    """Schedule the round's matches in waves of at most
+    `max_matches_per_round` concurrent matches; return the number of waves."""
+    max_concurrent_matches = max_matches_per_round or len(db_round_matches)
+
+    wave_count = 0
+    for index, db_match in enumerate(db_round_matches):
+        wave_no = index // max_concurrent_matches
+        db_match.scheduled_at = round_starts_at + timedelta(
+            minutes=wave_no * match_duration_minutes
+        )
+        wave_count = max(wave_count, wave_no + 1)
+
+    return wave_count
 
 
 def _build_round_starts_at_schedule(

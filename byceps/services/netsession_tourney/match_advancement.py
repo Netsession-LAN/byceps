@@ -109,91 +109,111 @@ def _auto_advance_byes(
             )
         ).all()
         for db_match in db_matches:
-            db_slots = db.session.scalars(
-                select(DbNetsessionTourneyMatchSlot)
-                .filter_by(match_id=db_match.id)
-                .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
-            ).all()
-            filled_slots = [slot for slot in db_slots if slot.participant_id]
-            has_any_source_slots = any(
-                slot.source_match_slot_id is not None for slot in db_slots
-            )
-            # Auto-advance only hard byes, not unresolved feeder slots.
-            # A feeder slot with no participant is considered resolved if the
-            # source match is already completed and produced no winner/loser
-            # for that outcome path (e.g. loser path from a bye match).
-            unresolved_source_slots = [
-                slot
-                for slot in db_slots
-                if slot.participant_id is None
-                and slot.source_match_slot_id is not None
-                and (
-                    (
-                        source_slot := db.session.get(
-                            DbNetsessionTourneyMatchSlot,
-                            slot.source_match_slot_id,
-                        )
-                    )
-                    is None
-                    or (
-                        source_match := db.session.get(
-                            DbNetsessionTourneyMatch, source_slot.match_id
-                        )
-                    )
-                    is None
-                    or source_match.state != MatchState.completed.value
-                )
-            ]
-            if unresolved_source_slots:
-                continue
-
-            winner_slot_no: int | None = None
-            winner_participant_id: ParticipantID | None = None
-
-            if len(filled_slots) == 1:
-                winner_slot_no = filled_slots[0].slot_no
-                winner_participant_id = filled_slots[0].participant_id
-            elif len(filled_slots) == 0:
-                # Propagate an explicitly empty feeder path (e.g. LB branch fed
-                # only by bye matches), but never consume pre-created placeholder
-                # matches that do not have resolved feeder sources yet.
-                if not has_any_source_slots:
-                    continue
-                winner_slot_no = None
-                winner_participant_id = None
-            else:
-                continue
-
-            db_result = DbNetsessionTourneyMatchResult(
-                MatchResultID(generate_uuid7()),
-                db_match.id,
-                datetime.utcnow(),
-                winner_slot=winner_slot_no,
-                score_json={
-                    'walkover': True,
-                    'empty_match': len(filled_slots) == 0,
-                },
-                ranking_json={},
-                submitted_by_user_id=None,
-            )
-            db.session.add(db_result)
-            db_match.state = MatchState.completed.value
-            db_match.updated_at = datetime.utcnow()
-
-            _advance_stage_from_match(
-                tournament_id=tournament_id,
-                stage=stage,
-                source_match_id=db_match.id,
-                winner_participant_id=winner_participant_id,
-                engine=engine,
-            )
-            _update_optional_double_grand_final_state(
-                stage=stage, source_match_id=db_match.id
-            )
-            progressed = True
+            if _auto_advance_bye_match(
+                tournament_id, stage, db_match, engine=engine
+            ):
+                progressed = True
         db.session.commit()
         if not progressed:
             return
+
+
+def _auto_advance_bye_match(
+    tournament_id: TournamentID,
+    stage: Stage,
+    db_match: DbNetsessionTourneyMatch,
+    *,
+    engine: StageEngine,
+) -> bool:
+    """Complete the match as walkover if it is a bye; return whether it was."""
+    db_slots = db.session.scalars(
+        select(DbNetsessionTourneyMatchSlot)
+        .filter_by(match_id=db_match.id)
+        .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
+    ).all()
+    filled_slots = [slot for slot in db_slots if slot.participant_id]
+    has_any_source_slots = any(
+        slot.source_match_slot_id is not None for slot in db_slots
+    )
+    # Auto-advance only hard byes, not unresolved feeder slots.
+    # A feeder slot with no participant is considered resolved if the
+    # source match is already completed and produced no winner/loser
+    # for that outcome path (e.g. loser path from a bye match).
+    unresolved_source_slots = [
+        slot for slot in db_slots if _is_unresolved_source_slot(slot)
+    ]
+    if unresolved_source_slots:
+        return False
+
+    winner_slot_no: int | None = None
+    winner_participant_id: ParticipantID | None = None
+
+    if len(filled_slots) == 1:
+        winner_slot_no = filled_slots[0].slot_no
+        winner_participant_id = filled_slots[0].participant_id
+    elif len(filled_slots) == 0:
+        # Propagate an explicitly empty feeder path (e.g. LB branch fed
+        # only by bye matches), but never consume pre-created placeholder
+        # matches that do not have resolved feeder sources yet.
+        if not has_any_source_slots:
+            return False
+        winner_slot_no = None
+        winner_participant_id = None
+    else:
+        return False
+
+    db_result = DbNetsessionTourneyMatchResult(
+        MatchResultID(generate_uuid7()),
+        db_match.id,
+        datetime.utcnow(),
+        winner_slot=winner_slot_no,
+        score_json={
+            'walkover': True,
+            'empty_match': len(filled_slots) == 0,
+        },
+        ranking_json={},
+        submitted_by_user_id=None,
+    )
+    db.session.add(db_result)
+    db_match.state = MatchState.completed.value
+    db_match.updated_at = datetime.utcnow()
+
+    _advance_stage_from_match(
+        tournament_id=tournament_id,
+        stage=stage,
+        source_match_id=db_match.id,
+        winner_participant_id=winner_participant_id,
+        engine=engine,
+    )
+    _update_optional_double_grand_final_state(
+        stage=stage, source_match_id=db_match.id
+    )
+    return True
+
+
+def _is_unresolved_source_slot(slot: DbNetsessionTourneyMatchSlot) -> bool:
+    """Tell whether the slot is an empty feeder slot whose source match is
+    missing or not completed yet."""
+    return (
+        slot.participant_id is None
+        and slot.source_match_slot_id is not None
+        and (
+            (
+                source_slot := db.session.get(
+                    DbNetsessionTourneyMatchSlot,
+                    slot.source_match_slot_id,
+                )
+            )
+            is None
+            or (
+                source_match := db.session.get(
+                    DbNetsessionTourneyMatch, source_slot.match_id
+                )
+            )
+            is None
+            or source_match.state != MatchState.completed.value
+        )
+    )
 
 
 def _advance_stage_from_match(
@@ -210,15 +230,7 @@ def _advance_stage_from_match(
         return
 
     if stage.type == StageType.swiss:
-        ready_match_ids = _seed_swiss_follow_up_rounds(
-            tournament_id=tournament_id,
-            stage=stage,
-        ) or []
-        for match_id in ready_match_ids:
-            db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
-            if db_match is None:
-                continue
-            _enqueue_match_ready_notifications(db_match)
+        _advance_swiss_stage(tournament_id, stage)
         return
 
     source_slot = db.session.scalar(
@@ -234,17 +246,9 @@ def _advance_stage_from_match(
         .filter_by(match_id=source_match_id)
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
-    source_participant_ids = [
-        slot.participant_id
-        for slot in source_match_slots
-        if slot.participant_id is not None
-    ]
-    loser_participant_id: ParticipantID | None = None
-    if winner_participant_id is not None:
-        for participant_id in source_participant_ids:
-            if participant_id != winner_participant_id:
-                loser_participant_id = participant_id
-                break
+    loser_participant_id = _find_loser_participant_id(
+        source_match_slots, winner_participant_id
+    )
 
     downstream_db_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot).filter_by(
@@ -266,23 +270,9 @@ def _advance_stage_from_match(
         StageType.ffa_single_elimination,
         StageType.ffa_flatout2_single_elimination,
     }:
-        ranked_participant_ids = _get_ffa_single_elimination_qualifier_ids(
-            source_match_id,
-            source_match_slots,
-            len(downstream_winner_slots),
+        updates = _build_ffa_qualifier_updates(
+            source_match_id, source_match_slots, downstream_winner_slots
         )
-        updates = [
-            (
-                match_id,
-                slot_no,
-                ranked_participant_ids[index]
-                if index < len(ranked_participant_ids)
-                else None,
-            )
-            for index, (match_id, slot_no) in enumerate(
-                sorted(downstream_winner_slots, key=lambda item: (item[0], item[1]))
-            )
-        ]
     else:
         updates = engine.advance(
             stage, winner_participant_id, downstream_winner_slots
@@ -295,6 +285,85 @@ def _advance_stage_from_match(
         )
         for match_id, slot_no in downstream_loser_slots
     )
+    ready_match_ids = _apply_downstream_slot_updates(tournament_id, updates)
+
+    db.session.commit()
+
+    _enqueue_notifications_for_still_ready_matches(ready_match_ids)
+    db.session.commit()
+
+
+def _enqueue_notifications_for_still_ready_matches(
+    ready_match_ids: set[MatchID],
+) -> None:
+    for match_id in ready_match_ids:
+        db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
+        if db_match is None or db_match.state != MatchState.ready.value:
+            continue
+
+        _enqueue_match_ready_notifications(db_match)
+
+
+def _advance_swiss_stage(tournament_id: TournamentID, stage: Stage) -> None:
+    ready_match_ids = _seed_swiss_follow_up_rounds(
+        tournament_id=tournament_id,
+        stage=stage,
+    ) or []
+    for match_id in ready_match_ids:
+        db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
+        if db_match is None:
+            continue
+        _enqueue_match_ready_notifications(db_match)
+
+
+def _find_loser_participant_id(
+    source_match_slots: list[DbNetsessionTourneyMatchSlot],
+    winner_participant_id: ParticipantID | None,
+) -> ParticipantID | None:
+    source_participant_ids = [
+        slot.participant_id
+        for slot in source_match_slots
+        if slot.participant_id is not None
+    ]
+    loser_participant_id: ParticipantID | None = None
+    if winner_participant_id is not None:
+        for participant_id in source_participant_ids:
+            if participant_id != winner_participant_id:
+                loser_participant_id = participant_id
+                break
+    return loser_participant_id
+
+
+def _build_ffa_qualifier_updates(
+    source_match_id: MatchID,
+    source_match_slots: list[DbNetsessionTourneyMatchSlot],
+    downstream_winner_slots: list[tuple[MatchID, int]],
+) -> list[tuple[MatchID, int, ParticipantID | None]]:
+    ranked_participant_ids = _get_ffa_single_elimination_qualifier_ids(
+        source_match_id,
+        source_match_slots,
+        len(downstream_winner_slots),
+    )
+    return [
+        (
+            match_id,
+            slot_no,
+            ranked_participant_ids[index]
+            if index < len(ranked_participant_ids)
+            else None,
+        )
+        for index, (match_id, slot_no) in enumerate(
+            sorted(downstream_winner_slots, key=lambda item: (item[0], item[1]))
+        )
+    ]
+
+
+def _apply_downstream_slot_updates(
+    tournament_id: TournamentID,
+    updates: list[tuple[MatchID, int, ParticipantID | None]],
+) -> set[MatchID]:
+    """Put participants into downstream slots and recalculate the states of
+    the affected matches; return the IDs of matches that became ready."""
     ready_match_ids: set[MatchID] = set()
     for match_id, slot_no, participant_id in updates:
         db_slot = db.session.scalar(
@@ -322,13 +391,4 @@ def _advance_stage_from_match(
         db_match.updated_at = datetime.utcnow()
         if previous_state != MatchState.ready and next_state == MatchState.ready:
             ready_match_ids.add(match_id)
-
-    db.session.commit()
-
-    for match_id in ready_match_ids:
-        db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
-        if db_match is None or db_match.state != MatchState.ready.value:
-            continue
-
-        _enqueue_match_ready_notifications(db_match)
-    db.session.commit()
+    return ready_match_ids
