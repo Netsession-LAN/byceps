@@ -3,7 +3,10 @@
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
-from byceps.services.netsession_tourney import service as tourney_service
+from byceps.services.netsession_tourney import (
+    tournament_category_service,
+    tournament_service,
+)
 from byceps.services.netsession_tourney.models import (
     RegistrationMode,
     TournamentMode,
@@ -12,7 +15,7 @@ from tests.helpers import generate_token, http_client
 
 
 def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_user):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-public-' + generate_token().lower(),
         'NS Public Visibility',
@@ -62,19 +65,19 @@ def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_
 def test_tournaments_are_grouped_by_category_on_index(
     site_app, party, admin_user
 ):
-    main_category_result = tourney_service.create_tournament_category(
+    main_category_result = tournament_category_service.create_tournament_category(
         party.id, 'Hauptturnier'
     )
     assert main_category_result.is_ok()
     main_category = main_category_result.unwrap()
 
-    side_category_result = tourney_service.create_tournament_category(
+    side_category_result = tournament_category_service.create_tournament_category(
         party.id, 'Nebenturnier'
     )
     assert side_category_result.is_ok()
     side_category = side_category_result.unwrap()
 
-    main_tourney_result = tourney_service.create_tournament(
+    main_tourney_result = tournament_service.create_tournament(
         party.id,
         'ns-main-ui-' + generate_token().lower(),
         'Main UI Cup',
@@ -85,7 +88,7 @@ def test_tournaments_are_grouped_by_category_on_index(
     )
     assert main_tourney_result.is_ok()
 
-    side_tourney_result = tourney_service.create_tournament(
+    side_tourney_result = tournament_service.create_tournament(
         party.id,
         'ns-side-ui-' + generate_token().lower(),
         'Side UI Cup',
@@ -106,7 +109,7 @@ def test_tournaments_are_grouped_by_category_on_index(
 
 
 def test_anonymous_user_cannot_register(site_app, party, admin_user):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-anon-register-' + generate_token().lower(),
         'NS Anonymous Register Forbidden',

@@ -15,7 +15,7 @@ from byceps.application import create_worker_app
 from byceps.config.integration import (
     read_configuration_from_file_given_in_env_var,
 )
-from byceps.services.netsession_tourney.service import (
+from byceps.services.netsession_tourney.discord_dm_service import (
     get_configured_discord_bot_credentials,
 )
 from byceps.util.result import Err, Ok

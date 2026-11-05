@@ -47,33 +47,16 @@ from ...logo_service import (
     upload_tournament_logo_image,
 )
 from ...models import RuleTemplateBodyFormat
-from ...service import (
-    adjust_user_coins,
-    configure_browser_push,
-    configure_coin_settings,
-    configure_discord_dm,
-    get_active_participant_counts_for_tournaments,
-    count_browser_push_subscribed_participants_for_tournament,
-    create_tournament_category,
-    create_tournament_prize,
-    create_tournament_rule_template,
-    delete_tournament_prize,
-    get_browser_push_config,
-    get_coin_settings,
-    get_discord_dm_config,
-    get_masked_discord_dm_bot_token,
-    get_recent_coin_ledger_entries_for_user,
-    get_ticket_category_coin_settings_for_party,
-    get_tournament_categories_for_party,
-    get_tournament_rule_templates_for_party,
-    get_tournaments_for_party,
-    get_user_coin_balance,
-    move_tournament_category_down,
-    move_tournament_category_up,
-    send_test_discord_dm,
-    update_tournament_category,
-    update_tournament_prize,
-    update_tournament_rule_template,
+from ... import (
+    browser_push_service,
+    coin_service,
+    discord_dm_outbox,
+    discord_dm_service,
+    participant_admin_service,
+    tournament_category_service,
+    tournament_prize_service,
+    tournament_rule_template_service,
+    tournament_service,
 )
 from .result_helpers import _get_party_or_404, _get_tournament_or_404, _parse_csv
 from .wizard_helpers import (
@@ -93,11 +76,11 @@ def register(blueprint):
     @templated
     def index(party_id):
         party = _get_party_or_404(party_id)
-        tournaments = get_tournaments_for_party(party.id)
-        categories = get_tournament_categories_for_party(party.id)
+        tournaments = tournament_service.get_tournaments_for_party(party.id)
+        categories = tournament_category_service.get_tournament_categories_for_party(party.id)
         categories_by_id = {category.id: category for category in categories}
         active_participant_counts_by_tournament_id = (
-            get_active_participant_counts_for_tournaments(
+            participant_admin_service.get_active_participant_counts_for_tournaments(
                 party.id,
                 {tournament.id for tournament in tournaments},
             )
@@ -117,7 +100,7 @@ def register(blueprint):
     @templated('admin/netsession_tourney/category/index')
     def category_index(party_id):
         party = _get_party_or_404(party_id)
-        categories = get_tournament_categories_for_party(party.id)
+        categories = tournament_category_service.get_tournament_categories_for_party(party.id)
         return {
             'party': party,
             'categories': categories,
@@ -148,7 +131,7 @@ def register(blueprint):
             if isinstance(erroneous_form, BrowserPushConfigForm)
             else BrowserPushConfigForm()
         )
-        browser_push_config = get_browser_push_config(party.id)
+        browser_push_config = browser_push_service.get_browser_push_config(party.id)
         if not isinstance(erroneous_form, BrowserPushConfigForm):
             browser_push_form.enabled.data = browser_push_config.enabled
 
@@ -157,7 +140,7 @@ def register(blueprint):
             if isinstance(erroneous_form, DiscordDmConfigForm)
             else DiscordDmConfigForm()
         )
-        discord_dm_config = get_discord_dm_config(party.id)
+        discord_dm_config = discord_dm_service.get_discord_dm_config(party.id)
         if not isinstance(erroneous_form, DiscordDmConfigForm):
             discord_dm_form.enabled.data = discord_dm_config.enabled
             discord_dm_form.application_id.data = discord_dm_config.application_id
@@ -165,9 +148,9 @@ def register(blueprint):
                 discord_dm_config.default_event_mask
             )
 
-        tournaments = get_tournaments_for_party(party.id)
+        tournaments = tournament_service.get_tournaments_for_party(party.id)
         subscribed_counts_by_tournament_id = {
-            tournament.id: count_browser_push_subscribed_participants_for_tournament(
+            tournament.id: browser_push_service.count_browser_push_subscribed_participants_for_tournament(
                 party.id, tournament.id
             )
             for tournament in tournaments
@@ -179,7 +162,7 @@ def register(blueprint):
             'browser_push_form': browser_push_form,
             'discord_dm_config': discord_dm_config,
             'discord_dm_form': discord_dm_form,
-            'discord_dm_bot_token_masked': get_masked_discord_dm_bot_token(
+            'discord_dm_bot_token_masked': discord_dm_service.get_masked_discord_dm_bot_token(
                 party.id
             ),
             'tournaments': tournaments,
@@ -196,7 +179,7 @@ def register(blueprint):
             flash_error(gettext('Browser-Benachrichtigungen konnten nicht gespeichert werden.'))
             return notifications_index(party.id, form)
 
-        match configure_browser_push(
+        match browser_push_service.configure_browser_push(
             party.id,
             enabled=bool(form.enabled.data),
         ):
@@ -223,7 +206,7 @@ def register(blueprint):
 
         default_event_mask = _parse_csv(form.default_event_mask.data)
 
-        match configure_discord_dm(
+        match discord_dm_service.configure_discord_dm(
             party.id,
             enabled=bool(form.enabled.data),
             application_id=form.application_id.data,
@@ -247,7 +230,7 @@ def register(blueprint):
     def notifications_discord_dm_send_test(party_id):
         party = _get_party_or_404(party_id)
 
-        match send_test_discord_dm(party.id, g.user.id):
+        match discord_dm_outbox.send_test_discord_dm(party.id, g.user.id):
             case Err(message):
                 flash_error(gettext(message))
             case Ok(_):
@@ -265,11 +248,11 @@ def register(blueprint):
         party_id, erroneous_settings_form=None, erroneous_adjustment_form=None
     ):
         party = _get_party_or_404(party_id)
-        settings = get_coin_settings(party.id)
+        settings = coin_service.get_coin_settings(party.id)
         categories = ticket_category_service.get_categories_for_party(party.id)
         category_amounts_by_id = {
             item.ticket_category_id: item.coin_amount
-            for item in get_ticket_category_coin_settings_for_party(party.id)
+            for item in coin_service.get_ticket_category_coin_settings_for_party(party.id)
         }
 
         settings_form = (
@@ -296,12 +279,12 @@ def register(blueprint):
             else None
         )
         selected_user_balance = (
-            get_user_coin_balance(party.id, selected_user.id)
+            coin_service.get_user_coin_balance(party.id, selected_user.id)
             if selected_user is not None
             else None
         )
         recent_coin_entries = (
-            get_recent_coin_ledger_entries_for_user(party.id, selected_user.id)
+            coin_service.get_recent_coin_ledger_entries_for_user(party.id, selected_user.id)
             if selected_user is not None
             else []
         )
@@ -370,7 +353,7 @@ def register(blueprint):
 
             category_coin_amounts[category.id] = amount
 
-        match configure_coin_settings(
+        match coin_service.configure_coin_settings(
             party.id,
             g.user.as_user(),
             enabled=bool(form.enabled.data),
@@ -433,7 +416,7 @@ def register(blueprint):
 
         amount_delta = plus_amount if plus_amount else -minus_amount
 
-        match adjust_user_coins(
+        match coin_service.adjust_user_coins(
             party.id,
             user.id,
             amount_delta,
@@ -793,7 +776,7 @@ def register(blueprint):
         if not form.validate():
             return category_create_form(party.id, form)
 
-        match create_tournament_category(party.id, form.title.data):
+        match tournament_category_service.create_tournament_category(party.id, form.title.data):
             case Ok(category):
                 flash_success(
                     gettext(
@@ -836,7 +819,7 @@ def register(blueprint):
         if not form.validate():
             return category_update_form(category.id, form)
 
-        match update_tournament_category(category.id, form.title.data):
+        match tournament_category_service.update_tournament_category(category.id, form.title.data):
             case Ok(updated_category):
                 flash_success(
                     gettext(
@@ -857,7 +840,7 @@ def register(blueprint):
     def category_move_up(category_id):
         category = _get_tournament_category_or_404(category_id)
 
-        match move_tournament_category_up(category.id):
+        match tournament_category_service.move_tournament_category_up(category.id):
             case Ok(_):
                 flash_success(gettext('Kategorie wurde nach oben verschoben.'))
             case Err(message):
@@ -870,7 +853,7 @@ def register(blueprint):
     def category_move_down(category_id):
         category = _get_tournament_category_or_404(category_id)
 
-        match move_tournament_category_down(category.id):
+        match tournament_category_service.move_tournament_category_down(category.id):
             case Ok(_):
                 flash_success(gettext('Kategorie wurde nach unten verschoben.'))
             case Err(message):
@@ -882,7 +865,7 @@ def register(blueprint):
     @templated('admin/netsession_tourney/rule_template/index')
     def rule_template_index(party_id):
         party = _get_party_or_404(party_id)
-        rule_templates = get_tournament_rule_templates_for_party(party.id)
+        rule_templates = tournament_rule_template_service.get_tournament_rule_templates_for_party(party.id)
         return {
             'party': party,
             'rule_templates': rule_templates,
@@ -913,7 +896,7 @@ def register(blueprint):
         if not form.validate():
             return rule_template_create_form(party.id, form)
 
-        match create_tournament_rule_template(
+        match tournament_rule_template_service.create_tournament_rule_template(
             party.id,
             form.slug.data,
             form.title.data,
@@ -969,7 +952,7 @@ def register(blueprint):
         if not form.validate():
             return rule_template_update_form(rule_template.id, form)
 
-        match update_tournament_rule_template(
+        match tournament_rule_template_service.update_tournament_rule_template(
             rule_template.id,
             form.slug.data,
             form.title.data,
@@ -1020,7 +1003,7 @@ def register(blueprint):
         if not form.validate():
             return tournament_prize_create_form(party.id, tournament.id, form)
 
-        match create_tournament_prize(
+        match tournament_prize_service.create_tournament_prize(
             tournament.id,
             form.position.data,
             RuleTemplateBodyFormat(form.body_format.data),
@@ -1096,7 +1079,7 @@ def register(blueprint):
                 party.id, tournament.id, prize.id, form
             )
 
-        match update_tournament_prize(
+        match tournament_prize_service.update_tournament_prize(
             prize.id,
             form.position.data,
             RuleTemplateBodyFormat(form.body_format.data),
@@ -1134,7 +1117,7 @@ def register(blueprint):
         if prize.tournament_id != tournament.id:
             abort(404)
 
-        match delete_tournament_prize(prize.id):
+        match tournament_prize_service.delete_tournament_prize(prize.id):
             case Ok(_):
                 flash_success(
                     gettext(

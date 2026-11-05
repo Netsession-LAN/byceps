@@ -15,11 +15,13 @@ from byceps.util.views import jsonified
 
 from ...models import TournamentMode, TournamentStatus
 from ...observability_service import record_api_request_metric
-from ...service import (
-    find_tournament_for_party,
-    get_matches_for_tournament,
+from ...match_queries import get_matches_for_tournament
+from ...tournament_queries import (
     get_participants_for_tournament,
     get_stages_for_tournament,
+)
+from ...tournament_service import (
+    find_tournament_for_party,
     get_tournaments_for_party,
 )
 

@@ -38,28 +38,27 @@ from ...logo_service import (
     upload_logo_image,
 )
 from ...models import ParticipantStatus
-from ...service import (
-    add_team_member_by_admin,
+from ...discord_service import configure_discord
+from ...flatout2_rounds import set_flatout2_match_host_by_admin
+from ...match_queries import get_match_slots, get_matches_for_tournament
+from ...match_schedule import reschedule_match
+from ...participant_admin_service import (
     add_user_participant_by_admin,
-    apply_walkover_result,
-    assign_team_captain_by_admin,
-    configure_discord,
-    create_team_by_admin,
-    delete_match_result_by_admin,
     disqualify_participant,
-    get_match_slots,
-    get_matches_for_tournament,
-    get_stages_for_tournament,
-    open_match_dispute,
     remove_participant_by_admin,
-    remove_team_member_by_admin,
-    report_result,
-    reschedule_match,
-    set_flatout2_match_host_by_admin,
-    set_match_slot_participant_by_admin,
-    set_participant_seed,
     set_participant_status,
 )
+from ...result_deletion import delete_match_result_by_admin, open_match_dispute
+from ...result_service import apply_walkover_result, report_result
+from ...seed_service import set_participant_seed
+from ...slot_assignment import set_match_slot_participant_by_admin
+from ...team_admin_service import (
+    add_team_member_by_admin,
+    assign_team_captain_by_admin,
+    create_team_by_admin,
+    remove_team_member_by_admin,
+)
+from ...tournament_queries import get_stages_for_tournament
 from .result_helpers import (
     _build_score_payload,
     _get_or_create_idempotency_key,

@@ -16,8 +16,8 @@ from uuid import UUID
 from flask_babel import gettext
 
 from ...models import StageType
-from ...service import (
-    _build_swiss_round_layout,
+from ...swiss_stage import _build_swiss_round_layout
+from ...swiss_thresholds import (
     _get_round_count_for_swiss_stage,
     _get_swiss_threshold_for_stage,
 )

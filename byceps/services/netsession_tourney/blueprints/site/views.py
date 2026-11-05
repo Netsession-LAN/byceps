@@ -9,9 +9,7 @@ byceps.services.netsession_tourney.blueprints.site.views
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, time, timedelta
-import math
-from typing import Any
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -53,73 +51,81 @@ from ...models import (
     MatchState,
     ParticipantType,
     RegistrationMode,
-    RuleTemplateBodyFormat,
     StageType,
     TeamMemberRole,
     TournamentMode,
     TournamentRuleTemplate,
     TournamentStatus,
 )
-from ...service import (
-    _build_swiss_round_layout,
-    _get_round_count_for_swiss_stage,
-    _get_swiss_threshold_for_stage,
-    add_team_member_by_captain,
-    assign_team_captain_by_captain,
-    can_user_access_match_chat,
-    create_team_for_captain,
-    deregister_user,
-    find_tournament_rule_template_by_slug_for_party,
-    find_managed_team_for_user,
-    find_match_for_tournament,
-    find_tournament_by_slug_for_party,
-    get_active_participant_counts_for_tournaments,
+from ...browser_push_service import (
+    disable_browser_push_subscription,
     get_browser_push_public_key_for_party,
-    get_coin_settings,
-    get_match_chat_messages,
-    get_match_slots_for_match,
-    get_match_timeline_entries,
-    get_match_results,
-    get_match_slots,
-    get_matches_for_tournament,
-    get_open_matches_for_party,
-    get_participants_by_ids,
-    get_participants_for_tournament,
-    get_tournament_admin_user_ids,
-    get_tournament_categories_for_party,
-    get_tournament_prizes_for_tournament,
-    get_stages_for_tournament,
-    is_stage_result_reporting_admin_only,
-    get_team_members_for_participants,
-    get_team_invite_code_for_manager,
-    get_tournaments_for_party,
-    get_user_coin_balance,
-    get_user_active_participation_tournament_ids,
     has_active_browser_push_subscription_for_user,
     is_browser_push_enabled_for_party,
-    is_tournament_coin_refund_available,
-    join_team_by_invite_code,
-    post_match_chat_message,
-    regenerate_team_invite_code_for_manager,
-    register_user,
-    remove_team_member_by_captain,
-    report_result,
-    set_managed_team_ready_state,
-    disable_browser_push_subscription,
-    disable_discord_dm_subscription,
     upsert_browser_push_subscription,
-    upsert_discord_dm_subscription,
-    update_managed_team_for_captain,
+)
+from ...discord_dm_service import (
+    disable_discord_dm_subscription,
     has_active_discord_dm_subscription_for_user,
     is_discord_dm_enabled_for_party,
+    upsert_discord_dm_subscription,
+)
+from ...double_grand_final import get_match_results
+from ...match_chat_service import (
+    can_user_access_match_chat,
+    get_match_chat_messages,
+    post_match_chat_message,
+)
+from ...match_queries import (
+    find_match_for_tournament,
+    get_match_slots,
+    get_match_slots_for_match,
+    get_match_timeline_entries,
+    get_matches_for_tournament,
+    get_open_matches_for_party,
+)
+from ...participant_admin_service import (
+    get_active_participant_counts_for_tournaments,
+    get_participants_by_ids,
+)
+from ...registration_service import deregister_user, register_user
+from ...registration_validation import get_team_members_for_participants
+from ...result_report_mode import is_stage_result_reporting_admin_only
+from ...result_service import report_result
+from ...team_captain_service import (
+    create_team_for_captain,
+    set_managed_team_ready_state,
+    update_managed_team_for_captain,
+)
+from ...team_invite_service import (
+    get_team_invite_code_for_manager,
+    join_team_by_invite_code,
+    regenerate_team_invite_code_for_manager,
+)
+from ...team_member_service import (
+    add_team_member_by_captain,
+    assign_team_captain_by_captain,
+    remove_team_member_by_captain,
+)
+from ...tournament_admin_service import get_tournament_admin_user_ids
+from ...tournament_category_service import get_tournament_categories_for_party
+from ...tournament_prize_service import get_tournament_prizes_for_tournament
+from ...tournament_queries import (
+    get_participants_for_tournament,
+    get_stages_for_tournament,
+    get_user_active_participation_tournament_ids,
+)
+from ...tournament_rule_template_service import (
+    find_tournament_rule_template_by_slug_for_party,
+)
+from ...tournament_service import (
+    find_tournament_by_slug_for_party,
+    get_tournaments_for_party,
 )
 from .stage_filters import (
     _is_ffa_scoring_stage,
-    _is_ffa_simple_stage,
     _is_ffa_single_elimination_stage,
     _is_flatout2_stage,
-    _is_round_based_duel_stage,
-    _is_swiss_stage,
     _uses_only_ffa_scoring_stages,
     _uses_only_ffa_simple_stages,
     _uses_only_ffa_single_elimination_stages,
@@ -131,31 +137,17 @@ from .match_helpers import (
     _build_match_labels,
     _build_skipped_double_grand_final_match_ids,
     _build_slot_scores_by_match_id,
-    _is_skipped_double_grand_final_result,
     _parse_slot_scores,
 )
-from .builder_helpers import (
-    _build_pending_builder_round_summary_lines,
-    _get_builder_container_child_stages,
-    _get_materialized_builder_container_stages,
-    _has_materialized_builder_container_stage,
-    _is_materialized_builder_container_stage,
-)
+from .builder_helpers import _get_materialized_builder_container_stages
 from .builder_display_helpers import (
     _build_builder_stage_summary_lines,
     _get_builder_main_display_stages,
-    _get_flatout2_builder_bracket_display_stages,
     _get_materialized_builder_round_robin_group_stages,
-    _get_materialized_builder_round_robin_summary_stage,
-    _has_materialized_builder_round_robin_summary_stage,
     _select_matches_for_public_bracket,
 )
 from .bracket_helpers import _build_bracket_sections, build_bracket_data
 from .presentation_helpers import (
-    _build_match_overview_slot_data,
-    _build_round_time_range_label,
-    _combine_stage_section_title,
-    _get_ffa_points_per_kill,
     _get_stage_duration_minutes,
     _select_builder_stage_section,
 )
@@ -169,7 +161,6 @@ from .ranking_helpers import (
     _build_ffa_ranking_rows,
     _build_flatout2_ranking_rows,
     _build_ranking_rows,
-    _build_swiss_ranking_groups,
     _has_rankable_results,
 )
 from .stage_render_helpers import (

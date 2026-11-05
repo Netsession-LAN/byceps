@@ -10,7 +10,9 @@ from byceps.application import create_worker_app
 from byceps.config.integration import (
     read_configuration_from_file_given_in_env_var,
 )
-from byceps.services.netsession_tourney.service import process_discord_dm_outbox
+from byceps.services.netsession_tourney.discord_dm_outbox import (
+    process_discord_dm_outbox,
+)
 
 
 @click.command()

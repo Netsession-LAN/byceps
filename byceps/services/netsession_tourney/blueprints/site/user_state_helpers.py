@@ -23,14 +23,16 @@ from ...models import (
     TournamentMode,
     TournamentStatus,
 )
-from ...service import (
-    find_managed_team_for_user,
-    get_active_participant_counts_for_tournaments,
+from ...coin_service import (
     get_coin_settings,
-    get_user_active_participation_tournament_ids,
     get_user_coin_balance,
     is_tournament_coin_refund_available,
 )
+from ...participant_admin_service import (
+    get_active_participant_counts_for_tournaments,
+)
+from ...team_captain_service import find_managed_team_for_user
+from ...tournament_queries import get_user_active_participation_tournament_ids
 from .flatout2_public_rendering import get_flatout2_host_participant_id
 from .stage_filters import _is_flatout2_stage
 

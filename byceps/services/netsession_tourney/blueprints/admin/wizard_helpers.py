@@ -44,18 +44,19 @@ from ...models import (
     DiscordForumImageAssetID,
     RegistrationMode,
     SponsorLogoAssetID,
-    StageType,
     TournamentCategoryID,
     TournamentLogoAssetID,
     TournamentPrizeID,
     TournamentMode,
     TournamentRuleTemplateID,
 )
-from ...service import (
+from ...tournament_category_service import (
     find_tournament_category,
-    find_tournament_prize,
-    find_tournament_rule_template,
     get_tournament_categories_for_party,
+)
+from ...tournament_prize_service import find_tournament_prize
+from ...tournament_rule_template_service import (
+    find_tournament_rule_template,
     get_tournament_rule_templates_for_party,
 )
 from .route_config import (
@@ -63,7 +64,6 @@ from .route_config import (
     DISCORD_FORUM_EVENT_CHOICES,
     STAGE_BUILDER_WIZARD_SESSION_KEY,
 )
-from .stage_builder_helpers import _get_stage_builder_default_main_stage_size
 
 
 def _set_category_choices_for_form(

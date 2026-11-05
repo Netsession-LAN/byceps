@@ -19,12 +19,12 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 from byceps.util.views import redirect_to
 
-from ...service import (
-    find_tournament_for_party,
-    get_matches_for_tournament,
+from ...match_queries import get_matches_for_tournament
+from ...tournament_queries import (
     get_participants_for_tournament,
     get_stages_for_tournament,
 )
+from ...tournament_service import find_tournament_for_party
 
 
 def _get_party_or_404(party_id) -> Party:

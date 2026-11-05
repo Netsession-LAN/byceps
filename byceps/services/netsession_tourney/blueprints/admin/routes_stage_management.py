@@ -29,18 +29,14 @@ from ...forms import (
     StageForm,
 )
 from ...models import Match, ParticipantID, StageID, StageType
-from ...service import (
-    build_stage_builder_plan,
-    create_stage,
-    delete_stage,
-    generate_stage_matches,
-    get_matches_for_tournament,
-    get_stage_generation_participants,
-    get_stages_for_tournament,
-    preview_stage_match_generation,
-    set_stage_generation_seeds,
-    update_stage,
-)
+from ...generation_participants import get_stage_generation_participants
+from ...match_generation import generate_stage_matches
+from ...match_queries import get_matches_for_tournament
+from ...seed_service import set_stage_generation_seeds
+from ...stage_builder_service import build_stage_builder_plan
+from ...stage_generation import preview_stage_match_generation
+from ...stage_service import create_stage, delete_stage, update_stage
+from ...tournament_queries import get_stages_for_tournament
 from .result_helpers import (
     _get_party_or_404,
     _get_stage_or_404,

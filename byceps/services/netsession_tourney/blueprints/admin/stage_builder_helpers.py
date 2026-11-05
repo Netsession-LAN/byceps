@@ -8,7 +8,6 @@ byceps.services.netsession_tourney.blueprints.admin.stage_builder_helpers
 
 from __future__ import annotations
 
-import random
 import re
 from uuid import UUID
 
@@ -34,7 +33,6 @@ from ...flatout2 import (
     FLATOUT2_TRACK_SET_BY_MODE,
     FLATOUT2_VEHICLE_CHOICES_BY_MODE,
     FLATOUT2_VEHICLE_SET_BY_MODE,
-    get_flatout2_mode_label,
 )
 from ...models import (
     Match,
@@ -46,16 +44,16 @@ from ...models import (
     TournamentID,
     TournamentMode,
 )
-from ...service import (
+from ...result_report_mode import RESULT_REPORT_MODE_ADMIN_ONLY
+from ...stage_builder_preview import preview_stage_builder_plan
+from ...stage_builder_settings import STAGE_BUILDER_MAIN_STAGE_SIZES
+from ...stage_generation import preview_stage_match_generation
+from ...swiss_thresholds import (
     _get_configured_swiss_threshold,
     _get_swiss_round_count_for_threshold,
     _get_swiss_threshold_for_round_count,
-    RESULT_REPORT_MODE_ADMIN_ONLY,
-    STAGE_BUILDER_MAIN_STAGE_SIZES,
-    get_stages_for_tournament,
-    preview_stage_builder_plan,
-    preview_stage_match_generation,
 )
+from ...tournament_queries import get_stages_for_tournament
 
 
 def _is_stage_builder_main_complete(state: dict) -> bool:

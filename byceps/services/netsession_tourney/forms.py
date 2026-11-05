@@ -33,8 +33,10 @@ from .models import (
     StageType,
     TournamentMode,
 )
-from .service import get_available_stage_type_specs
-from .service import is_stage_type_compatible_with_registration_mode
+from .stage_service import get_available_stage_type_specs
+from .registration_validation import (
+    is_stage_type_compatible_with_registration_mode,
+)
 
 
 SLUG_REGEX = re.compile(r'^[a-z0-9-]+$')
@@ -715,110 +717,6 @@ class StageForm(LocalizedForm):
             (3, '3'),
             (4, '4'),
         ]
-
-
-class StageBuilderForm(LocalizedForm):
-    generation_basis = SelectField(
-        lazy_gettext('Generierungsbasis'),
-        validators=[InputRequired()],
-    )
-    main_stage_type = SelectField(
-        lazy_gettext('Main Stage Typ'),
-        validators=[InputRequired()],
-    )
-    main_stage_size = SelectField(
-        lazy_gettext('Main Stage Größe'),
-        validators=[InputRequired()],
-    )
-    max_players_per_match = SelectField(
-        lazy_gettext('Maximale Teilnehmer pro Match'),
-        validators=[Optional()],
-        choices=[('', '-')],
-        coerce=_to_optional_int,
-    )
-    use_preliminary = BooleanField(
-        lazy_gettext('Vorrunde automatisch verwenden, falls nötig'),
-        default=True,
-    )
-    preliminary_type = SelectField(
-        lazy_gettext('Vorrundenformat'),
-        validators=[Optional()],
-    )
-    round_robin_builder_mode = SelectField(
-        lazy_gettext('Round-Robin-Strategie'),
-        validators=[Optional()],
-    )
-    round_robin_group_count = IntegerField(
-        lazy_gettext('Gruppenzahl (Expertenoption)'),
-        validators=[Optional(), NumberRange(min=2, max=128)],
-    )
-    swiss_threshold = SelectField(
-        lazy_gettext('Swiss-Schwelle'),
-        validators=[Optional()],
-        choices=[('', '-')],
-        coerce=_to_optional_int,
-    )
-    match_duration_minutes = IntegerField(
-        lazy_gettext('Matchdauer (Minuten)'),
-        validators=[Optional(), NumberRange(min=1, max=240)],
-    )
-    max_matches_per_round = IntegerField(
-        lazy_gettext('Maximale Matches pro Runde'),
-        validators=[Optional(), NumberRange(min=1, max=256)],
-    )
-    break_between_rounds_minutes = IntegerField(
-        lazy_gettext('Pause zwischen Runden (Minuten)'),
-        validators=[Optional(), NumberRange(min=0, max=240)],
-    )
-
-    def __init__(
-        self,
-        *args,
-        tournament_mode: TournamentMode | None = None,
-        main_stage_type: StageType | None = None,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.generation_basis.choices = [('ready', 'Ready-Teilnehmer')]
-        if tournament_mode == TournamentMode.ffa:
-            self.main_stage_type.choices = [
-                (
-                    StageType.ffa_single_elimination.value,
-                    'FFA Single Elimination',
-                ),
-            ]
-        else:
-            self.main_stage_type.choices = [
-                (StageType.single_elimination.value, 'Single Elimination'),
-                (StageType.double_elimination.value, 'Double Elimination'),
-                (
-                    StageType.double_elimination_double_grand_final.value,
-                    'Double Elimination + Double Grand Final',
-                ),
-            ]
-        self.main_stage_size.choices = [
-            choice for choice in PARTICIPANT_LIMIT_CHOICES if choice[0]
-        ]
-        self.max_players_per_match.choices = FFA_MAX_PLAYERS_PER_MATCH_CHOICES
-        if tournament_mode == TournamentMode.ffa:
-            self.preliminary_type.choices = [
-                ('', '-'),
-                (
-                    StageType.ffa_single_elimination.value,
-                    'FFA Single Elimination',
-                ),
-            ]
-        else:
-            self.preliminary_type.choices = [
-                ('', '-'),
-                (StageType.round_robin_groups.value, 'Round Robin Groups'),
-                (StageType.swiss.value, 'Swiss'),
-            ]
-        self.round_robin_builder_mode.choices = [
-            ('standard', 'Empfohlener Standard'),
-            ('manual_group_count', 'Expertenoption: Gruppenzahl manuell'),
-        ]
-        self.swiss_threshold.choices = [(2, '2'), (3, '3'), (4, '4')]
 
 
 class StageBuilderMainForm(LocalizedForm):

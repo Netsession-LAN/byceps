@@ -36,13 +36,13 @@ from ...models import (
     RegistrationMode,
     TournamentMode,
 )
-from ...service import (
-    configure_discord,
-    create_tournament,
-    get_tournament_categories_for_party,
+from ...discord_service import configure_discord
+from ...tournament_admin_service import set_tournament_admin_user_ids
+from ...tournament_category_service import get_tournament_categories_for_party
+from ...tournament_rule_template_service import (
     get_tournament_rule_templates_for_party,
-    set_tournament_admin_user_ids,
 )
+from ...tournament_service import create_tournament
 from .result_helpers import _get_party_or_404, _parse_csv
 from .wizard_helpers import (
     _assert_party_has_categories_or_redirect,

@@ -14,11 +14,9 @@ from typing import Any
 
 from flask_babel import format_datetime, gettext
 
-from ...service import (
-    get_matches_for_tournament,
-    get_stages_for_tournament,
-    get_tournaments_for_party,
-)
+from ...match_queries import get_matches_for_tournament
+from ...tournament_queries import get_stages_for_tournament
+from ...tournament_service import get_tournaments_for_party
 
 
 def _build_party_timetable(

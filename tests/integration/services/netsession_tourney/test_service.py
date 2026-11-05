@@ -33,7 +33,31 @@ from byceps.services.netsession_tourney.models import (
     TournamentMode,
     TournamentStatus,
 )
-from byceps.services.netsession_tourney import service as tourney_service
+from byceps.services.netsession_tourney import (
+    coin_service,
+    match_generation,
+    match_queries,
+    match_schedule,
+    participant_admin_service,
+    registration_service,
+    registration_validation,
+    result_deletion,
+    result_service,
+    slot_assignment,
+    stage_builder_service,
+    stage_service,
+    team_admin_service,
+    team_captain_service,
+    team_invite_service,
+    team_member_service,
+    tournament_admin_service,
+    tournament_category_service,
+    tournament_lifecycle_service,
+    tournament_prize_service,
+    tournament_queries,
+    tournament_rule_template_service,
+    tournament_service,
+)
 
 
 @pytest.fixture
@@ -48,7 +72,7 @@ def test_duel_happy_path_with_idempotent_result_report(
 ):
     challenger = make_user('NS_Challenger_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-duel-' + generate_token().lower(),
         'NS Duel Demo',
@@ -59,7 +83,7 @@ def test_duel_happy_path_with_idempotent_result_report(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -75,18 +99,18 @@ def test_duel_happy_path_with_idempotent_result_report(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
     # Players may only report results while the tournament is live.
-    publish_result = tourney_service.publish_tournament(
+    publish_result = tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     )
     assert publish_result.is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
@@ -94,7 +118,7 @@ def test_duel_happy_path_with_idempotent_result_report(
     assert matches
     match = matches[0]
 
-    report1 = tourney_service.report_result(
+    report1 = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -106,7 +130,7 @@ def test_duel_happy_path_with_idempotent_result_report(
     assert report1.is_ok()
     result1 = report1.unwrap()
 
-    report2 = tourney_service.report_result(
+    report2 = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -125,44 +149,44 @@ def test_tournament_categories_can_be_created_and_reordered(
     admin_app, isolated_party
 ):
     party = isolated_party
-    create_main_result = tourney_service.create_tournament_category(
+    create_main_result = tournament_category_service.create_tournament_category(
         party.id, 'Hauptturnier'
     )
     assert create_main_result.is_ok()
     main_category = create_main_result.unwrap()
 
-    create_side_result = tourney_service.create_tournament_category(
+    create_side_result = tournament_category_service.create_tournament_category(
         party.id, 'Nebenturnier'
     )
     assert create_side_result.is_ok()
     side_category = create_side_result.unwrap()
 
-    categories = tourney_service.get_tournament_categories_for_party(party.id)
+    categories = tournament_category_service.get_tournament_categories_for_party(party.id)
     assert [category.title for category in categories] == [
         'Hauptturnier',
         'Nebenturnier',
     ]
 
-    move_up_result = tourney_service.move_tournament_category_up(main_category.id)
+    move_up_result = tournament_category_service.move_tournament_category_up(main_category.id)
     assert move_up_result.is_err()
 
-    move_down_result = tourney_service.move_tournament_category_down(
+    move_down_result = tournament_category_service.move_tournament_category_down(
         main_category.id
     )
     assert move_down_result.is_ok()
 
-    categories = tourney_service.get_tournament_categories_for_party(party.id)
+    categories = tournament_category_service.get_tournament_categories_for_party(party.id)
     assert [category.title for category in categories] == [
         'Nebenturnier',
         'Hauptturnier',
     ]
 
-    move_down_result = tourney_service.move_tournament_category_down(
+    move_down_result = tournament_category_service.move_tournament_category_down(
         side_category.id
     )
     assert move_down_result.is_ok()
 
-    categories = tourney_service.get_tournament_categories_for_party(party.id)
+    categories = tournament_category_service.get_tournament_categories_for_party(party.id)
     assert [category.title for category in categories] == [
         'Hauptturnier',
         'Nebenturnier',
@@ -172,7 +196,7 @@ def test_tournament_categories_can_be_created_and_reordered(
 def test_tournament_rule_templates_can_be_created_and_updated(
     admin_app, party
 ):
-    create_result = tourney_service.create_tournament_rule_template(
+    create_result = tournament_rule_template_service.create_tournament_rule_template(
         party.id,
         'pubg-regeln',
         'PubG Regeln',
@@ -184,12 +208,12 @@ def test_tournament_rule_templates_can_be_created_and_updated(
     assert created_template.slug == 'pubg-regeln'
     assert created_template.body_format == RuleTemplateBodyFormat.markdown
 
-    templates = tourney_service.get_tournament_rule_templates_for_party(
+    templates = tournament_rule_template_service.get_tournament_rule_templates_for_party(
         party.id
     )
     assert [template.slug for template in templates] == ['pubg-regeln']
 
-    update_result = tourney_service.update_tournament_rule_template(
+    update_result = tournament_rule_template_service.update_tournament_rule_template(
         created_template.id,
         'pubg-rules',
         'PubG Rules',
@@ -202,7 +226,7 @@ def test_tournament_rule_templates_can_be_created_and_updated(
     assert updated_template.body_format == RuleTemplateBodyFormat.html
 
     found_template = (
-        tourney_service.find_tournament_rule_template_by_slug_for_party(
+        tournament_rule_template_service.find_tournament_rule_template_by_slug_for_party(
             party.id, 'pubg-rules'
         )
     )
@@ -214,19 +238,19 @@ def test_tournaments_are_sorted_by_category_position(
     admin_app, isolated_party, admin_user
 ):
     party = isolated_party
-    main_category_result = tourney_service.create_tournament_category(
+    main_category_result = tournament_category_service.create_tournament_category(
         party.id, 'Hauptturnier'
     )
     assert main_category_result.is_ok()
     main_category = main_category_result.unwrap()
 
-    side_category_result = tourney_service.create_tournament_category(
+    side_category_result = tournament_category_service.create_tournament_category(
         party.id, 'Nebenturnier'
     )
     assert side_category_result.is_ok()
     side_category = side_category_result.unwrap()
 
-    side_tourney_result = tourney_service.create_tournament(
+    side_tourney_result = tournament_service.create_tournament(
         party.id,
         'ns-side-' + generate_token().lower(),
         'Side Cup',
@@ -237,7 +261,7 @@ def test_tournaments_are_sorted_by_category_position(
     )
     assert side_tourney_result.is_ok()
 
-    main_tourney_result = tourney_service.create_tournament(
+    main_tourney_result = tournament_service.create_tournament(
         party.id,
         'ns-main-' + generate_token().lower(),
         'Main Cup',
@@ -248,7 +272,7 @@ def test_tournaments_are_sorted_by_category_position(
     )
     assert main_tourney_result.is_ok()
 
-    tournaments = tourney_service.get_tournaments_for_party(party.id)
+    tournaments = tournament_service.get_tournaments_for_party(party.id)
     assert [tournament.title for tournament in tournaments] == [
         'Main Cup',
         'Side Cup',
@@ -260,7 +284,7 @@ def test_ffa_requires_admin_to_finalize_results(
 ):
     challenger = make_user('NS_FFA_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ffa-' + generate_token().lower(),
         'NS FFA Demo',
@@ -271,7 +295,7 @@ def test_ffa_requires_admin_to_finalize_results(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.ffa_simple,
@@ -287,18 +311,18 @@ def test_ffa_requires_admin_to_finalize_results(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
     match = generation_result.unwrap()[0]
 
-    user_report = tourney_service.report_result(
+    user_report = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -308,7 +332,7 @@ def test_ffa_requires_admin_to_finalize_results(
     )
     assert user_report.is_err()
 
-    admin_report = tourney_service.report_result(
+    admin_report = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -326,7 +350,7 @@ def test_admin_match_operations_and_participant_disqualification(
 ):
     challenger = make_user('NS_AdminOps_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-admin-' + generate_token().lower(),
         'NS Admin Ops Demo',
@@ -337,7 +361,7 @@ def test_admin_match_operations_and_participant_disqualification(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -353,18 +377,18 @@ def test_admin_match_operations_and_participant_disqualification(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
     match = generation_result.unwrap()[0]
 
-    reschedule_result = tourney_service.reschedule_match(
+    reschedule_result = match_schedule.reschedule_match(
         party.id,
         tournament.id,
         match.id,
@@ -374,7 +398,7 @@ def test_admin_match_operations_and_participant_disqualification(
     )
     assert reschedule_result.is_ok()
 
-    dispute_result = tourney_service.open_match_dispute(
+    dispute_result = result_deletion.open_match_dispute(
         party.id,
         tournament.id,
         match.id,
@@ -384,7 +408,7 @@ def test_admin_match_operations_and_participant_disqualification(
     )
     assert dispute_result.is_ok()
 
-    walkover_result = tourney_service.apply_walkover_result(
+    walkover_result = result_service.apply_walkover_result(
         party.id,
         tournament.id,
         match.id,
@@ -395,12 +419,12 @@ def test_admin_match_operations_and_participant_disqualification(
     )
     assert walkover_result.is_ok()
 
-    participants = tourney_service.get_participants_for_tournament(
+    participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     target = next(p for p in participants if p.user_id == challenger.id)
 
-    dq_result = tourney_service.disqualify_participant(
+    dq_result = participant_admin_service.disqualify_participant(
         party.id,
         tournament.id,
         target.id,
@@ -423,7 +447,7 @@ def test_single_elimination_with_5_participants_handles_byes_fairly(
         make_user('NS_Bye_D_' + generate_token()),
     ]
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-bye-' + generate_token().lower(),
         'NS Bye Demo',
@@ -434,7 +458,7 @@ def test_single_elimination_with_5_participants_handles_byes_fairly(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -448,19 +472,19 @@ def test_single_elimination_with_5_participants_handles_byes_fairly(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(
+            registration_service.register_user(
                 party.id, tournament.id, participant
             ).is_ok()
         )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     assert matches
-    slots_by_match_id = tourney_service.get_match_slots(
+    slots_by_match_id = match_queries.get_match_slots(
         {match.id for match in matches}
     )
 
@@ -505,7 +529,7 @@ def test_double_elimination_generation_creates_wb_and_lb_paths(
         make_user('NS_DE_G_' + generate_token()),
     ]
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-de-' + generate_token().lower(),
         'NS Double Elim Demo',
@@ -516,7 +540,7 @@ def test_double_elimination_generation_creates_wb_and_lb_paths(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.double_elimination,
@@ -530,18 +554,18 @@ def test_double_elimination_generation_creates_wb_and_lb_paths(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(
+            registration_service.register_user(
                 party.id, tournament.id, participant
             ).is_ok()
         )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
-    slots_by_match_id = tourney_service.get_match_slots(
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
+    slots_by_match_id = match_queries.get_match_slots(
         {match.id for match in matches}
     )
     assert matches
@@ -566,7 +590,7 @@ def test_double_elimination_with_5_participants_propagates_loser_bye_paths(
         make_user('NS_DE5_D_' + generate_token()),
     ]
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-de5-' + generate_token().lower(),
         'NS Double Elim 5 Demo',
@@ -577,7 +601,7 @@ def test_double_elimination_with_5_participants_propagates_loser_bye_paths(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.double_elimination,
@@ -590,16 +614,16 @@ def test_double_elimination_with_5_participants_propagates_loser_bye_paths(
 
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, participant
         ).is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     match_ids = {match.id for match in matches}
 
     # LB branches that are fed only by byes should auto-complete as empty
@@ -660,7 +684,7 @@ def test_double_elimination_advances_loser_path_after_wb_result_with_bye(
         make_user('NS_DE5R_D_' + generate_token()),
     ]
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-de5r-' + generate_token().lower(),
         'NS Double Elim 5 Report Demo',
@@ -671,7 +695,7 @@ def test_double_elimination_advances_loser_path_after_wb_result_with_bye(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.double_elimination,
@@ -684,23 +708,23 @@ def test_double_elimination_advances_loser_path_after_wb_result_with_bye(
 
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, participant
         ).is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     round1_matches = sorted(
         [match for match in matches if match.round_no == 1],
         key=lambda match: match.match_no,
     )
     assert round1_matches
 
-    slots_by_match_id = tourney_service.get_match_slots(
+    slots_by_match_id = match_queries.get_match_slots(
         {match.id for match in matches}
     )
     wb_match = next(
@@ -743,7 +767,7 @@ def test_double_elimination_advances_loser_path_after_wb_result_with_bye(
 
     lb_match_id = db_loser_slot.match_id
 
-    report_result = tourney_service.report_result(
+    report_result = result_service.report_result(
         party.id,
         tournament.id,
         wb_match.id,
@@ -792,7 +816,7 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
         make_user('NS_DEDG_G_' + generate_token()),
     ]
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-dedg-' + generate_token().lower(),
         'NS Double Elim + Double GF',
@@ -803,7 +827,7 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.double_elimination_double_grand_final,
@@ -816,22 +840,22 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
 
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, participant
         ).is_ok()
 
-    publish_result = tourney_service.publish_tournament(
+    publish_result = tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     )
     assert publish_result.is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
-    slots_by_match_id = tourney_service.get_match_slots({match.id for match in matches})
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
+    slots_by_match_id = match_queries.get_match_slots({match.id for match in matches})
     source_match_id_by_slot_id = {
         slot.id: slot.match_id
         for slots in slots_by_match_id.values()
@@ -873,7 +897,7 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
     db_grand_final_1 = db.session.get(DbNetsessionTourneyMatch, grand_final_1.id)
     assert db_grand_final_1.state == 'ready'
 
-    report_result = tourney_service.report_result(
+    report_result = result_service.report_result(
         party.id,
         tournament.id,
         grand_final_1.id,
@@ -899,7 +923,7 @@ def test_double_elimination_with_double_grand_final_skips_reset_match_if_not_nee
         db_grand_final_2_result.score_json.get('grand_final_reset_skipped') is True
     )
 
-    blocked_report_result = tourney_service.report_result(
+    blocked_report_result = result_service.report_result(
         party.id,
         tournament.id,
         grand_final_2.id,
@@ -920,7 +944,7 @@ def test_registration_limit_and_deregistration(
     challenger = make_user('NS_Limit_A_' + generate_token())
     reserve = make_user('NS_Limit_B_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-limit-' + generate_token().lower(),
         'NS Limit Demo',
@@ -938,21 +962,21 @@ def test_registration_limit_and_deregistration(
     )
     _assign_party_ticket_to_user(party.id, reserve, make_ticket_category)
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
-    assert tourney_service.register_user(party.id, tournament.id, reserve).is_err()
+    assert registration_service.register_user(party.id, tournament.id, reserve).is_err()
 
-    assert tourney_service.deregister_user(party.id, tournament.id, user).is_ok()
-    assert tourney_service.register_user(party.id, tournament.id, reserve).is_ok()
+    assert registration_service.deregister_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, reserve).is_ok()
 
-    visible_participants = tourney_service.get_participants_for_tournament(
+    visible_participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     assert all(participant.user_id != user.id for participant in visible_participants)
 
-    all_participants = tourney_service.get_participants_for_tournament(
+    all_participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id, include_dropped=True
     )
     dropped_participant = next(
@@ -968,7 +992,7 @@ def test_admin_can_remove_participant(
 ):
     challenger = make_user('NS_Remove_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-remove-' + generate_token().lower(),
         'NS Remove Demo',
@@ -984,12 +1008,12 @@ def test_admin_can_remove_participant(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
-    participants = tourney_service.get_participants_for_tournament(
+    participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     challenger_participant = next(
@@ -998,7 +1022,7 @@ def test_admin_can_remove_participant(
         if participant.user_id == challenger.id
     )
 
-    remove_result = tourney_service.remove_participant_by_admin(
+    remove_result = participant_admin_service.remove_participant_by_admin(
         party.id,
         tournament.id,
         challenger_participant.id,
@@ -1008,7 +1032,7 @@ def test_admin_can_remove_participant(
     assert remove_result.is_ok()
     assert remove_result.unwrap().status == ParticipantStatus.dropped
 
-    visible_participants_after_remove = tourney_service.get_participants_for_tournament(
+    visible_participants_after_remove = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     assert all(
@@ -1024,7 +1048,7 @@ def test_admin_can_add_user_participant_for_solo_tournament(
     for ticket_user in [candidate]:
         _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-admin-add-' + generate_token().lower(),
         'NS Admin Add User',
@@ -1035,7 +1059,7 @@ def test_admin_can_add_user_participant_for_solo_tournament(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    add_result = tourney_service.add_user_participant_by_admin(
+    add_result = participant_admin_service.add_user_participant_by_admin(
         party.id,
         tournament.id,
         candidate,
@@ -1045,7 +1069,7 @@ def test_admin_can_add_user_participant_for_solo_tournament(
     participant = add_result.unwrap()
     assert participant.user_id == candidate.id
 
-    participants = tourney_service.get_participants_for_tournament(
+    participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     assert any(item.user_id == candidate.id for item in participants)
@@ -1059,7 +1083,7 @@ def test_admin_can_create_team_and_manage_team_members(
     for ticket_user in [captain, member]:
         _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-admin-team-' + generate_token().lower(),
         'NS Admin Team Management',
@@ -1072,7 +1096,7 @@ def test_admin_can_create_team_and_manage_team_members(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    create_team_result = tourney_service.create_team_by_admin(
+    create_team_result = team_admin_service.create_team_by_admin(
         party.id,
         tournament.id,
         'Team Admin',
@@ -1082,7 +1106,7 @@ def test_admin_can_create_team_and_manage_team_members(
     assert create_team_result.is_ok()
     team_participant = create_team_result.unwrap()
 
-    add_member_result = tourney_service.add_team_member_by_admin(
+    add_member_result = team_admin_service.add_team_member_by_admin(
         party.id,
         tournament.id,
         team_participant.id,
@@ -1091,7 +1115,7 @@ def test_admin_can_create_team_and_manage_team_members(
     )
     assert add_member_result.is_ok()
 
-    members_after_add = tourney_service.get_team_members_for_participants(
+    members_after_add = registration_validation.get_team_members_for_participants(
         {team_participant.id}
     )
     member_user_ids_after_add = {
@@ -1100,7 +1124,7 @@ def test_admin_can_create_team_and_manage_team_members(
     }
     assert member_user_ids_after_add == {captain.id, member.id}
 
-    remove_member_result = tourney_service.remove_team_member_by_admin(
+    remove_member_result = team_admin_service.remove_team_member_by_admin(
         party.id,
         tournament.id,
         team_participant.id,
@@ -1109,7 +1133,7 @@ def test_admin_can_create_team_and_manage_team_members(
     )
     assert remove_member_result.is_ok()
 
-    members_after_remove = tourney_service.get_team_members_for_participants(
+    members_after_remove = registration_validation.get_team_members_for_participants(
         {team_participant.id}
     )
     member_user_ids_after_remove = {
@@ -1127,7 +1151,7 @@ def test_admin_can_reassign_team_captain(
     for ticket_user in [captain, new_captain]:
         _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-admin-captain-' + generate_token().lower(),
         'NS Admin Captain Reassign',
@@ -1140,7 +1164,7 @@ def test_admin_can_reassign_team_captain(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    create_team_result = tourney_service.create_team_by_admin(
+    create_team_result = team_admin_service.create_team_by_admin(
         party.id,
         tournament.id,
         'Team Captain Test',
@@ -1150,7 +1174,7 @@ def test_admin_can_reassign_team_captain(
     assert create_team_result.is_ok()
     team_participant = create_team_result.unwrap()
 
-    add_member_result = tourney_service.add_team_member_by_admin(
+    add_member_result = team_admin_service.add_team_member_by_admin(
         party.id,
         tournament.id,
         team_participant.id,
@@ -1159,7 +1183,7 @@ def test_admin_can_reassign_team_captain(
     )
     assert add_member_result.is_ok()
 
-    assign_result = tourney_service.assign_team_captain_by_admin(
+    assign_result = team_admin_service.assign_team_captain_by_admin(
         party.id,
         tournament.id,
         team_participant.id,
@@ -1168,7 +1192,7 @@ def test_admin_can_reassign_team_captain(
     )
     assert assign_result.is_ok()
 
-    participants = tourney_service.get_participants_for_tournament(
+    participants = tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
     updated_participant = next(
@@ -1178,7 +1202,7 @@ def test_admin_can_reassign_team_captain(
     )
     assert updated_participant.manager_user_id == new_captain.id
 
-    members = tourney_service.get_team_members_for_participants(
+    members = registration_validation.get_team_members_for_participants(
         {team_participant.id}
     )[team_participant.id]
     roles_by_user_id = {member.user_id: member.role.value for member in members}
@@ -1193,7 +1217,7 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     for ticket_user in users:
         _assign_party_ticket_to_user(party.id, ticket_user, make_ticket_category)
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-admin-slots-' + generate_token().lower(),
         'NS Admin Slot Assignment',
@@ -1204,7 +1228,7 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -1216,12 +1240,12 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     stage = stage_result.unwrap()
 
     for user in users:
-        add_result = tourney_service.add_user_participant_by_admin(
+        add_result = participant_admin_service.add_user_participant_by_admin(
             party.id, tournament.id, user, admin_user
         )
         assert add_result.is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
@@ -1232,7 +1256,7 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     match_a = first_round_matches[0]
     match_b = first_round_matches[1]
 
-    slots_by_match_id = tourney_service.get_match_slots(
+    slots_by_match_id = match_queries.get_match_slots(
         {match_a.id, match_b.id}
     )
     match_a_slot_1 = next(
@@ -1248,7 +1272,7 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     assert match_b_slot_1.participant_id is not None
     assert match_a_slot_1.participant_id is not None
 
-    clear_result = tourney_service.set_match_slot_participant_by_admin(
+    clear_result = slot_assignment.set_match_slot_participant_by_admin(
         party.id,
         tournament.id,
         match_a.id,
@@ -1259,13 +1283,13 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     )
     assert clear_result.is_ok()
 
-    updated_match = tourney_service.find_match_for_tournament(
+    updated_match = match_queries.find_match_for_tournament(
         party.id, tournament.id, match_a.id
     )
     assert updated_match is not None
     assert updated_match.state in {MatchState.pending, MatchState.completed}
 
-    duplicate_result = tourney_service.set_match_slot_participant_by_admin(
+    duplicate_result = slot_assignment.set_match_slot_participant_by_admin(
         party.id,
         tournament.id,
         match_a.id,
@@ -1277,7 +1301,7 @@ def test_admin_can_set_match_slot_participant_for_initial_slots_only(
     assert duplicate_result.is_err()
 
     final_match = next(match for match in matches if match.round_no > 1)
-    linked_slot_result = tourney_service.set_match_slot_participant_by_admin(
+    linked_slot_result = slot_assignment.set_match_slot_participant_by_admin(
         party.id,
         tournament.id,
         final_match.id,
@@ -1294,7 +1318,7 @@ def test_admin_can_delete_tournament_with_existing_data(
 ):
     challenger = make_user('NS_Delete_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-delete-' + generate_token().lower(),
         'NS Delete Demo',
@@ -1305,7 +1329,7 @@ def test_admin_can_delete_tournament_with_existing_data(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -1321,33 +1345,33 @@ def test_admin_can_delete_tournament_with_existing_data(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
-    assert tourney_service.generate_stage_matches(
+    assert match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     ).is_ok()
 
-    delete_result = tourney_service.delete_tournament(
+    delete_result = tournament_lifecycle_service.delete_tournament(
         party.id, tournament.id, admin_user
     )
     assert delete_result.is_ok()
 
     assert (
-        tourney_service.find_tournament_for_party(party.id, tournament.id) is None
+        tournament_service.find_tournament_for_party(party.id, tournament.id) is None
     )
-    assert not tourney_service.get_stages_for_tournament(party.id, tournament.id)
-    assert not tourney_service.get_participants_for_tournament(
+    assert not tournament_queries.get_stages_for_tournament(party.id, tournament.id)
+    assert not tournament_queries.get_participants_for_tournament(
         party.id, tournament.id
     )
-    assert not tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    assert not match_queries.get_matches_for_tournament(party.id, tournament.id)
 
 
 def test_delete_tournament_removes_admins_prizes_and_notification_outboxes(
     admin_app, party, admin_user, user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-delete-refs-' + generate_token().lower(),
         'NS Delete References',
@@ -1358,10 +1382,10 @@ def test_delete_tournament_removes_admins_prizes_and_notification_outboxes(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    assert tourney_service.set_tournament_admin_user_ids(
+    assert tournament_admin_service.set_tournament_admin_user_ids(
         party.id, tournament.id, {user.id}, admin_user
     ).is_ok()
-    assert tourney_service.create_tournament_prize(
+    assert tournament_prize_service.create_tournament_prize(
         tournament.id, 1, RuleTemplateBodyFormat.markdown, 'First prize'
     ).is_ok()
 
@@ -1381,7 +1405,7 @@ def test_delete_tournament_removes_admins_prizes_and_notification_outboxes(
     )
     db.session.commit()
 
-    delete_result = tourney_service.delete_tournament(
+    delete_result = tournament_lifecycle_service.delete_tournament(
         party.id, tournament.id, admin_user
     )
     assert delete_result.is_ok()
@@ -1407,7 +1431,7 @@ def test_admin_can_unpublish_live_tournament_without_results(
 ):
     challenger = make_user('NS_Unpublish_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-unpublish-' + generate_token().lower(),
         'NS Unpublish Demo',
@@ -1418,7 +1442,7 @@ def test_admin_can_unpublish_live_tournament_without_results(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -1434,35 +1458,35 @@ def test_admin_can_unpublish_live_tournament_without_results(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
-    publish_result = tourney_service.publish_tournament(
+    publish_result = tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     )
     assert publish_result.is_ok()
     assert publish_result.unwrap().status == TournamentStatus.live
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    stages_before_unpublish = tourney_service.get_stages_for_tournament(
+    stages_before_unpublish = tournament_queries.get_stages_for_tournament(
         party.id, tournament.id
     )
     assert stages_before_unpublish
     assert stages_before_unpublish[0].status == StageStatus.live
 
-    unpublish_result = tourney_service.unpublish_tournament(
+    unpublish_result = tournament_lifecycle_service.unpublish_tournament(
         party.id, tournament.id, admin_user
     )
     assert unpublish_result.is_ok()
     assert unpublish_result.unwrap().status == TournamentStatus.draft
 
-    stages_after_unpublish = tourney_service.get_stages_for_tournament(
+    stages_after_unpublish = tournament_queries.get_stages_for_tournament(
         party.id, tournament.id
     )
     assert stages_after_unpublish
@@ -1474,7 +1498,7 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
 ):
     challenger = make_user('NS_UnpublishBlock_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-unpublish-block-' + generate_token().lower(),
         'NS Unpublish Block Demo',
@@ -1485,7 +1509,7 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -1501,23 +1525,23 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
         party.id, challenger, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
     assert (
-        tourney_service.register_user(party.id, tournament.id, challenger).is_ok()
+        registration_service.register_user(party.id, tournament.id, challenger).is_ok()
     )
 
-    publish_result = tourney_service.publish_tournament(
+    publish_result = tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     )
     assert publish_result.is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
     match = generation_result.unwrap()[0]
 
-    walkover_result = tourney_service.apply_walkover_result(
+    walkover_result = result_service.apply_walkover_result(
         party.id,
         tournament.id,
         match.id,
@@ -1528,7 +1552,7 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
     )
     assert walkover_result.is_ok()
 
-    unpublish_result = tourney_service.unpublish_tournament(
+    unpublish_result = tournament_lifecycle_service.unpublish_tournament(
         party.id, tournament.id, admin_user
     )
     assert unpublish_result.is_err()
@@ -1539,7 +1563,7 @@ def test_admin_cannot_unpublish_tournament_after_result_was_reported(
 
 
 def test_team_tournament_requires_team_size(admin_app, party, admin_user):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-team-size-required-' + generate_token().lower(),
         'NS Team Size Required',
@@ -1552,7 +1576,7 @@ def test_team_tournament_requires_team_size(admin_app, party, admin_user):
 
 
 def test_solo_tournament_forces_team_size_to_one(admin_app, party, admin_user):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-solo-team-size-' + generate_token().lower(),
         'NS Solo Team Size',
@@ -1570,7 +1594,7 @@ def test_solo_tournament_forces_team_size_to_one(admin_app, party, admin_user):
 def test_ffa_tournament_allows_team_only_registration_modes(
     admin_app, party, admin_user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ffa-team-only-' + generate_token().lower(),
         'NS FFA Team Only',
@@ -1585,7 +1609,7 @@ def test_ffa_tournament_allows_team_only_registration_modes(
 
 
 def test_stage_type_must_match_tournament_mode(admin_app, party, admin_user):
-    duel_tournament_result = tourney_service.create_tournament(
+    duel_tournament_result = tournament_service.create_tournament(
         party.id,
         'ns-stage-mode-duel-' + generate_token().lower(),
         'NS Stage Mode Duel',
@@ -1596,7 +1620,7 @@ def test_stage_type_must_match_tournament_mode(admin_app, party, admin_user):
     assert duel_tournament_result.is_ok()
     duel_tournament = duel_tournament_result.unwrap()
 
-    incompatible_ffa_stage_result = tourney_service.create_stage(
+    incompatible_ffa_stage_result = stage_service.create_stage(
         party.id,
         duel_tournament.id,
         StageType.ffa_simple,
@@ -1606,7 +1630,7 @@ def test_stage_type_must_match_tournament_mode(admin_app, party, admin_user):
     )
     assert incompatible_ffa_stage_result.is_err()
 
-    ffa_tournament_result = tourney_service.create_tournament(
+    ffa_tournament_result = tournament_service.create_tournament(
         party.id,
         'ns-stage-mode-ffa-' + generate_token().lower(),
         'NS Stage Mode FFA',
@@ -1617,7 +1641,7 @@ def test_stage_type_must_match_tournament_mode(admin_app, party, admin_user):
     assert ffa_tournament_result.is_ok()
     ffa_tournament = ffa_tournament_result.unwrap()
 
-    incompatible_duel_stage_result = tourney_service.create_stage(
+    incompatible_duel_stage_result = stage_service.create_stage(
         party.id,
         ffa_tournament.id,
         StageType.single_elimination,
@@ -1629,19 +1653,19 @@ def test_stage_type_must_match_tournament_mode(admin_app, party, admin_user):
 
 
 def test_stage_type_compatibility_matrix_for_registration_mode():
-    assert tourney_service.is_stage_type_compatible_with_registration_mode(
+    assert registration_validation.is_stage_type_compatible_with_registration_mode(
         StageType.single_elimination,
         RegistrationMode.solo,
     )
-    assert tourney_service.is_stage_type_compatible_with_registration_mode(
+    assert registration_validation.is_stage_type_compatible_with_registration_mode(
         StageType.single_elimination,
         RegistrationMode.team_captain_managed,
     )
-    assert tourney_service.is_stage_type_compatible_with_registration_mode(
+    assert registration_validation.is_stage_type_compatible_with_registration_mode(
         StageType.ffa_simple,
         RegistrationMode.solo,
     )
-    assert tourney_service.is_stage_type_compatible_with_registration_mode(
+    assert registration_validation.is_stage_type_compatible_with_registration_mode(
         StageType.ffa_simple,
         RegistrationMode.team_preformed_only,
     )
@@ -1650,7 +1674,7 @@ def test_stage_type_compatibility_matrix_for_registration_mode():
 def test_round_robin_groups_stage_generates_matches(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-round-robin-groups-' + generate_token().lower(),
         'NS Round Robin Groups',
@@ -1661,7 +1685,7 @@ def test_round_robin_groups_stage_generates_matches(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.round_robin_groups,
@@ -1676,10 +1700,10 @@ def test_round_robin_groups_stage_generates_matches(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(party.id, tournament.id, participant).is_ok()
+            registration_service.register_user(party.id, tournament.id, participant).is_ok()
         )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
@@ -1689,7 +1713,7 @@ def test_round_robin_groups_stage_generates_matches(
 def test_round_robin_groups_with_odd_group_size_generates_bye_matches(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-round-robin-groups-byes-' + generate_token().lower(),
         'NS Round Robin Groups Byes',
@@ -1700,7 +1724,7 @@ def test_round_robin_groups_with_odd_group_size_generates_bye_matches(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.round_robin_groups,
@@ -1715,10 +1739,10 @@ def test_round_robin_groups_with_odd_group_size_generates_bye_matches(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(party.id, tournament.id, participant).is_ok()
+            registration_service.register_user(party.id, tournament.id, participant).is_ok()
         )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
@@ -1756,7 +1780,7 @@ def test_round_robin_groups_with_odd_group_size_generates_bye_matches(
 def test_builder_round_robin_group_stage_is_not_split_again_after_materialization(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-builder-rr-materialized-' + generate_token().lower(),
         'NS Builder RR Materialized',
@@ -1768,7 +1792,7 @@ def test_builder_round_robin_group_stage_is_not_split_again_after_materializatio
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    build_result = tourney_service.build_stage_builder_plan(
+    build_result = stage_builder_service.build_stage_builder_plan(
         party.id,
         tournament.id,
         generation_basis='ready',
@@ -1790,22 +1814,22 @@ def test_builder_round_robin_group_stage_is_not_split_again_after_materializatio
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(party.id, tournament.id, participant).is_ok()
+            registration_service.register_user(party.id, tournament.id, participant).is_ok()
         )
 
-    stages = tourney_service.get_stages_for_tournament(party.id, tournament.id)
+    stages = tournament_queries.get_stages_for_tournament(party.id, tournament.id)
     preliminary_stage = next(
         stage
         for stage in stages
         if (stage.settings or {}).get('builder_role') == 'preliminary'
     )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, preliminary_stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    stages_after_materialization = tourney_service.get_stages_for_tournament(
+    stages_after_materialization = tournament_queries.get_stages_for_tournament(
         party.id, tournament.id
     )
     group_a_stage = next(
@@ -1831,7 +1855,7 @@ def test_builder_round_robin_group_stage_is_not_split_again_after_materializatio
 def test_deleting_builder_round_robin_container_deletes_generated_groups(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-builder-rr-delete-' + generate_token().lower(),
         'NS Builder RR Delete',
@@ -1843,7 +1867,7 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    build_result = tourney_service.build_stage_builder_plan(
+    build_result = stage_builder_service.build_stage_builder_plan(
         party.id,
         tournament.id,
         generation_basis='ready',
@@ -1865,10 +1889,10 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(party.id, tournament.id, participant).is_ok()
+            registration_service.register_user(party.id, tournament.id, participant).is_ok()
         )
 
-    stages = tourney_service.get_stages_for_tournament(party.id, tournament.id)
+    stages = tournament_queries.get_stages_for_tournament(party.id, tournament.id)
     preliminary_stage = next(
         stage
         for stage in stages
@@ -1880,12 +1904,12 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
         if (stage.settings or {}).get('builder_role') == 'main'
     )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, preliminary_stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    delete_stage_result = tourney_service.delete_stage(
+    delete_stage_result = stage_service.delete_stage(
         party.id,
         tournament.id,
         preliminary_stage.id,
@@ -1893,7 +1917,7 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
     )
     assert delete_stage_result.is_ok()
 
-    remaining_stages = tourney_service.get_stages_for_tournament(
+    remaining_stages = tournament_queries.get_stages_for_tournament(
         party.id, tournament.id
     )
     assert all(
@@ -1910,7 +1934,7 @@ def test_deleting_builder_round_robin_container_deletes_generated_groups(
 def test_mode_change_deletes_existing_stages(
     admin_app, party, admin_user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-mode-switch-' + generate_token().lower(),
         'NS Mode Switch',
@@ -1921,7 +1945,7 @@ def test_mode_change_deletes_existing_stages(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_a_result = tourney_service.create_stage(
+    stage_a_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -1930,7 +1954,7 @@ def test_mode_change_deletes_existing_stages(
         admin_user,
     )
     assert stage_a_result.is_ok()
-    stage_b_result = tourney_service.create_stage(
+    stage_b_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.swiss,
@@ -1940,7 +1964,7 @@ def test_mode_change_deletes_existing_stages(
     )
     assert stage_b_result.is_ok()
 
-    update_result = tourney_service.update_tournament(
+    update_result = tournament_service.update_tournament(
         party.id,
         tournament.id,
         admin_user,
@@ -1966,7 +1990,7 @@ def test_mode_change_deletes_existing_stages(
     assert update_result.is_ok()
     assert update_result.unwrap().mode == TournamentMode.ffa
 
-    stages_after_update = tourney_service.get_stages_for_tournament(
+    stages_after_update = tournament_queries.get_stages_for_tournament(
         party.id, tournament.id
     )
     assert not stages_after_update
@@ -1975,7 +1999,7 @@ def test_mode_change_deletes_existing_stages(
 def test_registration_mode_can_be_changed_in_draft_without_active_participants(
     admin_app, party, admin_user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-reg-mode-switch-' + generate_token().lower(),
         'NS Registration Mode Switch',
@@ -1986,7 +2010,7 @@ def test_registration_mode_can_be_changed_in_draft_without_active_participants(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    update_result = tourney_service.update_tournament(
+    update_result = tournament_service.update_tournament(
         party.id,
         tournament.id,
         admin_user,
@@ -2020,7 +2044,7 @@ def test_registration_mode_can_be_changed_in_draft_without_active_participants(
 def test_registration_mode_change_is_blocked_with_active_participants(
     admin_app, party, admin_user, user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-reg-mode-block-' + generate_token().lower(),
         'NS Registration Mode Block',
@@ -2032,9 +2056,9 @@ def test_registration_mode_change_is_blocked_with_active_participants(
     tournament = create_result.unwrap()
 
     _assign_party_ticket_to_user(party.id, user, make_ticket_category)
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
 
-    update_result = tourney_service.update_tournament(
+    update_result = tournament_service.update_tournament(
         party.id,
         tournament.id,
         admin_user,
@@ -2065,7 +2089,7 @@ def test_registration_mode_change_is_blocked_with_active_participants(
 def test_admin_can_update_and_delete_stage(
     admin_app, party, admin_user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-stage-edit-delete-' + generate_token().lower(),
         'NS Stage Edit/Delete',
@@ -2076,7 +2100,7 @@ def test_admin_can_update_and_delete_stage(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -2087,7 +2111,7 @@ def test_admin_can_update_and_delete_stage(
     assert stage_result.is_ok()
     stage = stage_result.unwrap()
 
-    update_stage_result = tourney_service.update_stage(
+    update_stage_result = stage_service.update_stage(
         party.id,
         tournament.id,
         stage.id,
@@ -2102,14 +2126,14 @@ def test_admin_can_update_and_delete_stage(
     assert updated_stage.name == 'Updated Stage'
     assert updated_stage.settings.get('round_count') == 4
 
-    delete_stage_result = tourney_service.delete_stage(
+    delete_stage_result = stage_service.delete_stage(
         party.id,
         tournament.id,
         stage.id,
         admin_user,
     )
     assert delete_stage_result.is_ok()
-    remaining_stages = tourney_service.get_stages_for_tournament(
+    remaining_stages = tournament_queries.get_stages_for_tournament(
         party.id,
         tournament.id,
     )
@@ -2119,7 +2143,7 @@ def test_admin_can_update_and_delete_stage(
 def test_deleting_stage_renumbers_remaining_stages_without_unique_conflict(
     admin_app, party, admin_user
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-stage-delete-renumber-' + generate_token().lower(),
         'NS Stage Delete Renumber',
@@ -2132,7 +2156,7 @@ def test_deleting_stage_renumbers_remaining_stages_without_unique_conflict(
 
     created_stages = []
     for index in range(1, 10):
-        stage_result = tourney_service.create_stage(
+        stage_result = stage_service.create_stage(
             party.id,
             tournament.id,
             StageType.single_elimination,
@@ -2143,7 +2167,7 @@ def test_deleting_stage_renumbers_remaining_stages_without_unique_conflict(
         assert stage_result.is_ok()
         created_stages.append(stage_result.unwrap())
 
-    delete_stage_result = tourney_service.delete_stage(
+    delete_stage_result = stage_service.delete_stage(
         party.id,
         tournament.id,
         created_stages[0].id,
@@ -2151,7 +2175,7 @@ def test_deleting_stage_renumbers_remaining_stages_without_unique_conflict(
     )
     assert delete_stage_result.is_ok()
 
-    remaining_stages = tourney_service.get_stages_for_tournament(
+    remaining_stages = tournament_queries.get_stages_for_tournament(
         party.id,
         tournament.id,
     )
@@ -2164,7 +2188,7 @@ def test_deleting_stage_renumbers_remaining_stages_without_unique_conflict(
 def test_ffa_single_elimination_stage_generates_knockout_matches(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ffa-knockout-' + generate_token().lower(),
         'NS FFA Knockout',
@@ -2175,7 +2199,7 @@ def test_ffa_single_elimination_stage_generates_knockout_matches(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.ffa_single_elimination,
@@ -2190,18 +2214,18 @@ def test_ffa_single_elimination_stage_generates_knockout_matches(
     for participant in participants:
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert (
-            tourney_service.register_user(party.id, tournament.id, participant).is_ok()
+            registration_service.register_user(party.id, tournament.id, participant).is_ok()
         )
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     assert matches
     assert max(match.round_no for match in matches) >= 2
 
-    slots_by_match_id = tourney_service.get_match_slots({match.id for match in matches})
+    slots_by_match_id = match_queries.get_match_slots({match.id for match in matches})
     round1_matches = [match for match in matches if match.round_no == 1]
     round1_player_counts = [
         len(
@@ -2227,7 +2251,7 @@ def test_join_team_respects_team_size(
     teammate = make_user('NS_TeamMate_' + generate_token())
     extra_member = make_user('NS_Extra_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-team-size-' + generate_token().lower(),
         'NS Team Size Demo',
@@ -2248,7 +2272,7 @@ def test_join_team_respects_team_size(
         party.id, extra_member, make_ticket_category
     )
 
-    team_result = tourney_service.create_team_for_captain(
+    team_result = team_captain_service.create_team_for_captain(
         party.id, tournament.id, user, 'Team Alpha'
     )
     assert team_result.is_ok()
@@ -2261,11 +2285,11 @@ def test_join_team_respects_team_size(
     )
     assert invite_code
 
-    assert tourney_service.join_team_by_invite_code(
+    assert team_invite_service.join_team_by_invite_code(
         party.id, tournament.id, invite_code, teammate
     ).is_ok()
 
-    join_extra_result = tourney_service.join_team_by_invite_code(
+    join_extra_result = team_invite_service.join_team_by_invite_code(
         party.id, tournament.id, invite_code, extra_member
     )
     assert join_extra_result.is_err()
@@ -2277,7 +2301,7 @@ def test_user_registration_requires_ticket_for_party(
 ):
     user_without_ticket = make_user('NS_NoTicket_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ticket-required-' + generate_token().lower(),
         'NS Ticket Required',
@@ -2288,7 +2312,7 @@ def test_user_registration_requires_ticket_for_party(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    register_without_ticket_result = tourney_service.register_user(
+    register_without_ticket_result = registration_service.register_user(
         party.id,
         tournament.id,
         user_without_ticket,
@@ -2305,7 +2329,7 @@ def test_user_registration_works_with_ticket_for_party(
 ):
     user_with_ticket = make_user('NS_WithTicket_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ticket-allowed-' + generate_token().lower(),
         'NS Ticket Allowed',
@@ -2320,7 +2344,7 @@ def test_user_registration_works_with_ticket_for_party(
         party.id, user_with_ticket, make_ticket_category
     )
 
-    register_result = tourney_service.register_user(
+    register_result = registration_service.register_user(
         party.id,
         tournament.id,
         user_with_ticket,
@@ -2331,7 +2355,7 @@ def test_user_registration_works_with_ticket_for_party(
 def test_team_only_tournament_blocks_solo_register_route(
     admin_app, party, admin_user, user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-team-only-register-block-' + generate_token().lower(),
         'NS Team Only Register Block',
@@ -2346,7 +2370,7 @@ def test_team_only_tournament_blocks_solo_register_route(
 
     _assign_party_ticket_to_user(party.id, user, make_ticket_category)
 
-    register_result = tourney_service.register_user(
+    register_result = registration_service.register_user(
         party.id,
         tournament.id,
         user,
@@ -2360,7 +2384,7 @@ def test_team_captain_can_toggle_ready_state(
 ):
     teammate = make_user('NS_ReadyMate_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-ready-toggle-' + generate_token().lower(),
         'NS Ready Toggle',
@@ -2376,7 +2400,7 @@ def test_team_captain_can_toggle_ready_state(
     _assign_party_ticket_to_user(party.id, user, make_ticket_category)
     _assign_party_ticket_to_user(party.id, teammate, make_ticket_category)
 
-    team_result = tourney_service.create_team_for_captain(
+    team_result = team_captain_service.create_team_for_captain(
         party.id,
         tournament.id,
         user,
@@ -2385,7 +2409,7 @@ def test_team_captain_can_toggle_ready_state(
     assert team_result.is_ok()
     team = team_result.unwrap()
 
-    not_ready_yet_result = tourney_service.set_managed_team_ready_state(
+    not_ready_yet_result = team_captain_service.set_managed_team_ready_state(
         party.id,
         tournament.id,
         team.id,
@@ -2400,7 +2424,7 @@ def test_team_captain_can_toggle_ready_state(
     )
     assert invite_code
 
-    join_result = tourney_service.join_team_by_invite_code(
+    join_result = team_invite_service.join_team_by_invite_code(
         party.id,
         tournament.id,
         invite_code,
@@ -2408,7 +2432,7 @@ def test_team_captain_can_toggle_ready_state(
     )
     assert join_result.is_ok()
 
-    set_ready_result = tourney_service.set_managed_team_ready_state(
+    set_ready_result = team_captain_service.set_managed_team_ready_state(
         party.id,
         tournament.id,
         team.id,
@@ -2418,7 +2442,7 @@ def test_team_captain_can_toggle_ready_state(
     assert set_ready_result.is_ok()
     assert set_ready_result.unwrap().status == ParticipantStatus.ready
 
-    set_forming_result = tourney_service.set_managed_team_ready_state(
+    set_forming_result = team_captain_service.set_managed_team_ready_state(
         party.id,
         tournament.id,
         team.id,
@@ -2434,7 +2458,7 @@ def test_captain_can_add_and_remove_team_member(
 ):
     teammate = make_user('NS_AddRemove_' + generate_token())
 
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-add-remove-' + generate_token().lower(),
         'NS Team Member Management',
@@ -2452,13 +2476,13 @@ def test_captain_can_add_and_remove_team_member(
         party.id, teammate, make_ticket_category
     )
 
-    team_result = tourney_service.create_team_for_captain(
+    team_result = team_captain_service.create_team_for_captain(
         party.id, tournament.id, user, 'Team Manage'
     )
     assert team_result.is_ok()
     participant = team_result.unwrap()
 
-    add_result = tourney_service.add_team_member_by_captain(
+    add_result = team_member_service.add_team_member_by_captain(
         party.id,
         tournament.id,
         participant.id,
@@ -2467,7 +2491,7 @@ def test_captain_can_add_and_remove_team_member(
     )
     assert add_result.is_ok()
 
-    members_after_add = tourney_service.get_team_members_for_participants(
+    members_after_add = registration_validation.get_team_members_for_participants(
         {participant.id}
     )
     member_user_ids_after_add = {
@@ -2476,7 +2500,7 @@ def test_captain_can_add_and_remove_team_member(
     }
     assert member_user_ids_after_add == {user.id, teammate.id}
 
-    remove_result = tourney_service.remove_team_member_by_captain(
+    remove_result = team_member_service.remove_team_member_by_captain(
         party.id,
         tournament.id,
         participant.id,
@@ -2485,7 +2509,7 @@ def test_captain_can_add_and_remove_team_member(
     )
     assert remove_result.is_ok()
 
-    members_after_remove = tourney_service.get_team_members_for_participants(
+    members_after_remove = registration_validation.get_team_members_for_participants(
         {participant.id}
     )
     member_user_ids_after_remove = {
@@ -2498,7 +2522,7 @@ def test_captain_can_add_and_remove_team_member(
 def test_captain_can_regenerate_team_invite_code(
     admin_app, party, admin_user, user, make_ticket_category
 ):
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-regen-invite-' + generate_token().lower(),
         'NS Invite Regeneration',
@@ -2513,7 +2537,7 @@ def test_captain_can_regenerate_team_invite_code(
 
     _assign_party_ticket_to_user(party.id, user, make_ticket_category)
 
-    team_result = tourney_service.create_team_for_captain(
+    team_result = team_captain_service.create_team_for_captain(
         party.id, tournament.id, user, 'Team Invite'
     )
     assert team_result.is_ok()
@@ -2526,7 +2550,7 @@ def test_captain_can_regenerate_team_invite_code(
     )
     assert invite_code_before
 
-    regenerate_result = tourney_service.regenerate_team_invite_code_for_manager(
+    regenerate_result = team_invite_service.regenerate_team_invite_code_for_manager(
         party.id,
         tournament.id,
         participant.id,
@@ -2537,7 +2561,7 @@ def test_captain_can_regenerate_team_invite_code(
     assert invite_code_after
     assert invite_code_after != invite_code_before
 
-    lookup_result = tourney_service.get_team_invite_code_for_manager(
+    lookup_result = team_invite_service.get_team_invite_code_for_manager(
         party.id,
         tournament.id,
         participant.id,
@@ -2555,7 +2579,7 @@ def test_stage_scheduling_uses_stage_timing_settings(
     challenger_c = make_user('NS_ScheduleC_' + generate_token())
 
     starts_at = datetime(2026, 1, 10, 12, 0, 0)
-    create_result = tourney_service.create_tournament(
+    create_result = tournament_service.create_tournament(
         party.id,
         'ns-schedule-' + generate_token().lower(),
         'NS Schedule Demo',
@@ -2567,7 +2591,7 @@ def test_stage_scheduling_uses_stage_timing_settings(
     assert create_result.is_ok()
     tournament = create_result.unwrap()
 
-    stage_result = tourney_service.create_stage(
+    stage_result = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -2593,17 +2617,17 @@ def test_stage_scheduling_uses_stage_timing_settings(
         party.id, challenger_c, make_ticket_category
     )
 
-    assert tourney_service.register_user(party.id, tournament.id, user).is_ok()
-    assert tourney_service.register_user(party.id, tournament.id, challenger_a).is_ok()
-    assert tourney_service.register_user(party.id, tournament.id, challenger_b).is_ok()
-    assert tourney_service.register_user(party.id, tournament.id, challenger_c).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, user).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, challenger_a).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, challenger_b).is_ok()
+    assert registration_service.register_user(party.id, tournament.id, challenger_c).is_ok()
 
-    generation_result = tourney_service.generate_stage_matches(
+    generation_result = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     )
     assert generation_result.is_ok()
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     assert len(matches) == 4
 
     round1_match1 = next(
@@ -2636,7 +2660,7 @@ def test_stage_scheduling_uses_stage_timing_settings(
 def test_swiss_stage_advances_through_all_rounds(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-swiss-flow-' + generate_token().lower(),
         'NS Swiss Flow',
@@ -2644,7 +2668,7 @@ def test_swiss_stage_advances_through_all_rounds(
         RegistrationMode.solo,
         admin_user,
     ).unwrap()
-    stage = tourney_service.create_stage(
+    stage = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.swiss,
@@ -2655,13 +2679,13 @@ def test_swiss_stage_advances_through_all_rounds(
     for _ in range(4):
         participant = make_user('NS_SwissFlow_' + generate_token())
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, participant
         ).is_ok()
-    assert tourney_service.publish_tournament(
+    assert tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()
-    assert tourney_service.generate_stage_matches(
+    assert match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     ).is_ok()
 
@@ -2670,7 +2694,7 @@ def test_swiss_stage_advances_through_all_rounds(
         party.id, tournament.id, admin_user, excluded_match_ids=set()
     )
 
-    matches = tourney_service.get_matches_for_tournament(party.id, tournament.id)
+    matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
     assert max(match.round_no for match in matches) == 3
     assert all(match.state.value == 'completed' for match in matches)
 
@@ -2678,7 +2702,7 @@ def test_swiss_stage_advances_through_all_rounds(
 def test_player_cannot_report_in_admin_only_stage(
     admin_app, party, admin_user, make_user, make_ticket_category
 ):
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-admin-only-' + generate_token().lower(),
         'NS Admin Only',
@@ -2686,7 +2710,7 @@ def test_player_cannot_report_in_admin_only_stage(
         RegistrationMode.solo,
         admin_user,
     ).unwrap()
-    stage = tourney_service.create_stage(
+    stage = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -2697,17 +2721,17 @@ def test_player_cannot_report_in_admin_only_stage(
     players = [make_user('NS_AdminOnly_' + generate_token()) for _ in range(2)]
     for player in players:
         _assign_party_ticket_to_user(party.id, player, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, player
         ).is_ok()
-    assert tourney_service.publish_tournament(
+    assert tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()
-    match = tourney_service.generate_stage_matches(
+    match = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     ).unwrap()[0]
 
-    player_result = tourney_service.report_result(
+    player_result = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -2719,7 +2743,7 @@ def test_player_cannot_report_in_admin_only_stage(
     assert player_result.is_err()
     assert 'nur Admins' in player_result.unwrap_err()
 
-    admin_result = tourney_service.report_result(
+    admin_result = result_service.report_result(
         party.id,
         tournament.id,
         match.id,
@@ -2762,7 +2786,7 @@ def test_double_elimination_with_two_participants_gives_second_chance(
     grand_final_winner_slot,
     expected_states,
 ):
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-de-two-' + generate_token().lower(),
         'NS DE Two',
@@ -2770,30 +2794,30 @@ def test_double_elimination_with_two_participants_gives_second_chance(
         RegistrationMode.solo,
         admin_user,
     ).unwrap()
-    stage = tourney_service.create_stage(
+    stage = stage_service.create_stage(
         party.id, tournament.id, stage_type, 'DE', {}, admin_user
     ).unwrap()
     for _ in range(2):
         player = make_user('NS_DETwo_' + generate_token())
         _assign_party_ticket_to_user(party.id, player, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, player
         ).is_ok()
-    assert tourney_service.publish_tournament(
+    assert tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()
-    tourney_service.generate_stage_matches(
+    match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     ).unwrap()
 
     def matches():
         return sorted(
-            tourney_service.get_matches_for_tournament(party.id, tournament.id),
+            match_queries.get_matches_for_tournament(party.id, tournament.id),
             key=lambda match: match.match_no,
         )
 
     for match, winner_slot in zip(matches()[:2], (1, grand_final_winner_slot)):
-        assert tourney_service.report_result(
+        assert result_service.report_result(
             party.id,
             tournament.id,
             match.id,
@@ -2809,7 +2833,7 @@ def test_double_elimination_with_two_participants_gives_second_chance(
 
 
 def test_admin_cannot_add_user_without_ticket(admin_app, party, admin_user, make_user):
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-no-ticket-' + generate_token().lower(),
         'NS No Ticket',
@@ -2819,7 +2843,7 @@ def test_admin_cannot_add_user_without_ticket(admin_app, party, admin_user, make
     ).unwrap()
     candidate = make_user('NS_NoTicket_' + generate_token())
 
-    result = tourney_service.add_user_participant_by_admin(
+    result = participant_admin_service.add_user_participant_by_admin(
         party.id, tournament.id, candidate, admin_user
     )
 
@@ -2846,7 +2870,7 @@ def _complete_ready_matches(
     for _ in range(100):
         ready_matches = [
             match
-            for match in tourney_service.get_matches_for_tournament(
+            for match in match_queries.get_matches_for_tournament(
                 party_id, tournament_id
             )
             if match.state.value == 'ready' and match.id not in excluded_match_ids
@@ -2855,7 +2879,7 @@ def _complete_ready_matches(
             return
 
         for match in ready_matches:
-            result = tourney_service.report_result(
+            result = result_service.report_result(
                 party_id,
                 tournament_id,
                 match.id,
@@ -2875,7 +2899,7 @@ def test_tournament_cannot_be_closed_while_matches_are_open(
     admin_app, party, admin_user, user, make_user, make_ticket_category
 ):
     opponent = make_user('NS_Close_' + generate_token())
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-close-' + generate_token().lower(),
         'NS Close',
@@ -2883,7 +2907,7 @@ def test_tournament_cannot_be_closed_while_matches_are_open(
         RegistrationMode.solo,
         admin_user,
     ).unwrap()
-    stage = tourney_service.create_stage(
+    stage = stage_service.create_stage(
         party.id,
         tournament.id,
         StageType.single_elimination,
@@ -2893,23 +2917,23 @@ def test_tournament_cannot_be_closed_while_matches_are_open(
     ).unwrap()
     for player in (user, opponent):
         _assign_party_ticket_to_user(party.id, player, make_ticket_category)
-        assert tourney_service.register_user(
+        assert registration_service.register_user(
             party.id, tournament.id, player
         ).is_ok()
-    assert tourney_service.publish_tournament(
+    assert tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()
-    final = tourney_service.generate_stage_matches(
+    final = match_generation.generate_stage_matches(
         party.id, tournament.id, stage.id, admin_user
     ).unwrap()[0]
 
-    blocked = tourney_service.close_tournament(
+    blocked = tournament_lifecycle_service.close_tournament(
         party.id, tournament.id, admin_user
     )
     assert blocked.is_err()
     assert 'noch 1 Matches offen' in blocked.unwrap_err()
 
-    assert tourney_service.report_result(
+    assert result_service.report_result(
         party.id,
         tournament.id,
         final.id,
@@ -2920,7 +2944,7 @@ def test_tournament_cannot_be_closed_while_matches_are_open(
         actor_is_admin_or_referee=True,
     ).is_ok()
 
-    assert tourney_service.close_tournament(
+    assert tournament_lifecycle_service.close_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()
 
@@ -2931,14 +2955,14 @@ def _make_coin_team_tournament(
     """Team tournament (size 2, 3 coins) with a complete team that pays
     according to `coin_charge_mode`; returns (tournament, team, captain,
     mate)."""
-    assert tourney_service.configure_coin_settings(
+    assert coin_service.configure_coin_settings(
         party.id,
         admin_user,
         enabled=True,
         default_coin_amount=10,
         ticket_category_coin_amounts={},
     ).is_ok()
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-coins-' + generate_token().lower(),
         'NS Coins',
@@ -2954,20 +2978,20 @@ def _make_coin_team_tournament(
     mate = make_user('NS_CoinMate_' + generate_token())
     for player in (captain, mate):
         _assign_party_ticket_to_user(party.id, player, make_ticket_category)
-    team = tourney_service.create_team_for_captain(
+    team = team_captain_service.create_team_for_captain(
         party.id, tournament.id, captain, 'Coin Team'
     ).unwrap()
     invite_code = db.session.scalar(
         select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)
     )
-    assert tourney_service.join_team_by_invite_code(
+    assert team_invite_service.join_team_by_invite_code(
         party.id, tournament.id, invite_code, mate
     ).is_ok()
     return tournament, team, captain, mate
 
 
 def _coins(party, user) -> int:
-    return tourney_service.get_user_coin_balance(
+    return coin_service.get_user_coin_balance(
         party.id, user.id
     ).available_coins
 
@@ -2982,10 +3006,10 @@ def test_refund_after_captain_change_goes_to_former_captain(
     )
     assert (_coins(party, captain), _coins(party, mate)) == (7, 10)
 
-    assert tourney_service.assign_team_captain_by_admin(
+    assert team_admin_service.assign_team_captain_by_admin(
         party.id, tournament.id, team.id, mate.id, admin_user
     ).is_ok()
-    assert tourney_service.deregister_user(
+    assert registration_service.deregister_user(
         party.id, tournament.id, mate
     ).is_ok()
 
@@ -3001,12 +3025,12 @@ def test_removed_member_gets_coins_back_and_team_is_no_longer_ready(
         party, admin_user, make_user, make_ticket_category,
         CoinChargeMode.all_members,
     )
-    assert tourney_service.set_managed_team_ready_state(
+    assert team_captain_service.set_managed_team_ready_state(
         party.id, tournament.id, team.id, captain, ready=True
     ).is_ok()
     assert _coins(party, mate) == 7
 
-    assert tourney_service.remove_team_member_by_admin(
+    assert team_admin_service.remove_team_member_by_admin(
         party.id, tournament.id, team.id, mate.id, admin_user
     ).is_ok()
 
@@ -3025,11 +3049,11 @@ def test_team_is_no_longer_ready_when_a_member_leaves(
         party, admin_user, make_user, make_ticket_category,
         CoinChargeMode.captain_only,
     )
-    assert tourney_service.set_managed_team_ready_state(
+    assert team_captain_service.set_managed_team_ready_state(
         party.id, tournament.id, team.id, captain, ready=True
     ).is_ok()
 
-    assert tourney_service.deregister_user(
+    assert registration_service.deregister_user(
         party.id, tournament.id, mate
     ).is_ok()
 
@@ -3043,10 +3067,10 @@ def test_changing_a_rule_template_slug_keeps_tournaments_linked(
     admin_app, isolated_party, admin_user
 ):
     party = isolated_party
-    template = tourney_service.create_tournament_rule_template(
+    template = tournament_rule_template_service.create_tournament_rule_template(
         party.id, 'rules-old', 'Regeln', RuleTemplateBodyFormat.markdown, 'Fair'
     ).unwrap()
-    tournament = tourney_service.create_tournament(
+    tournament = tournament_service.create_tournament(
         party.id,
         'ns-rules-' + generate_token().lower(),
         'NS Rules',
@@ -3056,7 +3080,7 @@ def test_changing_a_rule_template_slug_keeps_tournaments_linked(
         rules_page_slug='rules-old',
     ).unwrap()
 
-    assert tourney_service.update_tournament_rule_template(
+    assert tournament_rule_template_service.update_tournament_rule_template(
         template.id,
         'rules-new',
         'Regeln',
@@ -3064,5 +3088,5 @@ def test_changing_a_rule_template_slug_keeps_tournaments_linked(
         'Fair',
     ).is_ok()
 
-    reloaded = tourney_service.find_tournament_for_party(party.id, tournament.id)
+    reloaded = tournament_service.find_tournament_for_party(party.id, tournament.id)
     assert reloaded.rules_page_slug == 'rules-new'
