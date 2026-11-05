@@ -63,159 +63,156 @@ from .tournament_queries import (
 def process_browser_push_outbox(*, limit: int = 50) -> int:
     now = datetime.utcnow()
     try:
-        db_rows = db.session.scalars(
-            select(DbNetsessionTourneyBrowserPushOutbox)
-            .filter(
-                DbNetsessionTourneyBrowserPushOutbox.status.in_(
-                    [
-                        BrowserPushOutboxStatus.pending.value,
-                        BrowserPushOutboxStatus.failed.value,
-                    ]
-                )
-            )
-            .filter(
-                (DbNetsessionTourneyBrowserPushOutbox.next_attempt_at.is_(None))
-                | (DbNetsessionTourneyBrowserPushOutbox.next_attempt_at <= now)
-            )
-            .order_by(DbNetsessionTourneyBrowserPushOutbox.created_at.asc())
-            .limit(limit)
-        ).all()
+        db_rows = _load_due_browser_push_rows(now, limit)
     except DBAPIError as exc:
         if _is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return 0
         raise
 
-    processed = 0
     for db_row in db_rows:
-        processed += 1
         db_row.attempt_count += 1
         db_row.updated_at = now
+        _deliver_browser_push_row(db_row, now)
 
-        db_notification = db.session.get(
-            DbNetsessionTourneyNotification, db_row.notification_id
-        )
-        if db_notification is None:
-            _mark_browser_push_outbox_dead_letter(
-                db_row, 'Unknown notification.', now
+    db.session.commit()
+    return len(db_rows)
+
+
+def _load_due_browser_push_rows(now: datetime, limit: int):
+    return db.session.scalars(
+        select(DbNetsessionTourneyBrowserPushOutbox)
+        .filter(
+            DbNetsessionTourneyBrowserPushOutbox.status.in_(
+                [
+                    BrowserPushOutboxStatus.pending.value,
+                    BrowserPushOutboxStatus.failed.value,
+                ]
             )
-            continue
-
-        db_tournament = db.session.get(
-            DbNetsessionTourneyTournament, db_notification.tournament_id
         )
-        if db_tournament is None:
-            _mark_browser_push_outbox_dead_letter(
-                db_row, 'Unbekanntes Turnier.', now
-            )
-            continue
-
-        db_config = db.session.get(
-            DbNetsessionTourneyBrowserPushConfig, db_tournament.party_id
+        .filter(
+            (DbNetsessionTourneyBrowserPushOutbox.next_attempt_at.is_(None))
+            | (DbNetsessionTourneyBrowserPushOutbox.next_attempt_at <= now)
         )
-        if (
-            db_config is None
-            or not db_config.enabled
-            or not db_config.vapid_private_key_encrypted
-        ):
-            db_row.status = BrowserPushOutboxStatus.sent.value
-            db_row.next_attempt_at = None
-            db_row.last_error = None
-            continue
+        .order_by(DbNetsessionTourneyBrowserPushOutbox.created_at.asc())
+        .limit(limit)
+    ).all()
 
-        private_key_pem = _decrypt_browser_push_private_key(
-            db_config.vapid_private_key_encrypted
+
+def _deliver_browser_push_row(db_row, now: datetime) -> None:
+    """Push one notification to all browsers of its user, or schedule a
+    retry, or give up. Nothing to send (push off, no subscription) counts
+    as sent."""
+    db_notification = db.session.get(
+        DbNetsessionTourneyNotification, db_row.notification_id
+    )
+    if db_notification is None:
+        _mark_browser_push_outbox_dead_letter(db_row, 'Unknown notification.', now)
+        return
+
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, db_notification.tournament_id
+    )
+    if db_tournament is None:
+        _mark_browser_push_outbox_dead_letter(db_row, 'Unbekanntes Turnier.', now)
+        return
+
+    db_config = db.session.get(
+        DbNetsessionTourneyBrowserPushConfig, db_tournament.party_id
+    )
+    if (
+        db_config is None
+        or not db_config.enabled
+        or not db_config.vapid_private_key_encrypted
+    ):
+        _mark_browser_push_sent(db_row)
+        return
+
+    private_key_pem = _decrypt_browser_push_private_key(
+        db_config.vapid_private_key_encrypted
+    )
+    if private_key_pem is None:
+        _schedule_browser_push_outbox_retry(
+            db_row, 'No valid browser push private key configured.', now
         )
-        if private_key_pem is None:
-            _schedule_browser_push_outbox_retry(
-                db_row,
-                'No valid browser push private key configured.',
-                now,
-            )
-            continue
+        return
 
-        db_subscriptions = db.session.scalars(
-            select(DbNetsessionTourneyBrowserPushSubscription).filter_by(
-                party_id=db_tournament.party_id,
-                user_id=db_notification.user_id,
-                enabled=True,
-            )
-        ).all()
-        if not db_subscriptions:
-            db_row.status = BrowserPushOutboxStatus.sent.value
-            db_row.next_attempt_at = None
-            db_row.last_error = None
-            continue
+    db_subscriptions = db.session.scalars(
+        select(DbNetsessionTourneyBrowserPushSubscription).filter_by(
+            party_id=db_tournament.party_id,
+            user_id=db_notification.user_id,
+            enabled=True,
+        )
+    ).all()
+    if not db_subscriptions:
+        _mark_browser_push_sent(db_row)
+        return
 
-        vapid_private_key = _build_browser_push_private_key_for_pywebpush(
+    delivered, transient_error = _push_to_subscriptions(
+        db_subscriptions,
+        db_tournament,
+        message=_build_browser_push_message_payload(db_tournament, db_notification),
+        vapid_private_key=_build_browser_push_private_key_for_pywebpush(
             private_key_pem
-        )
+        ),
+        now=now,
+    )
+    if delivered or transient_error is None:
+        _mark_browser_push_sent(db_row)
+        return
 
-        message = _build_browser_push_message_payload(
-            db_tournament, db_notification
-        )
-        delivered = False
-        had_transient_error = False
-        transient_error_message = None
-        for db_subscription in db_subscriptions:
-            try:
-                if webpush is None:
-                    raise RuntimeError(
-                        'pywebpush is not installed in this environment.'
-                    )
+    _schedule_browser_push_outbox_retry(
+        db_row, f'Browser push delivery failed: {transient_error}', now
+    )
 
-                vapid_claims = {
+
+def _push_to_subscriptions(
+    db_subscriptions, db_tournament, *, message, vapid_private_key, now
+) -> tuple[bool, str | None]:
+    """Return whether any browser got it, and the last temporary error.
+
+    Subscriptions the push service no longer knows (404/410) are disabled.
+    """
+    delivered = False
+    transient_error = None
+    for db_subscription in db_subscriptions:
+        try:
+            if webpush is None:
+                raise RuntimeError('pywebpush is not installed in this environment.')
+
+            webpush(
+                subscription_info={
+                    'endpoint': db_subscription.endpoint,
+                    'keys': {
+                        'p256dh': db_subscription.endpoint_p256dh,
+                        'auth': db_subscription.endpoint_auth,
+                    },
+                },
+                data=json.dumps(message),
+                vapid_private_key=vapid_private_key,
+                vapid_claims={
                     'sub': _build_browser_push_vapid_subject(
                         db_tournament.party_id, db_subscription.endpoint
                     ),
-                }
+                },
+            )
+            delivered = True
+        except WebPushException as exc:  # pragma: no branch
+            status_code = getattr(getattr(exc, 'response', None), 'status_code', None)
+            if status_code in {404, 410}:
+                db_subscription.enabled = False
+                db_subscription.updated_at = now
+                continue
+            transient_error = _format_browser_push_delivery_error(exc)
+        except Exception as exc:  # pragma: no cover - delivery fallback
+            transient_error = _format_browser_push_delivery_error(exc)
+    return delivered, transient_error
 
-                webpush(
-                    subscription_info={
-                        'endpoint': db_subscription.endpoint,
-                        'keys': {
-                            'p256dh': db_subscription.endpoint_p256dh,
-                            'auth': db_subscription.endpoint_auth,
-                        },
-                    },
-                    data=json.dumps(message),
-                    vapid_private_key=vapid_private_key,
-                    vapid_claims=vapid_claims,
-                )
-                delivered = True
-            except WebPushException as exc:  # pragma: no branch
-                status_code = getattr(
-                    getattr(exc, 'response', None), 'status_code', None
-                )
-                if status_code in {404, 410}:
-                    db_subscription.enabled = False
-                    db_subscription.updated_at = now
-                    continue
 
-                had_transient_error = True
-                transient_error_message = _format_browser_push_delivery_error(
-                    exc
-                )
-            except Exception as exc:  # pragma: no cover - delivery fallback
-                had_transient_error = True
-                transient_error_message = _format_browser_push_delivery_error(
-                    exc
-                )
-
-        if delivered or not had_transient_error:
-            db_row.status = BrowserPushOutboxStatus.sent.value
-            db_row.next_attempt_at = None
-            db_row.last_error = None
-            continue
-
-        _schedule_browser_push_outbox_retry(
-            db_row,
-            f'Browser push delivery failed: {transient_error_message}',
-            now,
-        )
-
-    db.session.commit()
-    return processed
+def _mark_browser_push_sent(db_row) -> None:
+    db_row.status = BrowserPushOutboxStatus.sent.value
+    db_row.next_attempt_at = None
+    db_row.last_error = None
 
 
 def _mark_browser_push_outbox_dead_letter(

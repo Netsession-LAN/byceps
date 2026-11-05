@@ -105,7 +105,26 @@ def enqueue_discord_event(
 
 def process_discord_outbox(*, limit: int = 50) -> int:
     now = datetime.utcnow()
-    db_rows = db.session.scalars(
+    db_rows = _load_due_discord_outbox_rows(now, limit)
+
+    match get_configured_discord_bot_credentials():
+        case Err(message):
+            credentials_error = message
+            credentials = None
+        case Ok(credentials):
+            credentials_error = None
+
+    for db_row in db_rows:
+        db_row.attempt_count += 1
+        db_row.updated_at = now
+        _deliver_discord_outbox_row(db_row, credentials, credentials_error, now)
+
+    db.session.commit()
+    return len(db_rows)
+
+
+def _load_due_discord_outbox_rows(now: datetime, limit: int):
+    return db.session.scalars(
         select(DbNetsessionTourneyDiscordOutbox)
         .filter(
             DbNetsessionTourneyDiscordOutbox.status.in_(
@@ -123,150 +142,91 @@ def process_discord_outbox(*, limit: int = 50) -> int:
         .limit(limit)
     ).all()
 
-    match get_configured_discord_bot_credentials():
-        case Err(message):
-            credentials_error = message
-            credentials = None
-        case Ok(credentials):
-            credentials_error = None
 
-    processed = 0
-    for db_row in db_rows:
-        processed += 1
-        db_row.attempt_count += 1
-        db_row.updated_at = now
+def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> None:
+    """Post one event to the tournament's forum thread, or schedule a retry
+    (temporary problem) or give up (dead letter)."""
+    db_tournament = db.session.get(DbNetsessionTourneyTournament, db_row.tournament_id)
+    dead_letter_reason = _discord_dead_letter_reason(db_tournament)
+    if dead_letter_reason is not None:
+        _mark_discord_outbox_dead_letter(db_row, dead_letter_reason, now)
+        return
 
-        db_tournament = db.session.get(
-            DbNetsessionTourneyTournament, db_row.tournament_id
+    if credentials is None:
+        _schedule_discord_outbox_retry(
+            db_row,
+            credentials_error or 'Keine gültige Discord-Bot-Konfiguration aktiv.',
+            now,
         )
-        if db_tournament is None:
-            _mark_discord_outbox_dead_letter(
-                db_row, 'Unknown tournament for Discord outbox item.', now
-            )
-            continue
+        return
 
-        if not db_tournament.discord_enabled:
-            _mark_discord_outbox_dead_letter(
-                db_row,
-                'Discord-Forum ist für dieses Turnier nicht aktiviert.',
-                now,
-            )
-            continue
-
-        if not db_tournament.discord_forum_channel_id:
-            _mark_discord_outbox_dead_letter(
-                db_row,
-                'Keine Discord-Forum-Channel-ID konfiguriert.',
-                now,
-            )
-            continue
-
-        if credentials is None:
-            _schedule_discord_outbox_retry(
-                db_row,
-                credentials_error
-                or 'Keine gültige Discord-Bot-Konfiguration aktiv.',
-                now,
-            )
-            continue
-
-        application_id, bot_token = credentials
-        if not db_tournament.discord_thread_id:
-            try:
-                _sync_discord_thread_for_tournament(db_tournament)
-            except Exception:
-                pass
-
-        thread_id = db_tournament.discord_thread_id
-        if not thread_id:
-            _schedule_discord_outbox_retry(
-                db_row,
-                'Discord-Forum-Thread konnte noch nicht erstellt werden.',
-                now,
-            )
-            continue
-
+    if not db_tournament.discord_thread_id:
         try:
-            _post_discord_forum_message(
-                application_id=application_id,
-                bot_token=bot_token,
-                thread_id=thread_id,
-                payload=_build_discord_message_payload(
-                    db_tournament, db_row
-                ),
-            )
-        except httpx.HTTPStatusError as exc:
-            recovered_thread_id = _recover_deleted_discord_forum_thread(
-                db_tournament=db_tournament,
-                failed_thread_id=thread_id,
-                exc=exc,
-            )
-            if recovered_thread_id:
-                try:
-                    _post_discord_forum_message(
-                        application_id=application_id,
-                        bot_token=bot_token,
-                        thread_id=recovered_thread_id,
-                        payload=_build_discord_message_payload(
-                            db_tournament, db_row
-                        ),
-                    )
-                except httpx.HTTPError as retry_exc:
-                    _schedule_discord_outbox_retry(
-                        db_row,
-                        (
-                            'Discord-Forum-Anfrage fehlgeschlagen: '
-                            f'{type(retry_exc).__name__}'
-                        ),
-                        now,
-                    )
-                    log.warning(
-                        'netsession_tourney.discord_forum_delivery_failed',
-                        tournament_id=str(db_row.tournament_id),
-                        outbox_id=str(db_row.id),
-                        event_name=db_row.event_name,
-                        error=type(retry_exc).__name__,
-                    )
-                    continue
+            _sync_discord_thread_for_tournament(db_tournament)
+        except Exception:
+            pass
 
-                db_row.status = DiscordOutboxStatus.sent.value
-                db_row.next_attempt_at = None
-                db_row.last_error = None
-                continue
+    thread_id = db_tournament.discord_thread_id
+    if not thread_id:
+        _schedule_discord_outbox_retry(
+            db_row, 'Discord-Forum-Thread konnte noch nicht erstellt werden.', now
+        )
+        return
 
-            _schedule_discord_outbox_retry(
-                db_row,
-                f'Discord-Forum-Anfrage fehlgeschlagen: {type(exc).__name__}',
-                now,
-            )
-            log.warning(
-                'netsession_tourney.discord_forum_delivery_failed',
-                tournament_id=str(db_row.tournament_id),
-                outbox_id=str(db_row.id),
-                event_name=db_row.event_name,
-                error=type(exc).__name__,
-            )
-            continue
-        except httpx.HTTPError as exc:
-            _schedule_discord_outbox_retry(
-                db_row,
-                f'Discord-Forum-Anfrage fehlgeschlagen: {type(exc).__name__}',
-                now,
-            )
-            log.warning(
-                'netsession_tourney.discord_forum_delivery_failed',
-                tournament_id=str(db_row.tournament_id),
-                outbox_id=str(db_row.id),
-                event_name=db_row.event_name,
-                error=type(exc).__name__,
-            )
-            continue
+    application_id, bot_token = credentials
 
-        db_row.status = DiscordOutboxStatus.sent.value
-        db_row.next_attempt_at = None
-        db_row.last_error = None
-    db.session.commit()
-    return processed
+    def post(to_thread_id) -> None:
+        _post_discord_forum_message(
+            application_id=application_id,
+            bot_token=bot_token,
+            thread_id=to_thread_id,
+            payload=_build_discord_message_payload(db_tournament, db_row),
+        )
+
+    try:
+        post(thread_id)
+    except httpx.HTTPStatusError as exc:
+        recovered_thread_id = _recover_deleted_discord_forum_thread(
+            db_tournament=db_tournament, failed_thread_id=thread_id, exc=exc
+        )
+        if not recovered_thread_id:
+            _retry_after_discord_error(db_row, exc, now)
+            return
+        try:
+            post(recovered_thread_id)
+        except httpx.HTTPError as retry_exc:
+            _retry_after_discord_error(db_row, retry_exc, now)
+            return
+    except httpx.HTTPError as exc:
+        _retry_after_discord_error(db_row, exc, now)
+        return
+
+    db_row.status = DiscordOutboxStatus.sent.value
+    db_row.next_attempt_at = None
+    db_row.last_error = None
+
+
+def _discord_dead_letter_reason(db_tournament) -> str | None:
+    if db_tournament is None:
+        return 'Unknown tournament for Discord outbox item.'
+    if not db_tournament.discord_enabled:
+        return 'Discord-Forum ist für dieses Turnier nicht aktiviert.'
+    if not db_tournament.discord_forum_channel_id:
+        return 'Keine Discord-Forum-Channel-ID konfiguriert.'
+    return None
+
+
+def _retry_after_discord_error(db_row, exc: Exception, now: datetime) -> None:
+    _schedule_discord_outbox_retry(
+        db_row, f'Discord-Forum-Anfrage fehlgeschlagen: {type(exc).__name__}', now
+    )
+    log.warning(
+        'netsession_tourney.discord_forum_delivery_failed',
+        tournament_id=str(db_row.tournament_id),
+        outbox_id=str(db_row.id),
+        event_name=db_row.event_name,
+        error=type(exc).__name__,
+    )
 
 
 def configure_discord(
