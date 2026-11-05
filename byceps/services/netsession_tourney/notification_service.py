@@ -88,12 +88,9 @@ def send_manual_tournament_notification(
     body = body.strip()
     target_url = (target_url or '').strip() or None
 
-    if not title:
-        return Err('Bitte einen Titel angeben.')
-    if not body:
-        return Err('Bitte eine Nachricht angeben.')
-    if target_url is not None and not target_url.startswith('/'):
-        return Err('Die Ziel-Adresse muss relativ sein und mit / beginnen.')
+    error = _validate_manual_notification_input(title, body, target_url)
+    if error is not None:
+        return Err(error)
 
     recipients, subscription_count = (
         _get_active_browser_push_subscription_recipients_for_tournament(
@@ -102,19 +99,15 @@ def send_manual_tournament_notification(
     )
 
     now = datetime.utcnow()
-    for user_id in recipients:
-        _append_notification(
-            tournament_id=tournament_id,
-            user_id=user_id,
-            kind='manual_announcement',
-            payload={
-                'title': title,
-                'body': body,
-                'url': target_url
-                or _build_site_tournament_overview_path(db_tournament.slug),
-            },
-            created_at=now,
-        )
+    _append_manual_announcement_notifications(
+        tournament_id,
+        recipients,
+        title=title,
+        body=body,
+        url=target_url
+        or _build_site_tournament_overview_path(db_tournament.slug),
+        created_at=now,
+    )
 
     _append_audit_log(
         actor_user_id=initiator.id,
@@ -150,6 +143,42 @@ def send_manual_tournament_notification(
             subscription_count=subscription_count,
         )
     )
+
+
+def _validate_manual_notification_input(
+    title: str, body: str, target_url: str | None
+) -> str | None:
+    """Return the first validation error message, or `None` if valid."""
+    if not title:
+        return 'Bitte einen Titel angeben.'
+    if not body:
+        return 'Bitte eine Nachricht angeben.'
+    if target_url is not None and not target_url.startswith('/'):
+        return 'Die Ziel-Adresse muss relativ sein und mit / beginnen.'
+    return None
+
+
+def _append_manual_announcement_notifications(
+    tournament_id: TournamentID,
+    recipients: set[UserID],
+    *,
+    title: str,
+    body: str,
+    url: str,
+    created_at: datetime,
+) -> None:
+    for user_id in recipients:
+        _append_notification(
+            tournament_id=tournament_id,
+            user_id=user_id,
+            kind='manual_announcement',
+            payload={
+                'title': title,
+                'body': body,
+                'url': url,
+            },
+            created_at=created_at,
+        )
 
 
 def _append_notification_for_match_report(

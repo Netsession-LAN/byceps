@@ -54,51 +54,73 @@ def _build_discord_match_result_summary(
     }
 
     if is_ffa_stage:
-        raw_placements = (
-            ranking_data.get('placements')
-            if isinstance(ranking_data, dict)
-            else None
+        return _build_discord_ffa_match_result_summary(
+            occupied_slots, db_participants_by_id, ranking_data
         )
-        raw_points = (
-            ranking_data.get('points')
-            if isinstance(ranking_data, dict)
-            else None
+
+    return _build_discord_duel_match_result_summary(
+        occupied_slots, db_slots, db_participants_by_id, winner_slot, score_data
+    )
+
+
+def _build_discord_ffa_match_result_summary(
+    occupied_slots: list[DbNetsessionTourneyMatchSlot],
+    db_participants_by_id: dict[ParticipantID, DbNetsessionTourneyParticipant],
+    ranking_data: dict[str, Any],
+) -> dict[str, Any] | None:
+    raw_placements = (
+        ranking_data.get('placements')
+        if isinstance(ranking_data, dict)
+        else None
+    )
+    raw_points = (
+        ranking_data.get('points')
+        if isinstance(ranking_data, dict)
+        else None
+    )
+    if not isinstance(raw_placements, dict):
+        return None
+
+    rows: list[dict[str, Any]] = []
+    for db_slot in occupied_slots:
+        participant = db_participants_by_id.get(db_slot.participant_id)
+        if participant is None:
+            continue
+
+        placement = raw_placements.get(str(db_slot.slot_no))
+        if placement is None:
+            placement = raw_placements.get(db_slot.slot_no)
+        if placement is None:
+            continue
+
+        points = None
+        if isinstance(raw_points, dict):
+            points = raw_points.get(str(db_slot.slot_no))
+            if points is None:
+                points = raw_points.get(db_slot.slot_no)
+
+        rows.append(
+            {
+                'position': int(placement),
+                'participant_name': participant.name,
+                'points': points,
+            }
         )
-        if not isinstance(raw_placements, dict):
-            return None
 
-        rows: list[dict[str, Any]] = []
-        for db_slot in occupied_slots:
-            participant = db_participants_by_id.get(db_slot.participant_id)
-            if participant is None:
-                continue
+    if not rows:
+        return None
 
-            placement = raw_placements.get(str(db_slot.slot_no))
-            if placement is None:
-                placement = raw_placements.get(db_slot.slot_no)
-            if placement is None:
-                continue
+    rows.sort(key=lambda item: (item['position'], item['participant_name']))
+    return {'format': 'ffa', 'rows': rows}
 
-            points = None
-            if isinstance(raw_points, dict):
-                points = raw_points.get(str(db_slot.slot_no))
-                if points is None:
-                    points = raw_points.get(db_slot.slot_no)
 
-            rows.append(
-                {
-                    'position': int(placement),
-                    'participant_name': participant.name,
-                    'points': points,
-                }
-            )
-
-        if not rows:
-            return None
-
-        rows.sort(key=lambda item: (item['position'], item['participant_name']))
-        return {'format': 'ffa', 'rows': rows}
-
+def _build_discord_duel_match_result_summary(
+    occupied_slots: list[DbNetsessionTourneyMatchSlot],
+    db_slots: list[DbNetsessionTourneyMatchSlot],
+    db_participants_by_id: dict[ParticipantID, DbNetsessionTourneyParticipant],
+    winner_slot: int | None,
+    score_data: dict[str, Any],
+) -> dict[str, Any] | None:
     parsed_scores = _parse_match_result_slot_scores(
         db_slots, score_data, winner_slot=winner_slot
     )
@@ -308,22 +330,7 @@ def _build_discord_match_completed_fields(
         return fields
 
     if result_summary.get('format') == 'ffa':
-        ranking_lines = []
-        for row in rows[:8]:
-            participant_name = str(row.get('participant_name') or '').strip()
-            if not participant_name:
-                continue
-            try:
-                position = int(row.get('position'))
-            except (TypeError, ValueError):
-                continue
-
-            points = row.get('points')
-            line = f'{position}. {participant_name}'
-            if points is not None and str(points).strip():
-                line += f' - {points} Pkt.'
-            ranking_lines.append(line)
-
+        ranking_lines = _build_discord_ffa_ranking_lines(rows)
         if ranking_lines:
             fields.append(
                 {
@@ -333,18 +340,7 @@ def _build_discord_match_completed_fields(
                 }
             )
     else:
-        result_lines = []
-        for row in rows[:8]:
-            participant_name = str(row.get('participant_name') or '').strip()
-            if not participant_name:
-                continue
-            score = row.get('score')
-            score_suffix = (
-                f' - {score}' if score is not None and str(score).strip() else ''
-            )
-            prefix = 'W' if row.get('is_winner') else '-'
-            result_lines.append(f'{prefix} {participant_name}{score_suffix}')
-
+        result_lines = _build_discord_duel_result_lines(rows)
         if result_lines:
             fields.append(
                 {
@@ -355,6 +351,40 @@ def _build_discord_match_completed_fields(
             )
 
     return fields
+
+
+def _build_discord_ffa_ranking_lines(rows: list[Any]) -> list[str]:
+    ranking_lines = []
+    for row in rows[:8]:
+        participant_name = str(row.get('participant_name') or '').strip()
+        if not participant_name:
+            continue
+        try:
+            position = int(row.get('position'))
+        except (TypeError, ValueError):
+            continue
+
+        points = row.get('points')
+        line = f'{position}. {participant_name}'
+        if points is not None and str(points).strip():
+            line += f' - {points} Pkt.'
+        ranking_lines.append(line)
+    return ranking_lines
+
+
+def _build_discord_duel_result_lines(rows: list[Any]) -> list[str]:
+    result_lines = []
+    for row in rows[:8]:
+        participant_name = str(row.get('participant_name') or '').strip()
+        if not participant_name:
+            continue
+        score = row.get('score')
+        score_suffix = (
+            f' - {score}' if score is not None and str(score).strip() else ''
+        )
+        prefix = 'W' if row.get('is_winner') else '-'
+        result_lines.append(f'{prefix} {participant_name}{score_suffix}')
+    return result_lines
 
 
 def _normalize_discord_tournament_placements(

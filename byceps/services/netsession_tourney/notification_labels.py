@@ -83,47 +83,9 @@ def _build_double_elimination_notification_match_labels(
         key=lambda match: (match.round_no, match.match_no),
     )
     stage_match_ids = {match.id for match in db_stage_matches}
-    bracket_by_match_id: dict[MatchID, str] = {}
-
-    changed = True
-    while changed:
-        changed = False
-        for match in sorted_matches:
-            incoming = [
-                (source_match_id, outcome)
-                for source_match_id, outcome in incoming_by_match_id.get(
-                    match.id, []
-                )
-                if source_match_id in stage_match_ids
-            ]
-            bracket = bracket_by_match_id.get(match.id)
-            next_bracket = bracket
-            if not incoming:
-                next_bracket = 'WB'
-            else:
-                source_brackets = {
-                    bracket_by_match_id.get(source_match_id)
-                    for source_match_id, _ in incoming
-                }
-                source_brackets.discard(None)
-
-                if 'GF' in source_brackets:
-                    next_bracket = 'GF'
-                elif any(
-                    _is_loser_notification_outcome(outcome)
-                    for _, outcome in incoming
-                ):
-                    next_bracket = 'LB'
-                elif source_brackets == {'WB'}:
-                    next_bracket = 'WB'
-                elif source_brackets == {'LB'}:
-                    next_bracket = 'LB'
-                elif source_brackets == {'WB', 'LB'}:
-                    next_bracket = 'GF'
-
-            if next_bracket != bracket:
-                bracket_by_match_id[match.id] = next_bracket
-                changed = True
+    bracket_by_match_id = _assign_double_elimination_notification_brackets(
+        sorted_matches, stage_match_ids, incoming_by_match_id
+    )
 
     labels_by_match_id = {match.id: f'M #{match.match_no}' for match in db_stage_matches}
 
@@ -174,6 +136,66 @@ def _build_double_elimination_notification_match_labels(
     )
 
     return labels_by_match_id
+
+
+def _assign_double_elimination_notification_brackets(
+    sorted_matches: list[DbNetsessionTourneyMatch],
+    stage_match_ids: set[MatchID],
+    incoming_by_match_id: dict[MatchID, list[tuple[MatchID, Any]]],
+) -> dict[MatchID, str]:
+    """Assign 'WB', 'LB' or 'GF' to each match, iterating until stable."""
+    bracket_by_match_id: dict[MatchID, str] = {}
+
+    changed = True
+    while changed:
+        changed = False
+        for match in sorted_matches:
+            incoming = [
+                (source_match_id, outcome)
+                for source_match_id, outcome in incoming_by_match_id.get(
+                    match.id, []
+                )
+                if source_match_id in stage_match_ids
+            ]
+            bracket = bracket_by_match_id.get(match.id)
+            next_bracket = (
+                _determine_next_notification_bracket(incoming, bracket_by_match_id)
+                if incoming
+                else 'WB'
+            )
+            if next_bracket is None:
+                next_bracket = bracket
+
+            if next_bracket != bracket:
+                bracket_by_match_id[match.id] = next_bracket
+                changed = True
+
+    return bracket_by_match_id
+
+
+def _determine_next_notification_bracket(
+    incoming: list[tuple[MatchID, Any]],
+    bracket_by_match_id: dict[MatchID, str],
+) -> str | None:
+    """Return the bracket derived from the incoming matches, or `None`
+    if it cannot be derived (yet)."""
+    source_brackets = {
+        bracket_by_match_id.get(source_match_id)
+        for source_match_id, _ in incoming
+    }
+    source_brackets.discard(None)
+
+    if 'GF' in source_brackets:
+        return 'GF'
+    elif any(_is_loser_notification_outcome(outcome) for _, outcome in incoming):
+        return 'LB'
+    elif source_brackets == {'WB'}:
+        return 'WB'
+    elif source_brackets == {'LB'}:
+        return 'LB'
+    elif source_brackets == {'WB', 'LB'}:
+        return 'GF'
+    return None
 
 
 def _is_loser_notification_outcome(outcome: Any) -> bool:

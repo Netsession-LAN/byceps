@@ -251,34 +251,17 @@ def configure_discord(
         discord_forum_image_url.strip() if discord_forum_image_url else None
     )
     normalized_event_mask = sorted(set(event_mask))
-    if enabled and not normalized_forum_channel_id:
-        return Err('Eine Discord-Forum-Channel-ID ist erforderlich.')
-
-    invalid_events = sorted(
-        set(normalized_event_mask).difference(DISCORD_SUPPORTED_EVENTS)
+    error = _validate_discord_configuration(
+        enabled=enabled,
+        normalized_forum_channel_id=normalized_forum_channel_id,
+        normalized_event_mask=normalized_event_mask,
+        discord_dm_enabled=discord_dm_enabled,
+        discord_dm_event_mask=discord_dm_event_mask,
     )
-    if invalid_events:
-        return Err(
-            'Unbekannte Discord-Forum-Events: ' + ', '.join(invalid_events)
-        )
-    if enabled and not normalized_event_mask:
-        return Err(
-            'Mindestens ein Discord-Forum-Event muss ausgewählt werden.'
-        )
-
-    invalid_dm_events = sorted(
-        set(discord_dm_event_mask).difference(DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS)
-    )
-    if invalid_dm_events:
-        return Err(
-            'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(invalid_dm_events)
-        )
+    if error is not None:
+        return Err(error)
 
     normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
-    if discord_dm_enabled and not normalized_discord_dm_event_mask:
-        return Err(
-            'Mindestens ein Discord-DM-Event muss ausgewählt werden.'
-        )
 
     forum_channel_changed = (
         db_tournament.discord_forum_channel_id != normalized_forum_channel_id
@@ -315,6 +298,39 @@ def configure_discord(
         _sync_discord_thread_for_tournament(db_tournament)
 
     return Ok(_db_tournament_to_model(db_tournament))
+
+
+def _validate_discord_configuration(
+    *,
+    enabled: bool,
+    normalized_forum_channel_id: str | None,
+    normalized_event_mask: list[str],
+    discord_dm_enabled: bool,
+    discord_dm_event_mask: list[str],
+) -> str | None:
+    """Return the first validation error message, or `None` if valid."""
+    if enabled and not normalized_forum_channel_id:
+        return 'Eine Discord-Forum-Channel-ID ist erforderlich.'
+
+    invalid_events = sorted(
+        set(normalized_event_mask).difference(DISCORD_SUPPORTED_EVENTS)
+    )
+    if invalid_events:
+        return 'Unbekannte Discord-Forum-Events: ' + ', '.join(invalid_events)
+    if enabled and not normalized_event_mask:
+        return 'Mindestens ein Discord-Forum-Event muss ausgewählt werden.'
+
+    invalid_dm_events = sorted(
+        set(discord_dm_event_mask).difference(DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS)
+    )
+    if invalid_dm_events:
+        return 'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(invalid_dm_events)
+
+    normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
+    if discord_dm_enabled and not normalized_discord_dm_event_mask:
+        return 'Mindestens ein Discord-DM-Event muss ausgewählt werden.'
+
+    return None
 
 
 def _mark_discord_outbox_dead_letter(

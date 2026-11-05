@@ -68,37 +68,9 @@ def _sync_discord_thread_for_tournament(
             pass
 
     if db_tournament.discord_thread_id:
-        try:
-            _get_discord_channel(
-                application_id=application_id,
-                bot_token=bot_token,
-                channel_id=db_tournament.discord_thread_id,
-            )
-        except httpx.HTTPStatusError as exc:
-            if _is_discord_resource_missing(exc):
-                _clear_discord_thread_reference(
-                    db_tournament,
-                    audit_action='discord_thread_missing_reset',
-                    audit_payload={
-                        'thread_id': db_tournament.discord_thread_id,
-                        'reason': 'thread_missing',
-                    },
-                )
-            else:
-                log.warning(
-                    'netsession_tourney.discord_forum_thread_validate_failed',
-                    tournament_id=str(db_tournament.id),
-                    thread_id=str(db_tournament.discord_thread_id),
-                    error=type(exc).__name__,
-                )
-                return
-        except httpx.HTTPError as exc:
-            log.warning(
-                'netsession_tourney.discord_forum_thread_validate_failed',
-                tournament_id=str(db_tournament.id),
-                thread_id=str(db_tournament.discord_thread_id),
-                error=type(exc).__name__,
-            )
+        if not _validate_existing_discord_thread(
+            db_tournament, application_id=application_id, bot_token=bot_token
+        ):
             return
 
     if db_tournament.discord_thread_id:
@@ -118,6 +90,61 @@ def _sync_discord_thread_for_tournament(
                 )
         return
 
+    _create_discord_thread_for_tournament(
+        db_tournament, application_id=application_id, bot_token=bot_token
+    )
+
+
+def _validate_existing_discord_thread(
+    db_tournament: DbNetsessionTourneyTournament,
+    *,
+    application_id: str,
+    bot_token: str,
+) -> bool:
+    """Check that the referenced thread still exists; clear the reference
+    if it is gone. Return `False` if syncing must stop (unclear state)."""
+    try:
+        _get_discord_channel(
+            application_id=application_id,
+            bot_token=bot_token,
+            channel_id=db_tournament.discord_thread_id,
+        )
+    except httpx.HTTPStatusError as exc:
+        if _is_discord_resource_missing(exc):
+            _clear_discord_thread_reference(
+                db_tournament,
+                audit_action='discord_thread_missing_reset',
+                audit_payload={
+                    'thread_id': db_tournament.discord_thread_id,
+                    'reason': 'thread_missing',
+                },
+            )
+        else:
+            log.warning(
+                'netsession_tourney.discord_forum_thread_validate_failed',
+                tournament_id=str(db_tournament.id),
+                thread_id=str(db_tournament.discord_thread_id),
+                error=type(exc).__name__,
+            )
+            return False
+    except httpx.HTTPError as exc:
+        log.warning(
+            'netsession_tourney.discord_forum_thread_validate_failed',
+            tournament_id=str(db_tournament.id),
+            thread_id=str(db_tournament.discord_thread_id),
+            error=type(exc).__name__,
+        )
+        return False
+
+    return True
+
+
+def _create_discord_thread_for_tournament(
+    db_tournament: DbNetsessionTourneyTournament,
+    *,
+    application_id: str,
+    bot_token: str,
+) -> None:
     payload = _build_discord_forum_thread_payload(db_tournament)
 
     try:

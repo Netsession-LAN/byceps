@@ -7,6 +7,7 @@ Payloads of Discord forum posts and events.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -78,19 +79,65 @@ def _build_discord_match_completed_payload(
     return payload
 
 
+@dataclass(frozen=True, kw_only=True)
+class _DiscordEventPresentation:
+    embed_title: str
+    description: str
+    url: str | None
+    color: int
+
+
 def _build_discord_message_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_row: DbNetsessionTourneyDiscordOutbox,
 ) -> dict[str, Any]:
     payload_data = db_row.payload_json or {}
     event_name = db_row.event_name
-    title = db_tournament.title
     url = _build_absolute_notification_url(
         db_tournament.party_id, _build_site_tournament_overview_path(db_tournament.slug)
     )
     brand_icon_url = _build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
     )
+
+    presentation = _build_discord_event_presentation(
+        db_tournament, event_name, payload_data, url
+    )
+    embed_title = presentation.embed_title
+    url = presentation.url
+
+    fields = _build_discord_message_fields(
+        db_tournament, event_name, payload_data, embed_title, url
+    )
+
+    embed: dict[str, Any] = {
+        'author': {'name': 'Netsession Turniere'},
+        'title': embed_title[:256],
+        'description': presentation.description[:4096],
+        'color': presentation.color,
+        'fields': fields,
+        'footer': {'text': 'Netsession Turniere'},
+        'timestamp': db_row.created_at.replace(microsecond=0).isoformat() + 'Z',
+    }
+    if url:
+        embed['url'] = url
+    if brand_icon_url:
+        embed['author']['icon_url'] = brand_icon_url
+
+    return {
+        'allowed_mentions': {'parse': []},
+        'embeds': [embed],
+    }
+
+
+def _build_discord_event_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    event_name: str,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    """Return embed title, description, link and color for the event."""
+    title = db_tournament.title
     color = 0xFF2B00
     description = 'Es gibt ein neues Turnier-Update.'
 
@@ -122,7 +169,6 @@ def _build_discord_message_payload(
             if stage_name
             else f'**{title}**\nEine neue Stage ist gestartet.'
         )
-        title = stage_name or title
         color = 0xF97316
     elif event_name == 'tournament_finished':
         embed_title = 'Turnier beendet'
@@ -141,6 +187,18 @@ def _build_discord_message_payload(
         embed_title = 'Turnier-Update'
         description = f'**{title}**\n{description}'
 
+    return _DiscordEventPresentation(
+        embed_title=embed_title, description=description, url=url, color=color
+    )
+
+
+def _build_discord_message_fields(
+    db_tournament: DbNetsessionTourneyTournament,
+    event_name: str,
+    payload_data: dict[str, Any],
+    embed_title: str,
+    url: str | None,
+) -> list[dict[str, Any]]:
     fields = [
         {'name': 'Turnier', 'value': db_tournament.title[:1024], 'inline': True},
         {'name': 'Ereignis', 'value': embed_title[:1024], 'inline': True},
@@ -159,25 +217,7 @@ def _build_discord_message_payload(
         )
     elif event_name == 'match_completed':
         fields.extend(_build_discord_match_completed_fields(payload_data))
-
-    embed: dict[str, Any] = {
-        'author': {'name': 'Netsession Turniere'},
-        'title': embed_title[:256],
-        'description': description[:4096],
-        'color': color,
-        'fields': fields,
-        'footer': {'text': 'Netsession Turniere'},
-        'timestamp': db_row.created_at.replace(microsecond=0).isoformat() + 'Z',
-    }
-    if url:
-        embed['url'] = url
-    if brand_icon_url:
-        embed['author']['icon_url'] = brand_icon_url
-
-    return {
-        'allowed_mentions': {'parse': []},
-        'embeds': [embed],
-    }
+    return fields
 
 
 def _build_discord_forum_thread_payload(

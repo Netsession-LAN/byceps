@@ -36,137 +36,148 @@ from .discord_dm_service import (
     DISCORD_DM_MAX_ATTEMPTS,
     DISCORD_DM_TIMEOUT_SECONDS,
 )
+from .discord_parts_dm_embed import (
+    _build_discord_dm_embed_fields,
+    _build_discord_dm_image_urls,
+    DISCORD_DM_DEFAULT_EVENT_META,
+    DISCORD_DM_EVENT_META_BY_KIND,
+)
 from .models import (
     DiscordDmOutboxStatus,
 )
 from .notification_urls import (
     _build_absolute_notification_url,
-    _build_browser_push_logo_urls,
-)
-from .tournament_queries import (
-    _build_flatout2_round_race_lines,
 )
 
 
 def process_discord_dm_outbox(*, limit: int = 50) -> int:
     now = datetime.utcnow()
     try:
-        db_rows = db.session.scalars(
-            select(DbNetsessionTourneyDiscordDmOutbox)
-            .filter(
-                DbNetsessionTourneyDiscordDmOutbox.status.in_(
-                    [
-                        DiscordDmOutboxStatus.pending.value,
-                        DiscordDmOutboxStatus.failed.value,
-                    ]
-                )
-            )
-            .filter(
-                (DbNetsessionTourneyDiscordDmOutbox.next_attempt_at.is_(None))
-                | (DbNetsessionTourneyDiscordDmOutbox.next_attempt_at <= now)
-            )
-            .order_by(DbNetsessionTourneyDiscordDmOutbox.created_at.asc())
-            .limit(limit)
-        ).all()
+        db_rows = _load_due_discord_dm_outbox_rows(now, limit)
     except DBAPIError as exc:
         if _is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return 0
         raise
 
-    processed = 0
     for db_row in db_rows:
-        processed += 1
         db_row.attempt_count += 1
         db_row.updated_at = now
-
-        db_notification = db.session.get(
-            DbNetsessionTourneyNotification, db_row.notification_id
-        )
-        if db_notification is None:
-            _mark_discord_dm_outbox_dead_letter(
-                db_row, 'Unknown notification.', now
-            )
-            continue
-
-        db_tournament = db.session.get(
-            DbNetsessionTourneyTournament, db_notification.tournament_id
-        )
-        if db_tournament is None:
-            _mark_discord_dm_outbox_dead_letter(
-                db_row, 'Unknown tournament for Discord-DM outbox item.', now
-            )
-            continue
-
-        db_config = db.session.get(
-            DbNetsessionTourneyDiscordDmConfig, db_tournament.party_id
-        )
-        if (
-            db_config is None
-            or not db_config.enabled
-            or not db_config.application_id
-            or not db_config.bot_token_encrypted
-        ):
-            _mark_discord_dm_outbox_dead_letter(
-                db_row, 'Discord-DM-Konfiguration ist unvollständig.', now
-            )
-            continue
-
-        bot_token = _decrypt_discord_dm_bot_token(
-            db_config.bot_token_encrypted
-        )
-        if not bot_token:
-            _mark_discord_dm_outbox_dead_letter(
-                db_row, 'Kein gültiges Discord-Bot-Token konfiguriert.', now
-            )
-            continue
-
-        connected_account = (
-            external_accounts_service.find_connected_external_account_for_user_and_service(
-                db_notification.user_id, 'discord'
-            )
-        )
-        discord_user_id = (
-            connected_account.external_id
-            if connected_account is not None
-            else None
-        )
-        if not discord_user_id:
-            _mark_discord_dm_outbox_dead_letter(
-                db_row, 'Empfänger hat keinen verbundenen Discord-Account.',
-                now,
-            )
-            continue
-
-        payload = _build_discord_dm_message_payload(
-            db_tournament,
-            db_notification,
-        )
-
-        try:
-            _send_discord_dm(
-                application_id=db_config.application_id,
-                bot_token=bot_token,
-                discord_user_id=discord_user_id,
-                payload=payload,
-            )
-        except httpx.HTTPError as exc:
-            _schedule_discord_dm_outbox_retry(
-                db_row,
-                f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}',
-                now,
-            )
-            continue
-        except ValueError as exc:
-            _mark_discord_dm_outbox_dead_letter(db_row, str(exc), now)
-            continue
-
-        db_row.status = DiscordDmOutboxStatus.sent.value
-        db_row.next_attempt_at = None
-        db_row.last_error = None
+        _deliver_discord_dm_outbox_row(db_row, now)
 
     db.session.commit()
-    return processed
+    return len(db_rows)
+
+
+def _load_due_discord_dm_outbox_rows(now: datetime, limit: int):
+    return db.session.scalars(
+        select(DbNetsessionTourneyDiscordDmOutbox)
+        .filter(
+            DbNetsessionTourneyDiscordDmOutbox.status.in_(
+                [
+                    DiscordDmOutboxStatus.pending.value,
+                    DiscordDmOutboxStatus.failed.value,
+                ]
+            )
+        )
+        .filter(
+            (DbNetsessionTourneyDiscordDmOutbox.next_attempt_at.is_(None))
+            | (DbNetsessionTourneyDiscordDmOutbox.next_attempt_at <= now)
+        )
+        .order_by(DbNetsessionTourneyDiscordDmOutbox.created_at.asc())
+        .limit(limit)
+    ).all()
+
+
+def _deliver_discord_dm_outbox_row(
+    db_row: DbNetsessionTourneyDiscordDmOutbox, now: datetime
+) -> None:
+    """Send one notification as Discord DM, or schedule a retry
+    (temporary problem) or give up (dead letter)."""
+    db_notification = db.session.get(
+        DbNetsessionTourneyNotification, db_row.notification_id
+    )
+    if db_notification is None:
+        _mark_discord_dm_outbox_dead_letter(db_row, 'Unknown notification.', now)
+        return
+
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, db_notification.tournament_id
+    )
+    if db_tournament is None:
+        _mark_discord_dm_outbox_dead_letter(
+            db_row, 'Unknown tournament for Discord-DM outbox item.', now
+        )
+        return
+
+    db_config = db.session.get(
+        DbNetsessionTourneyDiscordDmConfig, db_tournament.party_id
+    )
+    if not _is_discord_dm_config_complete(db_config):
+        _mark_discord_dm_outbox_dead_letter(
+            db_row, 'Discord-DM-Konfiguration ist unvollständig.', now
+        )
+        return
+
+    bot_token = _decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
+    if not bot_token:
+        _mark_discord_dm_outbox_dead_letter(
+            db_row, 'Kein gültiges Discord-Bot-Token konfiguriert.', now
+        )
+        return
+
+    discord_user_id = _find_discord_user_id(db_notification.user_id)
+    if not discord_user_id:
+        _mark_discord_dm_outbox_dead_letter(
+            db_row, 'Empfänger hat keinen verbundenen Discord-Account.', now
+        )
+        return
+
+    payload = _build_discord_dm_message_payload(db_tournament, db_notification)
+
+    try:
+        _send_discord_dm(
+            application_id=db_config.application_id,
+            bot_token=bot_token,
+            discord_user_id=discord_user_id,
+            payload=payload,
+        )
+    except httpx.HTTPError as exc:
+        _schedule_discord_dm_outbox_retry(
+            db_row, f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}', now
+        )
+        return
+    except ValueError as exc:
+        _mark_discord_dm_outbox_dead_letter(db_row, str(exc), now)
+        return
+
+    db_row.status = DiscordDmOutboxStatus.sent.value
+    db_row.next_attempt_at = None
+    db_row.last_error = None
+
+
+def _is_discord_dm_config_complete(
+    db_config: DbNetsessionTourneyDiscordDmConfig | None,
+) -> bool:
+    return not (
+        db_config is None
+        or not db_config.enabled
+        or not db_config.application_id
+        or not db_config.bot_token_encrypted
+    )
+
+
+def _find_discord_user_id(user_id: UserID) -> str | None:
+    connected_account = (
+        external_accounts_service.find_connected_external_account_for_user_and_service(
+            user_id, 'discord'
+        )
+    )
+    return (
+        connected_account.external_id
+        if connected_account is not None
+        else None
+    )
 
 
 def send_test_discord_dm(
@@ -264,108 +275,21 @@ def _build_discord_dm_message_payload(
         db_tournament.party_id,
         str(browser_payload.get('url') or f'/ns-tourneys/{db_tournament.slug}'),
     )
-    icon_url, _image_url = _build_browser_push_logo_urls(db_tournament)
-    brand_icon_url = (
-        _build_absolute_notification_url(db_tournament.party_id, icon_url)
-        if icon_url
-        else None
-    )
-    thumbnail_source_url = db_tournament.logo_url or icon_url
-    thumbnail_url = (
-        _build_absolute_notification_url(
-            db_tournament.party_id, thumbnail_source_url
-        )
-        if thumbnail_source_url
-        else None
-    )
+    brand_icon_url, thumbnail_url = _build_discord_dm_image_urls(db_tournament)
 
-    event_meta_by_kind = {
-        'tournament_live': {
-            'emoji': '🟢',
-            'label': 'Turnier live',
-            'headline': 'Turnier ist jetzt live',
-        },
-        'tournament_canceled': {
-            'emoji': '⛔',
-            'label': 'Turnier abgesagt',
-            'headline': 'Turnier wurde abgesagt',
-        },
-        'match_ready': {
-            'emoji': '🎮',
-            'label': 'Match spielbereit',
-            'headline': 'Match ist spielbereit',
-        },
-        'flatout2_host_assigned': {
-            'emoji': '🏁',
-            'label': 'Host ausgewählt',
-            'headline': 'Du bist Host für das nächste Rennen',
-        },
-        'result_submitted': {
-            'emoji': '📝',
-            'label': 'Ergebnis übermittelt',
-            'headline': 'Ergebnis wurde übermittelt',
-        },
-    }
-    event_meta = event_meta_by_kind.get(
-        kind,
-        {
-            'emoji': '🔔',
-            'label': 'Benachrichtigung',
-            'headline': 'Neues Update',
-        },
+    event_meta = DISCORD_DM_EVENT_META_BY_KIND.get(
+        kind, DISCORD_DM_DEFAULT_EVENT_META
     )
 
     description_lines = [f'**{db_tournament.title}**', body]
-    fields = [
-        {
-            'name': 'Ereignis',
-            'value': str(event_meta['label'])[:1024],
-            'inline': True,
-        },
-        {
-            'name': 'Turnier',
-            'value': db_tournament.title[:1024],
-            'inline': True,
-        },
-    ]
-
-    if match_label:
-        fields.append(
-            {
-                'name': 'Spiel',
-                'value': match_label[:1024],
-                'inline': True,
-            }
-        )
-
-    if kind == 'flatout2_host_assigned':
-        round_no = payload.get('round_no')
-        if round_no:
-            fields.append(
-                {
-                    'name': 'Runde',
-                    'value': str(round_no)[:1024],
-                    'inline': True,
-                }
-            )
-        race_lines = _build_flatout2_round_race_lines(payload)
-        if race_lines:
-            fields.append(
-                {
-                    'name': 'Rennen-Setup',
-                    'value': '\n'.join(race_lines)[:1024],
-                    'inline': False,
-                }
-            )
-
-    if url:
-        fields.append(
-            {
-                'name': 'Oeffnen',
-                'value': f'[Direkt zur Seite]({url})',
-                'inline': False,
-            }
-        )
+    fields = _build_discord_dm_embed_fields(
+        db_tournament,
+        event_meta=event_meta,
+        kind=kind,
+        payload=payload,
+        match_label=match_label,
+        url=url,
+    )
 
     embed: dict[str, Any] = {
         'author': {'name': 'Netsession Turniere'},

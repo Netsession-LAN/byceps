@@ -255,6 +255,37 @@ def _build_browser_push_message_payload(
     match_label = _build_browser_push_match_label(payload)
     title = str(payload.get('title') or '').strip() or db_tournament.title
 
+    body = _build_browser_push_body(kind, payload, match_label)
+
+    url = payload.get('url')
+    if not isinstance(url, str) or not url:
+        url = f'/ns-tourneys/{db_tournament.slug}'
+
+    if kind == 'manual_announcement':
+        tag_suffix = db_notification.id
+        renotify = True
+    else:
+        tag_suffix = (
+            payload.get('match_id') or payload.get('slug') or db_tournament.id
+        )
+        renotify = False
+
+    icon_url, image_url = _build_browser_push_logo_urls(db_tournament)
+    return {
+        'title': title,
+        'body': body[:180],
+        'url': url,
+        'tag': f'netsession-tourney-{kind}-{tag_suffix}',
+        'renotify': renotify,
+        'icon': icon_url,
+        'badge': _build_browser_push_badge_url(),
+        'image': image_url,
+    }
+
+
+def _build_browser_push_body(
+    kind: str, payload: dict[str, Any], match_label: str | None
+) -> str:
     if kind == 'tournament_live':
         body = 'Turnier ist jetzt live.'
     elif kind == 'tournament_closed':
@@ -300,47 +331,29 @@ def _build_browser_push_message_payload(
             else 'Für dein Match wurde ein Streitfall geöffnet.'
         )
     elif kind == 'chat_message_posted':
-        body_preview = str(payload.get('body_preview') or '').strip()
-        body = (
-            (
-                f'{match_label}: Neue Nachricht - {body_preview}'
-                if match_label
-                else f'Neue Match-Nachricht: {body_preview}'
-            )
-            if body_preview
-            else (
-                f'{match_label}: Neue Match-Nachricht.'
-                if match_label
-                else 'Neue Match-Nachricht.'
-            )
-        )
+        body = _build_browser_push_chat_body(payload, match_label)
     else:
         body = 'Es gibt ein neues Update.'
+    return body
 
-    url = payload.get('url')
-    if not isinstance(url, str) or not url:
-        url = f'/ns-tourneys/{db_tournament.slug}'
 
-    if kind == 'manual_announcement':
-        tag_suffix = db_notification.id
-        renotify = True
-    else:
-        tag_suffix = (
-            payload.get('match_id') or payload.get('slug') or db_tournament.id
+def _build_browser_push_chat_body(
+    payload: dict[str, Any], match_label: str | None
+) -> str:
+    body_preview = str(payload.get('body_preview') or '').strip()
+    return (
+        (
+            f'{match_label}: Neue Nachricht - {body_preview}'
+            if match_label
+            else f'Neue Match-Nachricht: {body_preview}'
         )
-        renotify = False
-
-    icon_url, image_url = _build_browser_push_logo_urls(db_tournament)
-    return {
-        'title': title,
-        'body': body[:180],
-        'url': url,
-        'tag': f'netsession-tourney-{kind}-{tag_suffix}',
-        'renotify': renotify,
-        'icon': icon_url,
-        'badge': _build_browser_push_badge_url(),
-        'image': image_url,
-    }
+        if body_preview
+        else (
+            f'{match_label}: Neue Match-Nachricht.'
+            if match_label
+            else 'Neue Match-Nachricht.'
+        )
+    )
 
 
 def _build_browser_push_private_key_for_pywebpush(private_key: str) -> str:
