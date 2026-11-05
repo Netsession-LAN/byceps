@@ -1540,7 +1540,7 @@ body.ns-tourney-bracket-expanded .page-footer {
   z-index: 4;
 }
 
-.ns-tourney-bracket-match-card.is-struck {
+.ns-tourney-bracket-match-card.is-struck, .ns-tourney-bracket-match-card.is-bye-match {
   opacity: 0.58;
   border-style: dashed;
 }

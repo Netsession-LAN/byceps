@@ -544,9 +544,9 @@
             {%- for item in round.matches %}
             {%- set result = results_by_match_id.get(item.match.id) %}
             {%- set match_label = section_match_labels_by_id.get(item.match.id, _('Match') ~ ' #' ~ item.match.match_no|string) %}
-            {%- set is_skipped_double_grand_final = item.match.id in skipped_double_grand_final_match_ids %}
+            {%- set is_skipped_double_grand_final, is_bye_match = item.match.id in skipped_double_grand_final_match_ids, item.slots|selectattr('is_bye')|list|length > 0 %}
             <article
-              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}"
+              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}{% if is_bye_match %} is-bye-match{% endif %}"
               data-match-id="{{ item.match.id }}"
               data-round-index="{{ round_index }}"
               data-round-match-index="{{ loop.index0 }}"
@@ -560,7 +560,7 @@
                 <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
                   {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
-                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% elif is_bye_match %}{{ _('Freilos') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
               </div>
               <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
               {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
@@ -611,7 +611,7 @@
                   {%- endif %}
                 </span>
                 <span class="ns-tourney-bracket-slot-right">
-                  {%- if slot_scores.get(slot.slot_no) is not none %}
+                  {%- if slot_scores.get(slot.slot_no) is not none and not is_bye_match %}
                   <span class="ns-tourney-bracket-points">{{ slot_scores.get(slot.slot_no) }}</span>
                   {%- endif %}
                 </span>
@@ -690,9 +690,9 @@
             {%- for item in round.matches %}
             {%- set result = results_by_match_id.get(item.match.id) %}
             {%- set match_label = match_labels_by_id.get(item.match.id, _('Match') ~ ' #' ~ item.match.match_no|string) %}
-            {%- set is_skipped_double_grand_final = item.match.id in skipped_double_grand_final_match_ids %}
+            {%- set is_skipped_double_grand_final, is_bye_match = item.match.id in skipped_double_grand_final_match_ids, item.slots|selectattr('is_bye')|list|length > 0 %}
             <article
-              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}"
+              class="ns-tourney-bracket-match-card{% if match_label == 'Consolation Final' %} is-consolation-final{% endif %}{% if is_skipped_double_grand_final %} is-struck{% endif %}{% if is_bye_match %} is-bye-match{% endif %}"
               data-match-id="{{ item.match.id }}"
               data-round-index="{{ round_index }}"
               data-round-match-index="{{ loop.index0 }}"
@@ -706,7 +706,7 @@
                 <a href="{{ url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id) }}" class="disguised ns-tourney-bracket-match-label">
                   {{ _('Spiel um Platz 3') if match_label == 'Consolation Final' else match_label|replace('_', ' ') }}
                 </a>
-                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
+                <span class="ns-tourney-bracket-match-state">{% if is_skipped_double_grand_final %}{{ _('Gestrichen') }}{% elif is_bye_match %}{{ _('Freilos') }}{% else %}{{ item.match.state|ns_match_state }}{% endif %}</span>
               </div>
               <div class="ns-tourney-bracket-slots" style="--ns-slot-count: {{ item.slots|length }};">
               {%- set slot_scores = slot_scores_by_match_id.get(item.match.id, {}) %}
@@ -757,7 +757,7 @@
                   {%- endif %}
                 </span>
                 <span class="ns-tourney-bracket-slot-right">
-                  {%- if slot_scores.get(slot.slot_no) %}
+                  {%- if slot_scores.get(slot.slot_no) is not none and not is_bye_match %}
                   <span class="ns-tourney-bracket-points">{{ slot_scores.get(slot.slot_no) }}</span>
                   {%- endif %}
                 </span>

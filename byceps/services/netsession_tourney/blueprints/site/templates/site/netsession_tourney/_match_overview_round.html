@@ -34,7 +34,7 @@
               {%- endif %}
             </span>
             {%- endif %}
-            <span class="ns-tourney-match-overview-trophy{% if row.left.is_winner %} is-visible{% endif %}">
+            <span class="ns-tourney-match-overview-trophy{% if row.left.is_winner and not row.right.is_bye %} is-visible{% endif %}">
               <svg class="icon" aria-hidden="true" focusable="false">
                 <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
               </svg>
@@ -44,13 +44,13 @@
         <td class="ns-tourney-match-overview-score-cell">
           <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-score-link" href="{{ match_url }}">
             <span class="ns-tourney-match-overview-score{% if row.has_result %} is-completed{% else %} is-pending{% endif %}">
-              {{ row.score_display }}
+              {{ '–' if row.left.is_bye or row.right.is_bye else row.score_display }}
             </span>
           </a>
         </td>
         <td class="ns-tourney-match-overview-team-cell ns-tourney-match-overview-team-cell--right">
           <a class="ns-tourney-match-overview-cell-link ns-tourney-match-overview-team-link ns-tourney-match-overview-team-link--right" href="{{ match_url }}">
-            <span class="ns-tourney-match-overview-trophy{% if row.right.is_winner %} is-visible{% endif %}">
+            <span class="ns-tourney-match-overview-trophy{% if row.right.is_winner and not row.left.is_bye %} is-visible{% endif %}">
               <svg class="icon" aria-hidden="true" focusable="false">
                 <use href="{{ netsession_tourney_icons_url }}#trophy"></use>
               </svg>
