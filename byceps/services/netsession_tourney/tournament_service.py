@@ -17,11 +17,7 @@ from byceps.services.user.models import User
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
-from .coin_service import (
-    _validate_coin_cost,
-)
 from .dbmodels import (
-    DbNetsessionTourneyParticipant,
     DbNetsessionTourneyTournament,
     DbNetsessionTourneyTournamentCategory,
 )
@@ -38,27 +34,21 @@ from .models import (
     TournamentMode,
     TournamentStatus,
 )
-from .participant_state import (
-    _validate_participant_limit,
-)
-from .registration_validation import (
-    _validate_mode_for_registration_mode,
-    _validate_substitute_count_for_registration_mode,
-    _validate_team_size_for_registration_mode,
-)
 from .service_helpers import (
     _append_audit_log,
     _db_tournament_to_model,
-)
-from .stage_activation import (
-    _delete_all_stages_for_tournament,
 )
 from .tournament_category_service import (
     _resolve_tournament_category_id_for_party,
 )
 from .tournament_queries import (
     _find_db_tournament_for_party,
-    ACTIVE_PARTICIPANT_STATUS_VALUES,
+)
+from .tournament_settings import (
+    apply_mode_changes,
+    clean_text,
+    sponsor_logo_url_if_sponsored,
+    validate_tournament_settings,
 )
 
 
@@ -96,36 +86,16 @@ def create_tournament(
         substitute_count = 0
         coin_charge_mode = CoinChargeMode.captain_only
 
-    mode_validation_result = _validate_mode_for_registration_mode(
+    settings_error = validate_tournament_settings(
         mode=mode,
         registration_mode=registration_mode,
-    )
-    if mode_validation_result.is_err():
-        return Err(mode_validation_result.unwrap_err())
-
-    validation_result = _validate_team_size_for_registration_mode(
-        registration_mode=registration_mode,
         team_size=team_size,
-    )
-    if validation_result.is_err():
-        return Err(validation_result.unwrap_err())
-
-    substitute_validation_result = _validate_substitute_count_for_registration_mode(
-        registration_mode=registration_mode,
         substitute_count=substitute_count,
+        participant_limit=participant_limit,
+        coin_cost=coin_cost,
     )
-    if substitute_validation_result.is_err():
-        return Err(substitute_validation_result.unwrap_err())
-
-    participant_limit_validation_result = _validate_participant_limit(
-        participant_limit
-    )
-    if participant_limit_validation_result.is_err():
-        return Err(participant_limit_validation_result.unwrap_err())
-
-    coin_cost_validation_result = _validate_coin_cost(coin_cost)
-    if coin_cost_validation_result.is_err():
-        return Err(coin_cost_validation_result.unwrap_err())
+    if settings_error is not None:
+        return Err(settings_error)
 
     if find_tournament_by_slug_for_party(party_id, slug) is not None:
         return Err('Dieser Slug wird bereits verwendet.')
@@ -183,12 +153,10 @@ def create_tournament(
             'slug': slug,
             'title': title,
             'mode': mode.value,
-            'logo_url': logo_url.strip() if logo_url else None,
+            'logo_url': clean_text(logo_url),
             'is_sponsored': is_sponsored,
-            'sponsor_logo_url': (
-                sponsor_logo_url.strip()
-                if is_sponsored and sponsor_logo_url
-                else None
+            'sponsor_logo_url': sponsor_logo_url_if_sponsored(
+                is_sponsored, sponsor_logo_url
             ),
             'visible_on_site': visible_on_site,
             'registration_open': registration_open,
@@ -241,36 +209,16 @@ def update_tournament(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    mode_validation_result = _validate_mode_for_registration_mode(
+    settings_error = validate_tournament_settings(
         mode=mode,
         registration_mode=registration_mode,
-    )
-    if mode_validation_result.is_err():
-        return Err(mode_validation_result.unwrap_err())
-
-    validation_result = _validate_team_size_for_registration_mode(
-        registration_mode=registration_mode,
         team_size=team_size,
-    )
-    if validation_result.is_err():
-        return Err(validation_result.unwrap_err())
-
-    substitute_validation_result = _validate_substitute_count_for_registration_mode(
-        registration_mode=registration_mode,
         substitute_count=substitute_count,
+        participant_limit=participant_limit,
+        coin_cost=coin_cost,
     )
-    if substitute_validation_result.is_err():
-        return Err(substitute_validation_result.unwrap_err())
-
-    participant_limit_validation_result = _validate_participant_limit(
-        participant_limit
-    )
-    if participant_limit_validation_result.is_err():
-        return Err(participant_limit_validation_result.unwrap_err())
-
-    coin_cost_validation_result = _validate_coin_cost(coin_cost)
-    if coin_cost_validation_result.is_err():
-        return Err(coin_cost_validation_result.unwrap_err())
+    if settings_error is not None:
+        return Err(settings_error)
 
     if category_id is None:
         resolved_category_id = db_tournament.category_id
@@ -282,57 +230,22 @@ def update_tournament(
             return Err(resolved_category_id_result.unwrap_err())
         resolved_category_id = resolved_category_id_result.unwrap()
 
-    mode_changed = db_tournament.mode != mode.value
-    registration_mode_changed = (
-        db_tournament.registration_mode != registration_mode.value
-    )
-    deleted_stage_count = 0
-    if mode_changed:
-        if db_tournament.status != TournamentStatus.draft.value:
-            return Err(
-                'Der Turniermodus lässt sich nur im Entwurf ändern.'
-            )
-
-        deleted_stage_count = _delete_all_stages_for_tournament(tournament_id)
-        db_tournament.mode = mode.value
-
-    if registration_mode_changed:
-        if db_tournament.status != TournamentStatus.draft.value:
-            return Err(
-                'Der Anmeldemodus lässt sich nur im Entwurf ändern.'
-            )
-
-        has_active_participants = bool(
-            db.session.scalar(
-                select(db.func.count(DbNetsessionTourneyParticipant.id))
-                .filter_by(tournament_id=tournament_id)
-                .filter(
-                    DbNetsessionTourneyParticipant.status.in_(
-                        ACTIVE_PARTICIPANT_STATUS_VALUES
-                    )
-                )
-            )
-        )
-        if has_active_participants:
-            return Err(
-                'Der Anmeldemodus lässt sich nur ändern, solange es keine aktiven Teilnehmer gibt.'
-            )
-
-        db_tournament.registration_mode = registration_mode.value
+    mode_changes_result = apply_mode_changes(db_tournament, mode, registration_mode)
+    if mode_changes_result.is_err():
+        return Err(mode_changes_result.unwrap_err())
+    mode_changes = mode_changes_result.unwrap()
 
     db_tournament.title = title.strip()
-    db_tournament.subtitle = subtitle.strip() if subtitle else None
-    db_tournament.logo_url = logo_url.strip() if logo_url else None
+    db_tournament.subtitle = clean_text(subtitle)
+    db_tournament.logo_url = clean_text(logo_url)
     db_tournament.is_sponsored = is_sponsored
-    db_tournament.sponsor_logo_url = (
-        sponsor_logo_url.strip() if is_sponsored and sponsor_logo_url else None
+    db_tournament.sponsor_logo_url = sponsor_logo_url_if_sponsored(
+        is_sponsored, sponsor_logo_url
     )
-    db_tournament.game = game.strip() if game else None
+    db_tournament.game = clean_text(game)
     db_tournament.starts_at = starts_at
     db_tournament.visible_on_site = visible_on_site
-    db_tournament.rules_page_slug = (
-        rules_page_slug.strip() if rules_page_slug else None
-    )
+    db_tournament.rules_page_slug = clean_text(rules_page_slug)
     db_tournament.registration_open = registration_open
     db_tournament.registration_deadline = registration_deadline
     db_tournament.roster_lock_at = roster_lock_at
@@ -355,22 +268,20 @@ def update_tournament(
         payload={
             'title': title,
             'mode': mode.value,
-            'mode_changed': mode_changed,
+            'mode_changed': mode_changes.mode_changed,
             'registration_mode': registration_mode.value,
-            'registration_mode_changed': registration_mode_changed,
-            'deleted_stage_count': deleted_stage_count,
+            'registration_mode_changed': mode_changes.registration_mode_changed,
+            'deleted_stage_count': mode_changes.deleted_stage_count,
             'category_id': str(resolved_category_id),
             'visible_on_site': visible_on_site,
             'registration_open': registration_open,
             'coin_cost': coin_cost,
             'coin_refund_policy': coin_refund_policy.value,
             'coin_charge_mode': coin_charge_mode.value,
-            'logo_url': logo_url.strip() if logo_url else None,
+            'logo_url': clean_text(logo_url),
             'is_sponsored': is_sponsored,
-            'sponsor_logo_url': (
-                sponsor_logo_url.strip()
-                if is_sponsored and sponsor_logo_url
-                else None
+            'sponsor_logo_url': sponsor_logo_url_if_sponsored(
+                is_sponsored, sponsor_logo_url
             ),
         },
         created_at=datetime.utcnow(),
