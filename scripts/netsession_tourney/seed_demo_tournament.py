@@ -14,11 +14,15 @@ from byceps.services.netsession_tourney.models import (
     StageType,
     TournamentMode,
 )
-from byceps.services.netsession_tourney.service import (
-    create_stage,
-    create_tournament,
+from byceps.services.netsession_tourney.match_generation import (
     generate_stage_matches,
+)
+from byceps.services.netsession_tourney.registration_service import (
     register_user,
+)
+from byceps.services.netsession_tourney.stage_service import create_stage
+from byceps.services.netsession_tourney.tournament_service import (
+    create_tournament,
 )
 from byceps.services.user import user_service
 

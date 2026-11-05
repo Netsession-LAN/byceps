@@ -9,7 +9,9 @@ import sys
 
 import click
 
-from byceps.services.netsession_tourney.service import process_discord_outbox
+from byceps.services.netsession_tourney.discord_service import (
+    process_discord_outbox,
+)
 
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
