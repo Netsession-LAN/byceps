@@ -9,11 +9,11 @@ byceps.services.netsession_tourney.blueprints.site.stage_render_helpers
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
 
 from flask_babel import gettext
 
 from ...models import StageType
+from . import builder_helpers
 from .bracket_helpers import _build_bracket_sections, build_bracket_data
 from .builder_display_helpers import (
     _get_builder_main_display_stages,
@@ -50,7 +50,6 @@ from .stage_filters import (
 from .round_based_public_rendering import (
     _build_match_overview_sections,
 )
-from .swiss_public_rendering import _build_swiss_bracket_sections
 
 
 def _group_matches_by_round(matches):
@@ -538,7 +537,7 @@ def _build_stage_public_match_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return _build_flatout2_placeholder_match_sections(stage)
+            return builder_helpers._build_flatout2_placeholder_match_sections(stage)
         return []
 
     if _is_ffa_single_elimination_stage(stage):
@@ -580,7 +579,7 @@ def _build_stage_public_bracket_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return _build_flatout2_placeholder_bracket_sections(stage)
+            return builder_helpers._build_flatout2_placeholder_bracket_sections(stage)
         return []
 
     if _is_ffa_single_elimination_stage(stage):

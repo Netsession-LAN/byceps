@@ -90,8 +90,8 @@ def join_team_by_invite_code(
     max_team_member_count = _get_max_team_member_count(tournament)
     if max_team_member_count is not None:
         member_count = _count_team_members(db_participant.id)
-    if int(member_count or 0) >= max_team_member_count:
-        return Err('Dieses Team ist bereits voll.')
+        if int(member_count or 0) >= max_team_member_count:
+            return Err('Dieses Team ist bereits voll.')
 
     if tournament.coin_charge_mode == CoinChargeMode.all_members:
         charge_result = _charge_coins_for_tournament_registration(
