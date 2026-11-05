@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from byceps.database import db
 from byceps.services.netsession_tourney.dbmodels import (
@@ -13,6 +13,7 @@ from byceps.services.netsession_tourney.dbmodels import (
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyNotification,
     DbNetsessionTourneyParticipant,
+    DbNetsessionTourneyTournament,
     DbNetsessionTourneyTournamentAdmin,
     DbNetsessionTourneyTournamentPrize,
 )
@@ -3090,3 +3091,39 @@ def test_changing_a_rule_template_slug_keeps_tournaments_linked(
 
     reloaded = tournament_service.find_tournament_for_party(party.id, tournament.id)
     assert reloaded.rules_page_slug == 'rules-new'
+
+
+def test_join_team_without_team_size_limit(
+    admin_app, party, admin_user, user, make_user, make_ticket_category
+):
+    """Teams of a tournament without a team size (e.g. old data) can be
+    joined; this used to fail with an UnboundLocalError."""
+    teammate = make_user('NS_NoLimit_' + generate_token())
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-no-limit-' + generate_token().lower(),
+        'NS No Limit',
+        TournamentMode.duel,
+        RegistrationMode.team_captain_managed,
+        admin_user,
+        team_size=2,
+        substitute_count=0,
+    ).unwrap()
+    for player in (user, teammate):
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+    team = team_captain_service.create_team_for_captain(
+        party.id, tournament.id, user, 'Team Ohne Limit'
+    ).unwrap()
+    db.session.execute(
+        update(DbNetsessionTourneyTournament)
+        .where(DbNetsessionTourneyTournament.id == tournament.id)
+        .values(team_size=None)
+    )
+    db.session.commit()
+    invite_code = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)
+    )
+
+    assert team_invite_service.join_team_by_invite_code(
+        party.id, tournament.id, invite_code, teammate
+    ).is_ok()
