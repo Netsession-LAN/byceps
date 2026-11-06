@@ -284,6 +284,15 @@ def delete_tournament(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
+    if db_tournament.status not in {
+        TournamentStatus.draft.value,
+        TournamentStatus.canceled.value,
+    }:
+        return Err(
+            'Nur Entwürfe und abgesagte Turniere können gelöscht werden. '
+            'Sage das Turnier zuerst ab.'
+        )
+
     # Order matters because of foreign keys.
     _delete_stages_with_matches(tournament_id)
     _delete_participants_and_registrations(tournament_id)
