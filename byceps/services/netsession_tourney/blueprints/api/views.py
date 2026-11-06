@@ -10,6 +10,7 @@ from time import perf_counter
 
 from flask import abort, g, request
 
+from byceps.services.party import party_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
 
@@ -37,7 +38,9 @@ def before_request():
 @blueprint.after_request
 def after_request(response):
     started = getattr(g, 'ns_tourney_api_request_started', None)
-    if started is None:
+    if started is None or 400 <= response.status_code < 500:
+        # The API is public: a row per bad request would let anybody fill
+        # the metrics table.
         return response
 
     duration_ms = int((perf_counter() - started) * 1000)
@@ -61,6 +64,8 @@ def get_tournaments():
     party_id = request.args.get('party_id')
     if not party_id:
         abort(400)
+    if party_service.find_party(party_id) is None:
+        abort(404)
 
     status = request.args.get('status')
     mode = request.args.get('mode')
@@ -84,6 +89,8 @@ def get_tournament(tournament_id):
     party_id = request.args.get('party_id')
     if not party_id:
         abort(400)
+    if party_service.find_party(party_id) is None:
+        abort(404)
 
     tournament = find_tournament_for_party(
         party_id, tournament_id, visible_on_site=True
