@@ -94,7 +94,7 @@
 
         {%- if g.user.authenticated %}
         <section class="ns-tourney-overview-user-panel">
-          <h2>{{ _('Mein Team') }}</h2>
+          <h2>{{ _('Meine Teilnahme') if tournament.registration_mode.value == 'solo' else _('Mein Team') }}</h2>
 
           {%- if current_user_tournament_membership %}
             {%- set current_participant = current_user_tournament_membership.participant %}

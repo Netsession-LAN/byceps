@@ -66,7 +66,7 @@
               <h2 class="ns-tourney-bracket-round-title">
                 {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
               </h2>
-              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+              <p class="ns-tourney-bracket-round-meta">{{ ngettext('%(num)d Spiel', '%(num)d Spiele', round.matches|length) }}</p>
             </header>
             {%- for item in round.matches %}
             {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
@@ -126,7 +126,7 @@
               <h2 class="ns-tourney-bracket-round-title">
                 {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
               </h2>
-              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+              <p class="ns-tourney-bracket-round-meta">{{ ngettext('%(num)d Spiel', '%(num)d Spiele', round.matches|length) }}</p>
             </header>
             {%- for item in round.matches %}
             {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
@@ -242,7 +242,7 @@
                   {%- endif %}
                 </span>
                 {%- if row.show_kills %}
-                <span class="ns-tourney-match-overview-ffa-kills">{{ participant.kills }} {{ _('Kills') }}</span>
+                <span class="ns-tourney-match-overview-ffa-kills">{{ ngettext('%(num)d Kill', '%(num)d Kills', participant.kills|int) }}</span>
                 {%- endif %}
               </li>
               {%- endfor %}
@@ -469,7 +469,7 @@
               <h2 class="ns-tourney-bracket-round-title">
                 {{ round.display_title|default(_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
               </h2>
-              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+              <p class="ns-tourney-bracket-round-meta">{{ ngettext('%(num)d Spiel', '%(num)d Spiele', round.matches|length) }}</p>
             </header>
             {%- for item in round.matches %}
             {%- set match_url = item.url if item.url is defined else (none if item.is_placeholder|default(false) else url_for('netsession_tourney.view_match', slug=tournament.slug, match_id=item.match.id)) %}
@@ -538,7 +538,7 @@
               <h2 class="ns-tourney-bracket-round-title">
                 {{ _('Finale') if loop.last else (_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
               </h2>
-              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+              <p class="ns-tourney-bracket-round-meta">{{ ngettext('%(num)d Spiel', '%(num)d Spiele', round.matches|length) }}</p>
             </header>
             {%- for item in round.matches %}
             {%- set result = results_by_match_id.get(item.match.id) %}
@@ -684,7 +684,7 @@
               <h2 class="ns-tourney-bracket-round-title">
                 {{ _('Finale') if loop.last else (_('Runde') ~ ' ' ~ (round.display_round_no|default(round.round_no))) }}
               </h2>
-              <p class="ns-tourney-bracket-round-meta">{{ round.matches|length }} {{ _('Spiele') }}</p>
+              <p class="ns-tourney-bracket-round-meta">{{ ngettext('%(num)d Spiel', '%(num)d Spiele', round.matches|length) }}</p>
             </header>
             {%- for item in round.matches %}
             {%- set result = results_by_match_id.get(item.match.id) %}
