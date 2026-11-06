@@ -23,6 +23,7 @@ from wtforms.validators import InputRequired, Length, NumberRange, Optional, Reg
 
 from byceps.util.l10n import LocalizedForm
 
+from .enum_labels import RESULT_REPORT_MODE_LABELS, stage_type_display_name
 from .models import (
     CoinChargeMode,
     CoinRefundPolicy,
@@ -658,18 +659,7 @@ class StageForm(LocalizedForm):
     result_report_mode = SelectField(
         lazy_gettext('Ergebnis-Übermittlungsmodus'),
         validators=[Optional()],
-        choices=[
-            (
-                'admin_only',
-                lazy_gettext('Nur Admins tragen Ergebnisse ein'),
-            ),
-            (
-                'both_must_confirm',
-                lazy_gettext('Beide Teams müssen das gleiche Ergebnis bestätigen'),
-            ),
-            ('winner_can_report', lazy_gettext('Gewinner darf Ergebnis übermitteln')),
-            ('loser_can_report', lazy_gettext('Verlierer darf Ergebnis übermitteln')),
-        ],
+        choices=list(RESULT_REPORT_MODE_LABELS.items()),
     )
 
     def __init__(
@@ -838,29 +828,7 @@ class StageBuilderTimingForm(LocalizedForm):
 
 
 def _build_stage_type_choice_label(stage_type: StageType) -> str:
-    display_name = {
-        StageType.ffa_flatout2_single_elimination: 'FlatOut 2',
-    }.get(stage_type, stage_type.value)
-    return f'{display_name} [{_get_stage_type_scope_label(stage_type)}]'
-
-
-def _get_stage_type_scope_label(stage_type: StageType) -> str:
-    supports_solo = is_stage_type_compatible_with_registration_mode(
-        stage_type, RegistrationMode.solo
-    )
-    supports_team = all(
-        is_stage_type_compatible_with_registration_mode(stage_type, mode)
-        for mode in TEAM_ONLY_REGISTRATION_MODES
-    )
-
-    if supports_solo and supports_team:
-        return 'solo/team'
-    if supports_solo:
-        return 'solo'
-    if supports_team:
-        return 'team'
-
-    return 'n/a'
+    return stage_type_display_name(stage_type)
 
 
 class TeamCreationForm(LocalizedForm):

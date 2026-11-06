@@ -20,6 +20,7 @@ from .models import (
     ParticipantType,
     RegistrationMode,
     StageStatus,
+    StageType,
     TeamMemberRole,
     TournamentMode,
     TournamentStatus,
@@ -79,6 +80,33 @@ _LABELS = {
         'Rückgabe bis einschließlich Runde 1'
     ),
 }
+
+
+RESULT_REPORT_MODE_LABELS = {
+    'admin_only': lazy_gettext('Nur Admins tragen Ergebnisse ein'),
+    'both_must_confirm': lazy_gettext('Beide Teams müssen das gleiche Ergebnis bestätigen'),
+    'winner_can_report': lazy_gettext('Gewinner darf Ergebnis übermitteln'),
+    'loser_can_report': lazy_gettext('Verlierer darf Ergebnis übermitteln'),
+}
+
+
+def report_mode_label(value: str | None) -> str:
+    """Label of a stage's `result_report_mode` setting (template filter
+    `ns_report_mode`)."""
+    label = RESULT_REPORT_MODE_LABELS.get(value or 'both_must_confirm')
+    return str(label) if label is not None else str(value)
+
+
+def stage_type_display_name(stage_type: StageType | None) -> str:
+    """Readable name of a stage type, e.g. "Double Elimination"."""
+    if stage_type is None:
+        return '-'
+    if stage_type == StageType.ffa_flatout2_single_elimination:
+        return 'FlatOut 2'
+    words = stage_type.value.split('_')
+    return ' '.join(
+        'FFA' if word == 'ffa' else word.capitalize() for word in words
+    )
 
 
 def enum_label(value: Enum | None) -> str:

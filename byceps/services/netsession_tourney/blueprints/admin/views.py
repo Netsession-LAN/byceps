@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from byceps.util.framework.blueprint import create_blueprint
 
-from ...enum_labels import enum_label
+from ...enum_labels import enum_label, report_mode_label
 
 from . import routes_create
 from . import routes_overview
@@ -21,6 +21,7 @@ from . import routes_tournament
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
 blueprint.add_app_template_filter(enum_label, 'ns_label')
+blueprint.add_app_template_filter(report_mode_label, 'ns_report_mode')
 
 routes_overview.register(blueprint)
 routes_create.register(blueprint)

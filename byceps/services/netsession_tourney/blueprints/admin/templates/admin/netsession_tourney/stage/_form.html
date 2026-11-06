@@ -117,11 +117,11 @@
           {{ render_field(form.swiss_threshold, _('Entscheidungsschwelle für Swiss. Bei 2/3/4 gilt jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird daraus automatisch als 3/5/7 abgeleitet.')) }}
         </div>
         <div class="ns-admin-stage-field-group" data-stage-setting="max_players_per_match">
-          {{ render_field(form.max_players_per_match, _('Maximale Anzahl Teilnehmer pro Match. Relevant f�r FFA-Formate mit mehreren separaten Heats. Bei FlatOut 2 werden die Teilnehmer pro Match manuell zugewiesen, maximal 8 pro Match.')) }}
+          {{ render_field(form.max_players_per_match, _('Maximale Anzahl Teilnehmer pro Match. Relevant für FFA-Formate mit mehreren separaten Heats. Bei FlatOut 2 werden die Teilnehmer pro Match manuell zugewiesen, maximal 8 pro Match.')) }}
           <div class="form-field" data-flatout2-max-players-wrapper hidden>
             <div class="ns-admin-field-head">
               <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-max-players-flatout2">{{ form.max_players_per_match.label.text }}</label>
-              {{ render_help(_('FlatOut 2 verwendet manuell vorbereitete Matches. W�hle die maximale Teilnehmerzahl pro Match zwischen 2 und 8.')) }}
+              {{ render_help(_('FlatOut 2 verwendet manuell vorbereitete Matches. Wähle die maximale Teilnehmerzahl pro Match zwischen 2 und 8.')) }}
             </div>
             <select
               class="form-control"

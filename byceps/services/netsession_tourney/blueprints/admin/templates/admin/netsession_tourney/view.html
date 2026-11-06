@@ -606,7 +606,7 @@
                   {%- if stage.settings.get('result_report_mode') == 'admin_only' or stage.type.value in ['ffa_simple', 'ffa_single_elimination', 'ffa_flatout2_single_elimination'] -%}
                     {{ _('Nur Admins tragen Ergebnisse ein') }}
                   {%- else -%}
-                    {{ stage.settings.get('result_report_mode', 'both_must_confirm') }}
+                    {{ stage.settings.get('result_report_mode')|ns_report_mode }}
                   {%- endif -%}
                 </span>
               </div>

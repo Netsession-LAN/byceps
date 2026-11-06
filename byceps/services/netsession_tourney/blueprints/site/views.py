@@ -46,6 +46,7 @@ from ...forms import (
     TeamJoinForm,
     TeamMemberAddForm,
 )
+from ...enum_labels import stage_type_display_name
 from ...flatout2 import get_flatout2_mode_label
 from ...models import (
     MatchState,
@@ -2454,16 +2455,7 @@ def _build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
 
 
 def _format_stage_type_label(stage_type: StageType | None) -> str:
-    if stage_type is None:
-        return '-'
-
-    if stage_type == StageType.ffa_flatout2_single_elimination:
-        return 'FlatOut 2'
-
-    words = stage_type.value.split('_')
-    return ' '.join(
-        'FFA' if word.lower() == 'ffa' else word.capitalize() for word in words
-    )
+    return stage_type_display_name(stage_type)
 
 
 def _build_overview_stage_type_label(stages) -> str:
