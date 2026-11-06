@@ -6,7 +6,7 @@ byceps.services.authn.login.blueprints.site.views
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
-from flask import abort, g, redirect, request, url_for, current_app
+from flask import abort, g, redirect, request, url_for
 from byceps.util import turnstile as cf_turnstile
 from flask_babel import gettext
 from secret_type import secret
@@ -66,20 +66,9 @@ def log_in():
     if not form.validate():
         abort(401, 'Username and/or password not given')
         
-    # Cloudflare Turnstile
-    ts_cfg = current_app.config.get('CLOUDFLARE_TURNSTILE') or {}
-    if ts_cfg.get('enabled'):
-        token = (request.form.get('cf-turnstile-response') or '').strip()
-        if not token:
-            abort(400, 'Turnstile token missing')
-        ok = cf_turnstile.verify_token(
-            token,
-            remoteip=cf_turnstile.best_remote_ip(),
-            timeout=3.0,
-            expected_action='login',
-        )
-        if not ok:
-            abort(401, 'Turnstile challenge verification failed')
+    # Cloudflare Turnstile (Netsession)
+    if not cf_turnstile.passes_request('login'):
+        abort(401, 'Turnstile challenge verification failed')
 
     username = form.username.data.strip()
     password = secret(form.password.data)

@@ -116,3 +116,19 @@ def verify_token(
             return False
 
     return True
+
+
+def passes_request(expected_action: str) -> bool:
+    """Check the Turnstile token of the current form request.
+
+    The single call the views make. An empty token is passed on to
+    `verify_token` as well, so that a Cloudflare outage (the widget cannot
+    load) lets users through instead of locking them out.
+    """
+    token = (flask_request.form.get("cf-turnstile-response") or "").strip()
+    return verify_token(
+        token,
+        remoteip=best_remote_ip(),
+        timeout=3.0,
+        expected_action=expected_action,
+    )
