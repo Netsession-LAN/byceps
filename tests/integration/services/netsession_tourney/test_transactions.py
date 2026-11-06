@@ -1,6 +1,8 @@
 """A result report and a match generation are one transaction each: when
 something fails half-way, nothing of it may be stored."""
 
+from datetime import datetime, timedelta
+
 import pytest
 
 from byceps.database import db
@@ -130,3 +132,25 @@ def test_failing_generation_stores_no_matches(
     assert (
         match_queries.get_matches_for_tournament(party.id, tournament.id) == []
     )
+
+
+def test_unconfirmed_result_goes_to_admin_review_after_deadline(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    match = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()[0]
+    db_match = db.session.get(DbNetsessionTourneyMatch, match.id)
+    db_match.state = MatchState.pending_confirmation.value
+    db_match.confirmation_deadline_at = datetime.utcnow() - timedelta(minutes=1)
+    db.session.commit()
+
+    assert match_advancement.resolve_pending_confirmations() >= 1
+
+    db.session.expire_all()
+    db_match = db.session.get(DbNetsessionTourneyMatch, match.id)
+    assert db_match.state == MatchState.needs_admin_review.value
+    assert db_match.confirmation_deadline_at is None
