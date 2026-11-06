@@ -16,17 +16,18 @@ from flask_babel import format_datetime, gettext
 from byceps.services.party.models import PartyID
 from byceps.services.ticketing import ticket_service
 
+from ...coin_service import (
+    get_coin_settings,
+    get_user_coin_balance,
+    is_tournament_coin_refund_available,
+)
+from ...enum_labels import enum_label
 from ...models import (
     MatchState,
     ParticipantType,
     TeamMemberRole,
     TournamentMode,
     TournamentStatus,
-)
-from ...coin_service import (
-    get_coin_settings,
-    get_user_coin_balance,
-    is_tournament_coin_refund_available,
 )
 from ...participant_admin_service import (
     get_active_participant_counts_for_tournaments,
@@ -339,7 +340,7 @@ def _build_current_user_overview_match_rows(
                     if match.scheduled_at is not None
                     else '-'
                 ),
-                'state_label': match.state.value.replace('_', ' ').title(),
+                'state_label': enum_label(match.state),
                 'score_display': score_display,
                 'is_flatout2_match': is_flatout2_match,
                 'is_host': (
