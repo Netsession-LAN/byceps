@@ -51,6 +51,7 @@ BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS = {
     'tournament_live',
     'tournament_closed',
     'tournament_canceled',
+    'checkin_open',
     'manual_announcement',
     'match_ready',
     'flatout2_host_assigned',

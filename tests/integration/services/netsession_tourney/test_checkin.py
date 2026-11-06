@@ -2,10 +2,11 @@
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 
 from byceps.database import db
 from byceps.services.netsession_tourney import (
+    checkin_reminders,
     checkin_service,
     match_generation,
     match_queries,
@@ -15,9 +16,12 @@ from byceps.services.netsession_tourney import (
     tournament_service,
 )
 from byceps.services.netsession_tourney.dbmodels import (
+    DbNetsessionTourneyNotification,
+    DbNetsessionTourneyParticipant,
     DbNetsessionTourneyTournament,
 )
 from byceps.services.netsession_tourney.models import (
+    CheckinState,
     RegistrationMode,
     StageType,
     TournamentMode,
@@ -136,3 +140,53 @@ def test_check_in_needs_an_open_window_and_a_registration(
     stranger = make_user('NS_Stranger_' + generate_token())
     assert checkin_service.check_in(party.id, tournament.id, stranger).is_err()
     assert checkin_service.check_in(party.id, tournament.id, players[0]).is_ok()
+
+
+def test_admin_checks_in_by_hand_and_takes_it_back(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, _, players = _tournament_with_players(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    _set_window(tournament.id, -15, -1)  # already closed
+    participant_id = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.id).filter_by(
+            tournament_id=tournament.id, user_id=players[0].id
+        )
+    )
+
+    checked_in = checkin_service.set_checkin_by_admin(
+        party.id, tournament.id, participant_id, True, admin_user
+    )
+    assert checked_in.unwrap().checkin_state == CheckinState.checked_in
+
+    revoked = checkin_service.set_checkin_by_admin(
+        party.id, tournament.id, participant_id, False, admin_user
+    )
+    assert revoked.unwrap().checkin_state == CheckinState.pending
+
+
+def test_checkin_reminder_is_sent_once_when_the_window_opens(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, _, players = _tournament_with_players(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+
+    def reminders():
+        return db.session.scalar(
+            select(func.count())
+            .select_from(DbNetsessionTourneyNotification)
+            .filter_by(tournament_id=tournament.id, kind='checkin_open')
+        )
+
+    _set_window(tournament.id, 5, 30)  # not open yet
+    checkin_reminders.send_due_checkin_reminders()
+    assert reminders() == 0
+
+    _set_window(tournament.id, -1, 30)
+    checkin_reminders.send_due_checkin_reminders()
+    assert reminders() == len(players)
+
+    checkin_reminders.send_due_checkin_reminders()
+    assert reminders() == len(players)

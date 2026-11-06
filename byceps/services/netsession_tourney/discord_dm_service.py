@@ -40,6 +40,7 @@ from .service_helpers import (
 DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS = {
     'tournament_live',
     'tournament_canceled',
+    'checkin_open',
     'match_ready',
     'flatout2_host_assigned',
     'result_submitted',

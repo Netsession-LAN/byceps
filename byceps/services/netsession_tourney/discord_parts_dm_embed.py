@@ -31,6 +31,11 @@ DISCORD_DM_EVENT_META_BY_KIND: dict[str, dict[str, str]] = {
         'label': 'Turnier abgesagt',
         'headline': 'Turnier wurde abgesagt',
     },
+    'checkin_open': {
+        'emoji': '✅',
+        'label': 'Check-in offen',
+        'headline': 'Der Check-in ist offen – jetzt einchecken',
+    },
     'match_ready': {
         'emoji': '🎮',
         'label': 'Match spielbereit',

@@ -295,6 +295,8 @@ def _build_browser_push_body(
         body = 'Turnier wurde beendet.'
     elif kind == 'tournament_canceled':
         body = 'Turnier wurde abgesagt.'
+    elif kind == 'checkin_open':
+        body = 'Der Check-in ist offen – jetzt einchecken (bei Teams der Captain).'
     elif kind == 'manual_announcement':
         body = str(payload.get('body') or '').strip() or 'Es gibt ein neues Turnier-Update.'
     elif kind == 'match_ready':

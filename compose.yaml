@@ -62,13 +62,13 @@ services:
     networks:
       - byceps
 
-  byceps-confirmation-timeouts:
+  byceps-tourney-timers:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
     command: >
       sh -c "while true; do
-      uv run --no-sync python scripts/netsession_tourney/resolve_confirmation_timeouts.py;
+      uv run --no-sync python scripts/netsession_tourney/run_tourney_timers.py;
       sleep 60;
       done"
     restart: unless-stopped

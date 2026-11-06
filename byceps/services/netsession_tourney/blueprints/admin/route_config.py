@@ -25,6 +25,7 @@ TOURNAMENT_DETAIL_TABS = {
 DISCORD_DM_EVENT_CHOICES = [
     ('tournament_live', gettext('Turnier live')),
     ('tournament_canceled', gettext('Turnier abgesagt')),
+    ('checkin_open', gettext('Check-in offen')),
     ('match_ready', gettext('Match spielbereit')),
     ('flatout2_host_assigned', gettext('FlatOut 2 Host ausgewählt')),
     ('result_submitted', gettext('Ergebnis übermittelt')),
