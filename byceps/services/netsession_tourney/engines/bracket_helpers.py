@@ -324,6 +324,20 @@ def _chunked_evenly(items: list[T], chunk_count: int) -> list[list[T]]:
     return [chunk for chunk in chunks if chunk]
 
 
+def _snake_groups(items: list[T], group_count: int) -> list[list[T]]:
+    """Deal items (ordered by seed) into groups in snake order: A B C, C B
+    A, A B C … so the strongest do not all land in the first group."""
+    groups: list[list[T]] = [[] for _ in range(max(group_count, 0))]
+    if not groups:
+        return []
+    for index, item in enumerate(items):
+        round_index, position = divmod(index, group_count)
+        if round_index % 2 == 1:
+            position = group_count - 1 - position
+        groups[position].append(item)
+    return [group for group in groups if group]
+
+
 def _distribute_evenly(total: int, bucket_count: int) -> list[int]:
     if bucket_count <= 0:
         return []

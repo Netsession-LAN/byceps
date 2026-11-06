@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from byceps.util.result import Err, Ok, Result
 
+from .engines.bracket_helpers import _snake_groups
 from .models import (
     Participant,
 )
@@ -17,9 +18,6 @@ from .stage_builder_settings import (
     _BuilderGroupStageSpec,
     _get_divisors,
     _RoundRobinBuilderPlan,
-)
-from .stage_generation_base import (
-    _distribute_evenly,
 )
 
 
@@ -120,12 +118,10 @@ def _build_round_robin_builder_group_stage_specs(
     group_count: int,
     qualifiers_per_group: int,
 ) -> list[_BuilderGroupStageSpec]:
-    group_sizes = _distribute_evenly(len(participants), group_count)
     specs: list[_BuilderGroupStageSpec] = []
-    offset = 0
-    for index, group_size in enumerate(group_sizes):
-        group_participants = participants[offset : offset + group_size]
-        offset += group_size
+    for index, group_participants in enumerate(
+        _snake_groups(participants, group_count)
+    ):
         specs.append(
             _BuilderGroupStageSpec(
                 label=_build_group_label(index),

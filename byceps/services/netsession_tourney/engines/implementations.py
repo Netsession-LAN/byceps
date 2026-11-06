@@ -14,8 +14,8 @@ from ..models import MatchID, ParticipantID, Stage, TournamentMode
 from .base import MatchSpec, SlotSpec, StageEngine, Standing
 from .bracket_helpers import (
     _build_seeded_bracket_slots,
-    _chunked_evenly,
     _seeded_slots,
+    _snake_groups,
     _sourced_slot,
     _with_computed_round_numbers,
     build_double_elimination_specs,
@@ -464,7 +464,7 @@ class _RoundRobinGroupsEngine(StageEngine):
             group_count = 0
 
         if group_count > 0:
-            groups = _chunked_evenly(list(participant_ids), group_count)
+            groups = _snake_groups(list(participant_ids), group_count)
         else:
             group_size = _get_group_size(stage.settings.get('group_size'))
             groups = _chunked(list(participant_ids), group_size)
