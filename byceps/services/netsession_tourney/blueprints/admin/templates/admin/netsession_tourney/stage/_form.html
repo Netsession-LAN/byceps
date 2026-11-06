@@ -230,17 +230,6 @@
       ffa_single_elimination: {{ _('FFA Single Elimination: FFA-Heats mit KO-Fortschritt in Folgerunden.')|tojson }},
       ffa_flatout2_single_elimination: {{ _('FlatOut 2: manuell vorbereitete FFA-Stage mit Runden, Matches, Host-Auswahl und konfigurierbarem Rennen-Setup pro Match. Platz- und Killpunkte werden dabei nicht verwendet.')|tojson }},
     };
-    const stageTypeScopeMap = {
-      single_elimination: {{ _('solo/team')|tojson }},
-      double_elimination: {{ _('solo/team')|tojson }},
-      double_elimination_double_grand_final: {{ _('solo/team')|tojson }},
-      round_robin_groups: {{ _('solo/team')|tojson }},
-      league: {{ _('solo/team')|tojson }},
-      swiss: {{ _('solo/team')|tojson }},
-      ffa_simple: {{ _('solo/team')|tojson }},
-      ffa_single_elimination: {{ _('solo/team')|tojson }},
-      ffa_flatout2_single_elimination: {{ _('solo/team')|tojson }},
-    };
 
     const configurableSettingContainers = Array.from(
       form.querySelectorAll('[data-stage-setting]')
@@ -428,12 +417,7 @@
       const isFlatout2Stage =
         selectedStageType === 'ffa_flatout2_single_elimination';
       if (stageTypeInfo) {
-        const description = stageTypeDescriptionMap[selectedStageType] || '';
-        const scope = stageTypeScopeMap[selectedStageType] || '';
-        const scopeLabel = {{ _('Geeignet für')|tojson }};
-        stageTypeInfo.textContent = scope
-          ? `${description} ${scopeLabel}: ${scope}.`
-          : description;
+        stageTypeInfo.textContent = stageTypeDescriptionMap[selectedStageType] || '';
       }
 
       configurableSettingContainers.forEach((container) => {
