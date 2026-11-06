@@ -38,7 +38,7 @@ def open_label(state: MatchState) -> str:
         case MatchState.pending_confirmation:
             return gettext('Wartet auf Bestätigung')
         case MatchState.needs_admin_review:
-            return gettext('Admin-Review')
+            return gettext('Admin-Prüfung')
         case _:
             return bracket_label(state)
 

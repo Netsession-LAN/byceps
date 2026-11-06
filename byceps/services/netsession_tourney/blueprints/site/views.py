@@ -2517,10 +2517,10 @@ def format_timeline_action(entry):
     if action == 'match_disputed':
         return gettext('Ein Konflikt wurde gemeldet.')
     if action == 'match_needs_admin_review':
-        return gettext('Match benötigt Admin-Review.')
+        return gettext('Match wartet auf Admin-Prüfung.')
     if action == 'result_confirmation_timed_out':
         return gettext(
-            'Ergebnis-Bestätigung ist abgelaufen und benötigt Admin-Review.'
+            'Bestätigungsfrist abgelaufen, Match wartet auf Admin-Prüfung.'
         )
 
     return action.replace('_', ' ')

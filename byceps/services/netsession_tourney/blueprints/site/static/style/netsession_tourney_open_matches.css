@@ -1,0 +1,48 @@
+/* "Open matches" on phones: the four-column table (52rem wide) becomes
+   one card per match instead of scrolling sideways. */
+
+@media (max-width: 640px) {
+  .ns-tourney-open-matches {
+    overflow-x: visible;
+  }
+
+  .ns-tourney-open-matches-table {
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .ns-tourney-open-matches-table thead {
+    display: none;
+  }
+
+  .ns-tourney-open-matches-table,
+  .ns-tourney-open-matches-table tbody {
+    display: block;
+  }
+
+  .ns-tourney-open-matches-table .ns-tourney-open-matches-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    padding: 0.7rem 0.2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* as specific as the itemlist cell borders in BYCEPS' common.css */
+  .ns-tourney-open-matches table.ns-tourney-open-matches-table > tbody > tr > td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+  }
+
+  /* match and tournament span the card, status and time share a line */
+  .ns-tourney-open-matches-table .ns-tourney-open-matches-row > td:nth-child(1),
+  .ns-tourney-open-matches-table .ns-tourney-open-matches-row > td:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .ns-tourney-open-matches-table .ns-tourney-open-matches-row > td:nth-child(4) {
+    text-align: right;
+  }
+}
