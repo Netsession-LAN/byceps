@@ -12,7 +12,7 @@ import math
 
 from ..models import ParticipantID
 from .base import MatchSpec, SlotSpec
-from .bracket_helpers import _chunked_evenly, _distribute_evenly
+from .bracket_helpers import _chunked_evenly
 
 
 def build_ffa_first_round_specs(
@@ -67,15 +67,22 @@ def build_ffa_knockout_follow_up_specs(
         next_round_match_count = math.ceil(
             len(previous_round_match_nos) / max_players
         )
-        for source_chunk in _chunked_evenly(
+        source_chunks = _chunked_evenly(
             previous_round_match_nos, next_round_match_count
-        ):
+        )
+        # Every heat of the round sends the same number of players on.
+        qualifiers_per_heat = max(
+            1, max_players // max(len(chunk) for chunk in source_chunks)
+        )
+        for source_chunk in source_chunks:
             specs.append(
                 MatchSpec(
                     round_no=round_no,
                     match_no=match_no,
                     state='pending',
-                    slots=_build_ffa_qualifier_slots(source_chunk, max_players),
+                    slots=_build_ffa_qualifier_slots(
+                        source_chunk, qualifiers_per_heat
+                    ),
                 )
             )
             current_round_match_nos.append(match_no)
@@ -88,15 +95,12 @@ def build_ffa_knockout_follow_up_specs(
 
 
 def _build_ffa_qualifier_slots(
-    source_chunk: list[int], max_players: int
+    source_chunk: list[int], qualifiers_per_heat: int
 ) -> list[SlotSpec]:
-    qualifier_slot_counts = _distribute_evenly(max_players, len(source_chunk))
     slots: list[SlotSpec] = []
     slot_no = 1
-    for source_match_no, qualifier_count in zip(
-        source_chunk, qualifier_slot_counts, strict=False
-    ):
-        for _ in range(qualifier_count):
+    for source_match_no in source_chunk:
+        for _ in range(qualifiers_per_heat):
             slots.append(
                 SlotSpec(
                     slot_no=slot_no,
