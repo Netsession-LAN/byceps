@@ -34,7 +34,7 @@ from .models import (
     DiscordDmSubscriptionID,
 )
 from .service_helpers import (
-    _db_discord_dm_config_to_model,
+    db_discord_dm_config_to_model,
 )
 
 
@@ -58,7 +58,7 @@ def get_discord_dm_config(party_id: PartyID) -> DiscordDmConfig:
     try:
         db_config = db.session.get(DbNetsessionTourneyDiscordDmConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return _build_default_discord_dm_config(party_id)
         raise
@@ -66,14 +66,14 @@ def get_discord_dm_config(party_id: PartyID) -> DiscordDmConfig:
     if db_config is None:
         return _build_default_discord_dm_config(party_id)
 
-    return _db_discord_dm_config_to_model(db_config)
+    return db_discord_dm_config_to_model(db_config)
 
 
 def is_discord_dm_enabled_for_party(party_id: PartyID) -> bool:
     try:
         db_config = db.session.get(DbNetsessionTourneyDiscordDmConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return False
         raise
@@ -101,7 +101,7 @@ def configure_discord_dm(
     try:
         db_config = db.session.get(DbNetsessionTourneyDiscordDmConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return Err(
                 'Discord-DM-Tabellen sind noch nicht installiert.'
@@ -141,14 +141,14 @@ def configure_discord_dm(
     db_config.updated_at = now
     db.session.commit()
 
-    return Ok(_db_discord_dm_config_to_model(db_config))
+    return Ok(db_discord_dm_config_to_model(db_config))
 
 
 def get_masked_discord_dm_bot_token(party_id: PartyID) -> str:
     try:
         db_config = db.session.get(DbNetsessionTourneyDiscordDmConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return ''
         raise
@@ -157,7 +157,7 @@ def get_masked_discord_dm_bot_token(party_id: PartyID) -> str:
         return ''
 
     return _mask_discord_dm_bot_token(
-        _decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
+        decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
     )
 
 
@@ -167,7 +167,7 @@ def get_configured_discord_bot_credentials() -> Result[tuple[str, str] | None, s
             select(DbNetsessionTourneyDiscordDmConfig)
         ).all()
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return Ok(None)
         raise
@@ -177,7 +177,7 @@ def get_configured_discord_bot_credentials() -> Result[tuple[str, str] | None, s
         if not db_config.application_id or not db_config.bot_token_encrypted:
             continue
 
-        bot_token = _decrypt_discord_dm_bot_token(
+        bot_token = decrypt_discord_dm_bot_token(
             db_config.bot_token_encrypted
         )
         if not bot_token:
@@ -210,7 +210,7 @@ def get_enabled_discord_dm_bot_credentials() -> Result[tuple[str, str] | None, s
             select(DbNetsessionTourneyDiscordDmConfig).filter_by(enabled=True)
         ).all()
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return Ok(None)
         raise
@@ -220,7 +220,7 @@ def get_enabled_discord_dm_bot_credentials() -> Result[tuple[str, str] | None, s
         if not db_config.application_id or not db_config.bot_token_encrypted:
             continue
 
-        bot_token = _decrypt_discord_dm_bot_token(
+        bot_token = decrypt_discord_dm_bot_token(
             db_config.bot_token_encrypted
         )
         if not bot_token:
@@ -258,7 +258,7 @@ def upsert_discord_dm_subscription(
             )
         )
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return Err(
                 'Discord-DM-Tabellen sind noch nicht installiert.'
@@ -294,7 +294,7 @@ def disable_discord_dm_subscription(
             )
         )
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return
         raise
@@ -323,7 +323,7 @@ def count_active_discord_dm_subscriptions_for_user(
             .filter_by(party_id=party_id, user_id=user_id, enabled=True)
         )
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return 0
         raise
@@ -347,7 +347,7 @@ def _encrypt_discord_dm_bot_token(bot_token: str) -> str:
     return token.decode('ascii')
 
 
-def _decrypt_discord_dm_bot_token(token: str | None) -> str | None:
+def decrypt_discord_dm_bot_token(token: str | None) -> str | None:
     if not token:
         return None
 
@@ -381,7 +381,7 @@ def _build_default_discord_dm_config(
     )
 
 
-def _is_missing_discord_dm_table_error(exc: DBAPIError) -> bool:
+def is_missing_discord_dm_table_error(exc: DBAPIError) -> bool:
     sqlstate = getattr(getattr(exc, 'orig', None), 'sqlstate', None)
     if sqlstate != '42P01':
         return False

@@ -21,8 +21,8 @@ from byceps.services.user.models import UserID
 from byceps.util.result import Err, Ok, Result
 
 from .browser_push_outbox import (
-    _build_browser_push_match_label,
-    _build_browser_push_message_payload,
+    build_browser_push_match_label,
+    build_browser_push_message_payload,
 )
 from .dbmodels import (
     DbNetsessionTourneyDiscordDmConfig,
@@ -31,14 +31,14 @@ from .dbmodels import (
     DbNetsessionTourneyTournament,
 )
 from .discord_dm_service import (
-    _decrypt_discord_dm_bot_token,
-    _is_missing_discord_dm_table_error,
+    decrypt_discord_dm_bot_token,
+    is_missing_discord_dm_table_error,
     DISCORD_DM_MAX_ATTEMPTS,
     DISCORD_DM_TIMEOUT_SECONDS,
 )
 from .discord_parts_dm_embed import (
-    _build_discord_dm_embed_fields,
-    _build_discord_dm_image_urls,
+    build_discord_dm_embed_fields,
+    build_discord_dm_image_urls,
     DISCORD_DM_DEFAULT_EVENT_META,
     DISCORD_DM_EVENT_META_BY_KIND,
 )
@@ -46,7 +46,7 @@ from .models import (
     DiscordDmOutboxStatus,
 )
 from .notification_urls import (
-    _build_absolute_notification_url,
+    build_absolute_notification_url,
 )
 from .outbox_processing import process_outbox_rows
 
@@ -56,7 +56,7 @@ def process_discord_dm_outbox(*, limit: int = 50) -> int:
     try:
         db_rows = _load_due_discord_dm_outbox_rows(now, limit)
     except DBAPIError as exc:
-        if _is_missing_discord_dm_table_error(exc):
+        if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
             return 0
         raise
@@ -122,7 +122,7 @@ def _deliver_discord_dm_outbox_row(
         )
         return
 
-    bot_token = _decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
+    bot_token = decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
     if not bot_token:
         _mark_discord_dm_outbox_dead_letter(
             db_row, 'Kein gültiges Discord-Bot-Token konfiguriert.', now
@@ -207,7 +207,7 @@ def send_test_discord_dm(
     if not discord_user_id:
         return Err('Dein Benutzerkonto hat keinen verbundenen Discord-Account.')
 
-    bot_token = _decrypt_discord_dm_bot_token(
+    bot_token = decrypt_discord_dm_bot_token(
         db_config.bot_token_encrypted
     )
     if not bot_token:
@@ -267,25 +267,25 @@ def _build_discord_dm_message_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_notification: DbNetsessionTourneyNotification,
 ) -> dict[str, Any]:
-    browser_payload = _build_browser_push_message_payload(
+    browser_payload = build_browser_push_message_payload(
         db_tournament, db_notification
     )
     payload = dict(db_notification.payload_json or {})
     kind = db_notification.kind
-    match_label = _build_browser_push_match_label(payload)
+    match_label = build_browser_push_match_label(payload)
     body = str(browser_payload.get('body') or '').strip() or 'Es gibt ein neues Update.'
-    url = _build_absolute_notification_url(
+    url = build_absolute_notification_url(
         db_tournament.party_id,
         str(browser_payload.get('url') or f'/ns-tourneys/{db_tournament.slug}'),
     )
-    brand_icon_url, thumbnail_url = _build_discord_dm_image_urls(db_tournament)
+    brand_icon_url, thumbnail_url = build_discord_dm_image_urls(db_tournament)
 
     event_meta = DISCORD_DM_EVENT_META_BY_KIND.get(
         kind, DISCORD_DM_DEFAULT_EVENT_META
     )
 
     description_lines = [f'**{db_tournament.title}**', body]
-    fields = _build_discord_dm_embed_fields(
+    fields = build_discord_dm_embed_fields(
         db_tournament,
         event_meta=event_meta,
         kind=kind,
@@ -322,8 +322,8 @@ def _build_discord_dm_message_payload(
 def _build_test_discord_dm_message_payload(
     party_id: PartyID,
 ) -> dict[str, Any]:
-    url = _build_absolute_notification_url(party_id, '/ns-tourneys/')
-    brand_icon_url = _build_absolute_notification_url(
+    url = build_absolute_notification_url(party_id, '/ns-tourneys/')
+    brand_icon_url = build_absolute_notification_url(
         party_id, '/static_sites/netsession/icon-192.png'
     )
 

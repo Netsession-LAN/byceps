@@ -20,8 +20,8 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .coin_service import (
-    _charge_coins_for_tournament_registration,
-    _refund_coins_for_tournament_registration_if_available,
+    charge_coins_for_tournament_registration,
+    refund_coins_for_tournament_registration_if_available,
 )
 from .dbmodels import (
     DbNetsessionTourneyMatch,
@@ -44,24 +44,24 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _append_notification,
+    append_notification,
 )
 from .participant_state import (
-    _is_user_already_active_participant,
+    is_user_already_active_participant,
     count_active_participants_for_tournament,
 )
 from .registration_service import (
-    _ensure_registration_is_registered,
-    _get_team_member_user_ids_for_participant,
-    _set_registration_state_for_user,
+    ensure_registration_is_registered,
+    get_team_member_user_ids_for_participant,
+    set_registration_state_for_user,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_participant_to_model,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_participant_to_model,
+    db_tournament_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 from .tournament_service import (
@@ -78,11 +78,11 @@ def add_user_participant_by_admin(
     participant_user: User,
     initiator: User,
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
             'Teilnehmer lassen sich nur im Entwurf verwalten.'
@@ -96,7 +96,7 @@ def add_user_participant_by_admin(
         )
     if (ticket_check := _validate_user_uses_ticket_for_party(participant_user.id, party_id)).is_err():
         return ticket_check
-    if _is_user_already_active_participant(tournament_id, participant_user.id):
+    if is_user_already_active_participant(tournament_id, participant_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
 
     if tournament.participant_limit is not None:
@@ -106,7 +106,7 @@ def add_user_participant_by_admin(
         if active_count >= tournament.participant_limit:
             return Err('Das Turnier ist voll.')
 
-    charge_result = _charge_coins_for_tournament_registration(
+    charge_result = charge_coins_for_tournament_registration(
         party_id,
         tournament,
         participant_user.id,
@@ -127,9 +127,9 @@ def add_user_participant_by_admin(
         status=ParticipantStatus.ready,
     )
     db.session.add(db_participant)
-    _ensure_registration_is_registered(tournament_id, participant_user.id)
+    ensure_registration_is_registered(tournament_id, participant_user.id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -139,7 +139,7 @@ def add_user_participant_by_admin(
     )
     db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def remove_participant_by_admin(
@@ -174,7 +174,7 @@ def remove_participant_by_admin(
     if db_participant is None:
         return Err('Unbekannter Teilnehmer.')
 
-    affected_user_ids = set(_get_team_member_user_ids_for_participant(participant_id))
+    affected_user_ids = set(get_team_member_user_ids_for_participant(participant_id))
     if db_participant.user_id is not None:
         affected_user_ids.add(db_participant.user_id)
     if db_participant.manager_user_id is not None:
@@ -182,14 +182,14 @@ def remove_participant_by_admin(
 
     tournament = find_tournament_for_party(party_id, tournament_id)
     for user_id in affected_user_ids:
-        _set_registration_state_for_user(
+        set_registration_state_for_user(
             tournament_id, user_id, RegistrationState.canceled
         )
-        _refund_coins_for_tournament_registration_if_available(
+        refund_coins_for_tournament_registration_if_available(
             party_id, tournament, user_id, created_by_user_id=initiator.id
         )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -247,7 +247,7 @@ def get_participants_by_ids(
         .filter(DbNetsessionTourneyParticipant.id.in_(participant_ids))
     ).all()
     return {
-        item.id: _db_participant_to_model(item)
+        item.id: db_participant_to_model(item)
         for item in db_participants
     }
 
@@ -259,7 +259,7 @@ def set_participant_status(
     status: ParticipantStatus,
     initiator: User,
 ) -> Result[Participant, str]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     db_participant = db.session.scalar(
@@ -273,7 +273,7 @@ def set_participant_status(
 
     db_participant.status = status.value
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -283,7 +283,7 @@ def set_participant_status(
     )
 
     db.session.commit()
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def disqualify_participant(
@@ -296,7 +296,7 @@ def disqualify_participant(
     comment: str,
     correlation_id: str | None = None,
 ) -> Result[Participant, str]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     reason_code = reason_code.strip()
@@ -326,7 +326,7 @@ def disqualify_participant(
         affected_matches, initiator, participant_id, comment, correlation_id, now
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -356,7 +356,7 @@ def disqualify_participant(
         correlation_id=correlation_id,
     )
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def _find_open_matches_for_participant(
@@ -398,7 +398,7 @@ def _flag_matches_for_admin_review(
         db_match.dispute_comment = comment
         db_match.updated_at = now
 
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='match',
             object_id=db_match.id,
@@ -420,7 +420,7 @@ def _notify_manager_of_disqualification(
     reason_code: str,
     now: datetime,
 ) -> None:
-    _append_notification(
+    append_notification(
         tournament_id=tournament_id,
         user_id=db_participant.manager_user_id,
         kind='participant_disqualified',

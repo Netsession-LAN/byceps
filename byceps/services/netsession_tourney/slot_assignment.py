@@ -27,7 +27,7 @@ from .engines.registry import (
     find_stage_engine,
 )
 from .match_advancement import (
-    _auto_advance_byes,
+    auto_advance_byes,
 )
 from .models import (
     MatchID,
@@ -37,18 +37,18 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _enqueue_match_ready_notifications,
+    enqueue_match_ready_notifications,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
+    calculate_match_state_for_slots,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_stage_to_model,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_stage_to_model,
+    db_tournament_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 
@@ -63,11 +63,11 @@ def set_match_slot_participant_by_admin(
     *,
     comment: str | None = None,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err('Matches lassen sich nur im Entwurf zuweisen.')
 
@@ -114,7 +114,7 @@ def set_match_slot_participant_by_admin(
     _auto_advance_byes_of_match_stage(tournament_id, db_match)
 
     if previous_state != MatchState.ready and next_state == MatchState.ready:
-        _enqueue_match_ready_notifications(db_match)
+        enqueue_match_ready_notifications(db_match)
 
     _append_slot_assignment_audit_log(
         initiator, match_id, slot_no, participant_id, comment
@@ -131,7 +131,7 @@ def _append_slot_assignment_audit_log(
     participant_id: ParticipantID | None,
     comment: str | None,
 ) -> None:
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
         object_id=match_id,
@@ -227,7 +227,7 @@ def _recalculate_match_state(
         .filter_by(match_id=match_id)
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
-    next_state = _calculate_match_state_for_slots(
+    next_state = calculate_match_state_for_slots(
         tournament_status=tournament_status,
         db_match_slots=db_match_slots,
     )
@@ -241,8 +241,8 @@ def _auto_advance_byes_of_match_stage(
 ) -> None:
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if db_stage is not None:
-        stage = _db_stage_to_model(db_stage)
-        _auto_advance_byes(
+        stage = db_stage_to_model(db_stage)
+        auto_advance_byes(
             tournament_id,
             stage,
             engine=find_stage_engine(stage.type),

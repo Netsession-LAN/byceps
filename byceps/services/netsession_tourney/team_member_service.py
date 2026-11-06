@@ -17,8 +17,8 @@ from byceps.services.user.models import User, UserID
 from byceps.util.result import Err, Ok, Result
 
 from .coin_service import (
-    _charge_coins_for_tournament_registration,
-    _refund_coins_for_tournament_registration_if_available,
+    charge_coins_for_tournament_registration,
+    refund_coins_for_tournament_registration_if_available,
 )
 from .dbmodels import (
     DbNetsessionTourneyTeamMember,
@@ -35,29 +35,29 @@ from .models import (
     TournamentStatus,
 )
 from .participant_state import (
-    _is_user_already_active_participant,
+    is_user_already_active_participant,
 )
 from .registration_service import (
-    _ensure_registration_is_registered,
-    _set_registration_state_for_user,
+    ensure_registration_is_registered,
+    set_registration_state_for_user,
 )
 from .registration_validation import (
-    _get_max_team_member_count,
+    get_max_team_member_count,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_tournament_to_model,
 )
 from .team_captain_service import (
-    _count_team_members,
-    _find_db_managed_team_participant,
+    count_team_members,
+    find_db_managed_team_participant,
 )
 from .team_coins_and_readiness import (
     reset_ready_if_incomplete,
 )
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -68,17 +68,17 @@ def add_team_member_by_captain(
     member_user: User,
     initiator: User,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
             'Teams lassen sich nur im Entwurf verwalten.'
         )
 
-    db_participant = _find_db_managed_team_participant(
+    db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
@@ -90,17 +90,17 @@ def add_team_member_by_captain(
     if ticket_validation_result.is_err():
         return Err(ticket_validation_result.unwrap_err())
 
-    if _is_user_already_active_participant(tournament_id, member_user.id):
+    if is_user_already_active_participant(tournament_id, member_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
 
-    max_team_member_count = _get_max_team_member_count(tournament)
+    max_team_member_count = get_max_team_member_count(tournament)
     if max_team_member_count is not None:
-        member_count = _count_team_members(participant_id)
+        member_count = count_team_members(participant_id)
         if int(member_count or 0) >= max_team_member_count:
             return Err('Dieses Team ist bereits voll.')
 
     if tournament.coin_charge_mode == CoinChargeMode.all_members:
-        charge_result = _charge_coins_for_tournament_registration(
+        charge_result = charge_coins_for_tournament_registration(
             party_id,
             tournament,
             member_user.id,
@@ -109,12 +109,12 @@ def add_team_member_by_captain(
         if charge_result.is_err():
             return Err(charge_result.unwrap_err())
 
-    _ensure_registration_is_registered(tournament_id, member_user.id)
+    ensure_registration_is_registered(tournament_id, member_user.id)
     add_team_member(
         participant_id, member_user.id, TeamMemberRole.player, datetime.utcnow()
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -134,17 +134,17 @@ def assign_team_captain_by_captain(
     member_user_id: UserID,
     initiator: User,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
             'Teams lassen sich nur im Entwurf verwalten.'
         )
 
-    db_participant = _find_db_managed_team_participant(
+    db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
@@ -175,7 +175,7 @@ def assign_team_captain_by_captain(
     db_member.role = TeamMemberRole.captain.value
     db_participant.manager_user_id = member_user_id
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -198,17 +198,17 @@ def remove_team_member_by_captain(
     member_user_id: UserID,
     initiator: User,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
         return Err(
             'Teams lassen sich nur im Entwurf verwalten.'
         )
 
-    db_participant = _find_db_managed_team_participant(
+    db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
@@ -226,16 +226,16 @@ def remove_team_member_by_captain(
         return Err('Du kannst dich als Captain nicht selbst aus dem Team entfernen.')
 
     db.session.delete(db_member)
-    _set_registration_state_for_user(
+    set_registration_state_for_user(
         tournament_id, member_user_id, RegistrationState.canceled
     )
-    _refund_coins_for_tournament_registration_if_available(
+    refund_coins_for_tournament_registration_if_available(
         party_id, tournament, member_user_id, created_by_user_id=initiator.id
     )
     reset_ready_if_incomplete(
         db_participant, tournament.team_size, tournament.substitute_count
     )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,

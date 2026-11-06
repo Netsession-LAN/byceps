@@ -21,11 +21,11 @@ from .dbmodels import (
     DbNetsessionTourneyStage,
 )
 from .ffa_stage_builder_plan import (
-    _build_ffa_stage_builder_plan,
+    build_ffa_stage_builder_plan,
 )
 from .match_schedule import (
-    _build_pending_structure_match_specs_for_stage,
-    _persist_generated_matches,
+    build_pending_structure_match_specs_for_stage,
+    persist_generated_matches,
 )
 from .models import (
     Stage,
@@ -43,10 +43,10 @@ from .stage_builder_parts import (
     validate_duel_builder_input,
 )
 from .service_helpers import (
-    _db_stage_to_model,
+    db_stage_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -67,7 +67,7 @@ def build_stage_builder_plan(
     break_between_rounds_minutes: int | None,
     initiator: User,
 ) -> Result[list[Stage], str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -88,7 +88,7 @@ def build_stage_builder_plan(
 
     tournament_mode = TournamentMode(db_tournament.mode)
     if tournament_mode == TournamentMode.ffa:
-        return _build_ffa_stage_builder_plan(
+        return build_ffa_stage_builder_plan(
             party_id,
             tournament_id,
             generation_basis=generation_basis,
@@ -202,7 +202,7 @@ def _build_duel_stage_builder_plan(
     audit_created_stages(created_stages, initiator, now)
     db.session.commit()
 
-    return Ok([_db_stage_to_model(stage) for stage in created_stages])
+    return Ok([db_stage_to_model(stage) for stage in created_stages])
 
 
 def _add_main_stage_structure(
@@ -214,7 +214,7 @@ def _add_main_stage_structure(
     # structure-only matches that reference its `stage_id`.
     db.session.flush()
 
-    pending_specs_result = _build_pending_structure_match_specs_for_stage(
+    pending_specs_result = build_pending_structure_match_specs_for_stage(
         tournament_id=tournament_id,
         stage_type=main_stage_type,
         participant_count=main_stage_size,
@@ -222,7 +222,7 @@ def _add_main_stage_structure(
     if pending_specs_result.is_err():
         return Err(pending_specs_result.unwrap_err())
 
-    _persist_generated_matches(
+    persist_generated_matches(
         tournament_id=tournament_id,
         stage_id=main_stage.id,
         specs=pending_specs_result.unwrap(),

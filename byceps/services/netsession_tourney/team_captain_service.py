@@ -19,7 +19,7 @@ from byceps.util.uuid import generate_uuid7
 
 from . import domain_service
 from .coin_service import (
-    _charge_coins_for_tournament_registration,
+    charge_coins_for_tournament_registration,
 )
 from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
@@ -37,26 +37,26 @@ from .models import (
     TournamentStatus,
 )
 from .participant_state import (
-    _refresh_match_states_for_participant_readiness,
+    refresh_match_states_for_participant_readiness,
 )
 from .registration_service import (
-    _ensure_registration_is_registered,
-    _generate_unique_invite_code_for_tournament,
+    ensure_registration_is_registered,
+    generate_unique_invite_code_for_tournament,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_participant_to_model,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_participant_to_model,
+    db_tournament_to_model,
 )
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 from .tourney_registration_checks import validate_user_can_enter_tournament
 
 
-def _count_team_members(participant_id: ParticipantID) -> int:
+def count_team_members(participant_id: ParticipantID) -> int:
     return int(
         db.session.scalar(
             select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
@@ -75,11 +75,11 @@ def create_team_for_captain(
     *,
     team_logo_url: str | None = None,
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Dieses Turnier erlaubt nur Solo-Anmeldungen.')
 
@@ -89,7 +89,7 @@ def create_team_for_captain(
     if entry_error is not None:
         return Err(entry_error)
 
-    charge_result = _charge_coins_for_tournament_registration(
+    charge_result = charge_coins_for_tournament_registration(
         party_id,
         tournament,
         user.id,
@@ -99,7 +99,7 @@ def create_team_for_captain(
         return Err(charge_result.unwrap_err())
 
     now = datetime.utcnow()
-    invite_code = _generate_unique_invite_code_for_tournament(tournament_id)
+    invite_code = generate_unique_invite_code_for_tournament(tournament_id)
     db_participant = DbNetsessionTourneyParticipant(
         ParticipantID(generate_uuid7()),
         tournament_id,
@@ -113,9 +113,9 @@ def create_team_for_captain(
     )
     db.session.add(db_participant)
     add_team_member(db_participant.id, user.id, TeamMemberRole.captain, now)
-    _ensure_registration_is_registered(tournament_id, user.id, created_at=now)
+    ensure_registration_is_registered(tournament_id, user.id, created_at=now)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -125,7 +125,7 @@ def create_team_for_captain(
     )
     db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def update_managed_team_for_captain(
@@ -138,15 +138,15 @@ def update_managed_team_for_captain(
     team_logo_url: str | None = None,
     replace_logo: bool = False,
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
         return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
 
-    db_participant = _find_db_managed_team_participant(
+    db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
@@ -162,7 +162,7 @@ def update_managed_team_for_captain(
             team_logo_url.strip() if team_logo_url else None
         )
 
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='participant',
             object_id=participant_id,
@@ -175,7 +175,7 @@ def update_managed_team_for_captain(
         )
         db.session.commit()
 
-        return Ok(_db_participant_to_model(db_participant))
+        return Ok(db_participant_to_model(db_participant))
 
     team_name_clean = team_name.strip()
     if not team_name_clean:
@@ -187,7 +187,7 @@ def update_managed_team_for_captain(
             team_logo_url.strip() if team_logo_url else None
         )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -201,13 +201,13 @@ def update_managed_team_for_captain(
     )
     db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def find_managed_team_for_user(
     party_id: PartyID, tournament_id: TournamentID, user_id: UserID
 ) -> Participant | None:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return None
 
     db_participant = db.session.scalar(
@@ -226,7 +226,7 @@ def find_managed_team_for_user(
     if db_participant is None:
         return None
 
-    return _db_participant_to_model(db_participant)
+    return db_participant_to_model(db_participant)
 
 
 def set_managed_team_ready_state(
@@ -237,17 +237,17 @@ def set_managed_team_ready_state(
     *,
     ready: bool,
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
         return Err(
             'Die Teamverwaltung ist gerade nicht verfügbar.'
         )
 
-    db_participant = _find_db_managed_team_participant(
+    db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
     )
     if db_participant is None:
@@ -260,7 +260,7 @@ def set_managed_team_ready_state(
         )
 
     if ready and tournament.team_size is not None:
-        member_count = _count_team_members(participant_id)
+        member_count = count_team_members(participant_id)
         if not domain_service.is_team_member_count_complete(
             int(member_count or 0),
             tournament.team_size,
@@ -279,11 +279,11 @@ def set_managed_team_ready_state(
         else ParticipantStatus.forming.value
     )
 
-    _refresh_match_states_for_participant_readiness(
+    refresh_match_states_for_participant_readiness(
         db_tournament, participant_id
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -293,7 +293,7 @@ def set_managed_team_ready_state(
     )
     db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def _is_in_bracket(participant_id: ParticipantID) -> bool:
@@ -307,13 +307,13 @@ def _is_in_bracket(participant_id: ParticipantID) -> bool:
     )
 
 
-def _find_db_managed_team_participant(
+def find_db_managed_team_participant(
     party_id: PartyID,
     tournament_id: TournamentID,
     participant_id: ParticipantID,
     manager_user_id: UserID,
 ) -> DbNetsessionTourneyParticipant | None:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return None
 
     return db.session.scalar(

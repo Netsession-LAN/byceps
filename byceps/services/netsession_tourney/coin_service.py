@@ -40,10 +40,10 @@ from .models import (
 )
 from .registration_locks import lock_user_coins
 from .service_helpers import (
-    _append_audit_log,
-    _db_coin_ledger_entry_to_model,
-    _db_coin_settings_to_model,
-    _db_ticket_category_coin_settings_to_model,
+    append_audit_log,
+    db_coin_ledger_entry_to_model,
+    db_coin_settings_to_model,
+    db_ticket_category_coin_settings_to_model,
 )
 from .team_coins_and_readiness import (
     get_unrefunded_registration_coins,
@@ -55,7 +55,7 @@ def get_coin_settings(party_id: PartyID) -> CoinSettings:
     if db_settings is None:
         return _build_default_coin_settings(party_id)
 
-    return _db_coin_settings_to_model(db_settings)
+    return db_coin_settings_to_model(db_settings)
 
 
 def get_ticket_category_coin_settings_for_party(
@@ -70,7 +70,7 @@ def get_ticket_category_coin_settings_for_party(
     ).all()
 
     return [
-        _db_ticket_category_coin_settings_to_model(db_row) for db_row in db_rows
+        db_ticket_category_coin_settings_to_model(db_row) for db_row in db_rows
     ]
 
 
@@ -183,7 +183,7 @@ def get_recent_coin_ledger_entries_for_user(
         .limit(limit)
     ).all()
 
-    return [_db_coin_ledger_entry_to_model(db_row) for db_row in db_rows]
+    return [db_coin_ledger_entry_to_model(db_row) for db_row in db_rows]
 
 
 def adjust_user_coins(
@@ -213,7 +213,7 @@ def adjust_user_coins(
         )
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='user',
         object_id=user_id,
@@ -277,7 +277,7 @@ def is_tournament_coin_refund_available(tournament: Tournament) -> bool:
     )
 
 
-def _validate_coin_cost(coin_cost: int) -> Result[None, str]:
+def validate_coin_cost(coin_cost: int) -> Result[None, str]:
     if coin_cost < 0:
         return Err('Die Coin-Kosten dürfen nicht negativ sein.')
 
@@ -344,7 +344,7 @@ def _get_registration_coin_delta_amount_for_user(
     return int(amount or 0)
 
 
-def _append_coin_ledger_entry(
+def append_coin_ledger_entry(
     party_id: PartyID,
     user_id: UserID,
     amount_delta: int,
@@ -372,7 +372,7 @@ def _append_coin_ledger_entry(
     )
 
 
-def _charge_coins_for_tournament_registration(
+def charge_coins_for_tournament_registration(
     party_id: PartyID,
     tournament: Tournament,
     user_id: UserID,
@@ -390,7 +390,7 @@ def _charge_coins_for_tournament_registration(
             f'Nicht genügend Coins. Benötigt: {tournament.coin_cost}, verfügbar: {balance.available_coins}.'
         )
 
-    _append_coin_ledger_entry(
+    append_coin_ledger_entry(
         party_id,
         user_id,
         -tournament.coin_cost,
@@ -404,7 +404,7 @@ def _charge_coins_for_tournament_registration(
     return Ok(None)
 
 
-def _refund_coins_for_tournament_registration_if_available(
+def refund_coins_for_tournament_registration_if_available(
     party_id: PartyID,
     tournament: Tournament,
     user_id: UserID,
@@ -419,7 +419,7 @@ def _refund_coins_for_tournament_registration_if_available(
     if not paid or not is_tournament_coin_refund_available(tournament):
         return
 
-    _append_coin_ledger_entry(
+    append_coin_ledger_entry(
         party_id,
         user_id,
         paid,

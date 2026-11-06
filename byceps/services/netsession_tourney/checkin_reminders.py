@@ -18,9 +18,9 @@ from byceps.database import db
 
 from .dbmodels import DbNetsessionTourneyAuditLog, DbNetsessionTourneyTournament
 from .models import TournamentStatus
-from .notification_service import _append_notifications_for_tournament
-from .service_helpers import _append_audit_log
-from .tournament_queries import _build_site_tournament_overview_path
+from .notification_service import append_notifications_for_tournament
+from .service_helpers import append_audit_log
+from .tournament_queries import build_site_tournament_overview_path
 
 
 CHECKIN_REMINDER_KIND = 'checkin_open'
@@ -41,16 +41,16 @@ def send_due_checkin_reminders(now: datetime | None = None) -> int:
     for db_tournament in db_tournaments:
         if _was_reminded(db_tournament.id):
             continue
-        _append_notifications_for_tournament(
+        append_notifications_for_tournament(
             db_tournament.id,
             actor_user_id=None,
             kind=CHECKIN_REMINDER_KIND,
             payload={
                 'slug': db_tournament.slug,
-                'url': _build_site_tournament_overview_path(db_tournament.slug),
+                'url': build_site_tournament_overview_path(db_tournament.slug),
             },
         )
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=None,
             object_type='tournament',
             object_id=db_tournament.id,

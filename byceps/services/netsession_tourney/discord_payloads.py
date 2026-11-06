@@ -19,37 +19,37 @@ from .dbmodels import (
     DbNetsessionTourneyTournament,
 )
 from .discord_result_summaries import (
-    _build_discord_match_completed_description,
-    _build_discord_match_completed_fields,
-    _build_discord_match_result_summary,
-    _build_discord_tournament_finished_description,
-    _build_discord_tournament_finished_fields,
-    _build_discord_tournament_result_summary,
+    build_discord_match_completed_description,
+    build_discord_match_completed_fields,
+    build_discord_match_result_summary,
+    build_discord_tournament_finished_description,
+    build_discord_tournament_finished_fields,
+    build_discord_tournament_result_summary,
 )
 from .models import (
     ParticipantID,
     Stage,
 )
 from .notification_urls import (
-    _build_absolute_notification_url,
+    build_absolute_notification_url,
 )
 from .tournament_queries import (
-    _build_site_match_path,
-    _build_site_tournament_overview_path,
+    build_site_match_path,
+    build_site_tournament_overview_path,
 )
 
 
-def _build_discord_tournament_finished_payload(
+def build_discord_tournament_finished_payload(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {'slug': db_tournament.slug}
-    result_summary = _build_discord_tournament_result_summary(db_tournament)
+    result_summary = build_discord_tournament_result_summary(db_tournament)
     if result_summary:
         payload['result_summary'] = result_summary
     return payload
 
 
-def _build_discord_match_completed_payload(
+def build_discord_match_completed_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_match: DbNetsessionTourneyMatch,
     stage: Stage,
@@ -62,10 +62,10 @@ def _build_discord_match_completed_payload(
     payload: dict[str, Any] = {
         'stage_name': stage.name,
         'match_label': f'Match #{db_match.match_no}',
-        'url': _build_site_match_path(db_tournament.slug, db_match.id),
+        'url': build_site_match_path(db_tournament.slug, db_match.id),
     }
 
-    result_summary = _build_discord_match_result_summary(
+    result_summary = build_discord_match_result_summary(
         stage=stage,
         db_slots=db_slots,
         db_participants_by_id=db_participants_by_id,
@@ -87,16 +87,16 @@ class _DiscordEventPresentation:
     color: int
 
 
-def _build_discord_message_payload(
+def build_discord_message_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_row: DbNetsessionTourneyDiscordOutbox,
 ) -> dict[str, Any]:
     payload_data = db_row.payload_json or {}
     event_name = db_row.event_name
-    url = _build_absolute_notification_url(
-        db_tournament.party_id, _build_site_tournament_overview_path(db_tournament.slug)
+    url = build_absolute_notification_url(
+        db_tournament.party_id, build_site_tournament_overview_path(db_tournament.slug)
     )
-    brand_icon_url = _build_absolute_notification_url(
+    brand_icon_url = build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
     )
 
@@ -147,17 +147,17 @@ def _build_discord_event_presentation(
         title = str(payload_data.get('title') or '').strip() or title
         custom_url = str(payload_data.get('url') or '').strip()
         if custom_url:
-            url = _build_absolute_notification_url(
+            url = build_absolute_notification_url(
                 db_tournament.party_id, custom_url
             )
     elif event_name == 'match_completed':
         embed_title = 'Match beendet'
-        description = _build_discord_match_completed_description(
+        description = build_discord_match_completed_description(
             title, payload_data
         )
         custom_url = str(payload_data.get('url') or '').strip()
         if custom_url:
-            url = _build_absolute_notification_url(
+            url = build_absolute_notification_url(
                 db_tournament.party_id, custom_url
             )
         color = 0x3B82F6
@@ -172,7 +172,7 @@ def _build_discord_event_presentation(
         color = 0xF97316
     elif event_name == 'tournament_finished':
         embed_title = 'Turnier beendet'
-        description = _build_discord_tournament_finished_description(
+        description = build_discord_tournament_finished_description(
             title, payload_data
         )
         color = 0x10B981
@@ -213,24 +213,24 @@ def _build_discord_message_fields(
         )
     if event_name == 'tournament_finished':
         fields.extend(
-            _build_discord_tournament_finished_fields(payload_data)
+            build_discord_tournament_finished_fields(payload_data)
         )
     elif event_name == 'match_completed':
-        fields.extend(_build_discord_match_completed_fields(payload_data))
+        fields.extend(build_discord_match_completed_fields(payload_data))
     return fields
 
 
-def _build_discord_forum_thread_payload(
+def build_discord_forum_thread_payload(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> dict[str, Any]:
-    url = _build_absolute_notification_url(
-        db_tournament.party_id, _build_site_tournament_overview_path(db_tournament.slug)
+    url = build_absolute_notification_url(
+        db_tournament.party_id, build_site_tournament_overview_path(db_tournament.slug)
     )
-    brand_icon_url = _build_absolute_notification_url(
+    brand_icon_url = build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
     )
     image_url = (
-        _build_absolute_notification_url(
+        build_absolute_notification_url(
             db_tournament.party_id, db_tournament.discord_forum_image_url
         )
         if db_tournament.discord_forum_image_url

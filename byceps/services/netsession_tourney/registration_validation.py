@@ -29,7 +29,7 @@ from .models import (
     TournamentMode,
 )
 from .service_helpers import (
-    _db_team_member_to_model,
+    db_team_member_to_model,
 )
 
 
@@ -58,12 +58,12 @@ def get_team_members_for_participants(
     )
     for db_member in db_members:
         members_by_participant_id[db_member.participant_id].append(
-            _db_team_member_to_model(db_member)
+            db_team_member_to_model(db_member)
         )
     return dict(members_by_participant_id)
 
 
-def _validate_team_size_for_registration_mode(
+def validate_team_size_for_registration_mode(
     *,
     registration_mode: RegistrationMode,
     team_size: int | None,
@@ -80,7 +80,7 @@ def _validate_team_size_for_registration_mode(
     return Ok(None)
 
 
-def _validate_substitute_count_for_registration_mode(
+def validate_substitute_count_for_registration_mode(
     *,
     registration_mode: RegistrationMode,
     substitute_count: int | None,
@@ -97,14 +97,14 @@ def _validate_substitute_count_for_registration_mode(
     return Ok(None)
 
 
-def _get_max_team_member_count(tournament: Tournament) -> int | None:
+def get_max_team_member_count(tournament: Tournament) -> int | None:
     if tournament.team_size is None:
         return None
 
     return tournament.team_size + (tournament.substitute_count or 0)
 
 
-def _validate_mode_for_registration_mode(
+def validate_mode_for_registration_mode(
     *,
     mode: TournamentMode,
     registration_mode: RegistrationMode,
@@ -123,7 +123,7 @@ def _is_stage_type_compatible_with_registration_mode(
     return True
 
 
-def _validate_bracket_ready_team_sizes(
+def validate_bracket_ready_team_sizes(
     tournament: Tournament, participants: list[Participant]
 ) -> Result[None, str]:
     if tournament.team_size is None:

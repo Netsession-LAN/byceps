@@ -46,7 +46,7 @@ def build_double_elimination_match_labels(
 
                 if 'GF' in source_brackets:
                     next_bracket = 'GF'
-                elif any(_is_loser_outcome(outcome) for _, outcome in incoming):
+                elif any(is_loser_outcome(outcome) for _, outcome in incoming):
                     next_bracket = 'LB'
                 elif source_brackets == {'WB'}:
                     next_bracket = 'WB'
@@ -232,7 +232,7 @@ def _get_double_elimination_loser_round_title(
     )
 
 
-def _is_loser_outcome(outcome) -> bool:
+def is_loser_outcome(outcome) -> bool:
     value = getattr(outcome, 'value', outcome)
     return value == 'loser'
 

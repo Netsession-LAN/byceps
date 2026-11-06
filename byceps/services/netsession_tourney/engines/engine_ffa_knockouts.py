@@ -12,7 +12,7 @@ import math
 
 from ..models import ParticipantID
 from .base import MatchSpec, SlotSpec
-from .bracket_helpers import _chunked_evenly
+from .bracket_helpers import chunked_evenly
 
 
 def build_ffa_first_round_specs(
@@ -23,7 +23,7 @@ def build_ffa_first_round_specs(
     specs: list[MatchSpec] = []
     match_no = 1
     initial_match_count = math.ceil(len(participant_ids) / max_players)
-    for chunk in _chunked_evenly(list(participant_ids), initial_match_count):
+    for chunk in chunked_evenly(list(participant_ids), initial_match_count):
         slots = [
             SlotSpec(
                 slot_no=index + 1,
@@ -67,7 +67,7 @@ def build_ffa_knockout_follow_up_specs(
         next_round_match_count = math.ceil(
             len(previous_round_match_nos) / max_players
         )
-        source_chunks = _chunked_evenly(
+        source_chunks = chunked_evenly(
             previous_round_match_nos, next_round_match_count
         )
         # Every heat of the round sends the same number of players on.
@@ -131,7 +131,7 @@ def build_flatout2_follow_up_specs(
         next_round_match_count = math.ceil(len(source_entries) / max_players)
         current_round_match_nos: list[int] = []
 
-        for source_chunk in _chunked_evenly(
+        for source_chunk in chunked_evenly(
             source_entries, next_round_match_count
         ):
             slots = [

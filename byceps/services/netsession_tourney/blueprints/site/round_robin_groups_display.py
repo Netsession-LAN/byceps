@@ -13,7 +13,7 @@ others) belong to the same group.
 from flask_babel import gettext
 
 from byceps.services.netsession_tourney.models import StageType
-from .ranking_helpers import _build_ranking_rows
+from .ranking_helpers import build_ranking_rows
 
 
 def add_round_robin_groups(
@@ -106,7 +106,7 @@ def _build_group(
     return {
         'title': gettext('Gruppe') + ' ' + _group_letter(index),
         'rounds': group_rounds,
-        'ranking_rows': _build_ranking_rows(
+        'ranking_rows': build_ranking_rows(
             participants,
             matches,
             {

@@ -18,7 +18,7 @@ from .models import (
 
 
 @dataclass(frozen=True, kw_only=True)
-class _StageGenerationPayload:
+class StageGenerationPayload:
     tournament: Tournament
     stage: Stage
     engine: StageEngine
@@ -27,7 +27,7 @@ class _StageGenerationPayload:
     replace_existing_matches: bool = True
 
 
-def _distribute_evenly(total: int, bucket_count: int) -> list[int]:
+def distribute_evenly(total: int, bucket_count: int) -> list[int]:
     if bucket_count < 1:
         return []
 

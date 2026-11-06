@@ -13,7 +13,7 @@ from datetime import timedelta
 from flask_babel import format_datetime, gettext
 
 
-def _select_builder_stage_section(
+def select_builder_stage_section(
     sections: list[dict], requested_key: str | None
 ) -> dict | None:
     if not sections:
@@ -27,7 +27,7 @@ def _select_builder_stage_section(
     return sections[0]
 
 
-def _combine_stage_section_title(
+def combine_stage_section_title(
     stage_title: str, subsection_title: str | None
 ) -> str:
     if subsection_title:
@@ -67,7 +67,7 @@ def _build_round_time_range_label(
     )
 
 
-def _build_match_overview_slot_data(
+def build_match_overview_slot_data(
     slot,
     winner_slot: int | None,
     users_by_id,
@@ -113,7 +113,7 @@ def _build_match_overview_slot_data(
     }
 
 
-def _get_stage_duration_minutes(stage) -> int | None:
+def get_stage_duration_minutes(stage) -> int | None:
     if stage is None:
         return None
 

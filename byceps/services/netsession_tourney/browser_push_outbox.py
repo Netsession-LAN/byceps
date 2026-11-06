@@ -29,8 +29,8 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 
 from .browser_push_service import (
-    _decrypt_browser_push_private_key,
-    _is_missing_browser_push_table_error,
+    decrypt_browser_push_private_key,
+    is_missing_browser_push_table_error,
     BROWSER_PUSH_MAX_ATTEMPTS,
 )
 from .dbmodels import (
@@ -48,16 +48,16 @@ from .models import (
     StageType,
 )
 from .notification_labels import (
-    _build_double_elimination_notification_match_label,
+    build_double_elimination_notification_match_label,
 )
 from .notification_urls import (
-    _build_browser_push_badge_url,
-    _build_browser_push_logo_urls,
-    _find_browser_push_site_server_name,
+    build_browser_push_badge_url,
+    build_browser_push_logo_urls,
+    find_browser_push_site_server_name,
 )
 from .outbox_processing import process_outbox_rows
 from .tournament_queries import (
-    _build_flatout2_first_race_summary,
+    build_flatout2_first_race_summary,
 )
 
 
@@ -66,7 +66,7 @@ def process_browser_push_outbox(*, limit: int = 50) -> int:
     try:
         db_rows = _load_due_browser_push_rows(now, limit)
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return 0
         raise
@@ -131,7 +131,7 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
         _mark_browser_push_sent(db_row)
         return
 
-    private_key_pem = _decrypt_browser_push_private_key(
+    private_key_pem = decrypt_browser_push_private_key(
         db_config.vapid_private_key_encrypted
     )
     if private_key_pem is None:
@@ -154,7 +154,7 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
     delivered, transient_error = _push_to_subscriptions(
         db_subscriptions,
         db_tournament,
-        message=_build_browser_push_message_payload(db_tournament, db_notification),
+        message=build_browser_push_message_payload(db_tournament, db_notification),
         vapid_private_key=_build_browser_push_private_key_for_pywebpush(
             private_key_pem
         ),
@@ -249,13 +249,13 @@ def _schedule_browser_push_outbox_retry(
     db_row.updated_at = now
 
 
-def _build_browser_push_message_payload(
+def build_browser_push_message_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_notification: DbNetsessionTourneyNotification,
 ) -> dict[str, Any]:
     payload = dict(db_notification.payload_json or {})
     kind = db_notification.kind
-    match_label = _build_browser_push_match_label(payload)
+    match_label = build_browser_push_match_label(payload)
     title = str(payload.get('title') or '').strip() or db_tournament.title
 
     body = _build_browser_push_body(kind, payload, match_label)
@@ -273,7 +273,7 @@ def _build_browser_push_message_payload(
         )
         renotify = False
 
-    icon_url, image_url = _build_browser_push_logo_urls(db_tournament)
+    icon_url, image_url = build_browser_push_logo_urls(db_tournament)
     return {
         'title': title,
         'body': body[:180],
@@ -281,7 +281,7 @@ def _build_browser_push_message_payload(
         'tag': f'netsession-tourney-{kind}-{tag_suffix}',
         'renotify': renotify,
         'icon': icon_url,
-        'badge': _build_browser_push_badge_url(),
+        'badge': build_browser_push_badge_url(),
         'image': image_url,
     }
 
@@ -306,7 +306,7 @@ def _build_browser_push_body(
             else 'Dein Match ist spielbereit.'
         )
     elif kind == 'flatout2_host_assigned':
-        first_race_summary = _build_flatout2_first_race_summary(payload)
+        first_race_summary = build_flatout2_first_race_summary(payload)
         base_body = (
             f'Du wurdest als Host für {match_label} ausgewählt.'
             if match_label
@@ -386,7 +386,7 @@ def _build_browser_push_private_key_for_pywebpush(private_key: str) -> str:
 def _build_browser_push_vapid_subject(
     party_id: PartyID, endpoint: str | None = None
 ) -> str:
-    site_server_name = _find_browser_push_site_server_name(party_id)
+    site_server_name = find_browser_push_site_server_name(party_id)
     if site_server_name:
         return f'https://{site_server_name}'
 
@@ -413,7 +413,7 @@ def _get_browser_push_endpoint_host(endpoint: str | None) -> str | None:
         return None
 
 
-def _build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
+def build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
     match_id = payload.get('match_id')
     if not isinstance(match_id, str) or not match_id:
         return None
@@ -435,7 +435,7 @@ def _build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
         StageType.double_elimination,
         StageType.double_elimination_double_grand_final,
     }:
-        return _build_double_elimination_notification_match_label(
+        return build_double_elimination_notification_match_label(
             db_match, db_stage.id
         )
 

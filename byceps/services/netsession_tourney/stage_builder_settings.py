@@ -27,15 +27,15 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _append_audit_log,
+    append_audit_log,
 )
 from .stage_activation import (
-    _delete_stage_matches,
+    delete_stage_matches,
 )
 
 
 @dataclass(frozen=True, kw_only=True)
-class _RoundRobinBuilderPlan:
+class RoundRobinBuilderPlan:
     group_count: int
     qualifiers_per_group: int
     min_group_size: int
@@ -59,13 +59,13 @@ STAGE_BUILDER_MAIN_STAGE_SIZES = {
 
 
 @dataclass(frozen=True, kw_only=True)
-class _BuilderGroupStageSpec:
+class BuilderGroupStageSpec:
     label: str
     participant_ids: list[ParticipantID]
     qualifiers_per_group: int
 
 
-def _get_divisors(number: int) -> list[int]:
+def get_divisors(number: int) -> list[int]:
     divisors: set[int] = set()
     for candidate in range(1, int(math.sqrt(number)) + 1):
         if number % candidate != 0:
@@ -76,7 +76,7 @@ def _get_divisors(number: int) -> list[int]:
     return sorted(divisors)
 
 
-def _build_group_label(index: int) -> str:
+def build_group_label(index: int) -> str:
     label = ''
     value = index
     while True:
@@ -87,7 +87,7 @@ def _build_group_label(index: int) -> str:
         value -= 1
 
 
-def _find_builder_main_stage_for_preliminary_stage(
+def find_builder_main_stage_for_preliminary_stage(
     tournament_id: TournamentID, preliminary_stage_id: StageID
 ) -> DbNetsessionTourneyStage | None:
     for db_stage in db.session.scalars(
@@ -106,21 +106,21 @@ def _find_builder_main_stage_for_preliminary_stage(
     return None
 
 
-def _is_stage_builder_v1_main_stage(stage: Stage) -> bool:
+def is_stage_builder_v1_main_stage(stage: Stage) -> bool:
     return (
         (stage.settings or {}).get('builder_kind') == STAGE_BUILDER_KIND_V1
         and (stage.settings or {}).get('builder_role') == 'main'
     )
 
 
-def _is_stage_builder_v1_preliminary_stage(stage: Stage) -> bool:
+def is_stage_builder_v1_preliminary_stage(stage: Stage) -> bool:
     return (
         (stage.settings or {}).get('builder_kind') == STAGE_BUILDER_KIND_V1
         and (stage.settings or {}).get('builder_role') == 'preliminary'
     )
 
 
-def _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(
+def is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(
     stage: Stage,
 ) -> bool:
     settings = stage.settings or {}
@@ -131,7 +131,7 @@ def _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(
     )
 
 
-def _get_stage_builder_main_stage_size(stage: Stage) -> int | None:
+def get_stage_builder_main_stage_size(stage: Stage) -> int | None:
     raw_value = (stage.settings or {}).get('builder_main_stage_size')
     try:
         parsed = int(raw_value)
@@ -141,7 +141,7 @@ def _get_stage_builder_main_stage_size(stage: Stage) -> int | None:
     return parsed if parsed in STAGE_BUILDER_MAIN_STAGE_SIZES else None
 
 
-def _is_builder_round_robin_summary_db_stage(
+def is_builder_round_robin_summary_db_stage(
     db_stage: DbNetsessionTourneyStage,
 ) -> bool:
     settings = db_stage.settings_json or {}
@@ -152,7 +152,7 @@ def _is_builder_round_robin_summary_db_stage(
     )
 
 
-def _is_builder_container_db_stage(
+def is_builder_container_db_stage(
     db_stage: DbNetsessionTourneyStage,
 ) -> bool:
     settings = db_stage.settings_json or {}
@@ -203,7 +203,7 @@ def _get_builder_generated_child_db_stages(
     ]
 
 
-def _delete_builder_generated_child_stages(
+def delete_builder_generated_child_stages(
     tournament_id: TournamentID,
     parent_stage_id: StageID,
     *,
@@ -213,9 +213,9 @@ def _delete_builder_generated_child_stages(
     for db_child_stage in _get_builder_generated_child_db_stages(
         tournament_id, parent_stage_id
     ):
-        _delete_stage_matches(db_child_stage.id)
+        delete_stage_matches(db_child_stage.id)
         db.session.delete(db_child_stage)
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='stage',
             object_id=db_child_stage.id,
@@ -229,7 +229,7 @@ def _delete_builder_generated_child_stages(
         )
 
 
-def _delete_builder_generated_group_stages(
+def delete_builder_generated_group_stages(
     tournament_id: TournamentID,
     preliminary_stage_id: StageID,
     *,
@@ -239,9 +239,9 @@ def _delete_builder_generated_group_stages(
     for db_group_stage in _get_builder_generated_group_db_stages(
         tournament_id, preliminary_stage_id
     ):
-        _delete_stage_matches(db_group_stage.id)
+        delete_stage_matches(db_group_stage.id)
         db.session.delete(db_group_stage)
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='stage',
             object_id=db_group_stage.id,
@@ -255,10 +255,10 @@ def _delete_builder_generated_group_stages(
         )
 
 
-def _detach_builder_main_stage_from_preliminary_stage(
+def detach_builder_main_stage_from_preliminary_stage(
     tournament_id: TournamentID, preliminary_stage_id: StageID
 ) -> None:
-    db_main_stage = _find_builder_main_stage_for_preliminary_stage(
+    db_main_stage = find_builder_main_stage_for_preliminary_stage(
         tournament_id, preliminary_stage_id
     )
     if db_main_stage is None:

@@ -128,7 +128,7 @@ def get_flatout2_expected_round_summaries(
     return parsed_round_summaries
 
 
-def _build_flatout2_placeholder_match_round(stage, round_summary: dict) -> dict:
+def build_flatout2_placeholder_match_round(stage, round_summary: dict) -> dict:
     match_count = int(round_summary['match_count'])
     rows = []
     for index in range(1, match_count + 1):
@@ -166,7 +166,7 @@ def _build_flatout2_placeholder_match_round(stage, round_summary: dict) -> dict:
     }
 
 
-def _build_flatout2_placeholder_bracket_round(stage, round_summary: dict) -> dict:
+def build_flatout2_placeholder_bracket_round(stage, round_summary: dict) -> dict:
     match_count = int(round_summary['match_count'])
     items = []
     for index in range(1, match_count + 1):
@@ -212,7 +212,7 @@ def merge_flatout2_missing_match_rounds(stage, rounds: list[dict]) -> list[dict]
     return [
         rounds_by_round_no.get(
             int(round_summary['round_no']),
-            _build_flatout2_placeholder_match_round(stage, round_summary),
+            build_flatout2_placeholder_match_round(stage, round_summary),
         )
         for round_summary in expected_round_summaries
     ]
@@ -232,7 +232,7 @@ def merge_flatout2_missing_bracket_rounds(
     return [
         rounds_by_round_no.get(
             int(round_summary['round_no']),
-            _build_flatout2_placeholder_bracket_round(stage, round_summary),
+            build_flatout2_placeholder_bracket_round(stage, round_summary),
         )
         for round_summary in expected_round_summaries
     ]

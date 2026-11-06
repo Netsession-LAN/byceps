@@ -23,12 +23,12 @@ from .dbmodels import (
     DbNetsessionTourneyStage,
 )
 from .ffa_stage_builder import (
-    _build_ffa_stage_builder_common_settings,
-    _preview_ffa_stage_builder_stage,
-    _validate_ffa_stage_builder_settings,
+    build_ffa_stage_builder_common_settings,
+    preview_ffa_stage_builder_stage,
+    validate_ffa_stage_builder_settings,
 )
 from .flatout2_builder import (
-    _create_flatout2_builder_round_stages,
+    create_flatout2_builder_round_stages,
 )
 from .models import (
     Stage,
@@ -37,7 +37,7 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _db_stage_to_model,
+    db_stage_to_model,
 )
 from .stage_builder_parts import audit_created_stages, StageTiming
 from .tournament_queries import (
@@ -45,7 +45,7 @@ from .tournament_queries import (
 )
 
 
-def _build_ffa_stage_builder_plan(
+def build_ffa_stage_builder_plan(
     party_id: PartyID,
     tournament_id: TournamentID,
     *,
@@ -80,7 +80,7 @@ def _build_ffa_stage_builder_plan(
     )
 
     def common_settings() -> dict[str, Any]:
-        return _build_ffa_stage_builder_common_settings(
+        return build_ffa_stage_builder_common_settings(
             generation_basis=generation_basis,
             main_stage_size=main_stage_size,
             max_players_per_match=max_players_per_match,
@@ -123,7 +123,7 @@ def _build_ffa_stage_builder_plan(
     audit_created_stages(created_stages, initiator, now)
     db.session.commit()
 
-    return Ok([_db_stage_to_model(stage) for stage in created_stages])
+    return Ok([db_stage_to_model(stage) for stage in created_stages])
 
 
 def _count_ready_participants(
@@ -153,7 +153,7 @@ def _create_ffa_preliminary(
     settings: dict[str, Any],
     now: datetime,
 ) -> Result[_FfaPreliminary, str]:
-    preview_result = _preview_ffa_stage_builder_stage(
+    preview_result = preview_ffa_stage_builder_stage(
         tournament_id=tournament_id,
         stage_type=preliminary_type,
         participant_count=participant_count,
@@ -172,7 +172,7 @@ def _create_ffa_preliminary(
     )
 
     if preliminary_type == StageType.ffa_flatout2_single_elimination:
-        container, round_stages = _create_flatout2_builder_round_stages(
+        container, round_stages = create_flatout2_builder_round_stages(
             tournament_id=tournament_id,
             order_no_start=1,
             container_name='Vorrunden',
@@ -227,7 +227,7 @@ def _create_ffa_main_stage(
     common_settings: Callable[[], dict[str, Any]],
     now: datetime,
 ) -> Result[DbNetsessionTourneyStage, str]:
-    main_preview_result = _preview_ffa_stage_builder_stage(
+    main_preview_result = preview_ffa_stage_builder_stage(
         tournament_id=tournament_id,
         stage_type=main_stage_type,
         participant_count=participant_count,
@@ -292,7 +292,7 @@ def _ffa_main_stage_settings(
 
 def _validate_ffa_builder_input(*, timing: StageTiming, **settings) -> str | None:
     """Return an error message, or `None` if the input is fine."""
-    validation_result = _validate_ffa_stage_builder_settings(**settings)
+    validation_result = validate_ffa_stage_builder_settings(**settings)
     if validation_result.is_err():
         return validation_result.unwrap_err()
 

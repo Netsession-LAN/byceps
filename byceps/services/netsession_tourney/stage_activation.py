@@ -32,12 +32,12 @@ from .models import (
     TournamentStatus,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_participant_status_value_by_participant_id_for_slots,
+    calculate_match_state_for_slots,
+    get_participant_status_value_by_participant_id_for_slots,
 )
 
 
-def _delete_stage_matches(stage_id: StageID) -> None:
+def delete_stage_matches(stage_id: StageID) -> None:
     db_match_ids = db.session.scalars(
         select(DbNetsessionTourneyMatch.id).filter_by(stage_id=stage_id)
     ).all()
@@ -67,12 +67,12 @@ def _delete_stage_matches(stage_id: StageID) -> None:
     db.session.execute(delete(DbNetsessionTourneyMatch).filter_by(stage_id=stage_id))
 
 
-def _delete_all_stages_for_tournament(tournament_id: TournamentID) -> int:
+def delete_all_stages_for_tournament(tournament_id: TournamentID) -> int:
     stage_ids = db.session.scalars(
         select(DbNetsessionTourneyStage.id).filter_by(tournament_id=tournament_id)
     ).all()
     for stage_id in stage_ids:
-        _delete_stage_matches(stage_id)
+        delete_stage_matches(stage_id)
 
     db.session.execute(
         delete(DbNetsessionTourneyStage).filter_by(tournament_id=tournament_id)
@@ -80,7 +80,7 @@ def _delete_all_stages_for_tournament(tournament_id: TournamentID) -> int:
     return len(stage_ids)
 
 
-def _activate_prepared_stages_for_live_tournament(
+def activate_prepared_stages_for_live_tournament(
     tournament_id: TournamentID, stages: list[Stage]
 ) -> StageID | None:
     stage_ids_with_matches = set(
@@ -119,7 +119,7 @@ def _activate_prepared_stages_for_live_tournament(
     return first_live_stage_id
 
 
-def _activate_prepared_matches_for_live_tournament(
+def activate_prepared_matches_for_live_tournament(
     tournament_id: TournamentID,
 ) -> list[DbNetsessionTourneyMatch]:
     db_matches = db.session.scalars(
@@ -150,7 +150,7 @@ def _activate_prepared_matches_for_live_tournament(
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
 
     ready_matches: list[DbNetsessionTourneyMatch] = []
@@ -158,7 +158,7 @@ def _activate_prepared_matches_for_live_tournament(
         if db_match.state == MatchState.completed.value:
             continue
 
-        next_state = _calculate_match_state_for_slots(
+        next_state = calculate_match_state_for_slots(
             tournament_status=TournamentStatus.live.value,
             db_match_slots=slots_by_match_id.get(db_match.id, []),
             participant_status_value_by_participant_id=participant_status_value_by_participant_id,
@@ -171,7 +171,7 @@ def _activate_prepared_matches_for_live_tournament(
     return ready_matches
 
 
-def _demote_prepared_matches_for_draft_tournament(
+def demote_prepared_matches_for_draft_tournament(
     tournament_id: TournamentID,
 ) -> None:
     db_matches = db.session.scalars(
@@ -196,14 +196,14 @@ def _demote_prepared_matches_for_draft_tournament(
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
 
     for db_match in db_matches:
         if db_match.state == MatchState.completed.value:
             continue
 
-        db_match.state = _calculate_match_state_for_slots(
+        db_match.state = calculate_match_state_for_slots(
             tournament_status=TournamentStatus.draft.value,
             db_match_slots=slots_by_match_id.get(db_match.id, []),
             participant_status_value_by_participant_id=participant_status_value_by_participant_id,

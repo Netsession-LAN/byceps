@@ -52,19 +52,19 @@ from ...team_member_service import (
 from ...tournament_queries import (
     get_stages_for_tournament,
 )
-from .builder_helpers import _get_materialized_builder_container_stages
+from .builder_helpers import get_materialized_builder_container_stages
 from .stage_filters import (
-    _uses_only_ffa_simple_stages,
-    _uses_only_flatout2_stages,
+    uses_only_ffa_simple_stages,
+    uses_only_flatout2_stages,
 )
 from .user_state_helpers import (
-    _get_captain_team_for_current_user,
-    _get_registration_state_for_tournament,
+    get_captain_team_for_current_user,
+    get_registration_state_for_tournament,
 )
 
 from .blueprint import blueprint
 from .common import (
-    _get_main_nav_current_page_id,
+    get_main_nav_current_page_id,
     _get_tournament_or_404,
 )
 
@@ -107,15 +107,15 @@ def unregister(slug):
 def create_team_form(slug):
     tournament = _get_tournament_or_404(slug)
     stages = get_stages_for_tournament(g.party.id, tournament.id)
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, [])
-    registration_state = _get_registration_state_for_tournament(tournament)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, [])
+    registration_state = get_registration_state_for_tournament(tournament)
 
     if tournament.registration_mode == RegistrationMode.solo:
         flash_error(gettext('Dieses Turnier erlaubt nur Solo-Anmeldungen.'))
         return redirect_to('.view_participants', slug=slug)
 
     if not registration_state['can_register']:
-        captain_team = _get_captain_team_for_current_user(tournament.id)
+        captain_team = get_captain_team_for_current_user(tournament.id)
         if captain_team is not None:
             return redirect_to(
                 '.view_team',
@@ -128,15 +128,15 @@ def create_team_form(slug):
             flash_error(gettext('Team-Anmeldungen sind aktuell nicht verfügbar.'))
         return redirect_to('.view_participants', slug=slug)
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
         'form': TeamCreationForm(),
         'join_form': TeamJoinForm(),
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, []),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,

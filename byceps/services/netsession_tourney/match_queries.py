@@ -32,15 +32,15 @@ from .models import (
     TournamentStatus,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_participant_status_value_by_participant_id_for_slots,
+    calculate_match_state_for_slots,
+    get_participant_status_value_by_participant_id_for_slots,
 )
 from .service_helpers import (
-    _db_match_slot_to_model,
-    _db_match_to_model,
+    db_match_slot_to_model,
+    db_match_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -50,7 +50,7 @@ def get_matches_for_tournament(
     *,
     only_open: bool = False,
 ) -> list[Match]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return []
 
@@ -79,7 +79,7 @@ def get_matches_for_tournament(
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
 
     matches = [
@@ -149,7 +149,7 @@ def get_open_matches_for_party(party_id: PartyID) -> list[Match]:
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
 
     return [
@@ -176,7 +176,7 @@ def get_open_matches_for_party(party_id: PartyID) -> list[Match]:
 def find_match_for_tournament(
     party_id: PartyID, tournament_id: TournamentID, match_id: MatchID
 ) -> Match | None:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return None
 
@@ -195,7 +195,7 @@ def find_match_for_tournament(
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_match_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_match_slots)
     )
 
     return _db_match_to_model_with_effective_state(
@@ -212,7 +212,7 @@ def get_match_slots_for_match(match_id: MatchID) -> list[MatchSlot]:
         .filter_by(match_id=match_id)
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
-    return [_db_match_slot_to_model(item) for item in db_slots]
+    return [db_match_slot_to_model(item) for item in db_slots]
 
 
 def get_match_timeline_entries(
@@ -220,7 +220,7 @@ def get_match_timeline_entries(
     tournament_id: TournamentID,
     match_id: MatchID,
 ) -> list[dict[str, Any]]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return []
 
     db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
@@ -281,7 +281,7 @@ def get_match_slots(match_ids: set[MatchID]) -> dict[MatchID, list[MatchSlot]]:
     ).all()
     slots_by_match_id: dict[MatchID, list[MatchSlot]] = defaultdict(list)
     for db_slot in db_slots:
-        slots_by_match_id[db_slot.match_id].append(_db_match_slot_to_model(db_slot))
+        slots_by_match_id[db_slot.match_id].append(db_match_slot_to_model(db_slot))
     return dict(slots_by_match_id)
 
 
@@ -292,9 +292,9 @@ def _db_match_to_model_with_effective_state(
     db_match_slots: list[DbNetsessionTourneyMatchSlot],
     participant_status_value_by_participant_id: dict[ParticipantID, str],
 ) -> Match:
-    match = _db_match_to_model(db_match)
+    match = db_match_to_model(db_match)
     if match.state in {MatchState.pending, MatchState.ready}:
-        effective_state = _calculate_match_state_for_slots(
+        effective_state = calculate_match_state_for_slots(
             tournament_status=tournament_status,
             db_match_slots=db_match_slots,
             participant_status_value_by_participant_id=participant_status_value_by_participant_id,

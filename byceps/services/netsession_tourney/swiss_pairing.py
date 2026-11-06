@@ -22,11 +22,11 @@ from .models import (
     ParticipantID,
 )
 from .swiss_thresholds import (
-    _get_swiss_threshold_for_round_count,
+    get_swiss_threshold_for_round_count,
 )
 
 
-def _build_initial_swiss_round_specs(
+def build_initial_swiss_round_specs(
     participants: list[Participant],
 ) -> list[MatchSpec]:
     if len(participants) < 2:
@@ -89,7 +89,7 @@ def _build_initial_swiss_round_specs(
     return specs
 
 
-def _build_follow_up_swiss_round_specs(
+def build_follow_up_swiss_round_specs(
     *,
     participants: list[Participant],
     db_matches: list[DbNetsessionTourneyMatch],
@@ -102,7 +102,7 @@ def _build_follow_up_swiss_round_specs(
     records = _SwissRecords.tally(
         participants, db_matches, slots_by_match_id, results_by_match_id
     )
-    threshold = _get_swiss_threshold_for_round_count(round_count)
+    threshold = get_swiss_threshold_for_round_count(round_count)
     ranked_participants = records.still_playing_ranked(
         participants, threshold=threshold, next_round_no=next_round_no
     )

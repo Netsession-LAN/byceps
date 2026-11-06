@@ -28,17 +28,17 @@ from .stage_builder_settings import (
     STAGE_BUILDER_KIND_V1,
 )
 from .stage_service import (
-    _is_stage_fully_completed,
-    _parse_source_stage_ids,
-    _stage_has_assigned_participants,
-    _stage_has_reported_results,
+    is_stage_fully_completed,
+    parse_source_stage_ids,
+    stage_has_assigned_participants,
+    stage_has_reported_results,
 )
 
 
 log = structlog.get_logger()
 
 
-def _auto_generate_builder_main_stages_from_completed_source(
+def auto_generate_builder_main_stages_from_completed_source(
     *,
     party_id: PartyID,
     tournament_id: TournamentID,
@@ -46,7 +46,7 @@ def _auto_generate_builder_main_stages_from_completed_source(
     actor_user_id: UserID,
     correlation_id: str | None,
 ) -> None:
-    if not _is_stage_fully_completed(tournament_id, source_stage_id):
+    if not is_stage_fully_completed(tournament_id, source_stage_id):
         return
 
     db_candidate_stages = db.session.scalars(
@@ -64,7 +64,7 @@ def _auto_generate_builder_main_stages_from_completed_source(
         ):
             continue
 
-        source_stage_ids = _parse_source_stage_ids(
+        source_stage_ids = parse_source_stage_ids(
             settings.get('qualifier_source_stage_ids', [])
         )
         if source_stage_id not in source_stage_ids:
@@ -72,13 +72,13 @@ def _auto_generate_builder_main_stages_from_completed_source(
         if not source_stage_ids:
             continue
         if not all(
-            _is_stage_fully_completed(tournament_id, stage_id)
+            is_stage_fully_completed(tournament_id, stage_id)
             for stage_id in source_stage_ids
         ):
             continue
-        if _stage_has_assigned_participants(tournament_id, db_stage.id):
+        if stage_has_assigned_participants(tournament_id, db_stage.id):
             continue
-        if _stage_has_reported_results(tournament_id, db_stage.id):
+        if stage_has_reported_results(tournament_id, db_stage.id):
             continue
 
         initiator = User(

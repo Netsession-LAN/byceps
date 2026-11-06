@@ -12,7 +12,7 @@ from collections import defaultdict
 from typing import Any
 
 from .double_grand_final import (
-    _is_loser_source_outcome,
+    is_loser_source_outcome,
 )
 from .engines.base import MatchSpec
 from .models import (
@@ -21,7 +21,7 @@ from .models import (
 )
 
 
-def _build_generation_preview_round_titles_by_round_no(
+def build_generation_preview_round_titles_by_round_no(
     stage: Stage,
     match_specs: list[MatchSpec],
 ) -> dict[int, str]:
@@ -190,7 +190,7 @@ def _derive_generation_preview_bracket(
 
     if 'GF' in source_brackets:
         return 'GF'
-    elif any(_is_loser_source_outcome(outcome) for _, outcome in incoming):
+    elif any(is_loser_source_outcome(outcome) for _, outcome in incoming):
         return 'LB'
     elif source_brackets == {'WB'}:
         return 'WB'

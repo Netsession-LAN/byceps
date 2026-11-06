@@ -12,11 +12,11 @@ from typing import Any
 
 from .dbmodels import DbNetsessionTourneyTournament
 from .notification_urls import (
-    _build_absolute_notification_url,
-    _build_browser_push_logo_urls,
+    build_absolute_notification_url,
+    build_browser_push_logo_urls,
 )
 from .tournament_queries import (
-    _build_flatout2_round_race_lines,
+    build_flatout2_round_race_lines,
 )
 
 
@@ -61,19 +61,19 @@ DISCORD_DM_DEFAULT_EVENT_META: dict[str, str] = {
 }
 
 
-def _build_discord_dm_image_urls(
+def build_discord_dm_image_urls(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> tuple[str | None, str | None]:
     """Return the absolute brand icon URL and thumbnail URL (if any)."""
-    icon_url, _image_url = _build_browser_push_logo_urls(db_tournament)
+    icon_url, _image_url = build_browser_push_logo_urls(db_tournament)
     brand_icon_url = (
-        _build_absolute_notification_url(db_tournament.party_id, icon_url)
+        build_absolute_notification_url(db_tournament.party_id, icon_url)
         if icon_url
         else None
     )
     thumbnail_source_url = db_tournament.logo_url or icon_url
     thumbnail_url = (
-        _build_absolute_notification_url(
+        build_absolute_notification_url(
             db_tournament.party_id, thumbnail_source_url
         )
         if thumbnail_source_url
@@ -82,7 +82,7 @@ def _build_discord_dm_image_urls(
     return brand_icon_url, thumbnail_url
 
 
-def _build_discord_dm_embed_fields(
+def build_discord_dm_embed_fields(
     db_tournament: DbNetsessionTourneyTournament,
     *,
     event_meta: dict[str, str],
@@ -141,7 +141,7 @@ def _build_flatout2_host_assigned_fields(
                 'inline': True,
             }
         )
-    race_lines = _build_flatout2_round_race_lines(payload)
+    race_lines = build_flatout2_round_race_lines(payload)
     if race_lines:
         fields.append(
             {

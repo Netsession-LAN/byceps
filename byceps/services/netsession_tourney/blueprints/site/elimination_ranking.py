@@ -18,7 +18,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
-from .match_helpers import _is_skipped_double_grand_final_result
+from .match_helpers import is_skipped_double_grand_final_result
 
 
 ParticipantId = Any
@@ -36,7 +36,7 @@ def build_elimination_placements(
     played = [
         match
         for match in matches
-        if not _is_skipped_double_grand_final_result(
+        if not is_skipped_double_grand_final_result(
             results_by_match_id.get(match.id)
         )
     ]

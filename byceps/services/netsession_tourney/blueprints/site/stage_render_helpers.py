@@ -14,16 +14,16 @@ from flask_babel import gettext
 
 from ...models import StageType
 from . import builder_helpers
-from .bracket_helpers import _build_bracket_sections, build_bracket_data
+from .bracket_helpers import build_bracket_sections, build_bracket_data
 from .builder_display_helpers import (
-    _get_builder_main_display_stages,
-    _get_flatout2_builder_bracket_display_stages,
+    get_builder_main_display_stages,
+    get_flatout2_builder_bracket_display_stages,
 )
 from .builder_helpers import (
-    _build_pending_builder_round_summary_lines,
-    _get_builder_container_child_stages,
-    _get_materialized_builder_container_stages,
-    _has_materialized_builder_container_stage,
+    build_pending_builder_round_summary_lines,
+    get_builder_container_child_stages,
+    get_materialized_builder_container_stages,
+    has_materialized_builder_container_stage,
 )
 from .ffa_single_elimination_rendering import (
     get_ffa_single_elimination_round_title,
@@ -33,24 +33,24 @@ from .flatout2_public_rendering import (
     build_flatout2_match_section,
 )
 from .match_helpers import (
-    _build_match_labels,
+    build_match_labels,
     _parse_slot_scores,
 )
 from .presentation_helpers import (
     _build_round_time_range_label,
-    _combine_stage_section_title,
-    _get_stage_duration_minutes,
+    combine_stage_section_title,
+    get_stage_duration_minutes,
 )
 from .stage_filters import (
     _is_ffa_scoring_stage,
-    _is_ffa_single_elimination_stage,
+    is_ffa_single_elimination_stage,
     _is_flatout2_stage,
 )
 from .round_based_public_rendering import (
-    _build_match_overview_sections,
+    build_match_overview_sections,
 )
 from .round_based_public_rendering import _get_score_display
-from ...tournament_queries import _get_ffa_points_per_kill
+from ...tournament_queries import get_ffa_points_per_kill
 
 
 def _group_matches_by_round(matches):
@@ -64,7 +64,7 @@ def _group_matches_by_round(matches):
     ]
 
 
-def _build_ffa_match_sections(
+def build_ffa_match_sections(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -79,7 +79,7 @@ def _build_ffa_match_sections(
         matches_by_stage_id[match.stage_id].append(match)
 
     stage_duration_minutes_by_id = {
-        stage_id: _get_stage_duration_minutes(stage)
+        stage_id: get_stage_duration_minutes(stage)
         for stage_id, stage in stages_by_id.items()
     }
 
@@ -223,7 +223,7 @@ def _build_ffa_match_sections(
     return sections
 
 
-def _build_ffa_single_elimination_bracket_sections(
+def build_ffa_single_elimination_bracket_sections(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -430,7 +430,7 @@ def _build_ffa_match_participant_data(
         'is_host': is_host,
     }
 
-def _build_ffa_match_detail_rows(
+def build_ffa_match_detail_rows(
     slots,
     participants_by_id,
     users_by_id,
@@ -541,8 +541,8 @@ def _build_stage_public_match_sections(
             return builder_helpers._build_flatout2_placeholder_match_sections(stage)
         return []
 
-    if _is_ffa_single_elimination_stage(stage):
-        return _build_ffa_match_sections(
+    if is_ffa_single_elimination_stage(stage):
+        return build_ffa_match_sections(
             stage_matches,
             slots_by_match_id,
             results_by_match_id,
@@ -558,8 +558,8 @@ def _build_stage_public_match_sections(
         slots_by_match_id,
         participants_by_id,
     )
-    return _build_match_overview_sections(
-        _build_bracket_sections(stage_bracket, match_labels_by_id),
+    return build_match_overview_sections(
+        build_bracket_sections(stage_bracket, match_labels_by_id),
         stages_by_id,
         results_by_match_id,
         slot_scores_by_match_id,
@@ -583,8 +583,8 @@ def _build_stage_public_bracket_sections(
             return builder_helpers._build_flatout2_placeholder_bracket_sections(stage)
         return []
 
-    if _is_ffa_single_elimination_stage(stage):
-        return _build_ffa_single_elimination_bracket_sections(
+    if is_ffa_single_elimination_stage(stage):
+        return build_ffa_single_elimination_bracket_sections(
             stage_matches,
             slots_by_match_id,
             results_by_match_id,
@@ -597,7 +597,7 @@ def _build_stage_public_bracket_sections(
         slots_by_match_id,
         participants_by_id,
     )
-    return _build_bracket_sections(stage_bracket, match_labels_by_id)
+    return build_bracket_sections(stage_bracket, match_labels_by_id)
 
 
 def _build_builder_stage_match_sections(
@@ -611,7 +611,7 @@ def _build_builder_stage_match_sections(
     match_labels_by_id,
     skipped_match_ids,
 ):
-    if not _has_materialized_builder_container_stage(stages):
+    if not has_materialized_builder_container_stage(stages):
         return []
 
     stages_by_id = {stage.id: stage for stage in stages}
@@ -620,8 +620,8 @@ def _build_builder_stage_match_sections(
         matches_by_stage_id[match.stage_id].append(match)
 
     sections = []
-    for container_stage in _get_materialized_builder_container_stages(stages):
-        child_stages = _get_builder_container_child_stages(stages, container_stage)
+    for container_stage in get_materialized_builder_container_stages(stages):
+        child_stages = get_builder_container_child_stages(stages, container_stage)
         if not child_stages:
             continue
 
@@ -646,7 +646,7 @@ def _build_builder_stage_match_sections(
                         'key': f'pending-{child_stage.id}',
                         'title': child_stage.name,
                         'presentation': 'summary',
-                        'lines': _build_pending_builder_round_summary_lines(
+                        'lines': build_pending_builder_round_summary_lines(
                             child_stage
                         ),
                     }
@@ -660,7 +660,7 @@ def _build_builder_stage_match_sections(
                     {
                         'kind': 'matches',
                         'key': f'{child_stage.id}-{subsection["key"]}',
-                        'title': _combine_stage_section_title(
+                        'title': combine_stage_section_title(
                             child_stage.name, subsection_title
                         ),
                         'presentation': subsection.get('presentation', 'duel'),
@@ -682,7 +682,7 @@ def _build_builder_stage_bracket_sections(
     match_labels_by_id,
     skipped_match_ids,
 ):
-    if not _has_materialized_builder_container_stage(stages):
+    if not has_materialized_builder_container_stage(stages):
         return []
 
     stages_by_id = {stage.id: stage for stage in stages}
@@ -691,8 +691,8 @@ def _build_builder_stage_bracket_sections(
         matches_by_stage_id[match.stage_id].append(match)
 
     sections = []
-    for container_stage in _get_materialized_builder_container_stages(stages):
-        child_stages = _get_builder_container_child_stages(stages, container_stage)
+    for container_stage in get_materialized_builder_container_stages(stages):
+        child_stages = get_builder_container_child_stages(stages, container_stage)
         if not child_stages:
             continue
 
@@ -716,7 +716,7 @@ def _build_builder_stage_bracket_sections(
                         'kind': 'summary',
                         'key': f'pending-{child_stage.id}',
                         'title': child_stage.name,
-                        'lines': _build_pending_builder_round_summary_lines(
+                        'lines': build_pending_builder_round_summary_lines(
                             child_stage
                         ),
                     }
@@ -730,7 +730,7 @@ def _build_builder_stage_bracket_sections(
                     {
                         'kind': 'bracket',
                         'key': f'{child_stage.id}-{subsection["key"]}',
-                        'title': _combine_stage_section_title(
+                        'title': combine_stage_section_title(
                             child_stage.name, subsection_title
                         ),
                         'rounds': subsection['rounds'],
@@ -739,7 +739,7 @@ def _build_builder_stage_bracket_sections(
 
     return sections
 
-def _build_builder_preliminary_match_sections(
+def build_builder_preliminary_match_sections(
     stages,
     matches,
     slots_by_match_id,
@@ -750,7 +750,7 @@ def _build_builder_preliminary_match_sections(
     match_labels_by_id,
     skipped_match_ids,
 ):
-    preliminary_containers = _get_materialized_builder_container_stages(
+    preliminary_containers = get_materialized_builder_container_stages(
         stages, role='preliminary'
     )
     if not preliminary_containers:
@@ -763,7 +763,7 @@ def _build_builder_preliminary_match_sections(
 
     sections = []
     for container_stage in preliminary_containers:
-        for stage in _get_builder_container_child_stages(stages, container_stage):
+        for stage in get_builder_container_child_stages(stages, container_stage):
             stage_matches = matches_by_stage_id.get(stage.id, [])
             if not stage_matches:
                 sections.append(
@@ -772,7 +772,7 @@ def _build_builder_preliminary_match_sections(
                         'key': str(stage.id),
                         'title': stage.name,
                         'presentation': 'summary',
-                        'lines': _build_pending_builder_round_summary_lines(
+                        'lines': build_pending_builder_round_summary_lines(
                             stage
                         ),
                     }
@@ -813,7 +813,7 @@ def _build_builder_preliminary_match_sections(
     return sections
 
 
-def _build_builder_main_stage_match_sections(
+def build_builder_main_stage_match_sections(
     stages,
     matches,
     slots_by_match_id,
@@ -824,7 +824,7 @@ def _build_builder_main_stage_match_sections(
     match_labels_by_id,
     skipped_match_ids,
 ):
-    main_stages = _get_builder_main_display_stages(stages)
+    main_stages = get_builder_main_display_stages(stages)
     if not main_stages:
         return []
 
@@ -855,7 +855,7 @@ def _build_builder_main_stage_match_sections(
                     'key': f'pending-{stage.id}',
                     'title': stage.name,
                     'presentation': 'summary',
-                    'lines': _build_pending_builder_round_summary_lines(stage),
+                    'lines': build_pending_builder_round_summary_lines(stage),
                 }
             )
             continue
@@ -865,14 +865,14 @@ def _build_builder_main_stage_match_sections(
     return sections
 
 
-def _build_builder_main_stage_bracket_sections(
+def build_builder_main_stage_bracket_sections(
     stages,
     matches,
     slots_by_match_id,
     results_by_match_id,
     participants_by_id,
 ):
-    main_stages = _get_builder_main_display_stages(stages)
+    main_stages = get_builder_main_display_stages(stages)
     if not main_stages:
         return []
 
@@ -900,7 +900,7 @@ def _build_builder_main_stage_bracket_sections(
             for participant_id in stage_participant_ids
             if participant_id in participants_by_id
         }
-        stage_match_labels_by_id = _build_match_labels(
+        stage_match_labels_by_id = build_match_labels(
             stage_matches,
             stage_slots_by_match_id,
             stages_by_id,
@@ -920,7 +920,7 @@ def _build_builder_main_stage_bracket_sections(
                     'kind': 'summary',
                     'key': f'pending-{stage.id}',
                     'title': stage.name,
-                    'lines': _build_pending_builder_round_summary_lines(stage),
+                    'lines': build_pending_builder_round_summary_lines(stage),
                 }
             )
             continue
@@ -933,12 +933,12 @@ def _build_builder_main_stage_bracket_sections(
                 {
                     'kind': 'bracket',
                     'key': f'{stage.id}-{subsection["key"]}',
-                    'title': _combine_stage_section_title(
+                    'title': combine_stage_section_title(
                         stage.name, subsection_title
                     ),
                     'presentation': (
                         'ffa'
-                        if _is_ffa_single_elimination_stage(stage)
+                        if is_ffa_single_elimination_stage(stage)
                         else 'duel'
                     ),
                     'match_labels_by_id': stage_match_labels_by_id,
@@ -955,7 +955,7 @@ def _build_flatout2_builder_full_bracket_sections(
     results_by_match_id,
     participants_by_id,
 ):
-    display_stages = _get_flatout2_builder_bracket_display_stages(stages)
+    display_stages = get_flatout2_builder_bracket_display_stages(stages)
     if not display_stages:
         return []
 
@@ -983,7 +983,7 @@ def _build_flatout2_builder_full_bracket_sections(
             for participant_id in stage_participant_ids
             if participant_id in participants_by_id
         }
-        stage_match_labels_by_id = _build_match_labels(
+        stage_match_labels_by_id = build_match_labels(
             stage_matches,
             stage_slots_by_match_id,
             stages_by_id,
@@ -1017,7 +1017,7 @@ def _build_flatout2_builder_full_bracket_sections(
     ]
 
 
-def _build_team_history_rows(
+def build_team_history_rows(
     team,
     matches,
     slots_by_match_id,
@@ -1070,7 +1070,7 @@ def _build_team_history_rows(
             if raw_kills is None:
                 raw_kills = raw_score_slots.get(own_slot.slot_no)
             kills = _parse_score_int(raw_kills)
-            points_per_kill = _get_ffa_points_per_kill(
+            points_per_kill = get_ffa_points_per_kill(
                 stage.settings if stage is not None else {}
             )
             total_points = points + (kills * points_per_kill)

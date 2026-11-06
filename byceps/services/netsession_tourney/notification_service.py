@@ -19,7 +19,7 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .browser_push_service import (
-    _get_active_browser_push_subscription_recipients_for_tournament,
+    get_active_browser_push_subscription_recipients_for_tournament,
     BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS,
     has_active_browser_push_subscription_for_user,
     is_browser_push_enabled_for_party,
@@ -49,17 +49,17 @@ from .models import (
     TournamentStatus,
 )
 from .service_helpers import (
-    _append_audit_log,
+    append_audit_log,
 )
 from .tournament_queries import (
-    _build_site_match_path,
-    _build_site_tournament_overview_path,
-    _find_db_tournament_for_party,
-    _get_active_user_ids_for_tournament,
-    _get_flatout2_round_races,
-    _get_match_host_participant_id,
-    _get_match_involved_user_ids,
-    _get_selected_host_user_ids,
+    build_site_match_path,
+    build_site_tournament_overview_path,
+    find_db_tournament_for_party,
+    get_active_user_ids_for_tournament,
+    get_flatout2_round_races,
+    get_match_host_participant_id,
+    get_match_involved_user_ids,
+    get_selected_host_user_ids,
 )
 
 
@@ -78,7 +78,7 @@ def send_manual_tournament_notification(
     body: str,
     target_url: str | None = None,
 ) -> Result[ManualNotificationDispatchResult, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
     if not is_browser_push_enabled_for_party(party_id):
@@ -93,7 +93,7 @@ def send_manual_tournament_notification(
         return Err(error)
 
     recipients, subscription_count = (
-        _get_active_browser_push_subscription_recipients_for_tournament(
+        get_active_browser_push_subscription_recipients_for_tournament(
             party_id, tournament_id
         )
     )
@@ -105,11 +105,11 @@ def send_manual_tournament_notification(
         title=title,
         body=body,
         url=target_url
-        or _build_site_tournament_overview_path(db_tournament.slug),
+        or build_site_tournament_overview_path(db_tournament.slug),
         created_at=now,
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -132,7 +132,7 @@ def send_manual_tournament_notification(
             'title': title,
             'body': body,
             'url': target_url
-            or _build_site_tournament_overview_path(db_tournament.slug),
+            or build_site_tournament_overview_path(db_tournament.slug),
         },
     )
 
@@ -168,7 +168,7 @@ def _append_manual_announcement_notifications(
     created_at: datetime,
 ) -> None:
     for user_id in recipients:
-        _append_notification(
+        append_notification(
             tournament_id=tournament_id,
             user_id=user_id,
             kind='manual_announcement',
@@ -181,13 +181,13 @@ def _append_manual_announcement_notifications(
         )
 
 
-def _append_notification_for_match_report(
+def append_notification_for_match_report(
     db_match: DbNetsessionTourneyMatch, stage: Stage, actor_user_id: UserID
 ) -> None:
     db_tournament = db.session.get(
         DbNetsessionTourneyTournament, db_match.tournament_id
     )
-    _append_notifications_for_match(
+    append_notifications_for_match(
         db_match,
         actor_user_id=actor_user_id,
         kind='result_submitted',
@@ -196,7 +196,7 @@ def _append_notification_for_match_report(
             'match_id': str(db_match.id),
             'state': db_match.state,
             'url': (
-                _build_site_match_path(
+                build_site_match_path(
                     db_tournament.slug, db_match.id
                 )
                 if db_tournament is not None
@@ -206,7 +206,7 @@ def _append_notification_for_match_report(
     )
 
 
-def _enqueue_match_ready_notifications(
+def enqueue_match_ready_notifications(
     db_match: DbNetsessionTourneyMatch,
 ) -> None:
     db_tournament = db.session.get(
@@ -218,7 +218,7 @@ def _enqueue_match_ready_notifications(
     if db_tournament.status != TournamentStatus.live.value:
         return
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=None,
         object_type='match',
         object_id=db_match.id,
@@ -227,34 +227,34 @@ def _enqueue_match_ready_notifications(
         created_at=datetime.utcnow(),
     )
 
-    _append_notifications_for_match(
+    append_notifications_for_match(
         db_match,
         actor_user_id=None,
         kind='match_ready',
         payload={
             'match_id': str(db_match.id),
             'stage_id': str(db_match.stage_id),
-            'url': _build_site_match_path(db_tournament.slug, db_match.id),
+            'url': build_site_match_path(db_tournament.slug, db_match.id),
         },
     )
 
-    _enqueue_flatout2_host_assignment_notifications(db_match)
+    enqueue_flatout2_host_assignment_notifications(db_match)
 
 
-def _enqueue_flatout2_host_assignment_notifications(
+def enqueue_flatout2_host_assignment_notifications(
     db_match: DbNetsessionTourneyMatch,
 ) -> None:
     payload = _build_flatout2_host_notification_payload(db_match)
     if payload is None:
         return
 
-    recipient_user_ids = _get_selected_host_user_ids(db_match)
+    recipient_user_ids = get_selected_host_user_ids(db_match)
     if not recipient_user_ids:
         return
 
     now = datetime.utcnow()
     for user_id in recipient_user_ids:
-        _append_notification(
+        append_notification(
             tournament_id=db_match.tournament_id,
             user_id=user_id,
             kind='flatout2_host_assigned',
@@ -270,7 +270,7 @@ def _build_flatout2_host_notification_payload(
     if db_stage is None or db_stage.type != StageType.ffa_flatout2_single_elimination.value:
         return None
 
-    host_participant_id = _get_match_host_participant_id(db_match)
+    host_participant_id = get_match_host_participant_id(db_match)
     if host_participant_id is None:
         return None
 
@@ -280,32 +280,32 @@ def _build_flatout2_host_notification_payload(
     if db_tournament is None or db_tournament.status != TournamentStatus.live.value:
         return None
 
-    round_races = _get_flatout2_round_races(db_match.settings_json or {})
+    round_races = get_flatout2_round_races(db_match.settings_json or {})
 
     return {
         'match_id': str(db_match.id),
         'stage_id': str(db_match.stage_id),
         'title': db_tournament.title,
         'round_no': db_match.round_no,
-        'url': _build_site_match_path(db_tournament.slug, db_match.id),
+        'url': build_site_match_path(db_tournament.slug, db_match.id),
         'flatout2_round_races': round_races,
     }
 
 
-def _append_notifications_for_match(
+def append_notifications_for_match(
     db_match: DbNetsessionTourneyMatch,
     *,
     actor_user_id: UserID | None,
     kind: str,
     payload: dict[str, Any],
 ) -> None:
-    recipients = _get_match_involved_user_ids(db_match.id)
+    recipients = get_match_involved_user_ids(db_match.id)
     if actor_user_id is not None:
         recipients.discard(actor_user_id)
 
     now = datetime.utcnow()
     for user_id in recipients:
-        _append_notification(
+        append_notification(
             tournament_id=db_match.tournament_id,
             user_id=user_id,
             kind=kind,
@@ -314,20 +314,20 @@ def _append_notifications_for_match(
         )
 
 
-def _append_notifications_for_tournament(
+def append_notifications_for_tournament(
     tournament_id: TournamentID,
     *,
     actor_user_id: UserID | None,
     kind: str,
     payload: dict[str, Any],
 ) -> None:
-    recipients = _get_active_user_ids_for_tournament(tournament_id)
+    recipients = get_active_user_ids_for_tournament(tournament_id)
     if actor_user_id is not None:
         recipients.discard(actor_user_id)
 
     now = datetime.utcnow()
     for user_id in recipients:
-        _append_notification(
+        append_notification(
             tournament_id=tournament_id,
             user_id=user_id,
             kind=kind,
@@ -336,7 +336,7 @@ def _append_notifications_for_tournament(
         )
 
 
-def _append_notification(
+def append_notification(
     *,
     tournament_id: TournamentID,
     user_id: UserID,

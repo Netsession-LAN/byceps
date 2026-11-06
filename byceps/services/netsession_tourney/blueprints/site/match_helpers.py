@@ -27,7 +27,7 @@ from .single_elimination_rendering import (
 DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG = 'grand_final_reset_skipped'
 
 
-def _build_match_labels(
+def build_match_labels(
     matches,
     slots_by_match_id,
     stages_by_id,
@@ -92,14 +92,14 @@ def _build_match_labels(
     return labels_by_match_id
 
 
-def _is_skipped_double_grand_final_result(result) -> bool:
+def is_skipped_double_grand_final_result(result) -> bool:
     if result is None or not isinstance(result.score, dict):
         return False
 
     return bool(result.score.get(DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG))
 
 
-def _build_skipped_double_grand_final_match_ids(
+def build_skipped_double_grand_final_match_ids(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -117,7 +117,7 @@ def _build_skipped_double_grand_final_match_ids(
     skipped_match_ids = {
         match.id
         for match in matches
-        if _is_skipped_double_grand_final_result(results_by_match_id.get(match.id))
+        if is_skipped_double_grand_final_result(results_by_match_id.get(match.id))
     }
 
     for stage_id, stage_matches in matches_by_stage_id.items():
@@ -157,7 +157,7 @@ def _build_skipped_double_grand_final_match_ids(
 
     return skipped_match_ids
 
-def _build_slot_scores_by_match_id(
+def build_slot_scores_by_match_id(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -247,7 +247,7 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
     return {}
 
 
-def _get_or_create_idempotency_key(raw_key: str | None) -> str:
+def get_or_create_idempotency_key(raw_key: str | None) -> str:
     if raw_key:
         key = raw_key.strip()
         if key:

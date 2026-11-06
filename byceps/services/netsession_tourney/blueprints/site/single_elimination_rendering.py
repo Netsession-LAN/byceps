@@ -9,7 +9,7 @@ byceps.services.netsession_tourney.blueprints.site.single_elimination_rendering
 from __future__ import annotations
 
 from collections import defaultdict
-from .double_elimination_rendering import _is_loser_outcome
+from .double_elimination_rendering import is_loser_outcome
 
 
 def build_single_elimination_match_labels(
@@ -32,7 +32,7 @@ def build_single_elimination_match_labels(
     final_matches = []
     for match in final_round_matches:
         incoming = incoming_by_match_id.get(match.id, [])
-        if incoming and all(_is_loser_outcome(outcome) for _, outcome in incoming):
+        if incoming and all(is_loser_outcome(outcome) for _, outcome in incoming):
             consolation_matches.append(match)
         else:
             final_matches.append(match)

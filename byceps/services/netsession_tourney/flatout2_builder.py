@@ -20,15 +20,15 @@ from .dbmodels import (
 )
 from .engines.base import MatchSpec, SlotSpec, StageEngine
 from .flatout2_rounds import (
-    _build_flatout2_current_round_match_specs,
-    _get_flatout2_current_round_generation_context,
+    build_flatout2_current_round_match_specs,
+    get_flatout2_current_round_generation_context,
 )
 from .gen_flatout2_builder_parts import (
-    _append_manual_flatout2_round_match_specs,
-    _build_flatout2_builder_round_stage_settings,
-    _create_flatout2_builder_container_stage,
-    _Flatout2InitialRoundSource,
-    _read_manual_flatout2_max_players_per_match,
+    append_manual_flatout2_round_match_specs,
+    build_flatout2_builder_round_stage_settings,
+    create_flatout2_builder_container_stage,
+    Flatout2InitialRoundSource,
+    read_manual_flatout2_max_players_per_match,
 )
 from .models import (
     Participant,
@@ -39,12 +39,12 @@ from .models import (
     TournamentID,
 )
 from .stage_generation_base import (
-    _distribute_evenly,
-    _StageGenerationPayload,
+    distribute_evenly,
+    StageGenerationPayload,
 )
 
 
-def _summarize_flatout2_builder_rounds(
+def summarize_flatout2_builder_rounds(
     *,
     participant_count: int,
     max_players_per_match: int,
@@ -63,7 +63,7 @@ def _summarize_flatout2_builder_rounds(
         if match_count < 1:
             break
 
-        heat_sizes = _distribute_evenly(current_participant_count, match_count)
+        heat_sizes = distribute_evenly(current_participant_count, match_count)
         max_heat_size = max(heat_sizes) if heat_sizes else 0
         round_summaries.append(
             {
@@ -101,7 +101,7 @@ def _build_flatout2_round_stage_display_title(
     return f'Runde {round_no}'
 
 
-def _create_flatout2_builder_round_stages(
+def create_flatout2_builder_round_stages(
     *,
     tournament_id: TournamentID,
     order_no_start: int,
@@ -117,7 +117,7 @@ def _create_flatout2_builder_round_stages(
     now: datetime,
 ) -> tuple[DbNetsessionTourneyStage, list[DbNetsessionTourneyStage]]:
     container_settings, container_stage = (
-        _create_flatout2_builder_container_stage(
+        create_flatout2_builder_container_stage(
             tournament_id=tournament_id,
             order_no_start=order_no_start,
             container_name=container_name,
@@ -127,7 +127,7 @@ def _create_flatout2_builder_round_stages(
             now=now,
         )
     )
-    initial_source = _Flatout2InitialRoundSource(
+    initial_source = Flatout2InitialRoundSource(
         source_mode=initial_source_mode,
         source_stage_ids=initial_source_stage_ids,
         qualifier_top_n=initial_qualifier_top_n,
@@ -146,7 +146,7 @@ def _create_flatout2_builder_round_stages(
             role,
         )
         stage_name = display_title
-        round_settings = _build_flatout2_builder_round_stage_settings(
+        round_settings = build_flatout2_builder_round_stage_settings(
             common_settings,
             role=role,
             container_stage_id=container_stage.id,
@@ -182,18 +182,18 @@ def _create_flatout2_builder_round_stages(
     return container_stage, created_round_stages
 
 
-def _build_manual_flatout2_stage_generation_payload(
+def build_manual_flatout2_stage_generation_payload(
     *,
     tournament: Tournament,
     stage: Stage,
     engine: StageEngine,
-) -> Result[_StageGenerationPayload, str]:
+) -> Result[StageGenerationPayload, str]:
     settings = stage.settings or {}
     raw_rounds = settings.get('flatout2_rounds')
     if not isinstance(raw_rounds, list) or not raw_rounds:
         return Err('Bitte die FlatOut-2-Stage zuerst vorbereiten.')
 
-    max_players_per_match_result = _read_manual_flatout2_max_players_per_match(
+    max_players_per_match_result = read_manual_flatout2_max_players_per_match(
         settings
     )
     if max_players_per_match_result.is_err():
@@ -211,7 +211,7 @@ def _build_manual_flatout2_stage_generation_payload(
         if not isinstance(raw_round, dict):
             continue
 
-        round_error = _append_manual_flatout2_round_match_specs(
+        round_error = append_manual_flatout2_round_match_specs(
             raw_round,
             raw_match_blueprints=raw_match_blueprints,
             max_players_per_match=max_players_per_match,
@@ -225,7 +225,7 @@ def _build_manual_flatout2_stage_generation_payload(
         return Err('Bitte mindestens ein FlatOut-2-Match konfigurieren.')
 
     return Ok(
-        _StageGenerationPayload(
+        StageGenerationPayload(
             tournament=tournament,
             stage=stage,
             engine=engine,
@@ -236,7 +236,7 @@ def _build_manual_flatout2_stage_generation_payload(
     )
 
 
-def _build_flatout2_stage_generation_payload(
+def build_flatout2_stage_generation_payload(
     *,
     tournament: Tournament,
     stage: Stage,
@@ -244,8 +244,8 @@ def _build_flatout2_stage_generation_payload(
     participants: list[Participant],
     tournament_id: TournamentID,
     require_hosts: bool,
-) -> Result[_StageGenerationPayload, str]:
-    context_result = _get_flatout2_current_round_generation_context(
+) -> Result[StageGenerationPayload, str]:
+    context_result = get_flatout2_current_round_generation_context(
         tournament_id=tournament_id,
         stage=stage,
         engine=engine,
@@ -256,7 +256,7 @@ def _build_flatout2_stage_generation_payload(
 
     context = context_result.unwrap()
     if require_hosts:
-        match_specs_result = _build_flatout2_current_round_match_specs(
+        match_specs_result = build_flatout2_current_round_match_specs(
             stage=stage,
             context=context,
         )
@@ -282,7 +282,7 @@ def _build_flatout2_stage_generation_payload(
         ]
 
     return Ok(
-        _StageGenerationPayload(
+        StageGenerationPayload(
             tournament=tournament,
             stage=stage,
             engine=engine,

@@ -19,7 +19,7 @@ from .engines.registry import (
     find_stage_engine,
 )
 from .flatout2_builder import (
-    _summarize_flatout2_builder_rounds,
+    summarize_flatout2_builder_rounds,
 )
 from .models import (
     ParticipantID,
@@ -42,7 +42,7 @@ from .tournament_queries import (
 )
 
 
-def _preview_ffa_stage_builder_plan(
+def preview_ffa_stage_builder_plan(
     party_id: PartyID,
     tournament_id: TournamentID,
     *,
@@ -52,7 +52,7 @@ def _preview_ffa_stage_builder_plan(
     max_players_per_match: int | None,
     preliminary_type: StageType | None,
 ) -> Result[dict[str, Any], str]:
-    validation_result = _validate_ffa_stage_builder_settings(
+    validation_result = validate_ffa_stage_builder_settings(
         main_stage_type=main_stage_type,
         main_stage_size=main_stage_size,
         max_players_per_match=max_players_per_match,
@@ -93,7 +93,7 @@ def _preview_ffa_stage_builder_plan(
         if (uses_preliminary or generation_blocked_without_preliminary)
         else participant_count
     )
-    main_preview_result = _preview_ffa_stage_builder_stage(
+    main_preview_result = preview_ffa_stage_builder_stage(
         tournament_id=tournament_id,
         stage_type=main_stage_type,
         participant_count=main_stage_participant_count,
@@ -131,7 +131,7 @@ def _preview_ffa_stage_builder_preliminary(
     main_stage_size: int,
     max_players_per_match: int,
 ) -> Result[dict[str, Any], str]:
-    return _preview_ffa_stage_builder_stage(
+    return preview_ffa_stage_builder_stage(
         tournament_id=tournament_id,
         stage_type=preliminary_type,
         participant_count=participant_count,
@@ -194,7 +194,7 @@ def _assemble_ffa_stage_builder_preview(
     }
 
 
-def _validate_ffa_stage_builder_settings(
+def validate_ffa_stage_builder_settings(
     *,
     main_stage_type: StageType,
     main_stage_size: int,
@@ -237,7 +237,7 @@ def _validate_ffa_stage_builder_settings(
     return Ok(None)
 
 
-def _build_ffa_stage_builder_common_settings(
+def build_ffa_stage_builder_common_settings(
     *,
     generation_basis: str,
     main_stage_size: int,
@@ -266,7 +266,7 @@ def _build_ffa_stage_builder_common_settings(
     return settings
 
 
-def _preview_ffa_stage_builder_stage(
+def preview_ffa_stage_builder_stage(
     *,
     tournament_id: TournamentID,
     stage_type: StageType,
@@ -275,7 +275,7 @@ def _preview_ffa_stage_builder_stage(
     stop_when_participants_at_most: int | None = None,
 ) -> Result[dict[str, Any], str]:
     if stage_type == StageType.ffa_flatout2_single_elimination:
-        round_summaries = _summarize_flatout2_builder_rounds(
+        round_summaries = summarize_flatout2_builder_rounds(
             participant_count=participant_count,
             max_players_per_match=max_players_per_match,
             stop_when_participants_at_most=stop_when_participants_at_most,

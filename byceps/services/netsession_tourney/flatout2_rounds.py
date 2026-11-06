@@ -24,13 +24,13 @@ from .dbmodels import (
 )
 from .engines.base import MatchSpec, StageEngine
 from .gen_flatout2_round_parts import (
-    _apply_flatout2_match_host,
-    _build_flatout2_host_match_spec,
-    _build_flatout2_materialized_round_context,
-    _Flatout2CurrentRoundGenerationContext,
-    _get_flatout2_qualified_participants,
-    _get_flatout2_round_host_participant_ids,
-    _get_flatout2_stage_db_matches,
+    apply_flatout2_match_host,
+    build_flatout2_host_match_spec,
+    build_flatout2_materialized_round_context,
+    Flatout2CurrentRoundGenerationContext,
+    get_flatout2_qualified_participants,
+    get_flatout2_round_host_participant_ids,
+    get_flatout2_stage_db_matches,
 )
 from .models import (
     Match,
@@ -44,27 +44,27 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _enqueue_flatout2_host_assignment_notifications,
+    enqueue_flatout2_host_assignment_notifications,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_match_to_model,
+    append_audit_log,
+    db_match_to_model,
 )
 from .stage_generation_base import (
-    _distribute_evenly,
+    distribute_evenly,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
-def _get_flatout2_current_round_generation_context(
+def get_flatout2_current_round_generation_context(
     *,
     tournament_id: TournamentID,
     stage: Stage,
     engine: StageEngine,
     participants: list[Participant],
-) -> Result[_Flatout2CurrentRoundGenerationContext, str]:
+) -> Result[Flatout2CurrentRoundGenerationContext, str]:
     participant_ids = [participant.id for participant in participants]
     full_generation_result = engine.generate(stage, participant_ids)
     if full_generation_result.is_err():
@@ -76,7 +76,7 @@ def _get_flatout2_current_round_generation_context(
 
     if (stage.settings or {}).get('builder_materialized_round_stage'):
         return Ok(
-            _build_flatout2_materialized_round_context(
+            build_flatout2_materialized_round_context(
                 stage, full_specs, participants
             )
         )
@@ -86,11 +86,11 @@ def _get_flatout2_current_round_generation_context(
         planned_match_nos_by_round_no[spec.round_no].append(spec.match_no)
 
     total_round_count = max(planned_match_nos_by_round_no.keys())
-    db_matches = _get_flatout2_stage_db_matches(tournament_id, stage.id)
+    db_matches = get_flatout2_stage_db_matches(tournament_id, stage.id)
 
     if not db_matches:
         return Ok(
-            _Flatout2CurrentRoundGenerationContext(
+            Flatout2CurrentRoundGenerationContext(
                 current_round_no=1,
                 total_round_count=total_round_count,
                 match_nos=planned_match_nos_by_round_no.get(1, []),
@@ -114,7 +114,7 @@ def _get_flatout2_current_round_generation_context(
         for match in db_matches
         if match.round_no == highest_generated_round_no
     ]
-    qualified_participants = _get_flatout2_qualified_participants(
+    qualified_participants = get_flatout2_qualified_participants(
         previous_round_matches, participants
     )
     if len(qualified_participants) < 2:
@@ -123,7 +123,7 @@ def _get_flatout2_current_round_generation_context(
         )
 
     return Ok(
-        _Flatout2CurrentRoundGenerationContext(
+        Flatout2CurrentRoundGenerationContext(
             current_round_no=next_round_no,
             total_round_count=total_round_count,
             match_nos=planned_match_nos_by_round_no.get(next_round_no, []),
@@ -133,12 +133,12 @@ def _get_flatout2_current_round_generation_context(
     )
 
 
-def _build_flatout2_current_round_match_specs(
+def build_flatout2_current_round_match_specs(
     *,
     stage: Stage,
-    context: _Flatout2CurrentRoundGenerationContext,
+    context: Flatout2CurrentRoundGenerationContext,
 ) -> Result[list[MatchSpec], str]:
-    host_participant_ids_result = _get_flatout2_round_host_participant_ids(
+    host_participant_ids_result = get_flatout2_round_host_participant_ids(
         stage, context
     )
     if host_participant_ids_result.is_err():
@@ -155,7 +155,7 @@ def _build_flatout2_current_round_match_specs(
         for participant_id in ordered_participant_ids
         if participant_id not in host_participant_id_set
     ]
-    additional_sizes = _distribute_evenly(
+    additional_sizes = distribute_evenly(
         len(remaining_participant_ids), len(host_participant_ids)
     )
 
@@ -171,7 +171,7 @@ def _build_flatout2_current_round_match_specs(
         offset += additional_count
 
         specs.append(
-            _build_flatout2_host_match_spec(
+            build_flatout2_host_match_spec(
                 context.current_round_no, match_no, participant_ids_for_match
             )
         )
@@ -186,7 +186,7 @@ def set_flatout2_match_host_by_admin(
     host_participant_id: ParticipantID | None,
     initiator: User,
 ) -> Result[Match, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -216,11 +216,11 @@ def set_flatout2_match_host_by_admin(
     if host_participant_id is not None and host_participant_id not in allowed_participant_ids:
         return Err('Der gewählte Host spielt nicht in diesem Match.')
 
-    previous_host_participant_id = _apply_flatout2_match_host(
+    previous_host_participant_id = apply_flatout2_match_host(
         db_match, db_stage, host_participant_id
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
         object_id=match_id,
@@ -241,7 +241,7 @@ def set_flatout2_match_host_by_admin(
     )
 
     if should_notify:
-        _enqueue_flatout2_host_assignment_notifications(db_match)
+        enqueue_flatout2_host_assignment_notifications(db_match)
 
     db.session.commit()
-    return Ok(_db_match_to_model(db_match))
+    return Ok(db_match_to_model(db_match))

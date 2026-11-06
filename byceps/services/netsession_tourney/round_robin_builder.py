@@ -9,25 +9,25 @@ from __future__ import annotations
 
 from byceps.util.result import Err, Ok, Result
 
-from .engines.bracket_helpers import _snake_groups
+from .engines.bracket_helpers import snake_groups
 from .models import (
     Participant,
 )
 from .stage_builder_settings import (
-    _build_group_label,
-    _BuilderGroupStageSpec,
-    _get_divisors,
-    _RoundRobinBuilderPlan,
+    build_group_label,
+    BuilderGroupStageSpec,
+    get_divisors,
+    RoundRobinBuilderPlan,
 )
 
 
-def _resolve_round_robin_builder_plan(
+def resolve_round_robin_builder_plan(
     *,
     participant_count: int,
     main_stage_size: int,
     round_robin_builder_mode: str | None,
     round_robin_group_count: int | None,
-) -> Result[_RoundRobinBuilderPlan, str]:
+) -> Result[RoundRobinBuilderPlan, str]:
     if round_robin_builder_mode == 'manual_group_count':
         if round_robin_group_count is None:
             return Err(
@@ -40,8 +40,8 @@ def _resolve_round_robin_builder_plan(
             mode='manual_group_count',
         )
 
-    candidates: list[tuple[tuple[float, int, int], _RoundRobinBuilderPlan]] = []
-    for group_count in sorted(_get_divisors(main_stage_size)):
+    candidates: list[tuple[tuple[float, int, int], RoundRobinBuilderPlan]] = []
+    for group_count in sorted(get_divisors(main_stage_size)):
         plan_result = _build_round_robin_builder_plan_for_group_count(
             participant_count=participant_count,
             main_stage_size=main_stage_size,
@@ -80,7 +80,7 @@ def _build_round_robin_builder_plan_for_group_count(
     main_stage_size: int,
     group_count: int,
     mode: str,
-) -> Result[_RoundRobinBuilderPlan, str]:
+) -> Result[RoundRobinBuilderPlan, str]:
     if group_count < 2:
         return Err('Die Gruppenzahl muss mindestens 2 sein.')
     if main_stage_size % group_count != 0:
@@ -102,7 +102,7 @@ def _build_round_robin_builder_plan_for_group_count(
         )
 
     return Ok(
-        _RoundRobinBuilderPlan(
+        RoundRobinBuilderPlan(
             group_count=group_count,
             qualifiers_per_group=qualifiers_per_group,
             min_group_size=min_group_size,
@@ -112,19 +112,19 @@ def _build_round_robin_builder_plan_for_group_count(
     )
 
 
-def _build_round_robin_builder_group_stage_specs(
+def build_round_robin_builder_group_stage_specs(
     participants: list[Participant],
     *,
     group_count: int,
     qualifiers_per_group: int,
-) -> list[_BuilderGroupStageSpec]:
-    specs: list[_BuilderGroupStageSpec] = []
+) -> list[BuilderGroupStageSpec]:
+    specs: list[BuilderGroupStageSpec] = []
     for index, group_participants in enumerate(
-        _snake_groups(participants, group_count)
+        snake_groups(participants, group_count)
     ):
         specs.append(
-            _BuilderGroupStageSpec(
-                label=_build_group_label(index),
+            BuilderGroupStageSpec(
+                label=build_group_label(index),
                 participant_ids=[participant.id for participant in group_participants],
                 qualifiers_per_group=qualifiers_per_group,
             )

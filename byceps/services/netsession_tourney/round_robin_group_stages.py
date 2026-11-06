@@ -20,8 +20,8 @@ from byceps.util.uuid import generate_uuid7
 
 from .dbmodels import DbNetsessionTourneyStage
 from .models import StageID, StageStatus, StageType, TournamentID
-from .service_helpers import _append_audit_log
-from .stage_builder_settings import _BuilderGroupStageSpec
+from .service_helpers import append_audit_log
+from .stage_builder_settings import BuilderGroupStageSpec
 
 
 # Settings of the preliminary that every group stage takes over.
@@ -72,7 +72,7 @@ def create_group_stage(
     tournament_id: TournamentID,
     db_stage: DbNetsessionTourneyStage,
     index: int,
-    group_stage_spec: _BuilderGroupStageSpec,
+    group_stage_spec: BuilderGroupStageSpec,
     *,
     preliminary_settings: dict[str, Any],
     initiator: User,
@@ -108,7 +108,7 @@ def create_group_stage(
     )
     db.session.add(db_group_stage)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
         object_id=db_group_stage.id,

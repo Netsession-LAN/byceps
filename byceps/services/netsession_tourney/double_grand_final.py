@@ -31,18 +31,18 @@ from .models import (
     StageType,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_tournament_status_value,
+    calculate_match_state_for_slots,
+    get_tournament_status_value,
 )
 from .service_helpers import (
-    _db_match_result_to_model,
+    db_match_result_to_model,
 )
 
 
 DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG = 'grand_final_reset_skipped'
 
 
-def _is_loser_source_outcome(outcome: SourceOutcome | str | None) -> bool:
+def is_loser_source_outcome(outcome: SourceOutcome | str | None) -> bool:
     value = getattr(outcome, 'value', outcome)
     return value == 'loser'
 
@@ -54,7 +54,7 @@ def get_match_result_for_match(match_id: MatchID) -> MatchResult | None:
     if db_result is None:
         return None
 
-    return _db_match_result_to_model(db_result)
+    return db_match_result_to_model(db_result)
 
 
 def get_match_results(match_ids: set[MatchID]) -> dict[MatchID, MatchResult]:
@@ -66,7 +66,7 @@ def get_match_results(match_ids: set[MatchID]) -> dict[MatchID, MatchResult]:
             DbNetsessionTourneyMatchResult.match_id.in_(match_ids)
         )
     ).all()
-    return {item.match_id: _db_match_result_to_model(item) for item in db_results}
+    return {item.match_id: db_match_result_to_model(item) for item in db_results}
 
 
 def _is_grand_final_reset_skipped_score(score_json: dict[str, Any] | None) -> bool:
@@ -76,7 +76,7 @@ def _is_grand_final_reset_skipped_score(score_json: dict[str, Any] | None) -> bo
     return bool(score_json.get(DOUBLE_GRAND_FINAL_SKIPPED_SCORE_FLAG))
 
 
-def _is_match_marked_as_skipped_double_grand_final(
+def is_match_marked_as_skipped_double_grand_final(
     stage: Stage, match_id: MatchID
 ) -> bool:
     if stage.type != StageType.double_elimination_double_grand_final:
@@ -91,7 +91,7 @@ def _is_match_marked_as_skipped_double_grand_final(
     return _is_grand_final_reset_skipped_score(db_result.score_json)
 
 
-def _update_optional_double_grand_final_state(
+def update_optional_double_grand_final_state(
     *, stage: Stage, source_match_id: MatchID
 ) -> None:
     if stage.type != StageType.double_elimination_double_grand_final:
@@ -213,8 +213,8 @@ def _reopen_reset_match(
         .filter_by(match_id=reset_match_id)
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
-    db_reset_match.state = _calculate_match_state_for_slots(
-        tournament_status=_get_tournament_status_value(db_reset_match.tournament_id),
+    db_reset_match.state = calculate_match_state_for_slots(
+        tournament_status=get_tournament_status_value(db_reset_match.tournament_id),
         db_match_slots=db_reset_slots,
     ).value
     db_reset_match.updated_at = now

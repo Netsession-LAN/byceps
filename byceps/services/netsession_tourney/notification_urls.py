@@ -17,7 +17,7 @@ from .dbmodels import (
 )
 
 
-def _build_absolute_notification_url(
+def build_absolute_notification_url(
     party_id: PartyID, url_path: str
 ) -> str | None:
     path = (url_path or '').strip()
@@ -27,7 +27,7 @@ def _build_absolute_notification_url(
     if path.startswith('http://') or path.startswith('https://'):
         return path
 
-    server_name = _find_browser_push_site_server_name(party_id)
+    server_name = find_browser_push_site_server_name(party_id)
     if not server_name:
         return path if path.startswith('/') else f'/{path}'
 
@@ -35,7 +35,7 @@ def _build_absolute_notification_url(
     return f'https://{server_name}{normalized_path}'
 
 
-def _find_browser_push_site_server_name(party_id: PartyID) -> str | None:
+def find_browser_push_site_server_name(party_id: PartyID) -> str | None:
     primary_party_site_id = party_setting_service.find_setting_value(
         party_id, 'primary_party_site_id'
     )
@@ -56,7 +56,7 @@ def _find_browser_push_site_server_name(party_id: PartyID) -> str | None:
     return None
 
 
-def _build_browser_push_logo_urls(
+def build_browser_push_logo_urls(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> tuple[str, str | None]:
     fallback_icon_url = _to_browser_push_asset_url(
@@ -65,7 +65,7 @@ def _build_browser_push_logo_urls(
     return fallback_icon_url, None
 
 
-def _build_browser_push_badge_url() -> str:
+def build_browser_push_badge_url() -> str:
     return _to_browser_push_asset_url('/static_sites/netsession/icon-192.png')
 
 

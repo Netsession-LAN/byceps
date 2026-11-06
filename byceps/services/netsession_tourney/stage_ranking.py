@@ -33,16 +33,16 @@ from .models import (
     TournamentID,
 )
 from .ranking_order import (
-    _sort_ranked_participant_ids,
+    sort_ranked_participant_ids,
 )
 from .stage_ranking_rows import RankingTally, new_ranking_row
 from .tournament_queries import (
-    _get_ffa_points_per_kill,
+    get_ffa_points_per_kill,
 )
 
 
 @dataclass(frozen=True, kw_only=True)
-class _StageRankingData:
+class StageRankingData:
     db_stage: DbNetsessionTourneyStage
     db_matches: list[DbNetsessionTourneyMatch]
     slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]]
@@ -52,16 +52,16 @@ class _StageRankingData:
     is_ffa_scoring_stage: bool
 
 
-def _get_ranked_participant_ids_for_stage(
+def get_ranked_participant_ids_for_stage(
     stage_id: StageID,
     tournament_id: TournamentID,
 ) -> Result[list[ParticipantID], str]:
-    ranking_data_result = _build_stage_ranking_data(stage_id, tournament_id)
+    ranking_data_result = build_stage_ranking_data(stage_id, tournament_id)
     if ranking_data_result.is_err():
         return Err(ranking_data_result.unwrap_err())
 
     ranking_data = ranking_data_result.unwrap()
-    ranked_participant_ids = _sort_ranked_participant_ids(
+    ranked_participant_ids = sort_ranked_participant_ids(
         ranking_data.rows_by_participant_id,
         stage_type=ranking_data.db_stage.type,
         head_to_head_winner_id_by_pair=(
@@ -83,10 +83,10 @@ FFA_SCORING_STAGE_TYPES = {
 }
 
 
-def _build_stage_ranking_data(
+def build_stage_ranking_data(
     stage_id: StageID,
     tournament_id: TournamentID,
-) -> Result[_StageRankingData, str]:
+) -> Result[StageRankingData, str]:
     db_stage = db.session.get(DbNetsessionTourneyStage, stage_id)
     if db_stage is None:
         return Err('existiert nicht.')
@@ -114,7 +114,7 @@ def _build_stage_ranking_data(
         rows_by_participant_id=_new_rows(tournament_id, participant_ids),
         is_ffa_scoring_stage=db_stage.type in FFA_SCORING_STAGE_TYPES,
         is_swiss_stage=db_stage.type == StageType.swiss.value,
-        points_per_kill=_get_ffa_points_per_kill(dict(db_stage.settings_json or {})),
+        points_per_kill=get_ffa_points_per_kill(dict(db_stage.settings_json or {})),
     )
     db_results = db.session.scalars(
         select(DbNetsessionTourneyMatchResult).filter(
@@ -126,7 +126,7 @@ def _build_stage_ranking_data(
     tally.add_strength_of_schedule()
 
     return Ok(
-        _StageRankingData(
+        StageRankingData(
             db_stage=db_stage,
             db_matches=db_matches,
             slots_by_match_id=slots_by_match_id,

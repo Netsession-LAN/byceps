@@ -17,12 +17,12 @@ from .models import (
 SWISS_THRESHOLDS = {2, 3, 4}
 
 
-def _get_round_count_for_swiss_stage(
+def get_round_count_for_swiss_stage(
     stage: Stage, *, participant_count: int
 ) -> int:
-    configured_threshold = _get_configured_swiss_threshold(stage.settings)
+    configured_threshold = get_configured_swiss_threshold(stage.settings)
     if configured_threshold is not None:
-        return _get_swiss_round_count_for_threshold(configured_threshold)
+        return get_swiss_round_count_for_threshold(configured_threshold)
 
     max_rounds = max(1, participant_count - 1)
     raw_value = (stage.settings or {}).get('round_count')
@@ -40,15 +40,15 @@ def _get_round_count_for_swiss_stage(
     return min(parsed, max_rounds)
 
 
-def _get_swiss_threshold_for_round_count(round_count: int) -> int:
+def get_swiss_threshold_for_round_count(round_count: int) -> int:
     return (round_count // 2) + 1
 
 
-def _get_swiss_round_count_for_threshold(threshold: int) -> int:
+def get_swiss_round_count_for_threshold(threshold: int) -> int:
     return (threshold * 2) - 1
 
 
-def _get_configured_swiss_threshold(settings: dict[str, Any] | None) -> int | None:
+def get_configured_swiss_threshold(settings: dict[str, Any] | None) -> int | None:
     if not isinstance(settings, dict):
         return None
 
@@ -61,14 +61,14 @@ def _get_configured_swiss_threshold(settings: dict[str, Any] | None) -> int | No
     return threshold if threshold in SWISS_THRESHOLDS else None
 
 
-def _get_swiss_threshold_for_stage(
+def get_swiss_threshold_for_stage(
     stage: Stage, *, participant_count: int
 ) -> int:
-    configured_threshold = _get_configured_swiss_threshold(stage.settings)
+    configured_threshold = get_configured_swiss_threshold(stage.settings)
     if configured_threshold is not None:
         return configured_threshold
 
-    round_count = _get_round_count_for_swiss_stage(
+    round_count = get_round_count_for_swiss_stage(
         stage, participant_count=participant_count
     )
-    return _get_swiss_threshold_for_round_count(round_count)
+    return get_swiss_threshold_for_round_count(round_count)

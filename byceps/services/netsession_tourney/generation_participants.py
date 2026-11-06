@@ -34,16 +34,16 @@ from .qualifier_selection import (
     select_stage_qualifiers,
 )
 from .service_helpers import (
-    _db_stage_to_model,
-    _db_tournament_to_model,
+    db_stage_to_model,
+    db_tournament_to_model,
 )
 from .stage_builder_settings import (
-    _get_stage_builder_main_stage_size,
-    _is_stage_builder_v1_main_stage,
-    _is_stage_builder_v1_preliminary_stage,
+    get_stage_builder_main_stage_size,
+    is_stage_builder_v1_main_stage,
+    is_stage_builder_v1_preliminary_stage,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     get_participants_for_tournament,
 )
 
@@ -59,7 +59,7 @@ def get_stage_generation_participants(
     tournament_id: TournamentID,
     stage_id: StageID,
 ) -> Result[list[Participant], str]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     db_stage = db.session.scalar(
@@ -70,13 +70,13 @@ def get_stage_generation_participants(
     if db_stage is None:
         return Err('Unbekannte Stage.')
 
-    stage = _db_stage_to_model(db_stage)
-    return _select_generation_participants_for_stage(
+    stage = db_stage_to_model(db_stage)
+    return select_generation_participants_for_stage(
         party_id, tournament_id, stage
     )
 
 
-def _order_participants_for_stage_generation(
+def order_participants_for_stage_generation(
     participants: list[Participant],
     *,
     shuffle_unseeded: bool,
@@ -118,7 +118,7 @@ def _order_participants_for_stage_generation(
     return contiguous_seeded + deferred_unseeded
 
 
-def _select_generation_participants_for_stage(
+def select_generation_participants_for_stage(
     party_id: PartyID,
     tournament_id: TournamentID,
     stage: Stage,
@@ -126,14 +126,14 @@ def _select_generation_participants_for_stage(
     all_tournament_participants = get_participants_for_tournament(
         party_id, tournament_id
     )
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is not None:  # with a check-in, only checked-in ones
         all_tournament_participants = select_checked_in_participants(
-            _db_tournament_to_model(db_tournament), all_tournament_participants
+            db_tournament_to_model(db_tournament), all_tournament_participants
         )
-    is_stage_builder_v1_stage = _is_stage_builder_v1_main_stage(
+    is_stage_builder_v1_stage = is_stage_builder_v1_main_stage(
         stage
-    ) or _is_stage_builder_v1_preliminary_stage(stage)
+    ) or is_stage_builder_v1_preliminary_stage(stage)
     eligible_participants = (
         domain_service.select_ready_participants(all_tournament_participants)
         if is_stage_builder_v1_stage
@@ -169,9 +169,9 @@ def _decide_by_builder_main_stage_size(
 ) -> Result[list[Participant], str] | None:
     """A builder main stage takes everybody if they fit, and refuses if
     they do not fit and there is no preliminary."""
-    builder_main_stage_size = _get_stage_builder_main_stage_size(stage)
+    builder_main_stage_size = get_stage_builder_main_stage_size(stage)
     if (
-        not _is_stage_builder_v1_main_stage(stage)
+        not is_stage_builder_v1_main_stage(stage)
         or builder_main_stage_size is None
     ):
         return None

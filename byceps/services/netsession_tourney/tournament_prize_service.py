@@ -26,7 +26,7 @@ from .models import (
     TournamentPrizeID,
 )
 from .service_helpers import (
-    _db_tournament_prize_to_model,
+    db_tournament_prize_to_model,
 )
 
 
@@ -67,7 +67,7 @@ def create_tournament_prize(
     db.session.add(db_prize)
     db.session.commit()
 
-    return Ok(_db_tournament_prize_to_model(db_prize))
+    return Ok(db_tournament_prize_to_model(db_prize))
 
 
 def update_tournament_prize(
@@ -101,7 +101,7 @@ def update_tournament_prize(
     db_prize.updated_at = datetime.utcnow()
 
     db.session.commit()
-    return Ok(_db_tournament_prize_to_model(db_prize))
+    return Ok(db_tournament_prize_to_model(db_prize))
 
 
 def delete_tournament_prize(prize_id: TournamentPrizeID) -> Result[None, str]:
@@ -122,7 +122,7 @@ def find_tournament_prize(
     if db_prize is None:
         return None
 
-    return _db_tournament_prize_to_model(db_prize)
+    return db_tournament_prize_to_model(db_prize)
 
 
 def get_tournament_prizes_for_tournament(
@@ -137,7 +137,7 @@ def get_tournament_prizes_for_tournament(
         )
     ).all()
 
-    return [_db_tournament_prize_to_model(item) for item in db_prizes]
+    return [db_tournament_prize_to_model(item) for item in db_prizes]
 
 
 def _find_db_tournament_prize(

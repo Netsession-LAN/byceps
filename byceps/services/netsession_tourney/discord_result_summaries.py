@@ -20,16 +20,16 @@ from .models import (
     StageType,
 )
 from .stage_ranking import (
-    _get_ranked_participant_ids_for_stage,
+    get_ranked_participant_ids_for_stage,
 )
 from .tournament_queries import (
-    _parse_match_result_slot_scores,
+    parse_match_result_slot_scores,
     get_participants_for_tournament,
     get_stages_for_tournament,
 )
 
 
-def _build_discord_match_result_summary(
+def build_discord_match_result_summary(
     *,
     stage: Stage,
     db_slots: list[DbNetsessionTourneyMatchSlot],
@@ -121,7 +121,7 @@ def _build_discord_duel_match_result_summary(
     winner_slot: int | None,
     score_data: dict[str, Any],
 ) -> dict[str, Any] | None:
-    parsed_scores = _parse_match_result_slot_scores(
+    parsed_scores = parse_match_result_slot_scores(
         db_slots, score_data, winner_slot=winner_slot
     )
     rows = []
@@ -151,7 +151,7 @@ def _build_discord_duel_match_result_summary(
     return {'format': 'duel', 'rows': rows}
 
 
-def _build_discord_tournament_result_summary(
+def build_discord_tournament_result_summary(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> dict[str, Any] | None:
     participants_by_id = {
@@ -165,7 +165,7 @@ def _build_discord_tournament_result_summary(
 
     stages = get_stages_for_tournament(db_tournament.party_id, db_tournament.id)
     for stage in reversed(stages):
-        ranked_participant_ids_result = _get_ranked_participant_ids_for_stage(
+        ranked_participant_ids_result = get_ranked_participant_ids_for_stage(
             stage.id, db_tournament.id
         )
         if ranked_participant_ids_result.is_err():
@@ -194,7 +194,7 @@ def _build_discord_tournament_result_summary(
     return None
 
 
-def _build_discord_tournament_finished_description(
+def build_discord_tournament_finished_description(
     tournament_title: str, payload_data: dict[str, Any]
 ) -> str:
     result_summary = payload_data.get('result_summary')
@@ -218,7 +218,7 @@ def _build_discord_tournament_finished_description(
     return '\n'.join(lines)
 
 
-def _build_discord_tournament_finished_fields(
+def build_discord_tournament_finished_fields(
     payload_data: dict[str, Any],
 ) -> list[dict[str, Any]]:
     result_summary = payload_data.get('result_summary')
@@ -271,7 +271,7 @@ def _build_discord_tournament_finished_fields(
     return fields
 
 
-def _build_discord_match_completed_description(
+def build_discord_match_completed_description(
     tournament_title: str, payload_data: dict[str, Any]
 ) -> str:
     stage_name = str(payload_data.get('stage_name') or '').strip()
@@ -296,7 +296,7 @@ def _build_discord_match_completed_description(
     return '\n'.join(lines)
 
 
-def _build_discord_match_completed_fields(
+def build_discord_match_completed_fields(
     payload_data: dict[str, Any]
 ) -> list[dict[str, Any]]:
     fields: list[dict[str, Any]] = []

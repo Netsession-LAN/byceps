@@ -15,16 +15,16 @@ from sqlalchemy import select
 from byceps.database import db
 from byceps.util.result import Err, Ok, Result
 
-from .coin_service import _validate_coin_cost
+from .coin_service import validate_coin_cost
 from .dbmodels import DbNetsessionTourneyParticipant, DbNetsessionTourneyTournament
 from .models import RegistrationMode, TournamentMode, TournamentStatus
-from .participant_state import _validate_participant_limit
+from .participant_state import validate_participant_limit
 from .registration_validation import (
-    _validate_mode_for_registration_mode,
-    _validate_substitute_count_for_registration_mode,
-    _validate_team_size_for_registration_mode,
+    validate_mode_for_registration_mode,
+    validate_substitute_count_for_registration_mode,
+    validate_team_size_for_registration_mode,
 )
-from .stage_activation import _delete_all_stages_for_tournament
+from .stage_activation import delete_all_stages_for_tournament
 from .tournament_queries import ACTIVE_PARTICIPANT_STATUS_VALUES
 
 
@@ -39,17 +39,17 @@ def validate_tournament_settings(
 ) -> str | None:
     """Return an error message, or `None` if the settings are fine."""
     for result in (
-        _validate_mode_for_registration_mode(
+        validate_mode_for_registration_mode(
             mode=mode, registration_mode=registration_mode
         ),
-        _validate_team_size_for_registration_mode(
+        validate_team_size_for_registration_mode(
             registration_mode=registration_mode, team_size=team_size
         ),
-        _validate_substitute_count_for_registration_mode(
+        validate_substitute_count_for_registration_mode(
             registration_mode=registration_mode, substitute_count=substitute_count
         ),
-        _validate_participant_limit(participant_limit),
-        _validate_coin_cost(coin_cost),
+        validate_participant_limit(participant_limit),
+        validate_coin_cost(coin_cost),
     ):
         if result.is_err():
             return result.unwrap_err()
@@ -91,7 +91,7 @@ def apply_mode_changes(
     if mode_changed:
         if not is_draft:
             return Err('Der Turniermodus lässt sich nur im Entwurf ändern.')
-        deleted_stage_count = _delete_all_stages_for_tournament(db_tournament.id)
+        deleted_stage_count = delete_all_stages_for_tournament(db_tournament.id)
         db_tournament.mode = mode.value
 
     if registration_mode_changed:

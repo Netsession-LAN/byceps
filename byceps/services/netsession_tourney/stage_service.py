@@ -44,21 +44,21 @@ from .registration_validation import (
     _is_stage_type_compatible_with_registration_mode,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_stage_to_model,
+    append_audit_log,
+    db_stage_to_model,
 )
 from .stage_activation import (
-    _delete_stage_matches,
+    delete_stage_matches,
 )
 from .stage_builder_settings import (
-    _delete_builder_generated_child_stages,
-    _delete_builder_generated_group_stages,
-    _detach_builder_main_stage_from_preliminary_stage,
-    _is_builder_container_db_stage,
-    _is_builder_round_robin_summary_db_stage,
+    delete_builder_generated_child_stages,
+    delete_builder_generated_group_stages,
+    detach_builder_main_stage_from_preliminary_stage,
+    is_builder_container_db_stage,
+    is_builder_round_robin_summary_db_stage,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -66,7 +66,7 @@ def get_available_stage_type_specs():
     return get_stage_type_specs()
 
 
-def _parse_source_stage_ids(raw_source_stage_ids: Any) -> list[StageID]:
+def parse_source_stage_ids(raw_source_stage_ids: Any) -> list[StageID]:
     if not isinstance(raw_source_stage_ids, list):
         return []
 
@@ -88,7 +88,7 @@ def create_stage(
     settings: dict[str, Any],
     initiator: User,
 ) -> Result[Stage, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -126,7 +126,7 @@ def create_stage(
     )
     db.session.add(db_stage)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
         object_id=db_stage.id,
@@ -136,7 +136,7 @@ def create_stage(
     )
 
     db.session.commit()
-    return Ok(_db_stage_to_model(db_stage))
+    return Ok(db_stage_to_model(db_stage))
 
 
 def update_stage(
@@ -148,7 +148,7 @@ def update_stage(
     settings: dict[str, Any],
     initiator: User,
 ) -> Result[Stage, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -180,13 +180,13 @@ def update_stage(
         return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
 
     # Matches need regeneration after structural stage changes.
-    _delete_stage_matches(stage_id)
+    delete_stage_matches(stage_id)
 
     db_stage.type = type_.value
     db_stage.name = name.strip()
     db_stage.settings_json = dict(settings)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
         object_id=stage_id,
@@ -200,7 +200,7 @@ def update_stage(
     )
 
     db.session.commit()
-    return Ok(_db_stage_to_model(db_stage))
+    return Ok(db_stage_to_model(db_stage))
 
 
 def delete_stage(
@@ -209,7 +209,7 @@ def delete_stage(
     stage_id: StageID,
     initiator: User,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -224,23 +224,23 @@ def delete_stage(
     if db_stage is None:
         return Err('Unbekannte Stage.')
 
-    if _is_builder_round_robin_summary_db_stage(db_stage):
-        _delete_builder_generated_group_stages(
+    if is_builder_round_robin_summary_db_stage(db_stage):
+        delete_builder_generated_group_stages(
             tournament_id,
             db_stage.id,
             initiator=initiator,
         )
-        _detach_builder_main_stage_from_preliminary_stage(
+        detach_builder_main_stage_from_preliminary_stage(
             tournament_id, db_stage.id
         )
-    elif _is_builder_container_db_stage(db_stage):
-        _delete_builder_generated_child_stages(
+    elif is_builder_container_db_stage(db_stage):
+        delete_builder_generated_child_stages(
             tournament_id,
             db_stage.id,
             initiator=initiator,
         )
 
-    _delete_stage_matches(stage_id)
+    delete_stage_matches(stage_id)
     db.session.delete(db_stage)
     # Flush the deletion first so the subsequent renumbering does not
     # temporarily collide with the still-persisted (tournament_id, order_no)
@@ -248,7 +248,7 @@ def delete_stage(
     db.session.flush()
     _renumber_stages_for_tournament(tournament_id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
         object_id=stage_id,
@@ -261,7 +261,7 @@ def delete_stage(
     return Ok(None)
 
 
-def _is_stage_fully_completed(
+def is_stage_fully_completed(
     tournament_id: TournamentID, stage_id: StageID
 ) -> bool:
     total_match_count = db.session.scalar(
@@ -284,7 +284,7 @@ def _is_stage_fully_completed(
     return int(incomplete_match_count or 0) == 0
 
 
-def _stage_has_assigned_participants(
+def stage_has_assigned_participants(
     tournament_id: TournamentID, stage_id: StageID
 ) -> bool:
     assigned_participant_count = db.session.scalar(
@@ -302,7 +302,7 @@ def _stage_has_assigned_participants(
     return bool(assigned_participant_count)
 
 
-def _stage_has_reported_results(
+def stage_has_reported_results(
     tournament_id: TournamentID, stage_id: StageID
 ) -> bool:
     result_count = db.session.scalar(
@@ -357,7 +357,7 @@ def _is_stage_type_compatible_with_tournament_mode(
     return False
 
 
-def _get_stage_setting_int(
+def get_stage_setting_int(
     settings: dict[str, Any],
     key: str,
     *,

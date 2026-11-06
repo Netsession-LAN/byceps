@@ -21,7 +21,7 @@ from .dbmodels import (
     DbNetsessionTourneyTournamentCategory,
 )
 from .discord_forum_threads import (
-    _sync_discord_thread_for_tournament,
+    sync_discord_thread_for_tournament,
 )
 from .models import (
     CoinChargeMode,
@@ -34,14 +34,14 @@ from .models import (
     TournamentStatus,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_tournament_to_model,
 )
 from .tournament_category_service import (
-    _resolve_tournament_category_id_for_party,
+    resolve_tournament_category_id_for_party,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 from .tournament_settings import (
     apply_mode_changes,
@@ -125,7 +125,7 @@ def _create_tournament(
     if find_tournament_by_slug_for_party(party_id, slug) is not None:
         return Err('Dieser Slug wird bereits verwendet.')
 
-    resolved_category_id_result = _resolve_tournament_category_id_for_party(
+    resolved_category_id_result = resolve_tournament_category_id_for_party(
         party_id, category_id
     )
     if resolved_category_id_result.is_err():
@@ -138,7 +138,7 @@ def _create_tournament(
     )
     db.session.add(db_tournament)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=db_tournament.id,
@@ -148,7 +148,7 @@ def _create_tournament(
     )
 
     db.session.commit()
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def update_tournament(
@@ -216,7 +216,7 @@ def _update_tournament(
     initiator: User,
     category_id: TournamentCategoryID | None,
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -227,7 +227,7 @@ def _update_tournament(
     if category_id is None:
         resolved_category_id = db_tournament.category_id
     else:
-        resolved_category_id_result = _resolve_tournament_category_id_for_party(
+        resolved_category_id_result = resolve_tournament_category_id_for_party(
             party_id, category_id
         )
         if resolved_category_id_result.is_err():
@@ -243,7 +243,7 @@ def _update_tournament(
 
     apply_field_values(db_tournament, values, resolved_category_id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -256,8 +256,8 @@ def _update_tournament(
 
     db.session.commit()
     if db_tournament.discord_enabled:
-        _sync_discord_thread_for_tournament(db_tournament)
-    return Ok(_db_tournament_to_model(db_tournament))
+        sync_discord_thread_for_tournament(db_tournament)
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def get_tournaments_for_party(
@@ -289,7 +289,7 @@ def get_tournaments_for_party(
     }
 
     return sorted(
-        (_db_tournament_to_model(item) for item in db_tournaments),
+        (db_tournament_to_model(item) for item in db_tournaments),
         key=lambda item: (
             category_positions_by_id.get(item.category_id, 2**31),
             item.starts_at or datetime.max,
@@ -310,7 +310,7 @@ def find_tournament_by_slug_for_party(
     db_tournament = db.session.scalar(stmt)
     if db_tournament is None:
         return None
-    return _db_tournament_to_model(db_tournament)
+    return db_tournament_to_model(db_tournament)
 
 
 def find_tournament_for_party(
@@ -328,4 +328,4 @@ def find_tournament_for_party(
     db_tournament = db.session.scalar(stmt)
     if db_tournament is None:
         return None
-    return _db_tournament_to_model(db_tournament)
+    return db_tournament_to_model(db_tournament)

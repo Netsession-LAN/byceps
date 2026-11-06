@@ -31,15 +31,15 @@ from .models import (
     TournamentID,
 )
 from .notification_service import (
-    _append_notifications_for_match,
+    append_notifications_for_match,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_match_chat_message_to_model,
+    append_audit_log,
+    db_match_chat_message_to_model,
 )
 from .tournament_queries import (
-    _build_site_match_path,
-    _find_db_tournament_for_party,
+    build_site_match_path,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 
@@ -55,7 +55,7 @@ def can_user_access_match_chat(
     if is_admin_or_referee:
         return True
 
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return False
 
     match_exists = db.session.scalar(
@@ -123,7 +123,7 @@ def get_match_chat_messages(
     tournament_id: TournamentID,
     match_id: MatchID,
 ) -> list[MatchChatMessage]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return []
 
     db_messages = db.session.scalars(
@@ -134,7 +134,7 @@ def get_match_chat_messages(
         )
         .order_by(DbNetsessionTourneyMatchChatMessage.created_at.asc())
     ).all()
-    return [_db_match_chat_message_to_model(item) for item in db_messages]
+    return [db_match_chat_message_to_model(item) for item in db_messages]
 
 
 def post_match_chat_message(
@@ -146,7 +146,7 @@ def post_match_chat_message(
     *,
     actor_is_admin_or_referee: bool = False,
 ) -> Result[MatchChatMessage, str]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     db_match = db.session.scalar(
@@ -185,7 +185,7 @@ def post_match_chat_message(
 
     db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=actor_user_id,
         object_type='match',
         object_id=match_id,
@@ -193,7 +193,7 @@ def post_match_chat_message(
         payload={'body_preview': body[:120]},
         created_at=now,
     )
-    _append_notifications_for_match(
+    append_notifications_for_match(
         db_match,
         actor_user_id=actor_user_id,
         kind='chat_message_posted',
@@ -201,7 +201,7 @@ def post_match_chat_message(
             'match_id': str(match_id),
             'body_preview': body[:120],
             'url': (
-                _build_site_match_path(db_tournament.slug, match_id)
+                build_site_match_path(db_tournament.slug, match_id)
                 if db_tournament is not None
                 else None
             ),
@@ -209,4 +209,4 @@ def post_match_chat_message(
     )
 
     db.session.commit()
-    return Ok(_db_match_chat_message_to_model(db_message))
+    return Ok(db_match_chat_message_to_model(db_message))

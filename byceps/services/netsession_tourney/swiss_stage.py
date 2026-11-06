@@ -34,37 +34,37 @@ from .models import (
     TournamentID,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_tournament_status_value,
+    calculate_match_state_for_slots,
+    get_tournament_status_value,
 )
 from .service_helpers import (
-    _db_participant_to_model,
+    db_participant_to_model,
 )
 from .stage_generation_base import (
-    _StageGenerationPayload,
+    StageGenerationPayload,
 )
 from .swiss_pairing import (
-    _build_follow_up_swiss_round_specs,
-    _build_initial_swiss_round_specs,
+    build_follow_up_swiss_round_specs,
+    build_initial_swiss_round_specs,
 )
 from .swiss_round_reconcile import reconcile_round_placeholders
 from .swiss_thresholds import (
-    _get_round_count_for_swiss_stage,
-    _get_swiss_threshold_for_round_count,
+    get_round_count_for_swiss_stage,
+    get_swiss_threshold_for_round_count,
 )
 
 
-def _build_swiss_stage_generation_payload(
+def build_swiss_stage_generation_payload(
     *,
     tournament: Tournament,
     stage: Stage,
     engine: StageEngine,
     participants: list[Participant],
     tournament_id: TournamentID,
-) -> Result[_StageGenerationPayload, str]:
+) -> Result[StageGenerationPayload, str]:
     del tournament_id
 
-    round_count = _get_round_count_for_swiss_stage(
+    round_count = get_round_count_for_swiss_stage(
         stage, participant_count=len(participants)
     )
     match_specs = _build_full_swiss_stage_specs(
@@ -73,7 +73,7 @@ def _build_swiss_stage_generation_payload(
     )
 
     return Ok(
-        _StageGenerationPayload(
+        StageGenerationPayload(
             tournament=tournament,
             stage=stage,
             engine=engine,
@@ -83,14 +83,14 @@ def _build_swiss_stage_generation_payload(
         )
 
 
-def _build_swiss_round_layout(
+def build_swiss_round_layout(
     participant_count: int,
     round_count: int,
 ) -> list[dict[str, Any]]:
     if participant_count < 2 or round_count < 1:
         return []
 
-    threshold = _get_swiss_threshold_for_round_count(round_count)
+    threshold = get_swiss_threshold_for_round_count(round_count)
     counts_by_record: dict[tuple[int, int], int] = {(0, 0): participant_count}
     rounds: list[dict[str, Any]] = []
 
@@ -140,11 +140,11 @@ def _build_full_swiss_stage_specs(
     if len(participants) < 2:
         return []
 
-    layout = _build_swiss_round_layout(len(participants), round_count)
+    layout = build_swiss_round_layout(len(participants), round_count)
     if not layout:
         return []
 
-    first_round_specs = _build_initial_swiss_round_specs(participants)
+    first_round_specs = build_initial_swiss_round_specs(participants)
     specs = list(first_round_specs)
     match_no = len(first_round_specs) + 1
 
@@ -183,7 +183,7 @@ class _SwissStageMatchData:
     participants: list[Participant]
 
 
-def _seed_swiss_follow_up_rounds(
+def seed_swiss_follow_up_rounds(
     *,
     tournament_id: TournamentID,
     stage: Stage,
@@ -197,10 +197,10 @@ def _seed_swiss_follow_up_rounds(
     slots_by_match_id = match_data.slots_by_match_id
     participants = match_data.participants
 
-    round_count = _get_round_count_for_swiss_stage(
+    round_count = get_round_count_for_swiss_stage(
         stage, participant_count=len(participants)
     )
-    layout = _build_swiss_round_layout(len(participants), round_count)
+    layout = build_swiss_round_layout(len(participants), round_count)
     matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(list)
     for db_match in db_matches:
         matches_by_round_no[db_match.round_no].append(db_match)
@@ -228,7 +228,7 @@ def _seed_swiss_follow_up_rounds(
         ):
             continue
 
-        seeded_specs = _build_follow_up_swiss_round_specs(
+        seeded_specs = build_follow_up_swiss_round_specs(
             participants=participants,
             db_matches=db_matches,
             slots_by_match_id=slots_by_match_id,
@@ -305,7 +305,7 @@ def _load_swiss_stage_match_data(
         if db_slot.participant_id is not None
     }
     participants = [
-        _db_participant_to_model(db_participant)
+        db_participant_to_model(db_participant)
         for db_participant in db.session.scalars(
             select(DbNetsessionTourneyParticipant).filter(
                 DbNetsessionTourneyParticipant.id.in_(participant_ids)
@@ -354,8 +354,8 @@ def _apply_seeded_swiss_specs(
                 db_slot.slot_no
             )
 
-        next_state = _calculate_match_state_for_slots(
-            tournament_status=_get_tournament_status_value(tournament_id),
+        next_state = calculate_match_state_for_slots(
+            tournament_status=get_tournament_status_value(tournament_id),
             db_match_slots=db_match_slots,
         )
         db_match.state = next_state.value

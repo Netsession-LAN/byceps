@@ -19,12 +19,12 @@ from .dbmodels import DbNetsessionTourneyStage
 from .models import Participant, ParticipantID, Stage, TournamentID
 from .participant_admin_service import get_participants_by_ids
 from .qualifier_ranking import (
-    _get_effective_qualifier_top_n_for_source_stage,
-    _get_ranked_participant_ids_by_group_for_stage,
-    _get_ranked_participant_ids_by_match_for_stage,
+    get_effective_qualifier_top_n_for_source_stage,
+    get_ranked_participant_ids_by_group_for_stage,
+    get_ranked_participant_ids_by_match_for_stage,
 )
-from .stage_ranking import _get_ranked_participant_ids_for_stage
-from .stage_service import _parse_source_stage_ids
+from .stage_ranking import get_ranked_participant_ids_for_stage
+from .stage_service import parse_source_stage_ids
 
 
 TOO_FEW_QUALIFIED = (
@@ -59,7 +59,7 @@ def select_match_qualifiers(
 
     selected_participant_ids: list[ParticipantID] = []
     for db_source_stage in source_stages_result.unwrap():
-        ranked_result = _get_ranked_participant_ids_by_match_for_stage(
+        ranked_result = get_ranked_participant_ids_by_match_for_stage(
             db_source_stage.id, tournament_id, top_n_per_match=top_n_per_match
         )
         if ranked_result.is_err():
@@ -101,7 +101,7 @@ def select_stage_qualifiers(
 
     selected_participant_ids: list[ParticipantID] = []
     for db_source_stage in source_stages_result.unwrap():
-        top_n_result = _get_effective_qualifier_top_n_for_source_stage(
+        top_n_result = get_effective_qualifier_top_n_for_source_stage(
             stage, db_source_stage, tournament_id, selection_mode=selection_mode
         )
         if top_n_result.is_err():
@@ -138,7 +138,7 @@ def select_stage_qualifiers(
 def _select_top_per_group(
     db_source_stage, tournament_id, top_n: int
 ) -> Result[list[ParticipantID], str]:
-    groups_result = _get_ranked_participant_ids_by_group_for_stage(
+    groups_result = get_ranked_participant_ids_by_group_for_stage(
         db_source_stage.id, tournament_id
     )
     if groups_result.is_err():
@@ -159,7 +159,7 @@ def _select_top_per_group(
 def _select_top_of_stage(
     db_source_stage, tournament_id, top_n: int
 ) -> Result[list[ParticipantID], str]:
-    ranked_result = _get_ranked_participant_ids_for_stage(
+    ranked_result = get_ranked_participant_ids_for_stage(
         db_source_stage.id, tournament_id
     )
     if ranked_result.is_err():
@@ -176,7 +176,7 @@ def _select_top_of_stage(
 
 
 def _get_source_stage_ids(stage: Stage) -> Result[list, str]:
-    source_stage_ids = _parse_source_stage_ids(
+    source_stage_ids = parse_source_stage_ids(
         (stage.settings or {}).get('qualifier_source_stage_ids', [])
     )
     if not source_stage_ids:

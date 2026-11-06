@@ -77,7 +77,7 @@ from .models import (
 )
 
 
-def _append_audit_log(
+def append_audit_log(
     *,
     actor_user_id: UserID | None,
     object_type: str,
@@ -99,7 +99,7 @@ def _append_audit_log(
     )
 
 
-def _parse_source_outcome(raw_value: str | None) -> SourceOutcome:
+def parse_source_outcome(raw_value: str | None) -> SourceOutcome:
     if not raw_value:
         return SourceOutcome.winner
 
@@ -109,7 +109,7 @@ def _parse_source_outcome(raw_value: str | None) -> SourceOutcome:
         return SourceOutcome.winner
 
 
-def _db_tournament_category_to_model(
+def db_tournament_category_to_model(
     db_category: DbNetsessionTourneyTournamentCategory,
 ) -> TournamentCategory:
     return TournamentCategory(
@@ -120,7 +120,7 @@ def _db_tournament_category_to_model(
     )
 
 
-def _db_tournament_rule_template_to_model(
+def db_tournament_rule_template_to_model(
     db_rule_template: DbNetsessionTourneyTournamentRuleTemplate,
 ) -> TournamentRuleTemplate:
     return TournamentRuleTemplate(
@@ -135,7 +135,7 @@ def _db_tournament_rule_template_to_model(
     )
 
 
-def _db_tournament_prize_to_model(
+def db_tournament_prize_to_model(
     db_prize: DbNetsessionTourneyTournamentPrize,
 ) -> TournamentPrize:
     return TournamentPrize(
@@ -149,7 +149,7 @@ def _db_tournament_prize_to_model(
     )
 
 
-def _db_browser_push_config_to_model(
+def db_browser_push_config_to_model(
     db_config: DbNetsessionTourneyBrowserPushConfig,
 ) -> BrowserPushConfig:
     return BrowserPushConfig(
@@ -161,7 +161,7 @@ def _db_browser_push_config_to_model(
     )
 
 
-def _db_discord_dm_config_to_model(
+def db_discord_dm_config_to_model(
     db_config: DbNetsessionTourneyDiscordDmConfig,
 ) -> DiscordDmConfig:
     return DiscordDmConfig(
@@ -174,7 +174,7 @@ def _db_discord_dm_config_to_model(
     )
 
 
-def _db_coin_settings_to_model(
+def db_coin_settings_to_model(
     db_settings: DbNetsessionTourneyCoinSettings,
 ) -> CoinSettings:
     return CoinSettings(
@@ -186,7 +186,7 @@ def _db_coin_settings_to_model(
     )
 
 
-def _db_ticket_category_coin_settings_to_model(
+def db_ticket_category_coin_settings_to_model(
     db_row: DbNetsessionTourneyTicketCategoryCoinSettings,
 ) -> TicketCategoryCoinSettings:
     return TicketCategoryCoinSettings(
@@ -196,7 +196,7 @@ def _db_ticket_category_coin_settings_to_model(
     )
 
 
-def _db_coin_ledger_entry_to_model(
+def db_coin_ledger_entry_to_model(
     db_row: DbNetsessionTourneyCoinLedgerEntry,
 ) -> CoinLedgerEntry:
     return CoinLedgerEntry(
@@ -213,7 +213,7 @@ def _db_coin_ledger_entry_to_model(
     )
 
 
-def _db_tournament_to_model(db_tournament: DbNetsessionTourneyTournament) -> Tournament:
+def db_tournament_to_model(db_tournament: DbNetsessionTourneyTournament) -> Tournament:
     sponsor_logo_target_url = _find_sponsor_logo_target_url(
         db_tournament.party_id, db_tournament.sponsor_logo_url
     )
@@ -288,7 +288,7 @@ def _find_sponsor_logo_target_url(
     )
 
 
-def _db_stage_to_model(db_stage: DbNetsessionTourneyStage) -> Stage:
+def db_stage_to_model(db_stage: DbNetsessionTourneyStage) -> Stage:
     return Stage(
         id=db_stage.id,
         tournament_id=db_stage.tournament_id,
@@ -300,7 +300,7 @@ def _db_stage_to_model(db_stage: DbNetsessionTourneyStage) -> Stage:
     )
 
 
-def _db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> Participant:
+def db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> Participant:
     return Participant(
         id=db_participant.id,
         tournament_id=db_participant.tournament_id,
@@ -315,7 +315,7 @@ def _db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> 
     )
 
 
-def _db_team_member_to_model(db_member: DbNetsessionTourneyTeamMember) -> TeamMember:
+def db_team_member_to_model(db_member: DbNetsessionTourneyTeamMember) -> TeamMember:
     return TeamMember(
         id=db_member.id,
         participant_id=db_member.participant_id,
@@ -324,7 +324,7 @@ def _db_team_member_to_model(db_member: DbNetsessionTourneyTeamMember) -> TeamMe
     )
 
 
-def _db_match_to_model(db_match: DbNetsessionTourneyMatch) -> Match:
+def db_match_to_model(db_match: DbNetsessionTourneyMatch) -> Match:
     return Match(
         id=db_match.id,
         tournament_id=db_match.tournament_id,
@@ -341,18 +341,18 @@ def _db_match_to_model(db_match: DbNetsessionTourneyMatch) -> Match:
     )
 
 
-def _db_match_slot_to_model(db_slot: DbNetsessionTourneyMatchSlot) -> MatchSlot:
+def db_match_slot_to_model(db_slot: DbNetsessionTourneyMatchSlot) -> MatchSlot:
     return MatchSlot(
         id=db_slot.id,
         match_id=db_slot.match_id,
         slot_no=db_slot.slot_no,
         participant_id=db_slot.participant_id,
         source_match_slot_id=db_slot.source_match_slot_id,
-        source_outcome=_parse_source_outcome(db_slot.source_outcome),
+        source_outcome=parse_source_outcome(db_slot.source_outcome),
     )
 
 
-def _db_match_result_to_model(db_result: DbNetsessionTourneyMatchResult) -> MatchResult:
+def db_match_result_to_model(db_result: DbNetsessionTourneyMatchResult) -> MatchResult:
     return MatchResult(
         id=db_result.id,
         match_id=db_result.match_id,
@@ -366,7 +366,7 @@ def _db_match_result_to_model(db_result: DbNetsessionTourneyMatchResult) -> Matc
     )
 
 
-def _db_match_chat_message_to_model(
+def db_match_chat_message_to_model(
     db_message: DbNetsessionTourneyMatchChatMessage,
 ) -> MatchChatMessage:
     return MatchChatMessage(

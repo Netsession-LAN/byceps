@@ -17,7 +17,7 @@ from .models import (
 )
 
 
-def _sort_ranked_participant_ids(
+def sort_ranked_participant_ids(
     rows_by_participant_id: dict[ParticipantID, dict[str, Any]],
     *,
     stage_type: str | None = None,

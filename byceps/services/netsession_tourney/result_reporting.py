@@ -26,11 +26,11 @@ from .dbmodels import (
     DbNetsessionTourneyResultReportReceipt,
 )
 from .double_grand_final import (
-    _is_match_marked_as_skipped_double_grand_final,
-    _update_optional_double_grand_final_state,
+    is_match_marked_as_skipped_double_grand_final,
+    update_optional_double_grand_final_state,
 )
 from .engines.registry import find_stage_engine
-from .match_advancement import _advance_stage_from_match, _auto_advance_byes
+from .match_advancement import advance_stage_from_match, auto_advance_byes
 from .models import (
     MatchID,
     MatchResult,
@@ -42,8 +42,8 @@ from .models import (
     TournamentMode,
     TournamentStatus,
 )
-from .result_deletion import _find_match_result_delete_blocker
-from .service_helpers import _append_audit_log, _db_match_result_to_model
+from .result_deletion import find_match_result_delete_blocker
+from .service_helpers import append_audit_log, db_match_result_to_model
 from .swiss_correction import prepare_swiss_winner_change
 from .tournament_queries import ACTIVE_PARTICIPANT_STATUS_VALUES
 
@@ -108,7 +108,7 @@ def find_result_of_repeated_report(
     )
     if db_existing_result is None:
         return Err('Idempotency receipt references unknown result.')
-    return Ok(_db_match_result_to_model(db_existing_result))
+    return Ok(db_match_result_to_model(db_existing_result))
 
 
 def validate_report_allowed(
@@ -128,7 +128,7 @@ def validate_report_allowed(
         if MatchState(db_match.state) not in REPORTABLE_MATCH_STATES:
             return 'In diesem Match-Status lässt sich kein Ergebnis melden.'
 
-    if _is_match_marked_as_skipped_double_grand_final(stage, db_match.id):
+    if is_match_marked_as_skipped_double_grand_final(stage, db_match.id):
         return 'Dieses Match entfällt, weil kein zweites Finale nötig ist.'
 
     return None
@@ -283,7 +283,7 @@ def store_receipt_and_audit(
             now,
         )
     )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=report.actor_user_id,
         object_type='match',
         object_id=match_id,
@@ -310,7 +310,7 @@ def advance_after_completion(
 ) -> None:
     """Move winner (and loser) on, let byes advance, handle the reset final."""
     engine = find_stage_engine(stage.type)
-    _advance_stage_from_match(
+    advance_stage_from_match(
         tournament_id=tournament_id,
         stage=stage,
         source_match_id=match_id,
@@ -318,8 +318,8 @@ def advance_after_completion(
         engine=engine,
     )
     if engine is not None:
-        _auto_advance_byes(tournament_id, stage, engine=engine)
-    _update_optional_double_grand_final_state(
+        auto_advance_byes(tournament_id, stage, engine=engine)
+    update_optional_double_grand_final_state(
         stage=stage, source_match_id=match_id
     )
 
@@ -343,7 +343,7 @@ def _check_winner_change_allowed(
     if swiss_error is not None:
         return swiss_error
 
-    blocking_match_id = _find_match_result_delete_blocker(match_id)
+    blocking_match_id = find_match_result_delete_blocker(match_id)
     if blocking_match_id is None:
         return None
 

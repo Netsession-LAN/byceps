@@ -35,10 +35,10 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _enqueue_match_ready_notifications,
+    enqueue_match_ready_notifications,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 
@@ -50,7 +50,7 @@ BRACKET_READY_PARTICIPANT_STATUS_VALUES = {
 }
 
 
-def _refresh_match_states_for_participant_readiness(
+def refresh_match_states_for_participant_readiness(
     db_tournament: DbNetsessionTourneyTournament,
     participant_id: ParticipantID,
 ) -> None:
@@ -87,12 +87,12 @@ def _refresh_match_states_for_participant_readiness(
         slots_by_match_id[db_slot.match_id].append(db_slot)
 
     participant_status_value_by_participant_id = (
-        _get_participant_status_value_by_participant_id_for_slots(db_slots)
+        get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
     now = datetime.utcnow()
     for db_match in affected_matches:
         previous_state = MatchState(db_match.state)
-        next_state = _calculate_match_state_for_slots(
+        next_state = calculate_match_state_for_slots(
             tournament_status=db_tournament.status,
             db_match_slots=slots_by_match_id.get(db_match.id, []),
             participant_status_value_by_participant_id=participant_status_value_by_participant_id,
@@ -104,13 +104,13 @@ def _refresh_match_states_for_participant_readiness(
         db_match.updated_at = now
 
         if previous_state != MatchState.ready and next_state == MatchState.ready:
-            _enqueue_match_ready_notifications(db_match)
+            enqueue_match_ready_notifications(db_match)
 
 
 def count_active_participants_for_tournament(
     party_id: PartyID, tournament_id: TournamentID
 ) -> int:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return 0
 
     count = db.session.scalar(
@@ -125,7 +125,7 @@ def count_active_participants_for_tournament(
     return int(count or 0)
 
 
-def _get_tournament_status_value(tournament_id: TournamentID) -> str:
+def get_tournament_status_value(tournament_id: TournamentID) -> str:
     return (
         db.session.scalar(
             select(DbNetsessionTourneyTournament.status).filter_by(
@@ -136,7 +136,7 @@ def _get_tournament_status_value(tournament_id: TournamentID) -> str:
     )
 
 
-def _calculate_match_state_for_slots(
+def calculate_match_state_for_slots(
     *,
     tournament_status: str,
     db_match_slots: list[DbNetsessionTourneyMatchSlot],
@@ -171,7 +171,7 @@ def _calculate_match_state_for_slots(
     return MatchState.pending
 
 
-def _get_participant_status_value_by_participant_id_for_slots(
+def get_participant_status_value_by_participant_id_for_slots(
     db_match_slots: list[DbNetsessionTourneyMatchSlot],
 ) -> dict[ParticipantID, str]:
     participant_ids = {
@@ -198,7 +198,7 @@ def _get_participant_status_value_by_participant_id(
     return {participant_id: status for participant_id, status in rows}
 
 
-def _validate_participant_limit(participant_limit: int | None) -> Result[None, str]:
+def validate_participant_limit(participant_limit: int | None) -> Result[None, str]:
     if participant_limit is None:
         return Ok(None)
 
@@ -208,7 +208,7 @@ def _validate_participant_limit(participant_limit: int | None) -> Result[None, s
     return Ok(None)
 
 
-def _is_user_already_active_participant(
+def is_user_already_active_participant(
     tournament_id: TournamentID, user_id: UserID
 ) -> bool:
     direct_assignment_exists = db.session.scalar(
@@ -241,7 +241,7 @@ def _is_user_already_active_participant(
     return bool(team_membership_exists)
 
 
-def _is_tournament_full(
+def is_tournament_full(
     tournament: Tournament, active_participant_count: int
 ) -> bool:
     return (
@@ -250,7 +250,7 @@ def _is_tournament_full(
     )
 
 
-def _find_db_active_participant_for_user(
+def find_db_active_participant_for_user(
     tournament_id: TournamentID, user_id: UserID
 ) -> DbNetsessionTourneyParticipant | None:
     db_participant = db.session.scalar(

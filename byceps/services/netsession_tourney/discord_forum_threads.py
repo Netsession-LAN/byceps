@@ -23,17 +23,17 @@ from .discord_dm_service import (
     get_configured_discord_bot_credentials,
 )
 from .discord_forum_api import (
-    _create_discord_forum_thread,
-    _get_discord_channel,
-    _is_discord_resource_missing,
-    _patch_discord_channel,
-    _patch_discord_forum_starter_message,
+    create_discord_forum_thread,
+    get_discord_channel,
+    is_discord_resource_missing,
+    patch_discord_channel,
+    patch_discord_forum_starter_message,
 )
 from .discord_payloads import (
-    _build_discord_forum_thread_payload,
+    build_discord_forum_thread_payload,
 )
 from .service_helpers import (
-    _append_audit_log,
+    append_audit_log,
 )
 
 
@@ -43,10 +43,10 @@ log = structlog.get_logger()
 def _ensure_discord_thread_for_tournament(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> None:
-    _sync_discord_thread_for_tournament(db_tournament, update_existing=False)
+    sync_discord_thread_for_tournament(db_tournament, update_existing=False)
 
 
-def _sync_discord_thread_for_tournament(
+def sync_discord_thread_for_tournament(
     db_tournament: DbNetsessionTourneyTournament,
     *,
     update_existing: bool = True,
@@ -104,13 +104,13 @@ def _validate_existing_discord_thread(
     """Check that the referenced thread still exists; clear the reference
     if it is gone. Return `False` if syncing must stop (unclear state)."""
     try:
-        _get_discord_channel(
+        get_discord_channel(
             application_id=application_id,
             bot_token=bot_token,
             channel_id=db_tournament.discord_thread_id,
         )
     except httpx.HTTPStatusError as exc:
-        if _is_discord_resource_missing(exc):
+        if is_discord_resource_missing(exc):
             _clear_discord_thread_reference(
                 db_tournament,
                 audit_action='discord_thread_missing_reset',
@@ -145,10 +145,10 @@ def _create_discord_thread_for_tournament(
     application_id: str,
     bot_token: str,
 ) -> None:
-    payload = _build_discord_forum_thread_payload(db_tournament)
+    payload = build_discord_forum_thread_payload(db_tournament)
 
     try:
-        thread_id = _create_discord_forum_thread(
+        thread_id = create_discord_forum_thread(
             application_id=application_id,
             bot_token=bot_token,
             forum_channel_id=db_tournament.discord_forum_channel_id,
@@ -165,7 +165,7 @@ def _create_discord_thread_for_tournament(
     db_tournament.discord_thread_id = thread_id
     db_tournament.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=None,
         object_type='tournament',
         object_id=db_tournament.id,
@@ -186,20 +186,20 @@ def _update_discord_forum_thread(
     if not thread_id:
         return
 
-    payload = _build_discord_forum_thread_payload(db_tournament)
+    payload = build_discord_forum_thread_payload(db_tournament)
     channel_payload: dict[str, Any] = {'name': payload['name']}
     if 'applied_tags' in payload:
         channel_payload['applied_tags'] = payload['applied_tags']
 
     try:
-        _patch_discord_channel(
+        patch_discord_channel(
             application_id=application_id,
             bot_token=bot_token,
             channel_id=thread_id,
             payload=channel_payload,
         )
     except httpx.HTTPStatusError as exc:
-        if _is_discord_resource_missing(exc):
+        if is_discord_resource_missing(exc):
             _clear_discord_thread_reference(
                 db_tournament,
                 audit_action='discord_thread_missing_reset',
@@ -208,33 +208,33 @@ def _update_discord_forum_thread(
                     'reason': 'thread_missing_while_updating',
                 },
             )
-            _sync_discord_thread_for_tournament(
+            sync_discord_thread_for_tournament(
                 db_tournament, update_existing=False
             )
             return
         raise
 
     try:
-        _patch_discord_forum_starter_message(
+        patch_discord_forum_starter_message(
             application_id=application_id,
             bot_token=bot_token,
             thread_id=thread_id,
             payload=payload['message'],
         )
     except httpx.HTTPStatusError as exc:
-        if not _is_discord_resource_missing(exc):
+        if not is_discord_resource_missing(exc):
             raise
     except httpx.HTTPError:
         return
 
 
-def _recover_deleted_discord_forum_thread(
+def recover_deleted_discord_forum_thread(
     *,
     db_tournament: DbNetsessionTourneyTournament,
     failed_thread_id: str,
     exc: httpx.HTTPStatusError,
 ) -> str | None:
-    if not _is_discord_resource_missing(exc):
+    if not is_discord_resource_missing(exc):
         return None
 
     if db_tournament.discord_thread_id == failed_thread_id:
@@ -248,7 +248,7 @@ def _recover_deleted_discord_forum_thread(
         )
 
     try:
-        _sync_discord_thread_for_tournament(
+        sync_discord_thread_for_tournament(
             db_tournament, update_existing=False
         )
     except httpx.HTTPError:
@@ -269,7 +269,7 @@ def _clear_discord_thread_reference(
     db_tournament.discord_thread_id = None
     db_tournament.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=None,
         object_type='tournament',
         object_id=db_tournament.id,

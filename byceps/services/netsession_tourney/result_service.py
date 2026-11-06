@@ -20,14 +20,14 @@ from byceps.util.result import Err, Ok, Result
 
 from . import domain_service
 from .builder_auto_generation import (
-    _auto_generate_builder_main_stages_from_completed_source,
+    auto_generate_builder_main_stages_from_completed_source,
 )
 from .dbmodels import (
     DbNetsessionTourneyMatch,
     DbNetsessionTourneyStage,
 )
 from .discord_payloads import (
-    _build_discord_match_completed_payload,
+    build_discord_match_completed_payload,
 )
 from .discord_service import (
     enqueue_discord_event,
@@ -39,7 +39,7 @@ from .models import (
     TournamentID,
 )
 from .notification_service import (
-    _append_notification_for_match_report,
+    append_notification_for_match_report,
 )
 from .result_report_mode import (
     determine_post_report_state as _determine_post_report_state,
@@ -59,12 +59,12 @@ from .result_reporting import (
     validate_report_allowed,
 )
 from .service_helpers import (
-    _db_match_result_to_model,
-    _db_stage_to_model,
-    _db_tournament_to_model,
+    db_match_result_to_model,
+    db_stage_to_model,
+    db_tournament_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -98,7 +98,7 @@ def report_result(
         correlation_id=correlation_id,
     )
 
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -117,8 +117,8 @@ def report_result(
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if db_stage is None:
         return Err('Unbekannte Stage.')
-    stage = _db_stage_to_model(db_stage)
-    tournament = _db_tournament_to_model(db_tournament)
+    stage = db_stage_to_model(db_stage)
+    tournament = db_tournament_to_model(db_tournament)
 
     not_allowed = validate_report_allowed(
         tournament, db_match, stage, actor_is_admin_or_referee=report.by_admin
@@ -176,7 +176,7 @@ def _apply_report(
             tournament.id, stage, db_match.id, sides, report.winner_slot
         )
 
-    _append_notification_for_match_report(db_match, stage, report.actor_user_id)
+    append_notification_for_match_report(db_match, stage, report.actor_user_id)
     if completed:
         _announce_and_continue_after_completion(
             db_tournament, db_match, stage, sides, report
@@ -192,7 +192,7 @@ def _apply_report(
         correlation_id=report.correlation_id,
         state=new_state.value,
     )
-    return Ok(_db_match_result_to_model(db_result))
+    return Ok(db_match_result_to_model(db_result))
 
 
 def _announce_and_continue_after_completion(
@@ -204,7 +204,7 @@ def _announce_and_continue_after_completion(
         db_tournament.party_id,
         db_tournament.id,
         event_name='match_completed',
-        payload=_build_discord_match_completed_payload(
+        payload=build_discord_match_completed_payload(
             db_tournament,
             db_match,
             stage,
@@ -215,7 +215,7 @@ def _announce_and_continue_after_completion(
             report.ranking_data,
         ),
     )
-    _auto_generate_builder_main_stages_from_completed_source(
+    auto_generate_builder_main_stages_from_completed_source(
         party_id=db_tournament.party_id,
         tournament_id=db_tournament.id,
         source_stage_id=stage.id,

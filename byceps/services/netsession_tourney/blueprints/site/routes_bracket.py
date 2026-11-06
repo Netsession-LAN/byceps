@@ -24,42 +24,42 @@ from ...match_queries import (
 from ...tournament_queries import (
     get_stages_for_tournament,
 )
-from .bracket_helpers import _build_bracket_sections, build_bracket_data
+from .bracket_helpers import build_bracket_sections, build_bracket_data
 from .builder_display_helpers import (
-    _get_builder_main_display_stages,
-    _select_matches_for_public_bracket,
+    get_builder_main_display_stages,
+    select_matches_for_public_bracket,
 )
-from .builder_helpers import _get_materialized_builder_container_stages
+from .builder_helpers import get_materialized_builder_container_stages
 from .match_helpers import (
-    _build_match_labels,
-    _build_skipped_double_grand_final_match_ids,
-    _build_slot_scores_by_match_id,
+    build_match_labels,
+    build_skipped_double_grand_final_match_ids,
+    build_slot_scores_by_match_id,
 )
 from .presentation_helpers import (
-    _select_builder_stage_section,
+    select_builder_stage_section,
 )
 from .round_robin_groups_display import add_round_robin_groups
 from .stage_filters import (
-    _uses_only_ffa_scoring_stages,
-    _uses_only_ffa_simple_stages,
-    _uses_only_ffa_single_elimination_stages,
-    _uses_only_flatout2_stages,
-    _uses_only_round_based_duel_stages,
-    _uses_only_swiss_stages,
+    uses_only_ffa_scoring_stages,
+    uses_only_ffa_simple_stages,
+    uses_only_ffa_single_elimination_stages,
+    uses_only_flatout2_stages,
+    uses_only_round_based_duel_stages,
+    uses_only_swiss_stages,
 )
 from .stage_render_helpers import (
-    _build_builder_main_stage_bracket_sections,
-    _build_builder_main_stage_match_sections,
-    _build_ffa_match_sections,
-    _build_ffa_single_elimination_bracket_sections,
-    _build_match_overview_sections,
+    build_builder_main_stage_bracket_sections,
+    build_builder_main_stage_match_sections,
+    build_ffa_match_sections,
+    build_ffa_single_elimination_bracket_sections,
+    build_match_overview_sections,
 )
 from .stage_tabs import build_stage_tab_rows
-from .swiss_public_rendering import _build_swiss_bracket_sections
+from .swiss_public_rendering import build_swiss_bracket_sections
 
 from .blueprint import blueprint
 from .common import (
-    _get_main_nav_current_page_id,
+    get_main_nav_current_page_id,
     _get_tournament_or_404,
     get_participants_for_tournament_indexed_by_id,
 )
@@ -92,39 +92,39 @@ def view_bracket(slug):
         participant_user_ids,
         include_avatars=True,
     )
-    slot_scores_by_match_id = _build_slot_scores_by_match_id(
+    slot_scores_by_match_id = build_slot_scores_by_match_id(
         matches, slots_by_match_id, results_by_match_id
     )
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = _build_skipped_double_grand_final_match_ids(
+    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
         matches,
         slots_by_match_id,
         results_by_match_id,
         stages_by_id,
     )
-    matches_for_bracket = _select_matches_for_public_bracket(stages, matches)
+    matches_for_bracket = select_matches_for_public_bracket(stages, matches)
     bracket = build_bracket_data(
         matches_for_bracket, slots_by_match_id, participants_by_id
     )
-    bracket_sections = _build_bracket_sections(bracket, match_labels_by_id)
-    is_ffa_scoring_tournament = _uses_only_ffa_scoring_stages(stages, matches)
+    bracket_sections = build_bracket_sections(bracket, match_labels_by_id)
+    is_ffa_scoring_tournament = uses_only_ffa_scoring_stages(stages, matches)
     is_ffa_single_elimination_tournament = (
-        _uses_only_ffa_single_elimination_stages(stages, matches)
+        uses_only_ffa_single_elimination_stages(stages, matches)
     )
     is_ffa_match_overview_tournament = (
         is_ffa_scoring_tournament or is_ffa_single_elimination_tournament
     )
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
-    is_swiss_tournament = _uses_only_swiss_stages(stages, matches)
-    is_round_based_duel_tournament = _uses_only_round_based_duel_stages(
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
+    is_swiss_tournament = uses_only_swiss_stages(stages, matches)
+    is_round_based_duel_tournament = uses_only_round_based_duel_stages(
         stages, matches
     )
     ffa_match_sections = (
-        _build_ffa_match_sections(
+        build_ffa_match_sections(
             matches,
             slots_by_match_id,
             results_by_match_id,
@@ -138,7 +138,7 @@ def view_bracket(slug):
         else []
     )
     ffa_single_elimination_bracket_sections = (
-        _build_ffa_single_elimination_bracket_sections(
+        build_ffa_single_elimination_bracket_sections(
             matches,
             slots_by_match_id,
             results_by_match_id,
@@ -149,7 +149,7 @@ def view_bracket(slug):
         else []
     )
     swiss_bracket_sections = (
-        _build_swiss_bracket_sections(
+        build_swiss_bracket_sections(
             matches,
             slots_by_match_id,
             results_by_match_id,
@@ -163,7 +163,7 @@ def view_bracket(slug):
         else []
     )
     round_based_match_sections = (
-        _build_match_overview_sections(
+        build_match_overview_sections(
             bracket_sections,
             stages_by_id,
             results_by_match_id,
@@ -182,9 +182,9 @@ def view_bracket(slug):
         results_by_match_id,
         participants_by_id,
     )
-    main_builder_display_stages = _get_builder_main_display_stages(stages)
+    main_builder_display_stages = get_builder_main_display_stages(stages)
     builder_stage_bracket_sections = (
-        _build_builder_main_stage_bracket_sections(
+        build_builder_main_stage_bracket_sections(
             stages,
             matches,
             slots_by_match_id,
@@ -201,7 +201,7 @@ def view_bracket(slug):
     selected_builder_bracket_section = None
     builder_bracket_tab_rows = []
     if builder_stage_bracket_sections:
-        selected_builder_bracket_section = _select_builder_stage_section(
+        selected_builder_bracket_section = select_builder_stage_section(
             builder_stage_bracket_sections,
             request.args.get('stage'),
         )
@@ -212,7 +212,7 @@ def view_bracket(slug):
             selected_builder_bracket_section,
         )
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -241,9 +241,9 @@ def view_bracket(slug):
             ffa_single_elimination_bracket_sections
         ),
         'swiss_bracket_sections': swiss_bracket_sections,
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,
@@ -261,12 +261,12 @@ def view_matches(slug):
     matches = get_matches_for_tournament(g.party.id, tournament.id)
     slots_by_match_id = get_match_slots({match.id for match in matches})
     results_by_match_id = get_match_results({match.id for match in matches})
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = _build_skipped_double_grand_final_match_ids(
+    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
         matches,
         slots_by_match_id,
         results_by_match_id,
@@ -290,21 +290,21 @@ def view_matches(slug):
         participant_user_ids,
         include_avatars=True,
     )
-    slot_scores_by_match_id = _build_slot_scores_by_match_id(
+    slot_scores_by_match_id = build_slot_scores_by_match_id(
         matches, slots_by_match_id, results_by_match_id
     )
     bracket = build_bracket_data(matches, slots_by_match_id, participants_by_id)
-    bracket_sections = _build_bracket_sections(bracket, match_labels_by_id)
-    is_ffa_scoring_tournament = _uses_only_ffa_scoring_stages(stages, matches)
+    bracket_sections = build_bracket_sections(bracket, match_labels_by_id)
+    is_ffa_scoring_tournament = uses_only_ffa_scoring_stages(stages, matches)
     is_ffa_single_elimination_tournament = (
-        _uses_only_ffa_single_elimination_stages(stages, matches)
+        uses_only_ffa_single_elimination_stages(stages, matches)
     )
     is_ffa_match_overview_tournament = (
         is_ffa_scoring_tournament or is_ffa_single_elimination_tournament
     )
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
     match_sections = (
-        _build_ffa_match_sections(
+        build_ffa_match_sections(
             matches,
             slots_by_match_id,
             results_by_match_id,
@@ -315,7 +315,7 @@ def view_matches(slug):
             stages_by_id,
         )
         if is_ffa_match_overview_tournament or is_flatout2_tournament
-        else _build_match_overview_sections(
+        else build_match_overview_sections(
             bracket_sections,
             stages_by_id,
             results_by_match_id,
@@ -325,10 +325,10 @@ def view_matches(slug):
             skipped_double_grand_final_match_ids,
         )
     )
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
-    main_builder_display_stages = _get_builder_main_display_stages(stages)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
+    main_builder_display_stages = get_builder_main_display_stages(stages)
     builder_stage_match_sections = (
-        _build_builder_main_stage_match_sections(
+        build_builder_main_stage_match_sections(
             stages,
             matches,
             slots_by_match_id,
@@ -348,7 +348,7 @@ def view_matches(slug):
     if builder_stage_match_sections:
         match_sections = builder_stage_match_sections
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -366,9 +366,9 @@ def view_matches(slug):
         'is_ffa_scoring_tournament': is_ffa_scoring_tournament,
         'is_ffa_match_overview_tournament': is_ffa_match_overview_tournament,
         'is_flatout2_tournament': is_flatout2_tournament,
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,

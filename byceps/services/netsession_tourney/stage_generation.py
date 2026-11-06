@@ -28,19 +28,19 @@ from .engines.registry import (
     get_stage_type_spec,
 )
 from .flatout2_builder import (
-    _build_flatout2_stage_generation_payload,
-    _build_manual_flatout2_stage_generation_payload,
+    build_flatout2_stage_generation_payload,
+    build_manual_flatout2_stage_generation_payload,
 )
 from .gen_preview_titles import (
-    _build_generation_preview_round_titles_by_round_no,
+    build_generation_preview_round_titles_by_round_no,
 )
 from .generation_participants import (
-    _order_participants_for_stage_generation,
-    _select_generation_participants_for_stage,
+    order_participants_for_stage_generation,
+    select_generation_participants_for_stage,
     StageMatchGenerationPreviewParticipant,
 )
 from .match_schedule import (
-    _build_round_starts_at_schedule,
+    build_round_starts_at_schedule,
 )
 from .models import (
     Participant,
@@ -52,23 +52,23 @@ from .models import (
     TournamentID,
 )
 from .registration_validation import (
-    _validate_bracket_ready_team_sizes,
+    validate_bracket_ready_team_sizes,
 )
 from .service_helpers import (
-    _db_stage_to_model,
-    _db_tournament_to_model,
+    db_stage_to_model,
+    db_tournament_to_model,
 )
 from .stage_builder_preview import (
-    _resolve_stage_builder_stage_for_generation,
+    resolve_stage_builder_stage_for_generation,
 )
 from .stage_generation_base import (
-    _StageGenerationPayload,
+    StageGenerationPayload,
 )
 from .swiss_stage import (
-    _build_swiss_stage_generation_payload,
+    build_swiss_stage_generation_payload,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -101,7 +101,7 @@ def preview_stage_match_generation(
     tournament_id: TournamentID,
     stage_id: StageID,
 ) -> Result[StageMatchGenerationPreview, str]:
-    payload_result = _build_stage_generation_payload(
+    payload_result = build_stage_generation_payload(
         party_id,
         tournament_id,
         stage_id,
@@ -115,12 +115,12 @@ def preview_stage_match_generation(
     for spec in payload.match_specs:
         round_match_counts[spec.round_no] += 1
 
-    suggested_round_starts_at = _build_round_starts_at_schedule(
+    suggested_round_starts_at = build_round_starts_at_schedule(
         tournament_starts_at=payload.tournament.starts_at,
         stage=payload.stage,
         round_match_counts=round_match_counts,
     )
-    display_titles_by_round_no = _build_generation_preview_round_titles_by_round_no(
+    display_titles_by_round_no = build_generation_preview_round_titles_by_round_no(
         payload.stage,
         payload.match_specs,
     )
@@ -174,14 +174,14 @@ class _StageGenerationSetup:
     engine: StageEngine
 
 
-def _build_stage_generation_payload(
+def build_stage_generation_payload(
     party_id: PartyID,
     tournament_id: TournamentID,
     stage_id: StageID,
     *,
     stage_settings_override: dict[str, Any] | None = None,
     require_flatout2_hosts: bool = True,
-) -> Result[_StageGenerationPayload, str]:
+) -> Result[StageGenerationPayload, str]:
     setup_result = _load_stage_generation_setup(
         party_id,
         tournament_id,
@@ -203,7 +203,7 @@ def _build_stage_generation_payload(
     ordered_participants = ordered_participants_result.unwrap()
 
     participant_ids = [participant.id for participant in ordered_participants]
-    resolved_stage_result = _resolve_stage_builder_stage_for_generation(
+    resolved_stage_result = resolve_stage_builder_stage_for_generation(
         stage,
         participant_count=len(participant_ids),
     )
@@ -218,7 +218,7 @@ def _build_stage_generation_payload(
             or not (stage.settings or {}).get('builder_kind')
         )
     ):
-        return _build_manual_flatout2_stage_generation_payload(
+        return build_manual_flatout2_stage_generation_payload(
             tournament=tournament,
             stage=stage,
             engine=engine,
@@ -242,7 +242,7 @@ def _load_stage_generation_setup(
     *,
     stage_settings_override: dict[str, Any] | None,
 ) -> Result[_StageGenerationSetup, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -254,12 +254,12 @@ def _load_stage_generation_setup(
     if db_stage is None:
         return Err('Unbekannte Stage.')
 
-    stage = _db_stage_to_model(db_stage)
+    stage = db_stage_to_model(db_stage)
     if stage_settings_override:
         merged_stage_settings = dict(stage.settings or {})
         merged_stage_settings.update(stage_settings_override)
         stage = replace(stage, settings=merged_stage_settings)
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     stage_type_spec = get_stage_type_spec(stage.type)
     if not stage_type_spec.enabled:
         return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
@@ -283,7 +283,7 @@ def _select_ordered_generation_participants(
     if checkin_error is not None:
         return Err(checkin_error)
 
-    selected_participants_result = _select_generation_participants_for_stage(
+    selected_participants_result = select_generation_participants_for_stage(
         party_id,
         tournament_id,
         stage,
@@ -292,13 +292,13 @@ def _select_ordered_generation_participants(
         return Err(selected_participants_result.unwrap_err())
     participants = selected_participants_result.unwrap()
 
-    team_size_validation_result = _validate_bracket_ready_team_sizes(
+    team_size_validation_result = validate_bracket_ready_team_sizes(
         tournament, participants
     )
     if team_size_validation_result.is_err():
         return Err(team_size_validation_result.unwrap_err())
 
-    ordered_participants = _order_participants_for_stage_generation(
+    ordered_participants = order_participants_for_stage_generation(
         participants,
         shuffle_unseeded=(
             (stage.settings or {}).get('participant_source_mode')
@@ -321,13 +321,13 @@ def _generate_stage_generation_payload(
     participant_ids: list[ParticipantID],
     tournament_id: TournamentID,
     require_flatout2_hosts: bool,
-) -> Result[_StageGenerationPayload, str]:
+) -> Result[StageGenerationPayload, str]:
     validation_result = engine.validate(stage, participant_ids)
     if validation_result.is_err():
         return Err(validation_result.unwrap_err())
 
     if stage.type == StageType.ffa_flatout2_single_elimination:
-        return _build_flatout2_stage_generation_payload(
+        return build_flatout2_stage_generation_payload(
             tournament=tournament,
             stage=stage,
             engine=engine,
@@ -337,7 +337,7 @@ def _generate_stage_generation_payload(
         )
 
     if stage.type == StageType.swiss:
-        return _build_swiss_stage_generation_payload(
+        return build_swiss_stage_generation_payload(
             tournament=tournament,
             stage=stage,
             engine=engine,
@@ -350,7 +350,7 @@ def _generate_stage_generation_payload(
         return Err(generation_result.unwrap_err())
 
     return Ok(
-        _StageGenerationPayload(
+        StageGenerationPayload(
             tournament=tournament,
             stage=stage,
             engine=engine,

@@ -15,7 +15,7 @@ import httpx
 DISCORD_FORUM_TIMEOUT_SECONDS = 10
 
 
-def _is_discord_resource_missing(exc: httpx.HTTPStatusError) -> bool:
+def is_discord_resource_missing(exc: httpx.HTTPStatusError) -> bool:
     return exc.response.status_code == 404
 
 
@@ -29,7 +29,7 @@ def _build_discord_bot_headers(
     }
 
 
-def _create_discord_forum_thread(
+def create_discord_forum_thread(
     *,
     application_id: str,
     bot_token: str,
@@ -55,7 +55,7 @@ def _create_discord_forum_thread(
         return thread_id
 
 
-def _get_discord_channel(
+def get_discord_channel(
     *,
     application_id: str,
     bot_token: str,
@@ -73,7 +73,7 @@ def _get_discord_channel(
         return response.json()
 
 
-def _patch_discord_channel(
+def patch_discord_channel(
     *,
     application_id: str,
     bot_token: str,
@@ -91,7 +91,7 @@ def _patch_discord_channel(
         response.raise_for_status()
 
 
-def _patch_discord_forum_starter_message(
+def patch_discord_forum_starter_message(
     *,
     application_id: str,
     bot_token: str,
@@ -112,7 +112,7 @@ def _patch_discord_forum_starter_message(
         response.raise_for_status()
 
 
-def _post_discord_forum_message(
+def post_discord_forum_message(
     *,
     application_id: str,
     bot_token: str,

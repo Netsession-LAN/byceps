@@ -13,11 +13,11 @@ from byceps.util.result import Err, Ok, Result
 from ..models import MatchID, ParticipantID, Stage, TournamentMode
 from .base import MatchSpec, SlotSpec, StageEngine, Standing
 from .bracket_helpers import (
-    _build_seeded_bracket_slots,
-    _seeded_slots,
-    _snake_groups,
-    _sourced_slot,
-    _with_computed_round_numbers,
+    build_seeded_bracket_slots,
+    seeded_slots,
+    snake_groups,
+    sourced_slot,
+    with_computed_round_numbers,
     build_double_elimination_specs,
     build_single_elimination_specs,
 )
@@ -134,7 +134,7 @@ class _SingleEliminationEngine(_SortedScoreStandingsMixin, StageEngine):
         if validation_result.is_err():
             return Err(validation_result.unwrap_err())
 
-        bracket_slots = _build_seeded_bracket_slots(participant_ids)
+        bracket_slots = build_seeded_bracket_slots(participant_ids)
         include_consolation_final = (
             len(participant_ids) >= 4
             and bool(stage.settings.get('include_consolation_final', True))
@@ -175,16 +175,16 @@ class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin
         p1 = bracket_slots[0]
         p2 = bracket_slots[1] if len(bracket_slots) > 1 else None
         specs = {
-            1: (_seeded_slots(p1, p2), 'ready' if p1 and p2 else 'pending'),
-            2: ([_sourced_slot(1, 1, 'winner'), _sourced_slot(2, 1, 'loser')],
+            1: (seeded_slots(p1, p2), 'ready' if p1 and p2 else 'pending'),
+            2: ([sourced_slot(1, 1, 'winner'), sourced_slot(2, 1, 'loser')],
                 'pending'),
         }
         if self._include_double_grand_final:
             specs[3] = (
-                [_sourced_slot(1, 2, 'winner'), _sourced_slot(2, 2, 'loser')],
+                [sourced_slot(1, 2, 'winner'), sourced_slot(2, 2, 'loser')],
                 'pending',
             )
-        return _with_computed_round_numbers(specs)
+        return with_computed_round_numbers(specs)
 
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
@@ -193,7 +193,7 @@ class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin
         if validation_result.is_err():
             return Err(validation_result.unwrap_err())
 
-        bracket_slots = _build_seeded_bracket_slots(participant_ids)
+        bracket_slots = build_seeded_bracket_slots(participant_ids)
         bracket_size = len(bracket_slots)
 
         if bracket_size <= 2:
@@ -314,7 +314,7 @@ class _SwissEngine(_NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine)
                         round_no=round_no,
                         match_no=match_no,
                         state=state,
-                        slots=_seeded_slots(p1, p2),
+                        slots=seeded_slots(p1, p2),
                     )
                 )
                 match_no += 1
@@ -390,7 +390,7 @@ class _RoundRobinGroupsEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin,
             group_count = 0
 
         if group_count > 0:
-            groups = _snake_groups(list(participant_ids), group_count)
+            groups = snake_groups(list(participant_ids), group_count)
         else:
             group_size = _get_group_size(stage.settings.get('group_size'))
             groups = _chunked(list(participant_ids), group_size)
@@ -637,7 +637,7 @@ def _generate_round_robin_specs(
                     round_no=round_no,
                     match_no=match_no,
                     state='pending' if p2 is None else 'ready',
-                    slots=_seeded_slots(p1, p2),
+                    slots=seeded_slots(p1, p2),
                 )
             )
             match_no += 1

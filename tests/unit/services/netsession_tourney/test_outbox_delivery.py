@@ -32,7 +32,7 @@ def discord(monkeypatch):
         discord_service.db, 'session', SimpleNamespace(get=lambda *_: tournament)
     )
     monkeypatch.setattr(
-        discord_service, '_build_discord_message_payload', lambda *_: {'content': 'x'}
+        discord_service, 'build_discord_message_payload', lambda *_: {'content': 'x'}
     )
     monkeypatch.setattr(
         discord_service,
@@ -68,7 +68,7 @@ def _set_post(monkeypatch, discord, *outcomes):
         if outcome is not None:
             raise outcome
 
-    monkeypatch.setattr(discord_service, '_post_discord_forum_message', post)
+    monkeypatch.setattr(discord_service, 'post_discord_forum_message', post)
 
 
 def test_discord_post_marks_row_sent(monkeypatch, discord):
@@ -85,7 +85,7 @@ def test_discord_deleted_thread_is_recreated_and_post_repeated(monkeypatch, disc
     _set_post(monkeypatch, discord, _http_status_error(404), None)
     monkeypatch.setattr(
         discord_service,
-        '_recover_deleted_discord_forum_thread',
+        'recover_deleted_discord_forum_thread',
         lambda **_: 'thread-2',
     )
     row = _row()
@@ -110,7 +110,7 @@ def test_discord_http_error_schedules_retry(monkeypatch, discord):
 def test_discord_unrecoverable_status_error_schedules_retry(monkeypatch, discord):
     _set_post(monkeypatch, discord, _http_status_error(500))
     monkeypatch.setattr(
-        discord_service, '_recover_deleted_discord_forum_thread', lambda **_: None
+        discord_service, 'recover_deleted_discord_forum_thread', lambda **_: None
     )
 
     discord_service._deliver_discord_outbox_row(_row(), ('app', 'token'), None, NOW)

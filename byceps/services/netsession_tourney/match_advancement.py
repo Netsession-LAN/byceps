@@ -20,14 +20,14 @@ from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
 )
 from .double_grand_final import (
-    _update_optional_double_grand_final_state,
+    update_optional_double_grand_final_state,
 )
 from .engines.base import StageEngine
 from .engines.registry import (
     find_stage_engine,
 )
 from .ffa_qualifiers import (
-    _get_ffa_single_elimination_qualifier_ids,
+    get_ffa_single_elimination_qualifier_ids,
 )
 from .models import (
     MatchID,
@@ -40,17 +40,17 @@ from .models import (
     TournamentID,
 )
 from .notification_service import (
-    _enqueue_match_ready_notifications,
+    enqueue_match_ready_notifications,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_tournament_status_value,
+    calculate_match_state_for_slots,
+    get_tournament_status_value,
 )
 from .service_helpers import (
-    _append_audit_log,
+    append_audit_log,
 )
 from .swiss_stage import (
-    _seed_swiss_follow_up_rounds,
+    seed_swiss_follow_up_rounds,
 )
 
 
@@ -70,7 +70,7 @@ def resolve_pending_confirmations() -> int:
         db_match.state = MatchState.needs_admin_review.value
         db_match.updated_at = now
         db_match.confirmation_deadline_at = None
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=None,
             object_type='match',
             object_id=db_match.id,
@@ -83,7 +83,7 @@ def resolve_pending_confirmations() -> int:
     return len(db_matches)
 
 
-def _auto_advance_byes(
+def auto_advance_byes(
     tournament_id: TournamentID, stage: Stage, *, engine: StageEngine
 ) -> None:
     while True:
@@ -171,14 +171,14 @@ def _auto_advance_bye_match(
     db_match.state = MatchState.completed.value
     db_match.updated_at = datetime.utcnow()
 
-    _advance_stage_from_match(
+    advance_stage_from_match(
         tournament_id=tournament_id,
         stage=stage,
         source_match_id=db_match.id,
         winner_participant_id=winner_participant_id,
         engine=engine,
     )
-    _update_optional_double_grand_final_state(
+    update_optional_double_grand_final_state(
         stage=stage, source_match_id=db_match.id
     )
     return True
@@ -209,7 +209,7 @@ def _is_unresolved_source_slot(slot: DbNetsessionTourneyMatchSlot) -> bool:
     )
 
 
-def _advance_stage_from_match(
+def advance_stage_from_match(
     *,
     tournament_id: TournamentID,
     stage: Stage,
@@ -292,11 +292,11 @@ def _enqueue_notifications_for_still_ready_matches(
         if db_match is None or db_match.state != MatchState.ready.value:
             continue
 
-        _enqueue_match_ready_notifications(db_match)
+        enqueue_match_ready_notifications(db_match)
 
 
 def _advance_swiss_stage(tournament_id: TournamentID, stage: Stage) -> None:
-    ready_match_ids = _seed_swiss_follow_up_rounds(
+    ready_match_ids = seed_swiss_follow_up_rounds(
         tournament_id=tournament_id,
         stage=stage,
     ) or []
@@ -304,7 +304,7 @@ def _advance_swiss_stage(tournament_id: TournamentID, stage: Stage) -> None:
         db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
         if db_match is None:
             continue
-        _enqueue_match_ready_notifications(db_match)
+        enqueue_match_ready_notifications(db_match)
 
 
 def _find_loser_participant_id(
@@ -330,7 +330,7 @@ def _build_ffa_qualifier_updates(
     source_match_slots: list[DbNetsessionTourneyMatchSlot],
     downstream_winner_slots: list[tuple[MatchID, int]],
 ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-    ranked_participant_ids = _get_ffa_single_elimination_qualifier_ids(
+    ranked_participant_ids = get_ffa_single_elimination_qualifier_ids(
         source_match_id,
         source_match_slots,
         len(downstream_winner_slots),
@@ -374,8 +374,8 @@ def _apply_downstream_slot_updates(
         db_match_slots = db.session.scalars(
             select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
         ).all()
-        next_state = _calculate_match_state_for_slots(
-            tournament_status=_get_tournament_status_value(tournament_id),
+        next_state = calculate_match_state_for_slots(
+            tournament_status=get_tournament_status_value(tournament_id),
             db_match_slots=db_match_slots,
         )
         db_match.state = next_state.value

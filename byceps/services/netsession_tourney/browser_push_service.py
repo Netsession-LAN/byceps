@@ -40,10 +40,10 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _db_browser_push_config_to_model,
+    db_browser_push_config_to_model,
 )
 from .tournament_queries import (
-    _get_active_user_ids_for_tournament,
+    get_active_user_ids_for_tournament,
 )
 
 
@@ -69,7 +69,7 @@ def get_browser_push_config(party_id: PartyID) -> BrowserPushConfig:
     try:
         db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return _build_default_browser_push_config(party_id)
         raise
@@ -77,14 +77,14 @@ def get_browser_push_config(party_id: PartyID) -> BrowserPushConfig:
     if db_config is None:
         return _build_default_browser_push_config(party_id)
 
-    return _db_browser_push_config_to_model(db_config)
+    return db_browser_push_config_to_model(db_config)
 
 
 def is_browser_push_enabled_for_party(party_id: PartyID) -> bool:
     try:
         db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return False
         raise
@@ -96,7 +96,7 @@ def get_browser_push_public_key_for_party(party_id: PartyID) -> str | None:
     try:
         db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return None
         raise
@@ -119,7 +119,7 @@ def configure_browser_push(
     try:
         db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
         raise
@@ -145,7 +145,7 @@ def configure_browser_push(
     db_config.updated_at = now
     db.session.commit()
 
-    return Ok(_db_browser_push_config_to_model(db_config))
+    return Ok(db_browser_push_config_to_model(db_config))
 
 
 def upsert_browser_push_subscription(
@@ -176,7 +176,7 @@ def upsert_browser_push_subscription(
             )
         )
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
         raise
@@ -220,7 +220,7 @@ def disable_browser_push_subscription(
             )
         )
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return
         raise
@@ -249,7 +249,7 @@ def count_active_browser_push_subscriptions_for_user(
             .filter_by(party_id=party_id, user_id=user_id, enabled=True)
         )
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return 0
         raise
@@ -260,18 +260,18 @@ def count_browser_push_subscribed_participants_for_tournament(
     party_id: PartyID, tournament_id: TournamentID
 ) -> int:
     user_ids, _subscription_count = (
-        _get_active_browser_push_subscription_recipients_for_tournament(
+        get_active_browser_push_subscription_recipients_for_tournament(
             party_id, tournament_id
         )
     )
     return len(user_ids)
 
 
-def _get_active_browser_push_subscription_recipients_for_tournament(
+def get_active_browser_push_subscription_recipients_for_tournament(
     party_id: PartyID,
     tournament_id: TournamentID,
 ) -> tuple[set[UserID], int]:
-    user_ids = _get_active_user_ids_for_tournament(tournament_id)
+    user_ids = get_active_user_ids_for_tournament(tournament_id)
     if not user_ids:
         return set(), 0
 
@@ -285,7 +285,7 @@ def _get_active_browser_push_subscription_recipients_for_tournament(
             )
         ).all()
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return set(), 0
         raise
@@ -297,7 +297,7 @@ def _get_active_browser_push_subscription_recipients_for_tournament(
 def get_browser_push_subscribed_user_ids_for_tournament(
     party_id: PartyID, tournament_id: TournamentID
 ) -> set[UserID]:
-    user_ids = _get_active_user_ids_for_tournament(tournament_id)
+    user_ids = get_active_user_ids_for_tournament(tournament_id)
     if not user_ids:
         return set()
 
@@ -311,7 +311,7 @@ def get_browser_push_subscribed_user_ids_for_tournament(
             .distinct()
         ).all()
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return set()
         raise
@@ -340,7 +340,7 @@ def get_recent_browser_push_outbox_entries_for_tournament(
             .limit(limit)
         ).all()
     except DBAPIError as exc:
-        if _is_missing_browser_push_table_error(exc):
+        if is_missing_browser_push_table_error(exc):
             db.session.rollback()
             return []
         raise
@@ -415,7 +415,7 @@ def _encrypt_browser_push_private_key(private_key_pem: str) -> str:
     return token.decode('ascii')
 
 
-def _decrypt_browser_push_private_key(token: str) -> str | None:
+def decrypt_browser_push_private_key(token: str) -> str | None:
     try:
         decrypted = _get_browser_push_fernet().decrypt(token.encode('ascii'))
         return decrypted.decode('utf-8')
@@ -442,7 +442,7 @@ def _build_default_browser_push_config(
     )
 
 
-def _is_missing_browser_push_table_error(exc: DBAPIError) -> bool:
+def is_missing_browser_push_table_error(exc: DBAPIError) -> bool:
     sqlstate = getattr(getattr(exc, 'orig', None), 'sqlstate', None)
     if sqlstate != '42P01':
         return False

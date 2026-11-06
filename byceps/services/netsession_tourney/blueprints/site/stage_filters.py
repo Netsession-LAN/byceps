@@ -27,7 +27,7 @@ def _is_flatout2_stage(stage) -> bool:
     )
 
 
-def _is_ffa_single_elimination_stage(stage) -> bool:
+def is_ffa_single_elimination_stage(stage) -> bool:
     return stage is not None and stage.type in {
         StageType.ffa_single_elimination,
         StageType.ffa_flatout2_single_elimination,
@@ -46,7 +46,7 @@ def _is_round_based_duel_stage(stage) -> bool:
     }
 
 
-def _uses_only_ffa_simple_stages(stages, matches) -> bool:
+def uses_only_ffa_simple_stages(stages, matches) -> bool:
     if not stages:
         return False
 
@@ -63,7 +63,7 @@ def _uses_only_ffa_simple_stages(stages, matches) -> bool:
     return all(_is_ffa_simple_stage(stage) for stage in relevant_stages)
 
 
-def _uses_only_ffa_scoring_stages(stages, matches) -> bool:
+def uses_only_ffa_scoring_stages(stages, matches) -> bool:
     if not stages:
         return False
 
@@ -80,7 +80,7 @@ def _uses_only_ffa_scoring_stages(stages, matches) -> bool:
     return all(_is_ffa_scoring_stage(stage) for stage in relevant_stages)
 
 
-def _uses_only_flatout2_stages(stages, matches) -> bool:
+def uses_only_flatout2_stages(stages, matches) -> bool:
     if not stages:
         return False
 
@@ -97,7 +97,7 @@ def _uses_only_flatout2_stages(stages, matches) -> bool:
     return all(_is_flatout2_stage(stage) for stage in relevant_stages)
 
 
-def _uses_only_ffa_single_elimination_stages(stages, matches) -> bool:
+def uses_only_ffa_single_elimination_stages(stages, matches) -> bool:
     if not stages:
         return False
 
@@ -111,10 +111,10 @@ def _uses_only_ffa_single_elimination_stages(stages, matches) -> bool:
     if not relevant_stages:
         return False
 
-    return all(_is_ffa_single_elimination_stage(stage) for stage in relevant_stages)
+    return all(is_ffa_single_elimination_stage(stage) for stage in relevant_stages)
 
 
-def _uses_only_swiss_stages(stages, matches) -> bool:
+def uses_only_swiss_stages(stages, matches) -> bool:
     if not stages:
         return False
 
@@ -131,7 +131,7 @@ def _uses_only_swiss_stages(stages, matches) -> bool:
     return all(_is_swiss_stage(stage) for stage in relevant_stages)
 
 
-def _uses_only_round_based_duel_stages(stages, matches) -> bool:
+def uses_only_round_based_duel_stages(stages, matches) -> bool:
     if not stages:
         return False
 

@@ -29,32 +29,32 @@ from ...tournament_queries import (
     get_stages_for_tournament,
 )
 from .builder_display_helpers import (
-    _build_builder_stage_summary_lines,
+    build_builder_stage_summary_lines,
 )
-from .builder_helpers import _get_materialized_builder_container_stages
+from .builder_helpers import get_materialized_builder_container_stages
 from .match_helpers import (
-    _build_match_labels,
-    _build_skipped_double_grand_final_match_ids,
-    _build_slot_scores_by_match_id,
+    build_match_labels,
+    build_skipped_double_grand_final_match_ids,
+    build_slot_scores_by_match_id,
 )
 from .presentation_helpers import (
-    _select_builder_stage_section,
+    select_builder_stage_section,
 )
 from .ranking_helpers import (
-    _build_ranking_rows,
+    build_ranking_rows,
 )
 from .stage_filters import (
-    _is_ffa_single_elimination_stage,
-    _uses_only_ffa_simple_stages,
+    is_ffa_single_elimination_stage,
+    uses_only_ffa_simple_stages,
 )
 from .stage_render_helpers import (
-    _build_builder_preliminary_match_sections,
+    build_builder_preliminary_match_sections,
 )
 from .stage_tabs import build_stage_tab_rows
 
 from .blueprint import blueprint
 from .common import (
-    _get_main_nav_current_page_id,
+    get_main_nav_current_page_id,
     _get_tournament_or_404,
     get_participants_for_tournament_indexed_by_id,
 )
@@ -65,7 +65,7 @@ from .common import (
 def view_preliminaries(slug):
     tournament = _get_tournament_or_404(slug)
     stages = get_stages_for_tournament(g.party.id, tournament.id)
-    preliminary_container_stages = _get_materialized_builder_container_stages(
+    preliminary_container_stages = get_materialized_builder_container_stages(
         stages, role='preliminary'
     )
     if not preliminary_container_stages:
@@ -75,12 +75,12 @@ def view_preliminaries(slug):
     slots_by_match_id = get_match_slots({match.id for match in matches})
     results_by_match_id = get_match_results({match.id for match in matches})
     stages_by_id = {stage.id: stage for stage in stages}
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = _build_skipped_double_grand_final_match_ids(
+    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
         matches,
         slots_by_match_id,
         results_by_match_id,
@@ -104,12 +104,12 @@ def view_preliminaries(slug):
         participant_user_ids,
         include_avatars=True,
     )
-    slot_scores_by_match_id = _build_slot_scores_by_match_id(
+    slot_scores_by_match_id = build_slot_scores_by_match_id(
         matches, slots_by_match_id, results_by_match_id
     )
 
     preliminary_summary_stage = preliminary_container_stages[0]
-    preliminary_sections = _build_builder_preliminary_match_sections(
+    preliminary_sections = build_builder_preliminary_match_sections(
         stages,
         matches,
         slots_by_match_id,
@@ -120,7 +120,7 @@ def view_preliminaries(slug):
         match_labels_by_id,
         skipped_double_grand_final_match_ids,
     )
-    selected_preliminary_section = _select_builder_stage_section(
+    selected_preliminary_section = select_builder_stage_section(
         preliminary_sections,
         request.args.get('stage'),
     )
@@ -173,8 +173,8 @@ def view_preliminaries(slug):
         ):
             preliminary_ranking_subject_label = gettext('Spieler')
 
-        if not _is_ffa_single_elimination_stage(selected_stage):
-            selected_preliminary_ranking_rows = _build_ranking_rows(
+        if not is_ffa_single_elimination_stage(selected_stage):
+            selected_preliminary_ranking_rows = build_ranking_rows(
                 selected_stage_participants,
                 selected_stage_matches,
                 selected_stage_slots_by_match_id,
@@ -188,12 +188,12 @@ def view_preliminaries(slug):
         selected_preliminary_section,
     )
     preliminary_summary_lines = (
-        _build_builder_stage_summary_lines(preliminary_summary_stage, stages)
+        build_builder_stage_summary_lines(preliminary_summary_stage, stages)
         if preliminary_summary_stage is not None
         else []
     )
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -202,7 +202,7 @@ def view_preliminaries(slug):
             selected_stage.type if selected_stage is not None else None
         ),
         'selected_preliminary_is_ffa_stage': (
-            _is_ffa_single_elimination_stage(selected_stage)
+            is_ffa_single_elimination_stage(selected_stage)
             if selected_stage is not None
             else False
         ),
@@ -211,7 +211,7 @@ def view_preliminaries(slug):
         'preliminary_tab_rows': preliminary_tab_rows,
         'preliminary_summary_lines': preliminary_summary_lines,
         'users_by_id': users_by_id,
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
         'show_preliminaries_tab': True,
         'current_page': current_page_id,
         'current_tournament_page': 'preliminaries',

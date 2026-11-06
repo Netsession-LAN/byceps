@@ -20,7 +20,7 @@ from .dbmodels import (
     DbNetsessionTourneyStage,
 )
 from .ffa_qualifiers import (
-    _get_ffa_single_elimination_qualifier_ids,
+    get_ffa_single_elimination_qualifier_ids,
 )
 from .models import (
     MatchID,
@@ -32,18 +32,18 @@ from .models import (
     TournamentID,
 )
 from .ranking_order import (
-    _sort_ranked_participant_ids,
+    sort_ranked_participant_ids,
 )
 from .stage_builder_settings import (
-    _get_stage_builder_main_stage_size,
+    get_stage_builder_main_stage_size,
 )
 from .stage_ranking import (
-    _build_stage_ranking_data,
-    _StageRankingData,
+    build_stage_ranking_data,
+    StageRankingData,
 )
 
 
-def _get_ranked_participant_ids_by_match_for_stage(
+def get_ranked_participant_ids_by_match_for_stage(
     stage_id: StageID,
     tournament_id: TournamentID,
     *,
@@ -86,7 +86,7 @@ def _get_ranked_participant_ids_by_match_for_stage(
     ranked_participant_ids: list[ParticipantID] = []
     for db_match in db_matches:
         ranked_participant_ids.extend(
-            _get_ffa_single_elimination_qualifier_ids(
+            get_ffa_single_elimination_qualifier_ids(
                 db_match.id,
                 sorted(
                     slots_by_match_id.get(db_match.id, []),
@@ -102,7 +102,7 @@ def _get_ranked_participant_ids_by_match_for_stage(
     return Ok(ranked_participant_ids)
 
 
-def _get_effective_qualifier_top_n_for_source_stage(
+def get_effective_qualifier_top_n_for_source_stage(
     stage: Stage,
     db_source_stage: DbNetsessionTourneyStage,
     tournament_id: TournamentID,
@@ -119,7 +119,7 @@ def _get_effective_qualifier_top_n_for_source_stage(
             return Err('Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.')
         return Ok(top_n)
 
-    main_stage_size = _get_stage_builder_main_stage_size(stage)
+    main_stage_size = get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
         return Err('Ungültige Größe der Main Stage im Baukasten.')
 
@@ -131,7 +131,7 @@ def _get_effective_qualifier_top_n_for_source_stage(
             'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppen-Stage als Quelle.'
         )
 
-    ranked_group_participant_ids_result = _get_ranked_participant_ids_by_group_for_stage(
+    ranked_group_participant_ids_result = get_ranked_participant_ids_by_group_for_stage(
         db_source_stage.id,
         tournament_id,
     )
@@ -154,11 +154,11 @@ def _get_effective_qualifier_top_n_for_source_stage(
     return Ok(top_n)
 
 
-def _get_ranked_participant_ids_by_group_for_stage(
+def get_ranked_participant_ids_by_group_for_stage(
     stage_id: StageID,
     tournament_id: TournamentID,
 ) -> Result[list[list[ParticipantID]], str]:
-    ranking_data_result = _build_stage_ranking_data(stage_id, tournament_id)
+    ranking_data_result = build_stage_ranking_data(stage_id, tournament_id)
     if ranking_data_result.is_err():
         return Err(ranking_data_result.unwrap_err())
 
@@ -192,7 +192,7 @@ def _get_ranked_participant_ids_by_group_for_stage(
             ]
             for group_participant_id in group_participant_ids
         }
-        sorted_group_participant_ids = _sort_ranked_participant_ids(
+        sorted_group_participant_ids = sort_ranked_participant_ids(
             group_rows_by_participant_id,
             stage_type=ranking_data.db_stage.type,
             head_to_head_winner_id_by_pair=(
@@ -221,7 +221,7 @@ def _get_ranked_participant_ids_by_group_for_stage(
 
 
 def _build_group_participant_connections(
-    ranking_data: _StageRankingData,
+    ranking_data: StageRankingData,
 ) -> tuple[dict[ParticipantID, set[ParticipantID]], dict[ParticipantID, int]]:
     """Return which participants played each other, and each participant's
     first match number.

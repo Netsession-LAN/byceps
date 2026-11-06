@@ -29,15 +29,15 @@ from .discord_dm_service import (
     get_configured_discord_bot_credentials,
 )
 from .discord_forum_api import (
-    _post_discord_forum_message,
+    post_discord_forum_message,
 )
 from .discord_forum_threads import (
-    _recover_deleted_discord_forum_thread,
-    _sync_discord_thread_for_tournament,
+    recover_deleted_discord_forum_thread,
+    sync_discord_thread_for_tournament,
 )
 from .discord_ids import is_discord_id
 from .discord_payloads import (
-    _build_discord_message_payload,
+    build_discord_message_payload,
 )
 from .models import (
     DiscordOutboxID,
@@ -47,11 +47,11 @@ from .models import (
 )
 from .outbox_processing import process_outbox_rows
 from .service_helpers import (
-    _append_audit_log,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_tournament_to_model,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -86,7 +86,7 @@ def enqueue_discord_event(
         )
         return
 
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None or not db_tournament.discord_enabled:
         return
 
@@ -167,7 +167,7 @@ def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> 
 
     if not db_tournament.discord_thread_id:
         try:
-            _sync_discord_thread_for_tournament(db_tournament)
+            sync_discord_thread_for_tournament(db_tournament)
         except Exception:
             pass
 
@@ -181,17 +181,17 @@ def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> 
     application_id, bot_token = credentials
 
     def post(to_thread_id) -> None:
-        _post_discord_forum_message(
+        post_discord_forum_message(
             application_id=application_id,
             bot_token=bot_token,
             thread_id=to_thread_id,
-            payload=_build_discord_message_payload(db_tournament, db_row),
+            payload=build_discord_message_payload(db_tournament, db_row),
         )
 
     try:
         post(thread_id)
     except httpx.HTTPStatusError as exc:
-        recovered_thread_id = _recover_deleted_discord_forum_thread(
+        recovered_thread_id = recover_deleted_discord_forum_thread(
             db_tournament=db_tournament, failed_thread_id=thread_id, exc=exc
         )
         if not recovered_thread_id:
@@ -247,7 +247,7 @@ def configure_discord(
     discord_dm_enabled: bool,
     discord_dm_event_mask: list[str],
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -284,7 +284,7 @@ def configure_discord(
     db_tournament.discord_dm_event_mask = normalized_discord_dm_event_mask
     db_tournament.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -302,9 +302,9 @@ def configure_discord(
 
     db.session.commit()
     if db_tournament.discord_enabled:
-        _sync_discord_thread_for_tournament(db_tournament)
+        sync_discord_thread_for_tournament(db_tournament)
 
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def _validate_discord_configuration(

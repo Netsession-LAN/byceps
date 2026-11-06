@@ -31,11 +31,11 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_participant_to_model,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_participant_to_model,
+    db_tournament_to_model,
 )
-from .tournament_queries import _find_db_tournament_for_party
+from .tournament_queries import find_db_tournament_for_party
 
 
 _CHECKIN_ALLOWED_STATUSES = {
@@ -95,10 +95,10 @@ def check_generation_allowed(tournament: Tournament) -> str | None:
 def check_in(
     party_id: PartyID, tournament_id: TournamentID, user: User
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
 
     phase = get_checkin_phase(tournament)
     if phase is None:
@@ -117,7 +117,7 @@ def check_in(
 
     if db_participant.checkin_state != CheckinState.checked_in.value:
         db_participant.checkin_state = CheckinState.checked_in.value
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=user.id,
             object_type='participant',
             object_id=db_participant.id,
@@ -127,7 +127,7 @@ def check_in(
         )
         db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def _find_db_participant_to_check_in(
@@ -159,7 +159,7 @@ def set_checkin_by_admin(
 ) -> Result[Participant, str]:
     """Check a participant in (or take it back) on their behalf, e.g. when
     a player has trouble at their seat. Works outside the window, too."""
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     db_participant = db.session.get(DbNetsessionTourneyParticipant, participant_id)
@@ -169,7 +169,7 @@ def set_checkin_by_admin(
     new_state = CheckinState.checked_in if checked_in else CheckinState.pending
     if db_participant.checkin_state != new_state.value:
         db_participant.checkin_state = new_state.value
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='participant',
             object_id=db_participant.id,
@@ -183,4 +183,4 @@ def set_checkin_by_admin(
         )
         db.session.commit()
 
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))

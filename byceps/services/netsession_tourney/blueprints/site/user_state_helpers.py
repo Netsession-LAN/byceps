@@ -38,19 +38,19 @@ from .flatout2_public_rendering import get_flatout2_host_participant_id
 from .stage_filters import _is_flatout2_stage
 
 
-def _get_registration_state_for_tournament(tournament) -> dict:
+def get_registration_state_for_tournament(tournament) -> dict:
     active_participant_count = get_active_participant_counts_for_tournaments(
         g.party.id, {tournament.id}
     ).get(tournament.id, 0)
     is_user_registered = (
-        tournament.id in _get_user_registered_tournament_ids(g.party.id, {tournament.id})
+        tournament.id in get_user_registered_tournament_ids(g.party.id, {tournament.id})
     )
-    return _build_registration_state(
+    return build_registration_state(
         tournament, active_participant_count, is_user_registered
     )
 
 
-def _get_party_coin_settings():
+def get_party_coin_settings():
     cache_key = '_ns_tourney_coin_settings'
     if not hasattr(g, cache_key):
         setattr(g, cache_key, get_coin_settings(g.party.id))
@@ -58,7 +58,7 @@ def _get_party_coin_settings():
     return getattr(g, cache_key)
 
 
-def _get_current_user_coin_balance():
+def get_current_user_coin_balance():
     user = getattr(g, 'user', None)
     if user is None or not user.authenticated:
         return None
@@ -70,7 +70,7 @@ def _get_current_user_coin_balance():
     return getattr(g, cache_key)
 
 
-def _get_user_registered_tournament_ids(
+def get_user_registered_tournament_ids(
     party_id: PartyID, tournament_ids: set
 ) -> set:
     if not tournament_ids:
@@ -86,7 +86,7 @@ def _get_user_registered_tournament_ids(
     )
 
 
-def _build_registration_state(
+def build_registration_state(
     tournament,
     active_participant_count: int,
     user_is_registered: bool,
@@ -97,8 +97,8 @@ def _build_registration_state(
     )
     user = getattr(g, 'user', None)
     can_participate = user is not None and user.authenticated
-    coin_settings = _get_party_coin_settings()
-    user_coin_balance = _get_current_user_coin_balance()
+    coin_settings = get_party_coin_settings()
+    user_coin_balance = get_current_user_coin_balance()
     available_coins = (
         user_coin_balance.available_coins
         if user_coin_balance is not None
@@ -148,7 +148,7 @@ def _build_registration_state(
     }
 
 
-def _can_user_report_match_result(
+def can_user_report_match_result(
     user_id,
     tournament,
     match,
@@ -184,7 +184,7 @@ def _can_user_report_match_result(
     )
 
 
-def _get_captain_team_for_current_user(tournament_id):
+def get_captain_team_for_current_user(tournament_id):
     user = getattr(g, 'user', None)
     if user is None or not user.authenticated:
         return None
@@ -192,7 +192,7 @@ def _get_captain_team_for_current_user(tournament_id):
     return find_managed_team_for_user(g.party.id, tournament_id, user.id)
 
 
-def _get_current_user_tournament_membership(
+def get_current_user_tournament_membership(
     participants, members_by_participant_id
 ):
     user = getattr(g, 'user', None)
@@ -219,7 +219,7 @@ def _get_current_user_tournament_membership(
     return None
 
 
-def _format_open_match_participant_name(slot, *, participants_by_id) -> str:
+def format_open_match_participant_name(slot, *, participants_by_id) -> str:
     if slot.participant_id is None:
         return gettext('TBD')
 
@@ -230,7 +230,7 @@ def _format_open_match_participant_name(slot, *, participants_by_id) -> str:
     return participant.name
 
 
-def _is_match_involving_user(
+def is_match_involving_user(
     user_id,
     slots,
     *,
@@ -257,7 +257,7 @@ def _is_match_involving_user(
     return False
 
 
-def _format_team_member_role_label(role: TeamMemberRole) -> str:
+def format_team_member_role_label(role: TeamMemberRole) -> str:
     if role == TeamMemberRole.captain:
         return gettext('Teamkapitän')
     if role == TeamMemberRole.substitute:
@@ -266,7 +266,7 @@ def _format_team_member_role_label(role: TeamMemberRole) -> str:
     return gettext('Mitspieler')
 
 
-def _build_current_user_overview_match_rows(
+def build_current_user_overview_match_rows(
     tournament,
     matches,
     slots_by_match_id,
@@ -361,7 +361,7 @@ def _build_current_user_overview_match_rows(
     )
 
 
-def _get_seat_data_by_user_id(
+def get_seat_data_by_user_id(
     party_id: PartyID, user_ids: set
 ) -> dict:
     seat_data_by_user_id = {}

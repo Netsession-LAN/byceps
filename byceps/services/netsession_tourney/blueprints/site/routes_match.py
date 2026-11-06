@@ -50,34 +50,34 @@ from ...result_service import report_result
 from ...tournament_queries import (
     get_stages_for_tournament,
 )
-from .builder_helpers import _get_materialized_builder_container_stages
+from .builder_helpers import get_materialized_builder_container_stages
 from .match_helpers import (
-    _build_match_labels,
-    _build_skipped_double_grand_final_match_ids,
-    _get_or_create_idempotency_key,
+    build_match_labels,
+    build_skipped_double_grand_final_match_ids,
+    get_or_create_idempotency_key,
     _parse_slot_scores,
 )
 from .presentation_helpers import (
-    _get_stage_duration_minutes,
+    get_stage_duration_minutes,
 )
 from .stage_filters import (
     _is_ffa_scoring_stage,
     _is_flatout2_stage,
-    _uses_only_ffa_simple_stages,
-    _uses_only_flatout2_stages,
+    uses_only_ffa_simple_stages,
+    uses_only_flatout2_stages,
 )
 from .stage_render_helpers import (
-    _build_ffa_match_detail_rows,
+    build_ffa_match_detail_rows,
 )
 from .user_state_helpers import (
-    _can_user_report_match_result,
+    can_user_report_match_result,
 )
 
 from .blueprint import blueprint
 from .common import (
-    _get_main_nav_current_page_id,
+    get_main_nav_current_page_id,
     _get_tournament_or_404,
-    _build_slot_score_payload,
+    build_slot_score_payload,
     get_participants_for_tournament_indexed_by_id,
     format_timeline_action,
 )
@@ -96,12 +96,12 @@ def view_match(slug, match_id):
     matches = get_matches_for_tournament(g.party.id, tournament.id)
     slots_by_match_id = get_match_slots({item.id for item in matches})
     results_by_match_id = get_match_results({item.id for item in matches})
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = _build_skipped_double_grand_final_match_ids(
+    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
         matches,
         slots_by_match_id,
         results_by_match_id,
@@ -179,7 +179,7 @@ def view_match(slug, match_id):
         is_admin_or_referee = user.has_permission(
             'netsession_tourney.manage'
         ) or user.has_permission('netsession_tourney.admin')
-        can_report = _can_user_report_match_result(
+        can_report = can_user_report_match_result(
             user.id,
             tournament,
             match,
@@ -205,13 +205,13 @@ def view_match(slug, match_id):
     stage = stages_by_id.get(match.stage_id)
     is_ffa_scoring_match = _is_ffa_scoring_stage(stage)
     is_flatout2_match = _is_flatout2_stage(stage)
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
     ffa_match_rows = []
     current_host_participant_id = ''
     flatout2_round_races = []
     if is_ffa_scoring_match or is_flatout2_match:
         can_report = False
-        ffa_match_rows = _build_ffa_match_detail_rows(
+        ffa_match_rows = build_ffa_match_detail_rows(
             slots,
             participants_by_id,
             users_by_id,
@@ -245,14 +245,14 @@ def view_match(slug, match_id):
         ),
         None,
     )
-    stage_duration_minutes = _get_stage_duration_minutes(stage)
+    stage_duration_minutes = get_stage_duration_minutes(stage)
     match_end_at = (
         match.scheduled_at + timedelta(minutes=stage_duration_minutes)
         if match.scheduled_at is not None and stage_duration_minutes is not None
         else None
     )
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -285,9 +285,9 @@ def view_match(slug, match_id):
         'can_report': can_report,
         'can_chat': can_chat,
         'is_skipped_double_grand_final': is_skipped_double_grand_final,
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,
@@ -353,7 +353,7 @@ def report_match_result(slug, match_id):
     winner_slot = (
         slots[0].slot_no if slot_1_points > slot_2_points else slots[1].slot_no
     )
-    score = _build_slot_score_payload(
+    score = build_slot_score_payload(
         slots,
         {
             slots[0].slot_no: slot_1_points,
@@ -361,7 +361,7 @@ def report_match_result(slug, match_id):
         },
     )
     ranking = {}
-    idempotency_key = _get_or_create_idempotency_key(form.idempotency_key.data)
+    idempotency_key = get_or_create_idempotency_key(form.idempotency_key.data)
     comment = form.comment.data.strip() if form.comment.data else None
 
     result = report_result(

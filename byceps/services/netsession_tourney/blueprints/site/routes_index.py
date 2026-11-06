@@ -56,24 +56,24 @@ from ...tournament_service import (
     get_tournaments_for_party,
 )
 from .match_helpers import (
-    _build_match_labels,
+    build_match_labels,
 )
 from .match_state_labels import open_class_name, open_label
-from .timetable_helpers import _build_party_timetable
+from .timetable_helpers import build_party_timetable
 from .user_state_helpers import (
-    _build_registration_state,
-    _format_open_match_participant_name,
-    _get_party_coin_settings,
-    _get_user_registered_tournament_ids,
-    _is_match_involving_user,
+    build_registration_state,
+    format_open_match_participant_name,
+    get_party_coin_settings,
+    get_user_registered_tournament_ids,
+    is_match_involving_user,
 )
 
 from .blueprint import blueprint
 from .common import (
-    _build_public_tournament_status,
-    _get_main_nav_current_page_id,
-    _find_netsession_tourney_subnav_menu_id,
-    _get_categories_with_tournaments,
+    build_public_tournament_status,
+    get_main_nav_current_page_id,
+    find_netsession_tourney_subnav_menu_id,
+    get_categories_with_tournaments,
     get_participants_for_tournament_indexed_by_id,
 )
 from ...filter_parsing import parse_tournament_mode, parse_tournament_status
@@ -103,18 +103,18 @@ def index():
     )
     categories = get_tournament_categories_for_party(g.party.id)
     categories_with_tournaments, uncategorized_tournaments = (
-        _get_categories_with_tournaments(categories, tournaments)
+        get_categories_with_tournaments(categories, tournaments)
     )
 
     tournament_ids = {tournament.id for tournament in tournaments}
     active_participant_counts = get_active_participant_counts_for_tournaments(
         g.party.id, tournament_ids
     )
-    user_registered_tournament_ids = _get_user_registered_tournament_ids(
+    user_registered_tournament_ids = get_user_registered_tournament_ids(
         g.party.id, tournament_ids
     )
     registration_states_by_tournament_id = {
-        tournament.id: _build_registration_state(
+        tournament.id: build_registration_state(
             tournament,
             active_participant_counts.get(tournament.id, 0),
             tournament.id in user_registered_tournament_ids,
@@ -122,10 +122,10 @@ def index():
         for tournament in tournaments
     }
     public_statuses_by_tournament_id = {
-        tournament.id: _build_public_tournament_status(tournament)
+        tournament.id: build_public_tournament_status(tournament)
         for tournament in tournaments
     }
-    coin_settings = _get_party_coin_settings()
+    coin_settings = get_party_coin_settings()
     browser_push_enabled = is_browser_push_enabled_for_party(g.party.id)
     discord_dm_enabled = is_discord_dm_enabled_for_party(g.party.id)
     browser_push_prompt_enabled = False
@@ -172,7 +172,7 @@ def index():
                     g.party.id, g.user.id
                 )
             )
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
     notification_prompt_enabled = (
         browser_push_prompt_enabled or discord_dm_prompt_enabled
     )
@@ -196,7 +196,7 @@ def index():
         'coin_settings': coin_settings,
         'current_page': current_page_id,
         'current_global_subnav_page': 'ns_tourney_index',
-        'subnav_menu_id': _find_netsession_tourney_subnav_menu_id(
+        'subnav_menu_id': find_netsession_tourney_subnav_menu_id(
             'netsession_tourney'
         ),
     }
@@ -349,7 +349,7 @@ def open_matches():
 
     for tournament_id, tournament_matches in matches_by_tournament_id.items():
         match_labels_by_id.update(
-            _build_match_labels(
+            build_match_labels(
                 tournament_matches,
                 {
                     match.id: slots_by_match_id.get(match.id, [])
@@ -377,14 +377,14 @@ def open_matches():
         )
         slots = sorted(slots_by_match_id.get(match.id, []), key=lambda slot: slot.slot_no)
         participant_names = [
-            _format_open_match_participant_name(
+            format_open_match_participant_name(
                 slot, participants_by_id=participants
             )
             for slot in slots
         ]
         is_my_match = (
             current_user_id is not None
-            and _is_match_involving_user(
+            and is_match_involving_user(
                 current_user_id,
                 slots,
                 participants_by_id=participants,
@@ -429,13 +429,13 @@ def open_matches():
         )
     )
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'rows': rows,
         'current_page': current_page_id,
         'current_global_subnav_page': 'ns_tourney_open_matches',
-        'subnav_menu_id': _find_netsession_tourney_subnav_menu_id(
+        'subnav_menu_id': find_netsession_tourney_subnav_menu_id(
             'netsession_tourney_open_matches',
             'netsession_tourney',
         ),
@@ -449,16 +449,16 @@ def timetable():
     if not g.party:
         abort(404)
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
     selected_day_iso = (request.args.get('day') or '').strip() or None
 
     return {
-        'timetable': _build_party_timetable(
+        'timetable': build_party_timetable(
             g.party, selected_day_iso=selected_day_iso
         ),
         'current_page': current_page_id,
         'current_global_subnav_page': 'ns_tourney_timetable',
-        'subnav_menu_id': _find_netsession_tourney_subnav_menu_id(
+        'subnav_menu_id': find_netsession_tourney_subnav_menu_id(
             'netsession_tourney_timetable',
             'netsession_tourney',
         ),

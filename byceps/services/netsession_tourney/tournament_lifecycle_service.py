@@ -33,10 +33,10 @@ from .dbmodels import (
     DbNetsessionTourneyTournamentPrize,
 )
 from .discord_forum_threads import (
-    _sync_discord_thread_for_tournament,
+    sync_discord_thread_for_tournament,
 )
 from .discord_payloads import (
-    _build_discord_tournament_finished_payload,
+    build_discord_tournament_finished_payload,
 )
 from .discord_service import (
     enqueue_discord_event,
@@ -48,26 +48,26 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _append_notifications_for_tournament,
-    _enqueue_match_ready_notifications,
+    append_notifications_for_tournament,
+    enqueue_match_ready_notifications,
 )
 from .registration_validation import (
-    _validate_bracket_ready_team_sizes,
+    validate_bracket_ready_team_sizes,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_tournament_to_model,
 )
 from .stage_activation import (
-    _activate_prepared_matches_for_live_tournament,
-    _activate_prepared_stages_for_live_tournament,
-    _delete_stage_matches,
-    _demote_prepared_matches_for_draft_tournament,
+    activate_prepared_matches_for_live_tournament,
+    activate_prepared_stages_for_live_tournament,
+    delete_stage_matches,
+    demote_prepared_matches_for_draft_tournament,
 )
 from .tournament_closing import validate_can_close
 from .tournament_queries import (
-    _build_site_tournament_overview_path,
-    _find_db_tournament_for_party,
+    build_site_tournament_overview_path,
+    find_db_tournament_for_party,
     get_participants_for_tournament,
     get_stages_for_tournament,
 )
@@ -76,14 +76,14 @@ from .tournament_queries import (
 def publish_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     stages = get_stages_for_tournament(party_id, tournament_id)
     participants = get_participants_for_tournament(party_id, tournament_id)
-    team_size_validation_result = _validate_bracket_ready_team_sizes(
+    team_size_validation_result = validate_bracket_ready_team_sizes(
         tournament, participants
     )
     if team_size_validation_result.is_err():
@@ -98,12 +98,12 @@ def publish_tournament(
     db_tournament.status = TournamentStatus.live.value
     db_tournament.updated_at = datetime.utcnow()
 
-    _activate_prepared_stages_for_live_tournament(tournament_id, stages)
-    db_ready_matches = _activate_prepared_matches_for_live_tournament(
+    activate_prepared_stages_for_live_tournament(tournament_id, stages)
+    db_ready_matches = activate_prepared_matches_for_live_tournament(
         tournament_id
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -111,29 +111,29 @@ def publish_tournament(
         payload={},
         created_at=datetime.utcnow(),
     )
-    _append_notifications_for_tournament(
+    append_notifications_for_tournament(
         tournament_id,
         actor_user_id=initiator.id,
         kind='tournament_live',
         payload={
             'slug': db_tournament.slug,
-            'url': _build_site_tournament_overview_path(db_tournament.slug),
+            'url': build_site_tournament_overview_path(db_tournament.slug),
         },
     )
     for db_match in db_ready_matches:
-        _enqueue_match_ready_notifications(db_match)
+        enqueue_match_ready_notifications(db_match)
 
     db.session.commit()
 
-    _sync_discord_thread_for_tournament(db_tournament)
+    sync_discord_thread_for_tournament(db_tournament)
 
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def close_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -143,7 +143,7 @@ def close_tournament(
     db_tournament.status = TournamentStatus.closed.value
     db_tournament.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -151,13 +151,13 @@ def close_tournament(
         payload={},
         created_at=datetime.utcnow(),
     )
-    _append_notifications_for_tournament(
+    append_notifications_for_tournament(
         tournament_id,
         actor_user_id=initiator.id,
         kind='tournament_closed',
         payload={
             'slug': db_tournament.slug,
-            'url': _build_site_tournament_overview_path(db_tournament.slug),
+            'url': build_site_tournament_overview_path(db_tournament.slug),
         },
     )
 
@@ -165,16 +165,16 @@ def close_tournament(
         party_id,
         tournament_id,
         event_name='tournament_finished',
-        payload=_build_discord_tournament_finished_payload(db_tournament),
+        payload=build_discord_tournament_finished_payload(db_tournament),
     )
     db.session.commit()
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def cancel_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -188,10 +188,10 @@ def cancel_tournament(
     db_tournament.registration_open = False
     db_tournament.updated_at = datetime.utcnow()
     refund_all_coins_of_canceled_tournament(
-        party_id, _db_tournament_to_model(db_tournament), initiator.id
+        party_id, db_tournament_to_model(db_tournament), initiator.id
     )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -199,13 +199,13 @@ def cancel_tournament(
         payload={},
         created_at=datetime.utcnow(),
     )
-    _append_notifications_for_tournament(
+    append_notifications_for_tournament(
         tournament_id,
         actor_user_id=initiator.id,
         kind='tournament_canceled',
         payload={
             'slug': db_tournament.slug,
-            'url': _build_site_tournament_overview_path(db_tournament.slug),
+            'url': build_site_tournament_overview_path(db_tournament.slug),
         },
     )
 
@@ -217,13 +217,13 @@ def cancel_tournament(
     )
     db.session.commit()
 
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def unpublish_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[Tournament, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -266,9 +266,9 @@ def unpublish_tournament(
     for db_stage in db_live_stages:
         db_stage.status = StageStatus.draft.value
 
-    _demote_prepared_matches_for_draft_tournament(tournament_id)
+    demote_prepared_matches_for_draft_tournament(tournament_id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -278,13 +278,13 @@ def unpublish_tournament(
     )
     db.session.commit()
 
-    return Ok(_db_tournament_to_model(db_tournament))
+    return Ok(db_tournament_to_model(db_tournament))
 
 
 def delete_tournament(
     party_id: PartyID, tournament_id: TournamentID, initiator: User
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -303,7 +303,7 @@ def delete_tournament(
     _delete_notifications_and_outboxes(tournament_id)
     _delete_admins_and_prizes(tournament_id)
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,
@@ -323,7 +323,7 @@ def _delete_stages_with_matches(tournament_id: TournamentID) -> None:
         select(DbNetsessionTourneyStage.id).filter_by(tournament_id=tournament_id)
     ).all()
     for stage_id in stage_ids:
-        _delete_stage_matches(stage_id)
+        delete_stage_matches(stage_id)
 
     db.session.execute(
         delete(DbNetsessionTourneyStage).filter_by(tournament_id=tournament_id)

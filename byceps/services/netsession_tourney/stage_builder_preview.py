@@ -14,7 +14,7 @@ from byceps.util.result import Err, Ok, Result
 
 from . import domain_service
 from .ffa_stage_builder import (
-    _preview_ffa_stage_builder_plan,
+    preview_ffa_stage_builder_plan,
 )
 from .models import (
     Stage,
@@ -23,23 +23,23 @@ from .models import (
     TournamentMode,
 )
 from .round_robin_builder import (
-    _resolve_round_robin_builder_plan,
+    resolve_round_robin_builder_plan,
 )
 from .stage_builder_settings import (
-    _get_stage_builder_main_stage_size,
-    _is_stage_builder_v1_preliminary_stage,
+    get_stage_builder_main_stage_size,
+    is_stage_builder_v1_preliminary_stage,
     STAGE_BUILDER_MAIN_STAGE_SIZES,
 )
 from .stage_generation_base import (
-    _distribute_evenly,
+    distribute_evenly,
 )
 from .swiss_thresholds import (
-    _get_swiss_round_count_for_threshold,
-    _get_swiss_threshold_for_stage,
+    get_swiss_round_count_for_threshold,
+    get_swiss_threshold_for_stage,
     SWISS_THRESHOLDS,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     get_participants_for_tournament,
 )
 
@@ -57,13 +57,13 @@ def preview_stage_builder_plan(
     round_robin_group_count: int | None,
     swiss_threshold: int | None,
 ) -> Result[dict[str, Any], str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
     tournament_mode = TournamentMode(db_tournament.mode)
     if tournament_mode == TournamentMode.ffa:
-        return _preview_ffa_stage_builder_plan(
+        return preview_ffa_stage_builder_plan(
             party_id,
             tournament_id,
             generation_basis=generation_basis,
@@ -180,7 +180,7 @@ def _add_round_robin_preliminary_to_preview(
     round_robin_builder_mode: str | None,
     round_robin_group_count: int | None,
 ) -> Result[dict[str, Any], str]:
-    plan_result = _resolve_round_robin_builder_plan(
+    plan_result = resolve_round_robin_builder_plan(
         participant_count=participant_count,
         main_stage_size=main_stage_size,
         round_robin_builder_mode=round_robin_builder_mode,
@@ -190,7 +190,7 @@ def _add_round_robin_preliminary_to_preview(
         return Err(plan_result.unwrap_err())
 
     plan = plan_result.unwrap()
-    group_sizes = _distribute_evenly(participant_count, plan.group_count)
+    group_sizes = distribute_evenly(participant_count, plan.group_count)
     preview.update(
         {
             'group_count': plan.group_count,
@@ -214,7 +214,7 @@ def _add_swiss_preliminary_to_preview(
     swiss_threshold: int | None,
     main_stage_size: int,
 ) -> Result[dict[str, Any], str]:
-    round_count = _get_swiss_round_count_for_threshold(swiss_threshold)
+    round_count = get_swiss_round_count_for_threshold(swiss_threshold)
     preview.update(
         {
             'swiss_threshold': swiss_threshold,
@@ -224,15 +224,15 @@ def _add_swiss_preliminary_to_preview(
     )
     return Ok(preview)
 
-def _resolve_stage_builder_stage_for_generation(
+def resolve_stage_builder_stage_for_generation(
     stage: Stage,
     *,
     participant_count: int,
 ) -> Result[Stage, str]:
-    if not _is_stage_builder_v1_preliminary_stage(stage):
+    if not is_stage_builder_v1_preliminary_stage(stage):
         return Ok(stage)
 
-    main_stage_size = _get_stage_builder_main_stage_size(stage)
+    main_stage_size = get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
         return Err('Ungültige Größe der Main Stage im Baukasten.')
 
@@ -242,7 +242,7 @@ def _resolve_stage_builder_stage_for_generation(
         )
 
     if stage.type == StageType.round_robin_groups:
-        plan_result = _resolve_round_robin_builder_plan(
+        plan_result = resolve_round_robin_builder_plan(
             participant_count=participant_count,
             main_stage_size=main_stage_size,
             round_robin_builder_mode=stage.settings.get(
@@ -280,7 +280,7 @@ def _resolve_stage_builder_stage_for_generation(
         )
 
     if stage.type == StageType.swiss:
-        threshold = _get_swiss_threshold_for_stage(
+        threshold = get_swiss_threshold_for_stage(
             stage, participant_count=participant_count
         )
         if threshold not in SWISS_THRESHOLDS and participant_count > 1:

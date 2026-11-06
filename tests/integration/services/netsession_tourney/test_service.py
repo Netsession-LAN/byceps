@@ -3289,7 +3289,7 @@ def test_team_with_substitutes_can_be_ready(
         party.id, tournament.id, team.id, user, ready=True
     )
     assert ready_result.is_ok(), ready_result
-    assert registration_validation._validate_bracket_ready_team_sizes(
+    assert registration_validation.validate_bracket_ready_team_sizes(
         tournament, [ready_result.unwrap()]
     ).is_ok()
 

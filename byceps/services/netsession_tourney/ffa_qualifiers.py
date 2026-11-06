@@ -21,7 +21,7 @@ from .models import (
 )
 
 
-def _get_ffa_single_elimination_qualifier_ids(
+def get_ffa_single_elimination_qualifier_ids(
     source_match_id: MatchID,
     source_match_slots: list[DbNetsessionTourneyMatchSlot],
     qualifier_count: int,

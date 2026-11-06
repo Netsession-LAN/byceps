@@ -93,7 +93,7 @@ def build_bracket_data(matches, slots_by_match_id, participants_by_id):
     ]
 
 
-def _build_bracket_sections(bracket, match_labels_by_id):
+def build_bracket_sections(bracket, match_labels_by_id):
     if is_double_elimination_bracket(bracket, match_labels_by_id):
         return build_double_elimination_bracket_sections(
             bracket, match_labels_by_id

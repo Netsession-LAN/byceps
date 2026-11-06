@@ -12,9 +12,9 @@ from flask_babel import gettext
 
 from ...models import StageType
 from .builder_helpers import (
-    _get_builder_container_child_stages,
-    _get_materialized_builder_container_stages,
-    _is_materialized_builder_container_stage,
+    get_builder_container_child_stages,
+    get_materialized_builder_container_stages,
+    is_materialized_builder_container_stage,
 )
 from .stage_filters import _is_flatout2_stage
 
@@ -37,7 +37,7 @@ def _get_materialized_builder_round_robin_summary_stage(stages):
     )
 
 
-def _get_materialized_builder_round_robin_group_stages(stages):
+def get_materialized_builder_round_robin_group_stages(stages):
     summary_stage = _get_materialized_builder_round_robin_summary_stage(stages)
     if summary_stage is None:
         return []
@@ -60,13 +60,13 @@ def _get_builder_main_stages(stages):
     ]
 
 
-def _get_builder_main_display_stages(stages):
+def get_builder_main_display_stages(stages):
     display_stages = []
     for stage in _get_builder_main_stages(stages):
-        if _is_materialized_builder_container_stage(stage):
+        if is_materialized_builder_container_stage(stage):
             display_stages.extend(
                 child_stage
-                for child_stage in _get_builder_container_child_stages(
+                for child_stage in get_builder_container_child_stages(
                     stages, stage
                 )
                 if not (child_stage.settings or {}).get('builder_role')
@@ -80,14 +80,14 @@ def _get_builder_main_display_stages(stages):
     return display_stages
 
 
-def _select_matches_for_public_bracket(stages, matches):
-    preliminary_containers = _get_materialized_builder_container_stages(
+def select_matches_for_public_bracket(stages, matches):
+    preliminary_containers = get_materialized_builder_container_stages(
         stages, role='preliminary'
     )
     if not preliminary_containers:
         return matches
 
-    main_display_stages = _get_builder_main_display_stages(stages)
+    main_display_stages = get_builder_main_display_stages(stages)
     if not main_display_stages:
         return []
 
@@ -105,7 +105,7 @@ def _is_materialized_builder_round_robin_summary_stage(stage) -> bool:
     )
 
 
-def _build_builder_stage_summary_lines(stage, stages) -> list[str]:
+def build_builder_stage_summary_lines(stage, stages) -> list[str]:
     settings = stage.settings or {}
     if settings.get('builder_materialized_stage_ids'):
         lines = [
@@ -113,7 +113,7 @@ def _build_builder_stage_summary_lines(stage, stages) -> list[str]:
                 'Diese Vorrunden-Übersicht enthält eigene Runden-Stages, die nacheinander vorbereitet und gespielt werden.'
             )
         ]
-        child_stages = _get_builder_container_child_stages(stages, stage)
+        child_stages = get_builder_container_child_stages(stages, stage)
         if child_stages:
             lines.append(
                 gettext(
@@ -191,19 +191,19 @@ def _build_builder_stage_summary_lines(stage, stages) -> list[str]:
     return lines
 
 
-def _get_flatout2_builder_bracket_display_stages(stages):
+def get_flatout2_builder_bracket_display_stages(stages):
     display_stages = []
 
-    for container_stage in _get_materialized_builder_container_stages(
+    for container_stage in get_materialized_builder_container_stages(
         stages, role='preliminary'
     ):
-        for child_stage in _get_builder_container_child_stages(
+        for child_stage in get_builder_container_child_stages(
             stages, container_stage
         ):
             if _is_flatout2_stage(child_stage):
                 display_stages.append(child_stage)
 
-    for stage in _get_builder_main_display_stages(stages):
+    for stage in get_builder_main_display_stages(stages):
         if _is_flatout2_stage(stage):
             display_stages.append(stage)
 

@@ -23,7 +23,7 @@ from .models import (
     TournamentCategoryID,
 )
 from .service_helpers import (
-    _db_tournament_category_to_model,
+    db_tournament_category_to_model,
 )
 
 
@@ -57,7 +57,7 @@ def create_tournament_category(
     db_party.netsession_tourney_tournament_categories.append(db_category)
 
     db.session.commit()
-    return Ok(_db_tournament_category_to_model(db_category))
+    return Ok(db_tournament_category_to_model(db_category))
 
 
 def update_tournament_category(
@@ -83,7 +83,7 @@ def update_tournament_category(
     db_category.title = normalized_title
     db.session.commit()
 
-    return Ok(_db_tournament_category_to_model(db_category))
+    return Ok(db_tournament_category_to_model(db_category))
 
 
 def move_tournament_category_up(
@@ -129,7 +129,7 @@ def find_tournament_category(
     if db_category is None:
         return None
 
-    return _db_tournament_category_to_model(db_category)
+    return db_tournament_category_to_model(db_category)
 
 
 def get_tournament_categories_for_party(
@@ -141,10 +141,10 @@ def get_tournament_categories_for_party(
         .order_by(DbNetsessionTourneyTournamentCategory.position.asc())
     ).all()
 
-    return [_db_tournament_category_to_model(item) for item in db_categories]
+    return [db_tournament_category_to_model(item) for item in db_categories]
 
 
-def _resolve_tournament_category_id_for_party(
+def resolve_tournament_category_id_for_party(
     party_id: PartyID,
     category_id: TournamentCategoryID | None,
 ) -> Result[TournamentCategoryID, str]:

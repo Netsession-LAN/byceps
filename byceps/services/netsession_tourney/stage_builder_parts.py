@@ -17,14 +17,14 @@ from byceps.services.user.models import User
 from .dbmodels import DbNetsessionTourneyStage
 from .models import StageType
 from .result_report_mode import RESULT_REPORT_MODE_ADMIN_ONLY
-from .service_helpers import _append_audit_log
+from .service_helpers import append_audit_log
 from .stage_builder_settings import (
     STAGE_BUILDER_KIND_V1,
     STAGE_BUILDER_MAIN_STAGE_SIZES,
 )
 from .swiss_thresholds import (
     SWISS_THRESHOLDS,
-    _get_swiss_round_count_for_threshold,
+    get_swiss_round_count_for_threshold,
 )
 
 
@@ -134,7 +134,7 @@ def duel_preliminary_settings(
     }
     if preliminary_type == StageType.swiss:
         settings['swiss_threshold'] = swiss_threshold
-        settings['round_count'] = _get_swiss_round_count_for_threshold(
+        settings['round_count'] = get_swiss_round_count_for_threshold(
             swiss_threshold
         )
     elif preliminary_type == StageType.round_robin_groups:
@@ -189,7 +189,7 @@ def audit_created_stages(
     now: datetime,
 ) -> None:
     for created_stage in created_stages:
-        _append_audit_log(
+        append_audit_log(
             actor_user_id=initiator.id,
             object_type='stage',
             object_id=created_stage.id,

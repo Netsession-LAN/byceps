@@ -25,10 +25,10 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _append_audit_log,
+    append_audit_log,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 
 
@@ -48,7 +48,7 @@ def set_tournament_admin_user_ids(
     admin_user_ids: set[UserID],
     initiator: User,
 ) -> Result[set[UserID], str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -71,7 +71,7 @@ def set_tournament_admin_user_ids(
             )
         )
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='tournament',
         object_id=tournament_id,

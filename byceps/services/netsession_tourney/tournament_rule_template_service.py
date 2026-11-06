@@ -27,7 +27,7 @@ from .models import (
 )
 from .rule_template_links import change_rule_template_slug
 from .service_helpers import (
-    _db_tournament_rule_template_to_model,
+    db_tournament_rule_template_to_model,
 )
 
 
@@ -75,7 +75,7 @@ def create_tournament_rule_template(
     db.session.add(db_rule_template)
     db.session.commit()
 
-    return Ok(_db_tournament_rule_template_to_model(db_rule_template))
+    return Ok(db_tournament_rule_template_to_model(db_rule_template))
 
 
 def update_tournament_rule_template(
@@ -119,7 +119,7 @@ def update_tournament_rule_template(
     db_rule_template.updated_at = datetime.utcnow()
 
     db.session.commit()
-    return Ok(_db_tournament_rule_template_to_model(db_rule_template))
+    return Ok(db_tournament_rule_template_to_model(db_rule_template))
 
 
 def find_tournament_rule_template(
@@ -129,7 +129,7 @@ def find_tournament_rule_template(
     if db_rule_template is None:
         return None
 
-    return _db_tournament_rule_template_to_model(db_rule_template)
+    return db_tournament_rule_template_to_model(db_rule_template)
 
 
 def find_tournament_rule_template_by_slug_for_party(
@@ -145,7 +145,7 @@ def find_tournament_rule_template_by_slug_for_party(
     if db_rule_template is None:
         return None
 
-    return _db_tournament_rule_template_to_model(db_rule_template)
+    return db_tournament_rule_template_to_model(db_rule_template)
 
 
 def get_tournament_rule_templates_for_party(
@@ -161,7 +161,7 @@ def get_tournament_rule_templates_for_party(
     ).all()
 
     return [
-        _db_tournament_rule_template_to_model(item)
+        db_tournament_rule_template_to_model(item)
         for item in db_rule_templates
     ]
 

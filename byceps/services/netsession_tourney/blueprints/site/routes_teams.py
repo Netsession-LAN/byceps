@@ -42,25 +42,25 @@ from ...team_invite_service import (
 from ...tournament_queries import (
     get_stages_for_tournament,
 )
-from .builder_helpers import _get_materialized_builder_container_stages
+from .builder_helpers import get_materialized_builder_container_stages
 from .match_helpers import (
-    _build_match_labels,
+    build_match_labels,
 )
 from .stage_filters import (
-    _uses_only_ffa_scoring_stages,
-    _uses_only_ffa_simple_stages,
-    _uses_only_flatout2_stages,
+    uses_only_ffa_scoring_stages,
+    uses_only_ffa_simple_stages,
+    uses_only_flatout2_stages,
 )
 from .stage_render_helpers import (
-    _build_team_history_rows,
+    build_team_history_rows,
 )
 from .user_state_helpers import (
-    _get_seat_data_by_user_id,
+    get_seat_data_by_user_id,
 )
 
 from .blueprint import blueprint
 from .common import (
-    _get_main_nav_current_page_id,
+    get_main_nav_current_page_id,
     _get_tournament_or_404,
 )
 from ...screen_name_suggestions import get_suggested_screen_names_for_party
@@ -94,7 +94,7 @@ def _build_team_view_context(slug, participant_id):
             ),
         ),
     )
-    seat_data_by_user_id = _get_seat_data_by_user_id(
+    seat_data_by_user_id = get_seat_data_by_user_id(
         g.party.id, {member.user_id for member in members}
     )
     current_user = getattr(g, 'user', None)
@@ -119,7 +119,7 @@ def _build_team_view_context(slug, participant_id):
     results_by_match_id = get_match_results({match.id for match in matches})
     stages = get_stages_for_tournament(g.party.id, tournament.id)
     stages_by_id = {stage.id: stage for stage in stages}
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
@@ -131,7 +131,7 @@ def _build_team_view_context(slug, participant_id):
         if slot.participant_id
     }
     participants_lookup = get_participants_by_ids(g.party.id, participant_ids)
-    team_history = _build_team_history_rows(
+    team_history = build_team_history_rows(
         team,
         matches,
         slots_by_match_id,
@@ -140,9 +140,9 @@ def _build_team_view_context(slug, participant_id):
         match_labels_by_id,
         stages_by_id,
     )
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -158,13 +158,13 @@ def _build_team_view_context(slug, participant_id):
             g.party.id
         ),
         'team_history': team_history,
-        'is_ffa_scoring_tournament': _uses_only_ffa_scoring_stages(
+        'is_ffa_scoring_tournament': uses_only_ffa_scoring_stages(
             stages, matches
         ),
-        'is_flatout2_tournament': _uses_only_flatout2_stages(stages, matches),
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, []),
+        'is_flatout2_tournament': uses_only_flatout2_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,
@@ -186,7 +186,7 @@ def _build_player_view_context(slug, participant_id):
         abort(404)
 
     player_user = user_service.get_user(player.user_id, include_avatar=True)
-    seat_data_by_user_id = _get_seat_data_by_user_id(
+    seat_data_by_user_id = get_seat_data_by_user_id(
         g.party.id, {player.user_id}
     )
     seat_data = seat_data_by_user_id.get(player.user_id)
@@ -196,7 +196,7 @@ def _build_player_view_context(slug, participant_id):
     results_by_match_id = get_match_results({match.id for match in matches})
     stages = get_stages_for_tournament(g.party.id, tournament.id)
     stages_by_id = {stage.id: stage for stage in stages}
-    match_labels_by_id = _build_match_labels(
+    match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
         stages_by_id,
@@ -208,7 +208,7 @@ def _build_player_view_context(slug, participant_id):
         if slot.participant_id
     }
     participants_lookup = get_participants_by_ids(g.party.id, participant_ids)
-    player_history = _build_team_history_rows(
+    player_history = build_team_history_rows(
         player,
         matches,
         slots_by_match_id,
@@ -217,9 +217,9 @@ def _build_player_view_context(slug, participant_id):
         match_labels_by_id,
         stages_by_id,
     )
-    is_flatout2_tournament = _uses_only_flatout2_stages(stages, matches)
+    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
 
-    current_page_id = _get_main_nav_current_page_id()
+    current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
@@ -227,13 +227,13 @@ def _build_player_view_context(slug, participant_id):
         'player_user': player_user,
         'seat_data': seat_data,
         'player_history': player_history,
-        'is_ffa_scoring_tournament': _uses_only_ffa_scoring_stages(
+        'is_ffa_scoring_tournament': uses_only_ffa_scoring_stages(
             stages, matches
         ),
-        'is_flatout2_tournament': _uses_only_flatout2_stages(stages, matches),
-        'hide_bracket_tab': _uses_only_ffa_simple_stages(stages, []),
+        'is_flatout2_tournament': uses_only_flatout2_stages(stages, matches),
+        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
         'show_preliminaries_tab': bool(
-            _get_materialized_builder_container_stages(
+            get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
         ) and not is_flatout2_tournament,

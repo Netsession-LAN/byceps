@@ -43,7 +43,7 @@ from .body_rendering import (
 )
 
 
-def _build_public_tournament_status(tournament) -> dict[str, str]:
+def build_public_tournament_status(tournament) -> dict[str, str]:
     if tournament.status == TournamentStatus.canceled:
         return {
             'label': gettext('Abgesagt'),
@@ -74,7 +74,7 @@ def _build_public_tournament_status(tournament) -> dict[str, str]:
     }
 
 
-def _get_main_nav_current_page_id() -> str:
+def get_main_nav_current_page_id() -> str:
     """Return the `current_page_id` configured for the NS tourney main-nav item."""
     site = getattr(g, 'site', None)
     if site is None:
@@ -101,7 +101,7 @@ def _get_main_nav_current_page_id() -> str:
     return 'ns_tourney_index'
 
 
-def _find_netsession_tourney_subnav_menu_id(*view_names: str) -> UUID | None:
+def find_netsession_tourney_subnav_menu_id(*view_names: str) -> UUID | None:
     site = getattr(g, 'site', None)
     if site is None:
         return None
@@ -162,7 +162,7 @@ def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
     return None
 
 
-def _get_categories_with_tournaments(categories, tournaments):
+def get_categories_with_tournaments(categories, tournaments):
     categories_sorted = sorted(categories, key=lambda category: category.position)
     tournaments_by_category_id = defaultdict(list)
     for tournament in tournaments:
@@ -194,7 +194,7 @@ def _find_tournament_rule_template(
     )
 
 
-def _render_tournament_rule_template_body_html(
+def render_tournament_rule_template_body_html(
     rule_template: TournamentRuleTemplate | None,
 ) -> Markup | None:
     if rule_template is None:
@@ -218,7 +218,7 @@ def _get_tournament_or_404(slug):
     return tournament
 
 
-def _build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
+def build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
     if not slots:
         return {}
 
@@ -236,7 +236,7 @@ def _build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
     }
 
 
-def _build_overview_stage_type_label(stages) -> str:
+def build_overview_stage_type_label(stages) -> str:
     builder_main_stage = next(
         (
             stage

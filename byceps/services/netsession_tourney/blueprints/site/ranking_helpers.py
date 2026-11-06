@@ -12,14 +12,14 @@ from collections import defaultdict
 
 from ...models import MatchState, StageType
 from .match_helpers import (
-    _is_skipped_double_grand_final_result,
+    is_skipped_double_grand_final_result,
     _parse_slot_scores,
 )
-from ...tournament_queries import _parse_numeric_score_value
-from ...tournament_queries import _get_ffa_points_per_kill
+from ...tournament_queries import parse_numeric_score_value
+from ...tournament_queries import get_ffa_points_per_kill
 
 
-def _build_ffa_ranking_rows(
+def build_ffa_ranking_rows(
     participants,
     matches,
     slots_by_match_id,
@@ -45,7 +45,7 @@ def _build_ffa_ranking_rows(
             continue
 
         stage = stages_by_id.get(match.stage_id)
-        points_per_kill = _get_ffa_points_per_kill(
+        points_per_kill = get_ffa_points_per_kill(
             stage.settings if stage is not None else None
         )
         slots = slots_by_match_id.get(match.id, [])
@@ -135,7 +135,7 @@ def _build_ffa_ranking_rows(
     return ranking_rows
 
 
-def _build_flatout2_ranking_rows(
+def build_flatout2_ranking_rows(
     participants,
     matches,
     slots_by_match_id,
@@ -209,7 +209,7 @@ def _build_flatout2_ranking_rows(
     return ranking_rows
 
 
-def _build_ranking_rows(
+def build_ranking_rows(
     participants,
     matches,
     slots_by_match_id,
@@ -238,7 +238,7 @@ def _build_ranking_rows(
 
     for match in matches:
         result = results_by_match_id.get(match.id)
-        if _is_skipped_double_grand_final_result(result):
+        if is_skipped_double_grand_final_result(result):
             continue
         slots = slots_by_match_id.get(match.id, [])
         slot_by_no = {slot.slot_no: slot for slot in slots}
@@ -310,9 +310,9 @@ def _build_ranking_rows(
             if participant_id is None:
                 continue
 
-            rounds_won = _parse_numeric_score_value(slot_scores.get(slot.slot_no))
+            rounds_won = parse_numeric_score_value(slot_scores.get(slot.slot_no))
             rounds_lost = sum(
-                _parse_numeric_score_value(slot_scores.get(other_slot.slot_no))
+                parse_numeric_score_value(slot_scores.get(other_slot.slot_no))
                 for other_slot in ordered_slots
                 if other_slot.slot_no != slot.slot_no
             )
@@ -496,7 +496,7 @@ def _build_swiss_ranking_groups(ranking_rows) -> list[dict]:
     return groups
 
 
-def _has_rankable_results(
+def has_rankable_results(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -509,7 +509,7 @@ def _has_rankable_results(
             continue
 
         result = results_by_match_id.get(match.id)
-        if result is None or _is_skipped_double_grand_final_result(result):
+        if result is None or is_skipped_double_grand_final_result(result):
             continue
 
         return True
@@ -517,7 +517,7 @@ def _has_rankable_results(
     return False
 
 
-def _are_all_rankable_matches_completed(
+def are_all_rankable_matches_completed(
     matches,
     slots_by_match_id,
 ):

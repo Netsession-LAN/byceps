@@ -16,15 +16,15 @@ from uuid import UUID
 from flask_babel import gettext
 
 from ...models import StageType
-from ...swiss_stage import _build_swiss_round_layout
+from ...swiss_stage import build_swiss_round_layout
 from ...swiss_thresholds import (
-    _get_round_count_for_swiss_stage,
-    _get_swiss_threshold_for_stage,
+    get_round_count_for_swiss_stage,
+    get_swiss_threshold_for_stage,
 )
-from ...tournament_queries import _parse_numeric_score_value
+from ...tournament_queries import parse_numeric_score_value
 
 
-def _build_swiss_bracket_sections(
+def build_swiss_bracket_sections(
     matches,
     slots_by_match_id,
     results_by_match_id,
@@ -104,11 +104,11 @@ def _build_swiss_bracket_sections(
                 if slot.participant_id is not None
             }
         )
-        round_count = _get_round_count_for_swiss_stage(
+        round_count = get_round_count_for_swiss_stage(
             stage, participant_count=participant_count
         )
-        layout = _build_swiss_round_layout(participant_count, round_count)
-        threshold = _get_swiss_threshold_for_stage(
+        layout = build_swiss_round_layout(participant_count, round_count)
+        threshold = get_swiss_threshold_for_stage(
             stage, participant_count=participant_count
         )
         matches_by_round_no = defaultdict(list)
@@ -229,7 +229,7 @@ def _build_swiss_bracket_sections(
                     if slot.participant_id is None:
                         continue
                     cumulative_points_by_participant_id[slot.participant_id] += (
-                        _parse_numeric_score_value(slot_scores.get(slot.slot_no))
+                        parse_numeric_score_value(slot_scores.get(slot.slot_no))
                     )
 
             qualified_count = 0

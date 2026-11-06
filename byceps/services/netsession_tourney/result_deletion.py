@@ -32,20 +32,20 @@ from .models import (
     TournamentID,
 )
 from .notification_service import (
-    _append_notifications_for_match,
+    append_notifications_for_match,
 )
 from .participant_state import (
-    _calculate_match_state_for_slots,
-    _get_tournament_status_value,
+    calculate_match_state_for_slots,
+    get_tournament_status_value,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_match_to_model,
-    _db_stage_to_model,
+    append_audit_log,
+    db_match_to_model,
+    db_stage_to_model,
 )
 from .tournament_queries import (
-    _build_site_match_path,
-    _find_db_tournament_for_party,
+    build_site_match_path,
+    find_db_tournament_for_party,
 )
 
 
@@ -58,7 +58,7 @@ def delete_match_result_by_admin(
     match_id: MatchID,
     initiator: User,
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -74,7 +74,7 @@ def delete_match_result_by_admin(
     if db_stage is None:
         return Err('Unbekannte Stage.')
 
-    stage = _db_stage_to_model(db_stage)
+    stage = db_stage_to_model(db_stage)
     if stage.type == StageType.swiss:
         return Err(
             'Bei Swiss lassen sich gespeicherte Ergebnisse noch nicht löschen.'
@@ -88,7 +88,7 @@ def delete_match_result_by_admin(
     if db_result is None:
         return Err('Für dieses Match ist kein Ergebnis gespeichert.')
 
-    blocking_match_id = _find_match_result_delete_blocker(match_id)
+    blocking_match_id = find_match_result_delete_blocker(match_id)
     if blocking_match_id is not None:
         db_blocking_match = db.session.get(
             DbNetsessionTourneyMatch, blocking_match_id
@@ -108,7 +108,7 @@ def delete_match_result_by_admin(
     _delete_match_result_branch(match_id, deleted_match_ids=deleted_match_ids)
 
     now = datetime.utcnow()
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
         object_id=match_id,
@@ -124,7 +124,7 @@ def delete_match_result_by_admin(
     return Ok(None)
 
 
-def _find_match_result_delete_blocker(
+def find_match_result_delete_blocker(
     match_id: MatchID, *, visited: set[MatchID] | None = None
 ) -> MatchID | None:
     if visited is None:
@@ -161,7 +161,7 @@ def _find_match_result_delete_blocker(
         if db_result.submitted_by_user_id is not None:
             return downstream_match_id
 
-        blocking_match_id = _find_match_result_delete_blocker(
+        blocking_match_id = find_match_result_delete_blocker(
             downstream_match_id, visited=visited
         )
         if blocking_match_id is not None:
@@ -277,8 +277,8 @@ def _reset_match_after_result_delete(db_match: DbNetsessionTourneyMatch) -> None
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
 
-    db_match.state = _calculate_match_state_for_slots(
-        tournament_status=_get_tournament_status_value(db_match.tournament_id),
+    db_match.state = calculate_match_state_for_slots(
+        tournament_status=get_tournament_status_value(db_match.tournament_id),
         db_match_slots=db_slots,
     ).value
 
@@ -301,7 +301,7 @@ def open_match_dispute(
     comment: str,
     correlation_id: str | None = None,
 ) -> Result[Match, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -325,7 +325,7 @@ def open_match_dispute(
     db_match.dispute_comment = comment
     db_match.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
         object_id=match_id,
@@ -338,14 +338,14 @@ def open_match_dispute(
         created_at=datetime.utcnow(),
     )
 
-    _append_notifications_for_match(
+    append_notifications_for_match(
         db_match,
         actor_user_id=initiator.id,
         kind='dispute_opened',
         payload={
             'match_id': str(db_match.id),
             'reason_code': reason_code,
-            'url': _build_site_match_path(db_tournament.slug, db_match.id),
+            'url': build_site_match_path(db_tournament.slug, db_match.id),
         },
     )
 
@@ -360,4 +360,4 @@ def open_match_dispute(
         correlation_id=correlation_id,
     )
 
-    return Ok(_db_match_to_model(db_match))
+    return Ok(db_match_to_model(db_match))

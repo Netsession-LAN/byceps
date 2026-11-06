@@ -49,17 +49,17 @@ from ...stage_builder_preview import preview_stage_builder_plan
 from ...stage_builder_settings import STAGE_BUILDER_MAIN_STAGE_SIZES
 from ...stage_generation import preview_stage_match_generation
 from ...swiss_thresholds import (
-    _get_configured_swiss_threshold,
-    _get_swiss_round_count_for_threshold,
-    _get_swiss_threshold_for_round_count,
+    get_configured_swiss_threshold,
+    get_swiss_round_count_for_threshold,
+    get_swiss_threshold_for_round_count,
 )
 from ...tournament_queries import get_stages_for_tournament
-from ...tournament_queries import _get_ffa_points_per_kill
-from ...engines.bracket_helpers import _distribute_evenly
-from ..site.builder_helpers import _get_builder_container_child_stage_ids
+from ...tournament_queries import get_ffa_points_per_kill
+from ...engines.bracket_helpers import distribute_evenly
+from ..site.builder_helpers import get_builder_container_child_stage_ids
 
 
-def _is_stage_builder_main_complete(state: dict) -> bool:
+def is_stage_builder_main_complete(state: dict) -> bool:
     if not all(
         (
             state.get('generation_basis'),
@@ -78,7 +78,7 @@ def _is_stage_builder_main_complete(state: dict) -> bool:
     return bool(state.get('main_stage_size'))
 
 
-def _is_stage_builder_preliminary_complete(state: dict) -> bool:
+def is_stage_builder_preliminary_complete(state: dict) -> bool:
     if 'use_preliminary' not in state:
         return False
 
@@ -101,11 +101,11 @@ def _is_stage_builder_preliminary_complete(state: dict) -> bool:
     return state.get('swiss_threshold') is not None
 
 
-def _is_ffa_stage_builder_tournament(tournament) -> bool:
+def is_ffa_stage_builder_tournament(tournament) -> bool:
     return tournament.mode == TournamentMode.ffa
 
 
-def _get_stage_builder_default_main_stage_size(tournament) -> str:
+def get_stage_builder_default_main_stage_size(tournament) -> str:
     participant_limit = tournament.participant_limit
     if participant_limit is not None:
         for allowed_size in sorted(STAGE_BUILDER_MAIN_STAGE_SIZES):
@@ -115,22 +115,22 @@ def _get_stage_builder_default_main_stage_size(tournament) -> str:
     return '1024'
 
 
-def _is_stage_builder_timing_complete(state: dict) -> bool:
+def is_stage_builder_timing_complete(state: dict) -> bool:
     return 'break_between_rounds_minutes' in state
 
 
-def _stage_to_form_data(stage) -> dict:
+def stage_to_form_data(stage) -> dict:
     result_report_mode = stage.settings.get(
         'result_report_mode', 'both_must_confirm'
     )
     if _is_ffa_scoring_stage_type(stage.type):
         result_report_mode = RESULT_REPORT_MODE_ADMIN_ONLY
 
-    swiss_threshold = _get_configured_swiss_threshold(stage.settings)
+    swiss_threshold = get_configured_swiss_threshold(stage.settings)
     if swiss_threshold is None and stage.type == StageType.swiss:
         raw_round_count = stage.settings.get('round_count')
         try:
-            swiss_threshold = _get_swiss_threshold_for_round_count(
+            swiss_threshold = get_swiss_threshold_for_round_count(
                 int(raw_round_count)
             )
         except (TypeError, ValueError):
@@ -148,7 +148,7 @@ def _stage_to_form_data(stage) -> dict:
         'placement_points': _format_ffa_placement_points_rules(
             stage.settings.get('placement_points_rules')
         ),
-        'points_per_kill': _get_ffa_points_per_kill(stage.settings),
+        'points_per_kill': get_ffa_points_per_kill(stage.settings),
         'match_duration_minutes': stage.settings.get('match_duration_minutes'),
         'max_matches_per_round': stage.settings.get('max_matches_per_round'),
         'break_between_rounds_minutes': stage.settings.get(
@@ -282,7 +282,7 @@ def _is_ffa_scoring_stage_type(stage_type: StageType | None) -> bool:
     }
 
 
-def _is_ffa_result_stage_type(stage_type: StageType | None) -> bool:
+def is_ffa_result_stage_type(stage_type: StageType | None) -> bool:
     return stage_type in {
         StageType.ffa_simple,
         StageType.ffa_single_elimination,
@@ -290,7 +290,7 @@ def _is_ffa_result_stage_type(stage_type: StageType | None) -> bool:
     }
 
 
-def _get_ffa_placement_points_row_count(
+def get_ffa_placement_points_row_count(
     tournament,
     placement_points_text: str | None,
     *,
@@ -331,7 +331,7 @@ def _get_ffa_placement_points_row_count(
     return max(int(rule['to_place']) for rule in rules)
 
 
-def _stage_settings_from_form(
+def stage_settings_from_form(
     form: StageForm, *, existing_settings: dict | None = None
 ) -> Result[dict, str]:
     try:
@@ -347,7 +347,7 @@ def _stage_settings_from_form(
         settings['round_count'] = form.round_count.data
     if stage_type == StageType.swiss and form.swiss_threshold.data:
         settings['swiss_threshold'] = form.swiss_threshold.data
-        settings['round_count'] = _get_swiss_round_count_for_threshold(
+        settings['round_count'] = get_swiss_round_count_for_threshold(
             form.swiss_threshold.data
         )
     if form.max_players_per_match.data and stage_type != StageType.ffa_simple:
@@ -385,7 +385,7 @@ def _stage_settings_from_form(
         )
     settings['result_report_mode'] = (
         RESULT_REPORT_MODE_ADMIN_ONLY
-        if _is_ffa_result_stage_type(stage_type)
+        if is_ffa_result_stage_type(stage_type)
         else (form.result_report_mode.data or 'both_must_confirm')
     )
 
@@ -401,7 +401,7 @@ def _stage_settings_from_form(
     return Ok(settings)
 
 
-def _participant_source_settings_from_form(
+def participant_source_settings_from_form(
     request_form, *, eligible_source_stages
 ):
     mode = (request_form.get('participant_source_mode') or 'tournament').strip()
@@ -452,7 +452,7 @@ def _participant_source_settings_from_form(
     return Ok(settings)
 
 
-def _build_current_manual_seed_values_by_participant_id(
+def build_current_manual_seed_values_by_participant_id(
     participants,
 ) -> dict[ParticipantID, int]:
     participant_count = len(participants)
@@ -485,7 +485,7 @@ def _build_current_manual_seed_values_by_participant_id(
     return manual_seed_values_by_participant_id
 
 
-def _parse_stage_generation_auto_seed_participant_ids(
+def parse_stage_generation_auto_seed_participant_ids(
     request_form, allowed_participant_ids: set[ParticipantID]
 ) -> Result[list[ParticipantID], str]:
     auto_seed_participant_ids: list[ParticipantID] = []
@@ -513,7 +513,7 @@ def _parse_stage_generation_auto_seed_participant_ids(
     return Ok(auto_seed_participant_ids)
 
 
-def _parse_stage_generation_manual_seed_values_by_participant_id(
+def parse_stage_generation_manual_seed_values_by_participant_id(
     request_form, allowed_participant_ids: set[ParticipantID]
 ) -> Result[dict[ParticipantID, int], str]:
     manual_seed_values_by_participant_id: dict[ParticipantID, int] = {}
@@ -549,7 +549,7 @@ def _parse_stage_generation_manual_seed_values_by_participant_id(
     return Ok(manual_seed_values_by_participant_id)
 
 
-def _build_stage_generation_seed_rows(
+def build_stage_generation_seed_rows(
     participants,
     auto_seed_participant_ids: list[ParticipantID],
     manual_seed_values_by_participant_id: dict[ParticipantID, int],
@@ -599,7 +599,7 @@ def _is_stage_builder_v1_stage(stage: Stage) -> bool:
     return (stage.settings or {}).get('builder_kind') == 'stage_builder_v1'
 
 
-def _is_builder_round_robin_summary_stage(stage: Stage) -> bool:
+def is_builder_round_robin_summary_stage(stage: Stage) -> bool:
     settings = stage.settings or {}
     return (
         _is_stage_builder_v1_stage(stage)
@@ -610,7 +610,7 @@ def _is_builder_round_robin_summary_stage(stage: Stage) -> bool:
 
 def _is_builder_container_stage(stage: Stage) -> bool:
     return _is_stage_builder_v1_stage(stage) and bool(
-        _get_builder_container_child_stage_ids(stage)
+        get_builder_container_child_stage_ids(stage)
     )
 
 
@@ -622,7 +622,7 @@ def _is_builder_preliminary_group_stage(stage: Stage) -> bool:
     )
 
 
-def _is_builder_main_stage_with_preliminary_source(stage: Stage) -> bool:
+def is_builder_main_stage_with_preliminary_source(stage: Stage) -> bool:
     settings = stage.settings or {}
     return (
         _is_stage_builder_v1_stage(stage)
@@ -631,7 +631,7 @@ def _is_builder_main_stage_with_preliminary_source(stage: Stage) -> bool:
     )
 
 
-def _get_stage_generation_block_reason(
+def get_stage_generation_block_reason(
     stage: Stage,
     stages_by_id: dict[StageID, Stage],
     matches_by_stage: dict[StageID, list[Match]],
@@ -677,7 +677,7 @@ def _get_stage_generation_block_reason(
     return None
 
 
-def _build_stage_display_rows(stages: list[Stage]) -> list[dict]:
+def build_stage_display_rows(stages: list[Stage]) -> list[dict]:
     rows = []
     consumed_stage_ids: set = set()
     stages_by_id = {str(stage.id): stage for stage in stages}
@@ -689,7 +689,7 @@ def _build_stage_display_rows(stages: list[Stage]) -> list[dict]:
         if _is_builder_container_stage(stage):
             child_stages = [
                 stages_by_id[str(stage_id)]
-                for stage_id in _get_builder_container_child_stage_ids(stage)
+                for stage_id in get_builder_container_child_stage_ids(stage)
                 if str(stage_id) in stages_by_id
             ]
             consumed_stage_ids.update(child_stage.id for child_stage in child_stages)
@@ -707,7 +707,7 @@ def _build_stage_display_rows(stages: list[Stage]) -> list[dict]:
     return rows
 
 
-def _build_visible_stage_tabs(stages: list[Stage]) -> list[Stage]:
+def build_visible_stage_tabs(stages: list[Stage]) -> list[Stage]:
     return [
         stage
         for stage in stages
@@ -715,7 +715,7 @@ def _build_visible_stage_tabs(stages: list[Stage]) -> list[Stage]:
     ]
 
 
-def _build_stage_builder_meta(stage: Stage) -> dict | None:
+def build_stage_builder_meta(stage: Stage) -> dict | None:
     if not _is_stage_builder_v1_stage(stage):
         return None
 
@@ -832,7 +832,7 @@ def _build_stage_builder_meta(stage: Stage) -> dict | None:
     }
 
 
-def _build_stage_builder_generation_summary(
+def build_stage_builder_generation_summary(
     stage: Stage,
     resolved_stage: Stage,
     participant_count: int,
@@ -905,7 +905,7 @@ def _build_stage_builder_generation_summary(
                     )
                 )
             if group_count:
-                group_sizes = _distribute_evenly(participant_count, int(group_count))
+                group_sizes = distribute_evenly(participant_count, int(group_count))
                 lines.append(_format_group_distribution_summary(group_sizes))
                 round_summary = _format_round_robin_global_round_summary(
                     group_sizes
@@ -966,12 +966,12 @@ def _build_stage_builder_generation_summary(
     }
 
 
-def _build_round_robin_generation_intro(
+def build_round_robin_generation_intro(
     stage: Stage,
     resolved_stage: Stage,
     participant_count: int,
 ) -> dict | None:
-    if not _is_builder_round_robin_summary_stage(stage):
+    if not is_builder_round_robin_summary_stage(stage):
         return None
 
     settings = resolved_stage.settings or {}
@@ -986,7 +986,7 @@ def _build_round_robin_generation_intro(
 
     group_sizes: list[int] = []
     if group_count:
-        group_sizes = _distribute_evenly(participant_count, int(group_count))
+        group_sizes = distribute_evenly(participant_count, int(group_count))
 
     return {
         'is_manual_mode': round_robin_builder_mode == 'manual_group_count',
@@ -1007,10 +1007,10 @@ def _build_round_robin_generation_intro(
     }
 
 
-def _build_stage_builder_container_preview_meta(
+def build_stage_builder_container_preview_meta(
     party_id: PartyID, tournament_id: TournamentID, stage: Stage
 ) -> dict | None:
-    if not _is_builder_round_robin_summary_stage(stage):
+    if not is_builder_round_robin_summary_stage(stage):
         return None
 
     preview_result = preview_stage_match_generation(
@@ -1020,7 +1020,7 @@ def _build_stage_builder_container_preview_meta(
         return None
 
     preview = preview_result.unwrap()
-    intro = _build_round_robin_generation_intro(
+    intro = build_round_robin_generation_intro(
         stage,
         preview.stage,
         preview.participant_count,
@@ -1077,7 +1077,7 @@ def _format_round_robin_global_round_summary(group_sizes: list[int]) -> str | No
     return gettext('Globale Rundensicht: %(parts)s', parts=', '.join(parts))
 
 
-def _build_stage_builder_main_form(
+def build_stage_builder_main_form(
     *,
     tournament,
     state: dict,
@@ -1093,18 +1093,18 @@ def _build_stage_builder_main_form(
             'main_stage_type': state.get('main_stage_type')
             or (
                 StageType.ffa_single_elimination.value
-                if _is_ffa_stage_builder_tournament(tournament)
+                if is_ffa_stage_builder_tournament(tournament)
                 else StageType.double_elimination.value
             ),
             'main_stage_size': state.get('main_stage_size')
-            or _get_stage_builder_default_main_stage_size(tournament),
+            or get_stage_builder_default_main_stage_size(tournament),
             'max_players_per_match': state.get('max_players_per_match')
             or 8,
         }
     )
 
 
-def _build_stage_builder_preliminary_form(
+def build_stage_builder_preliminary_form(
     *,
     tournament,
     state: dict,
@@ -1132,7 +1132,7 @@ def _build_stage_builder_preliminary_form(
                 if main_stage_type == StageType.ffa_flatout2_single_elimination
                 else (
                     StageType.ffa_single_elimination.value
-                    if _is_ffa_stage_builder_tournament(tournament)
+                    if is_ffa_stage_builder_tournament(tournament)
                     else StageType.round_robin_groups.value
                 )
             ),
@@ -1145,7 +1145,7 @@ def _build_stage_builder_preliminary_form(
     )
 
 
-def _build_stage_builder_timing_form(
+def build_stage_builder_timing_form(
     *, state: dict, erroneous_form: StageBuilderTimingForm | None = None
 ) -> StageBuilderTimingForm:
     if erroneous_form is not None:
@@ -1162,7 +1162,7 @@ def _build_stage_builder_timing_form(
     )
 
 
-def _stage_builder_steps() -> list[dict[str, str]]:
+def stage_builder_steps() -> list[dict[str, str]]:
     return [
         {'id': 'main', 'number': '1', 'label': gettext('Hauptturnier')},
         {'id': 'preliminary', 'number': '2', 'label': gettext('Vorrunde')},
@@ -1171,7 +1171,7 @@ def _stage_builder_steps() -> list[dict[str, str]]:
     ]
 
 
-def _assert_tournament_has_no_stages_for_builder_or_redirect(
+def assert_tournament_has_no_stages_for_builder_or_redirect(
     party: Party, tournament
 ):
     stages = get_stages_for_tournament(party.id, tournament.id)
@@ -1191,10 +1191,10 @@ def _assert_tournament_has_no_stages_for_builder_or_redirect(
     return None
 
 
-def _build_stage_builder_review_preview(
+def build_stage_builder_review_preview(
     party: Party, tournament, *, state: dict
 ) -> dict | None:
-    if not _is_stage_builder_main_complete(state):
+    if not is_stage_builder_main_complete(state):
         return None
 
     try:
@@ -1423,7 +1423,7 @@ def _build_stage_builder_review_preview(
     return {'title': gettext('Aktuelle Builder-Vorschau'), 'lines': lines}
 
 
-def _is_flatout2_stage_type(stage_type: StageType | None) -> bool:
+def is_flatout2_stage_type(stage_type: StageType | None) -> bool:
     return stage_type == StageType.ffa_flatout2_single_elimination
 
 
@@ -1454,12 +1454,12 @@ def _get_flatout2_generation_action_label(
     )
 
 
-def _build_stage_generation_state(
+def build_stage_generation_state(
     stage: Stage,
     stages_by_id: dict[StageID, Stage],
     matches_by_stage: dict[StageID, list[Match]],
 ) -> dict:
-    block_reason = _get_stage_generation_block_reason(
+    block_reason = get_stage_generation_block_reason(
         stage,
         stages_by_id,
         matches_by_stage,
@@ -1467,7 +1467,7 @@ def _build_stage_generation_state(
     action_label = gettext('Seeding / Matches generieren')
     action_hint = None
 
-    if _is_flatout2_stage_type(stage.type):
+    if is_flatout2_stage_type(stage.type):
         stage_matches = sorted(
             matches_by_stage.get(stage.id, []),
             key=lambda match: (match.round_no, match.match_no),
@@ -1490,7 +1490,7 @@ def _build_stage_generation_state(
 
     return {
         'block_reason': block_reason,
-        'locks_manual_seeding': _is_builder_main_stage_with_preliminary_source(
+        'locks_manual_seeding': is_builder_main_stage_with_preliminary_source(
             stage
         ),
         'action_label': action_label,
@@ -1498,7 +1498,7 @@ def _build_stage_generation_state(
     }
 
 
-def _build_flatout2_generation_state(
+def build_flatout2_generation_state(
     stage,
     *,
     participants: list,
@@ -1689,7 +1689,7 @@ def _build_flatout2_generation_state(
     }
 
 
-def _parse_flatout2_generation_configuration(
+def parse_flatout2_generation_configuration(
     stage,
     participants,
     request_form,

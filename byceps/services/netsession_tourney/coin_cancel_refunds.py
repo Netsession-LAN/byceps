@@ -17,7 +17,7 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import UserID
 
-from .coin_service import _append_coin_ledger_entry
+from .coin_service import append_coin_ledger_entry
 from .dbmodels import DbNetsessionTourneyCoinLedgerEntry
 from .models import CoinLedgerEntryKind, Tournament
 from .team_coins_and_readiness import get_unrefunded_registration_coins
@@ -49,7 +49,7 @@ def refund_all_coins_of_canceled_tournament(
         )
         if not unrefunded:
             continue
-        _append_coin_ledger_entry(
+        append_coin_ledger_entry(
             party_id,
             user_id,
             unrefunded,

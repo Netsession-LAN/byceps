@@ -38,8 +38,8 @@ from .models import (
     TournamentStatus,
 )
 from .service_helpers import (
-    _db_participant_to_model,
-    _db_stage_to_model,
+    db_participant_to_model,
+    db_stage_to_model,
 )
 
 
@@ -54,7 +54,7 @@ ACTIVE_PARTICIPANT_STATUS_VALUES = {
 def get_stages_for_tournament(
     party_id: PartyID, tournament_id: TournamentID
 ) -> list[Stage]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return []
 
@@ -77,7 +77,7 @@ def get_participants_for_tournament(
     *,
     include_dropped: bool = False,
 ) -> list[Participant]:
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return []
 
     stmt = (
@@ -95,10 +95,10 @@ def get_participants_for_tournament(
         )
 
     db_participants = db.session.scalars(stmt).all()
-    return [_db_participant_to_model(item) for item in db_participants]
+    return [db_participant_to_model(item) for item in db_participants]
 
 
-def _parse_numeric_score_value(value: Any) -> int:
+def parse_numeric_score_value(value: Any) -> int:
     if value is None:
         return 0
 
@@ -108,14 +108,14 @@ def _parse_numeric_score_value(value: Any) -> int:
         return 0
 
 
-def _is_walkover_score_json(score_json: dict[str, Any] | None) -> bool:
+def is_walkover_score_json(score_json: dict[str, Any] | None) -> bool:
     if not isinstance(score_json, dict):
         return False
 
     return bool(score_json.get('walkover'))
 
 
-def _parse_match_result_slot_scores(
+def parse_match_result_slot_scores(
     slots: list[DbNetsessionTourneyMatchSlot],
     score_json: dict[str, Any] | None,
     *,
@@ -191,7 +191,7 @@ def _parse_match_result_slot_scores(
     }
 
 
-def _get_ffa_points_per_kill(settings: dict[str, Any] | None) -> int:
+def get_ffa_points_per_kill(settings: dict[str, Any] | None) -> int:
     if not isinstance(settings, dict):
         return 1
 
@@ -204,7 +204,7 @@ def _get_ffa_points_per_kill(settings: dict[str, Any] | None) -> int:
     return max(0, value)
 
 
-def _get_flatout2_round_races(
+def get_flatout2_round_races(
     match_settings: dict[str, Any]
 ) -> list[dict[str, str]]:
     if not isinstance(match_settings, dict):
@@ -230,7 +230,7 @@ def _get_flatout2_round_races(
     return normalized_races
 
 
-def _get_match_host_participant_id(
+def get_match_host_participant_id(
     db_match: DbNetsessionTourneyMatch,
 ) -> ParticipantID | None:
     raw_value = (db_match.settings_json or {}).get('host_participant_id')
@@ -243,10 +243,10 @@ def _get_match_host_participant_id(
         return None
 
 
-def _get_selected_host_user_ids(
+def get_selected_host_user_ids(
     db_match: DbNetsessionTourneyMatch,
 ) -> set[UserID]:
-    participant_id = _get_match_host_participant_id(db_match)
+    participant_id = get_match_host_participant_id(db_match)
     if participant_id is None:
         return set()
 
@@ -271,7 +271,7 @@ def _get_selected_host_user_ids(
     return user_ids
 
 
-def _get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
+def get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
     db_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
     ).all()
@@ -309,7 +309,7 @@ def _get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
     return user_ids
 
 
-def _get_active_user_ids_for_tournament(
+def get_active_user_ids_for_tournament(
     tournament_id: TournamentID,
 ) -> set[UserID]:
     db_participants = db.session.scalars(
@@ -345,7 +345,7 @@ def _get_active_user_ids_for_tournament(
     return user_ids
 
 
-def _build_flatout2_round_race_lines(payload: dict[str, Any]) -> list[str]:
+def build_flatout2_round_race_lines(payload: dict[str, Any]) -> list[str]:
     raw_races = payload.get('flatout2_round_races')
     if not isinstance(raw_races, list):
         return []
@@ -365,15 +365,15 @@ def _build_flatout2_round_race_lines(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _build_flatout2_first_race_summary(payload: dict[str, Any]) -> str:
-    race_lines = _build_flatout2_round_race_lines(payload)
+def build_flatout2_first_race_summary(payload: dict[str, Any]) -> str:
+    race_lines = build_flatout2_round_race_lines(payload)
     if not race_lines:
         return ''
 
     return f'Erstes Rennen: {race_lines[0][3:]}'
 
 
-def _find_db_tournament_for_party(
+def find_db_tournament_for_party(
     party_id: PartyID, tournament_id: TournamentID
 ) -> DbNetsessionTourneyTournament | None:
     return db.session.scalar(
@@ -383,18 +383,18 @@ def _find_db_tournament_for_party(
     )
 
 
-def _build_site_tournament_overview_path(slug: str) -> str:
+def build_site_tournament_overview_path(slug: str) -> str:
     return f'/ns-tourneys/{slug}'
 
 
-def _build_site_match_path(slug: str, match_id: MatchID | UUID) -> str:
+def build_site_match_path(slug: str, match_id: MatchID | UUID) -> str:
     return f'/ns-tourneys/{slug}/matches/{match_id}'
 
 
 def _db_stage_to_model_with_effective_status(
     db_stage: DbNetsessionTourneyStage, *, tournament_status: str
 ) -> Stage:
-    stage = _db_stage_to_model(db_stage)
+    stage = db_stage_to_model(db_stage)
     if (
         tournament_status == TournamentStatus.draft.value
         and stage.status == StageStatus.live

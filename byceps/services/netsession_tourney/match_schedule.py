@@ -41,26 +41,26 @@ from .models import (
     TournamentID,
 )
 from .notification_service import (
-    _append_notifications_for_match,
+    append_notifications_for_match,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_match_to_model,
-    _parse_source_outcome,
+    append_audit_log,
+    db_match_to_model,
+    parse_source_outcome,
 )
 from .stage_service import (
-    _get_stage_setting_int,
+    get_stage_setting_int,
 )
 from .tournament_queries import (
-    _build_site_match_path,
-    _find_db_tournament_for_party,
+    build_site_match_path,
+    find_db_tournament_for_party,
 )
 
 
 log = structlog.get_logger()
 
 
-def _build_pending_structure_match_specs_for_stage(
+def build_pending_structure_match_specs_for_stage(
     *,
     tournament_id: TournamentID,
     stage_type: StageType,
@@ -119,7 +119,7 @@ def reschedule_match(
     comment: str,
     correlation_id: str | None = None,
 ) -> Result[Match, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
@@ -138,7 +138,7 @@ def reschedule_match(
     db_match.scheduled_at = scheduled_at
     db_match.updated_at = datetime.utcnow()
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='match',
         object_id=match_id,
@@ -151,14 +151,14 @@ def reschedule_match(
         created_at=datetime.utcnow(),
     )
 
-    _append_notifications_for_match(
+    append_notifications_for_match(
         db_match,
         actor_user_id=initiator.id,
         kind='schedule_changed',
         payload={
             'match_id': str(db_match.id),
             'scheduled_at': scheduled_at.isoformat(),
-            'url': _build_site_match_path(db_tournament.slug, db_match.id),
+            'url': build_site_match_path(db_tournament.slug, db_match.id),
         },
     )
 
@@ -172,10 +172,10 @@ def reschedule_match(
         correlation_id=correlation_id,
     )
 
-    return Ok(_db_match_to_model(db_match))
+    return Ok(db_match_to_model(db_match))
 
 
-def _persist_generated_matches(
+def persist_generated_matches(
     *,
     tournament_id: TournamentID,
     stage_id: StageID,
@@ -221,17 +221,17 @@ def _persist_generated_matches(
                 slot.slot_no,
                 participant_id=slot.participant_id,
                 source_match_slot_id=source_slot_id,
-                source_outcome=_parse_source_outcome(slot.source_outcome),
+                source_outcome=parse_source_outcome(slot.source_outcome),
             )
             db.session.add(db_slot)
             if slot.slot_no == 1:
                 source_slot_id_by_match_no[spec.match_no] = db_slot.id
 
     db.session.flush()
-    return [_db_match_to_model(item) for item in created_matches]
+    return [db_match_to_model(item) for item in created_matches]
 
 
-def _schedule_generated_matches(
+def schedule_generated_matches(
     *,
     tournament_starts_at: datetime | None,
     stage: Stage,
@@ -247,13 +247,13 @@ def _schedule_generated_matches(
         if round_no > 0
     }
 
-    match_duration_minutes = _get_stage_setting_int(
+    match_duration_minutes = get_stage_setting_int(
         stage.settings, 'match_duration_minutes', minimum=1
     )
-    max_matches_per_round = _get_stage_setting_int(
+    max_matches_per_round = get_stage_setting_int(
         stage.settings, 'max_matches_per_round', minimum=1
     )
-    break_between_rounds_minutes = _get_stage_setting_int(
+    break_between_rounds_minutes = get_stage_setting_int(
         stage.settings,
         'break_between_rounds_minutes',
         minimum=0,
@@ -347,7 +347,7 @@ def _schedule_round_matches_in_waves(
     return wave_count
 
 
-def _build_round_starts_at_schedule(
+def build_round_starts_at_schedule(
     *,
     tournament_starts_at: datetime | None,
     stage: Stage,
@@ -356,16 +356,16 @@ def _build_round_starts_at_schedule(
     if tournament_starts_at is None or not round_match_counts:
         return {}
 
-    match_duration_minutes = _get_stage_setting_int(
+    match_duration_minutes = get_stage_setting_int(
         stage.settings, 'match_duration_minutes', minimum=1
     )
     if match_duration_minutes is None:
         return {}
 
-    max_matches_per_round = _get_stage_setting_int(
+    max_matches_per_round = get_stage_setting_int(
         stage.settings, 'max_matches_per_round', minimum=1
     )
-    break_between_rounds_minutes = _get_stage_setting_int(
+    break_between_rounds_minutes = get_stage_setting_int(
         stage.settings,
         'break_between_rounds_minutes',
         minimum=0,

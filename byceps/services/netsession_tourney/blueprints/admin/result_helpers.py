@@ -27,7 +27,7 @@ from ...tournament_queries import (
 from ...tournament_service import find_tournament_for_party
 
 
-def _get_party_or_404(party_id) -> Party:
+def get_party_or_404(party_id) -> Party:
     party = party_service.find_party(party_id)
     if party is None:
         abort(404)
@@ -41,7 +41,7 @@ def _get_tournament_or_404(party_id, tournament_id):
     return tournament
 
 
-def _get_stage_or_404(party_id, tournament_id, stage_id):
+def get_stage_or_404(party_id, tournament_id, stage_id):
     stages = get_stages_for_tournament(party_id, tournament_id)
     for stage in stages:
         if stage.id == stage_id:
@@ -50,7 +50,7 @@ def _get_stage_or_404(party_id, tournament_id, stage_id):
     abort(404)
 
 
-def _get_participant_or_404(party_id, tournament_id, participant_id):
+def get_participant_or_404(party_id, tournament_id, participant_id):
     participants = get_participants_for_tournament(party_id, tournament_id)
     for participant in participants:
         if participant.id == participant_id:
@@ -59,7 +59,7 @@ def _get_participant_or_404(party_id, tournament_id, participant_id):
     abort(404)
 
 
-def _get_match_or_404(party_id, tournament_id, match_id):
+def get_match_or_404(party_id, tournament_id, match_id):
     matches = get_matches_for_tournament(party_id, tournament_id)
     for match in matches:
         if match.id == match_id:
@@ -68,7 +68,7 @@ def _get_match_or_404(party_id, tournament_id, match_id):
     abort(404)
 
 
-def _redirect_to_related_tournament_view(
+def redirect_to_related_tournament_view(
     party_id: str, tournament_id: UUID
 ):
     path = request.path
@@ -90,7 +90,7 @@ def _redirect_to_related_tournament_view(
     )
 
 
-def _redirect_to_participant_or_tournament_view(
+def redirect_to_participant_or_tournament_view(
     party_id: str, tournament_id: UUID, participant_id: UUID
 ):
     return_to_participant = (
@@ -105,10 +105,10 @@ def _redirect_to_participant_or_tournament_view(
             participant_id=participant_id,
         )
 
-    return _redirect_to_related_tournament_view(party_id, tournament_id)
+    return redirect_to_related_tournament_view(party_id, tournament_id)
 
 
-def _redirect_to_match_or_tournament_view(
+def redirect_to_match_or_tournament_view(
     party_id: str, tournament_id: UUID, match_id: UUID
 ):
     return_to_match = (
@@ -146,10 +146,10 @@ def _redirect_to_match_or_tournament_view(
             **redirect_kwargs,
         )
 
-    return _redirect_to_related_tournament_view(party_id, tournament_id)
+    return redirect_to_related_tournament_view(party_id, tournament_id)
 
 
-def _build_score_payload(raw_score: str | None) -> dict:
+def build_score_payload(raw_score: str | None) -> dict:
     if raw_score is None:
         return {}
 
@@ -160,7 +160,7 @@ def _build_score_payload(raw_score: str | None) -> dict:
     return {'display': score}
 
 
-def _parse_admin_ffa_result_form(
+def parse_admin_ffa_result_form(
     request_form,
     slots,
     *,
@@ -271,7 +271,7 @@ def _parse_admin_ffa_result_form(
     return Ok((winner_slot, score, ranking, comment))
 
 
-def _parse_admin_flatout2_result_form(
+def parse_admin_flatout2_result_form(
     request_form,
     slots,
 ) -> Result[tuple[int, dict, dict, str | None], str]:
@@ -363,7 +363,7 @@ def _get_ffa_points_for_placement(
     return 0
 
 
-def _get_or_create_idempotency_key(raw_key: str | None) -> str:
+def get_or_create_idempotency_key(raw_key: str | None) -> str:
     if raw_key:
         key = raw_key.strip()
         if key:
@@ -372,7 +372,7 @@ def _get_or_create_idempotency_key(raw_key: str | None) -> str:
     return f'admin-{generate_uuid7()}'
 
 
-def _parse_csv(raw: str | None) -> list[str]:
+def parse_csv(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(',') if part.strip()]

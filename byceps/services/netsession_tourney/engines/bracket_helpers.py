@@ -53,7 +53,7 @@ def _build_seeded_first_round_specs(
                 round_no=1,
                 match_no=match_no,
                 state=state,
-                slots=_seeded_slots(p1, p2),
+                slots=seeded_slots(p1, p2),
             )
         )
         match_no += 1
@@ -105,8 +105,8 @@ def _build_single_elimination_follow_up_specs(
                     match_no=match_no,
                     state='pending',
                     slots=[
-                        _sourced_slot(1, semifinal_1, 'loser'),
-                        _sourced_slot(2, semifinal_2, 'loser'),
+                        sourced_slot(1, semifinal_1, 'loser'),
+                        sourced_slot(2, semifinal_2, 'loser'),
                     ],
                 )
             )
@@ -139,7 +139,7 @@ def build_double_elimination_specs(
 
     if len(wb_round_match_nos) < 2:
         # Should not happen for bracket_size > 2, but keep safe.
-        return _with_computed_round_numbers(specs_by_match_no)
+        return with_computed_round_numbers(specs_by_match_no)
 
     lb_final_match_no, match_no = _add_loser_bracket(
         specs_by_match_no, wb_round_match_nos, match_no
@@ -149,8 +149,8 @@ def build_double_elimination_specs(
     # Grand Final #1.
     specs_by_match_no[match_no] = (
         [
-            _sourced_slot(1, wb_final_match_no, 'winner'),
-            _sourced_slot(2, lb_final_match_no, 'winner'),
+            sourced_slot(1, wb_final_match_no, 'winner'),
+            sourced_slot(2, lb_final_match_no, 'winner'),
         ],
         'pending',
     )
@@ -163,13 +163,13 @@ def build_double_elimination_specs(
         # loss and must play once more.
         specs_by_match_no[match_no] = (
             [
-                _sourced_slot(1, grand_final_match_no, 'winner'),
-                _sourced_slot(2, grand_final_match_no, 'loser'),
+                sourced_slot(1, grand_final_match_no, 'winner'),
+                sourced_slot(2, grand_final_match_no, 'loser'),
             ],
             'pending',
         )
 
-    return _with_computed_round_numbers(specs_by_match_no)
+    return with_computed_round_numbers(specs_by_match_no)
 
 
 def _add_winner_bracket(
@@ -188,7 +188,7 @@ def _add_winner_bracket(
         p2 = bracket_slots[index + 1]
         state = 'ready' if p1 and p2 else 'pending'
         specs_by_match_no[match_no] = (
-            _seeded_slots(p1, p2),
+            seeded_slots(p1, p2),
             state,
         )
         wb_round_1.append(match_no)
@@ -236,8 +236,8 @@ def _add_loser_bracket(
             lb_match_no = lb_previous_round[index]
             specs_by_match_no[match_no] = (
                 [
-                    _sourced_slot(1, lb_match_no, 'winner'),
-                    _sourced_slot(2, wb_match_no, 'loser'),
+                    sourced_slot(1, lb_match_no, 'winner'),
+                    sourced_slot(2, wb_match_no, 'loser'),
                 ],
                 'pending',
             )
@@ -278,8 +278,8 @@ def _add_paired_round(
         source_b = source_match_nos[index + 1]
         specs_by_match_no[match_no] = (
             [
-                _sourced_slot(1, source_a, outcome),
-                _sourced_slot(2, source_b, outcome),
+                sourced_slot(1, source_a, outcome),
+                sourced_slot(2, source_b, outcome),
             ],
             'pending',
         )
@@ -292,7 +292,7 @@ def _add_paired_round(
 # shared building blocks
 
 
-def _seeded_slots(
+def seeded_slots(
     participant_1: ParticipantID | None, participant_2: ParticipantID | None
 ) -> list[SlotSpec]:
     return [
@@ -301,7 +301,7 @@ def _seeded_slots(
     ]
 
 
-def _sourced_slot(slot_no: int, source_match_no: int, outcome: str) -> SlotSpec:
+def sourced_slot(slot_no: int, source_match_no: int, outcome: str) -> SlotSpec:
     return SlotSpec(
         slot_no=slot_no,
         participant_id=None,
@@ -310,11 +310,11 @@ def _sourced_slot(slot_no: int, source_match_no: int, outcome: str) -> SlotSpec:
     )
 
 
-def _chunked_evenly(items: list[T], chunk_count: int) -> list[list[T]]:
+def chunked_evenly(items: list[T], chunk_count: int) -> list[list[T]]:
     if chunk_count <= 0:
         return []
 
-    chunk_sizes = _distribute_evenly(len(items), chunk_count)
+    chunk_sizes = distribute_evenly(len(items), chunk_count)
     chunks: list[list[T]] = []
     offset = 0
     for chunk_size in chunk_sizes:
@@ -324,7 +324,7 @@ def _chunked_evenly(items: list[T], chunk_count: int) -> list[list[T]]:
     return [chunk for chunk in chunks if chunk]
 
 
-def _snake_groups(items: list[T], group_count: int) -> list[list[T]]:
+def snake_groups(items: list[T], group_count: int) -> list[list[T]]:
     """Deal items (ordered by seed) into groups in snake order: A B C, C B
     A, A B C … so the strongest do not all land in the first group."""
     groups: list[list[T]] = [[] for _ in range(max(group_count, 0))]
@@ -338,7 +338,7 @@ def _snake_groups(items: list[T], group_count: int) -> list[list[T]]:
     return [group for group in groups if group]
 
 
-def _distribute_evenly(total: int, bucket_count: int) -> list[int]:
+def distribute_evenly(total: int, bucket_count: int) -> list[int]:
     if bucket_count <= 0:
         return []
 
@@ -349,7 +349,7 @@ def _distribute_evenly(total: int, bucket_count: int) -> list[int]:
     ]
 
 
-def _build_seeded_bracket_slots(
+def build_seeded_bracket_slots(
     participant_ids: list[ParticipantID],
 ) -> list[ParticipantID | None]:
     sorted_participants = list(participant_ids)
@@ -366,7 +366,7 @@ def _build_seeded_bracket_slots(
     ]
 
 
-def _with_computed_round_numbers(
+def with_computed_round_numbers(
     specs_by_match_no: dict[int, tuple[list[SlotSpec], str]],
 ) -> list[MatchSpec]:
     round_no_by_match_no: dict[int, int] = {}

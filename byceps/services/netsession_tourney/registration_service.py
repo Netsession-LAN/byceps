@@ -19,8 +19,8 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .coin_service import (
-    _charge_coins_for_tournament_registration,
-    _refund_coins_for_tournament_registration_if_available,
+    charge_coins_for_tournament_registration,
+    refund_coins_for_tournament_registration_if_available,
 )
 from .dbmodels import (
     DbNetsessionTourneyParticipant,
@@ -41,22 +41,22 @@ from .models import (
     TournamentStatus,
 )
 from .notification_service import (
-    _append_notification,
+    append_notification,
 )
 from .participant_state import (
-    _find_db_active_participant_for_user,
+    find_db_active_participant_for_user,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_participant_to_model,
-    _db_tournament_to_model,
+    append_audit_log,
+    db_participant_to_model,
+    db_tournament_to_model,
 )
 from .team_coins_and_readiness import (
     reset_ready_if_incomplete,
 )
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
 )
 from .tourney_registration_checks import validate_user_can_enter_tournament
 
@@ -64,11 +64,11 @@ from .tourney_registration_checks import validate_user_can_enter_tournament
 def register_user(
     party_id: PartyID, tournament_id: TournamentID, user: User
 ) -> Result[Participant, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     if tournament.registration_mode in {
         RegistrationMode.team_captain_managed,
         RegistrationMode.team_preformed_only,
@@ -83,7 +83,7 @@ def register_user(
     if entry_error is not None:
         return Err(entry_error)
 
-    charge_result = _charge_coins_for_tournament_registration(
+    charge_result = charge_coins_for_tournament_registration(
         party_id,
         tournament,
         user.id,
@@ -93,19 +93,19 @@ def register_user(
         return Err(charge_result.unwrap_err())
 
     now = datetime.utcnow()
-    _ensure_registration_is_registered(tournament_id, user.id, created_at=now)
+    ensure_registration_is_registered(tournament_id, user.id, created_at=now)
     db_participant = _add_participant_for_registering_user(
         tournament_id, tournament, user, now
     )
 
-    _append_notification(
+    append_notification(
         tournament_id=tournament_id,
         user_id=user.id,
         kind='registration_created',
         payload={'participant_id': str(db_participant.id)},
         created_at=now,
     )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -115,7 +115,7 @@ def register_user(
     )
 
     db.session.commit()
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def _add_participant_for_registering_user(
@@ -144,7 +144,7 @@ def _add_participant_for_registering_user(
         manager_user_id=user.id,
         status=participant_status,
         invite_code=(
-            _generate_unique_invite_code_for_tournament(tournament_id)
+            generate_unique_invite_code_for_tournament(tournament_id)
             if participant_type == ParticipantType.team
             else None
         ),
@@ -160,16 +160,16 @@ def _add_participant_for_registering_user(
 def deregister_user(
     party_id: PartyID, tournament_id: TournamentID, user: User
 ) -> Result[None, str]:
-    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    tournament = _db_tournament_to_model(db_tournament)
+    tournament = db_tournament_to_model(db_tournament)
     status_error = _get_deregistration_status_error(tournament)
     if status_error is not None:
         return Err(status_error)
 
-    db_participant = _find_db_active_participant_for_user(
+    db_participant = find_db_active_participant_for_user(
         tournament_id, user.id
     )
     if db_participant is None:
@@ -220,16 +220,16 @@ def _deregister_solo_participant(
     now: datetime,
 ) -> None:
     db_participant.status = ParticipantStatus.dropped.value
-    _set_registration_state_for_user(
+    set_registration_state_for_user(
         tournament_id, user.id, RegistrationState.canceled
     )
-    _refund_coins_for_tournament_registration_if_available(
+    refund_coins_for_tournament_registration_if_available(
         party_id,
         tournament,
         user.id,
         created_by_user_id=user.id,
     )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -249,17 +249,17 @@ def _deregister_team_by_captain(
     now: datetime,
 ) -> None:
     db_participant.status = ParticipantStatus.dropped.value
-    member_user_ids = _get_team_member_user_ids_for_participant(
+    member_user_ids = get_team_member_user_ids_for_participant(
         db_participant.id
     )
     for member_user_id in member_user_ids:
-        _set_registration_state_for_user(
+        set_registration_state_for_user(
             tournament_id, member_user_id, RegistrationState.canceled
         )
-        _refund_coins_for_tournament_registration_if_available(
+        refund_coins_for_tournament_registration_if_available(
             party_id, tournament, member_user_id, created_by_user_id=user.id
         )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -288,16 +288,16 @@ def _leave_team_as_member(
         return Err('Du bist für dieses Turnier nicht angemeldet.')
 
     db.session.delete(db_member)
-    _set_registration_state_for_user(
+    set_registration_state_for_user(
         tournament_id, user.id, RegistrationState.canceled
     )
-    _refund_coins_for_tournament_registration_if_available(
+    refund_coins_for_tournament_registration_if_available(
         party_id, tournament, user.id, created_by_user_id=user.id
     )
     reset_ready_if_incomplete(
         db_participant, tournament.team_size, tournament.substitute_count
     )
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=user.id,
         object_type='participant',
         object_id=db_participant.id,
@@ -309,7 +309,7 @@ def _leave_team_as_member(
     return Ok(None)
 
 
-def _set_registration_state_for_user(
+def set_registration_state_for_user(
     tournament_id: TournamentID, user_id: UserID, state: RegistrationState
 ) -> None:
     db_registration = db.session.scalar(
@@ -323,7 +323,7 @@ def _set_registration_state_for_user(
     db_registration.state = state.value
 
 
-def _ensure_registration_is_registered(
+def ensure_registration_is_registered(
     tournament_id: TournamentID,
     user_id: UserID,
     *,
@@ -353,7 +353,7 @@ def _ensure_registration_is_registered(
     db_registration.state = RegistrationState.registered.value
 
 
-def _get_team_member_user_ids_for_participant(
+def get_team_member_user_ids_for_participant(
     participant_id: ParticipantID,
 ) -> list[UserID]:
     return db.session.scalars(
@@ -363,7 +363,7 @@ def _get_team_member_user_ids_for_participant(
     ).all()
 
 
-def _generate_unique_invite_code_for_tournament(
+def generate_unique_invite_code_for_tournament(
     tournament_id: TournamentID,
 ) -> str:
     for _ in range(64):

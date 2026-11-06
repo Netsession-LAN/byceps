@@ -24,7 +24,7 @@ from .models import (
 )
 
 
-def _build_double_elimination_notification_match_label(
+def build_double_elimination_notification_match_label(
     db_match: DbNetsessionTourneyMatch,
     stage_id: StageID,
 ) -> str:

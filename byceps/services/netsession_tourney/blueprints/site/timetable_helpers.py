@@ -19,7 +19,7 @@ from ...tournament_queries import get_stages_for_tournament
 from ...tournament_service import get_tournaments_for_party
 
 
-def _build_party_timetable(
+def build_party_timetable(
     party, *, selected_day_iso: str | None = None
 ) -> dict[str, Any]:
     party_days = _build_party_days(party)

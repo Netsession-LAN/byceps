@@ -18,9 +18,9 @@ from byceps.util.views import permission_required
 
 from ...checkin_service import set_checkin_by_admin
 from .result_helpers import (
-    _get_party_or_404,
+    get_party_or_404,
     _get_tournament_or_404,
-    _redirect_to_related_tournament_view,
+    redirect_to_related_tournament_view,
 )
 
 
@@ -31,7 +31,7 @@ def register(blueprint) -> None:
     )
     @permission_required('netsession_tourney.manage')
     def participant_set_checkin(party_id, tournament_id, participant_id: UUID):
-        party = _get_party_or_404(party_id)
+        party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
         checked_in = request.form.get('checked_in') == '1'
 
@@ -50,4 +50,4 @@ def register(blueprint) -> None:
             case Err(message):
                 flash_error(message)
 
-        return _redirect_to_related_tournament_view(party.id, tournament.id)
+        return redirect_to_related_tournament_view(party.id, tournament.id)

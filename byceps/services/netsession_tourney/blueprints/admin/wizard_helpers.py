@@ -65,7 +65,7 @@ from .route_config import (
 )
 
 
-def _set_category_choices_for_form(
+def set_category_choices_for_form(
     form: TournamentForm | TournamentWizardFormatForm, party_id: str
 ) -> None:
     categories = get_tournament_categories_for_party(party_id)
@@ -74,7 +74,7 @@ def _set_category_choices_for_form(
     )
 
 
-def _set_rules_template_choices_for_form(
+def set_rules_template_choices_for_form(
     form: TournamentForm | TournamentWizardDetailsForm,
     party_id: str,
     *,
@@ -92,7 +92,7 @@ def _set_rules_template_choices_for_form(
     form.set_rules_template_choices(choices)
 
 
-def _set_logo_choices_for_form(
+def set_logo_choices_for_form(
     form: TournamentForm | TournamentWizardDetailsForm,
     party_id: str,
     *,
@@ -137,7 +137,7 @@ def _get_default_category_id_for_party(party_id: str) -> str | None:
     return str(categories[0].id)
 
 
-def _parse_category_id(raw_category_id: str | None) -> TournamentCategoryID | None:
+def parse_category_id(raw_category_id: str | None) -> TournamentCategoryID | None:
     if not raw_category_id:
         return None
 
@@ -147,7 +147,7 @@ def _parse_category_id(raw_category_id: str | None) -> TournamentCategoryID | No
         return None
 
 
-def _get_tournament_category_or_404(category_id):
+def get_tournament_category_or_404(category_id):
     category = find_tournament_category(TournamentCategoryID(category_id))
     if category is None:
         abort(404)
@@ -155,7 +155,7 @@ def _get_tournament_category_or_404(category_id):
     return category
 
 
-def _get_tournament_rule_template_or_404(rule_template_id):
+def get_tournament_rule_template_or_404(rule_template_id):
     rule_template = find_tournament_rule_template(
         TournamentRuleTemplateID(rule_template_id)
     )
@@ -165,7 +165,7 @@ def _get_tournament_rule_template_or_404(rule_template_id):
     return rule_template
 
 
-def _get_tournament_prize_or_404(prize_id):
+def get_tournament_prize_or_404(prize_id):
     prize = find_tournament_prize(TournamentPrizeID(prize_id))
     if prize is None:
         abort(404)
@@ -173,7 +173,7 @@ def _get_tournament_prize_or_404(prize_id):
     return prize
 
 
-def _get_tournament_logo_asset_or_404(logo_asset_id):
+def get_tournament_logo_asset_or_404(logo_asset_id):
     logo_asset = find_tournament_logo_asset(TournamentLogoAssetID(logo_asset_id))
     if logo_asset is None:
         abort(404)
@@ -181,7 +181,7 @@ def _get_tournament_logo_asset_or_404(logo_asset_id):
     return logo_asset
 
 
-def _get_sponsor_logo_asset_or_404(logo_asset_id):
+def get_sponsor_logo_asset_or_404(logo_asset_id):
     logo_asset = find_sponsor_logo_asset(SponsorLogoAssetID(logo_asset_id))
     if logo_asset is None:
         abort(404)
@@ -189,7 +189,7 @@ def _get_sponsor_logo_asset_or_404(logo_asset_id):
     return logo_asset
 
 
-def _get_discord_forum_image_asset_or_404(image_asset_id):
+def get_discord_forum_image_asset_or_404(image_asset_id):
     image_asset = find_discord_forum_image_asset(
         DiscordForumImageAssetID(image_asset_id)
     )
@@ -199,21 +199,21 @@ def _get_discord_forum_image_asset_or_404(image_asset_id):
     return image_asset
 
 
-def _update_form_with_categories(
+def update_form_with_categories(
     party_id: str,
     *,
     category_id: TournamentCategoryID,
     erroneous_form=None,
 ):
     form = erroneous_form if erroneous_form else TournamentForm()
-    _set_category_choices_for_form(form, party_id)
+    set_category_choices_for_form(form, party_id)
     if erroneous_form is None:
         form.category_id.data = str(category_id)
 
     return form
 
 
-def _assert_party_has_categories_or_redirect(party: Party):
+def assert_party_has_categories_or_redirect(party: Party):
     categories = get_tournament_categories_for_party(party.id)
     if categories:
         return None
@@ -226,27 +226,27 @@ def _assert_party_has_categories_or_redirect(party: Party):
     return redirect_to('.category_index', party_id=party.id)
 
 
-def _get_create_wizard_state(party_id: str) -> dict:
+def get_create_wizard_state(party_id: str) -> dict:
     all_states = session.get(CREATE_WIZARD_SESSION_KEY, {})
     state = all_states.get(str(party_id), {})
     return dict(state)
 
 
-def _set_create_wizard_state(party_id: str, state: dict) -> None:
+def set_create_wizard_state(party_id: str, state: dict) -> None:
     all_states = dict(session.get(CREATE_WIZARD_SESSION_KEY, {}))
     all_states[str(party_id)] = state
     session[CREATE_WIZARD_SESSION_KEY] = all_states
     session.modified = True
 
 
-def _clear_create_wizard_state(party_id: str) -> None:
+def clear_create_wizard_state(party_id: str) -> None:
     all_states = dict(session.get(CREATE_WIZARD_SESSION_KEY, {}))
     all_states.pop(str(party_id), None)
     session[CREATE_WIZARD_SESSION_KEY] = all_states
     session.modified = True
 
 
-def _get_stage_builder_wizard_state(party_id: str, tournament_id: str) -> dict:
+def get_stage_builder_wizard_state(party_id: str, tournament_id: str) -> dict:
     all_states = dict(session.get(STAGE_BUILDER_WIZARD_SESSION_KEY, {}))
     party_states = all_states.get(str(party_id), {})
     if not isinstance(party_states, dict):
@@ -256,7 +256,7 @@ def _get_stage_builder_wizard_state(party_id: str, tournament_id: str) -> dict:
     return dict(state) if isinstance(state, dict) else {}
 
 
-def _set_stage_builder_wizard_state(
+def set_stage_builder_wizard_state(
     party_id: str, tournament_id: str, state: dict
 ) -> None:
     all_states = dict(session.get(STAGE_BUILDER_WIZARD_SESSION_KEY, {}))
@@ -267,7 +267,7 @@ def _set_stage_builder_wizard_state(
     session.modified = True
 
 
-def _clear_stage_builder_wizard_state(party_id: str, tournament_id: str) -> None:
+def clear_stage_builder_wizard_state(party_id: str, tournament_id: str) -> None:
     all_states = dict(session.get(STAGE_BUILDER_WIZARD_SESSION_KEY, {}))
     party_states = dict(all_states.get(str(party_id), {}))
     party_states.pop(str(tournament_id), None)
@@ -279,7 +279,7 @@ def _clear_stage_builder_wizard_state(party_id: str, tournament_id: str) -> None
     session.modified = True
 
 
-def _slugify_tournament_title(value: str) -> str:
+def slugify_tournament_title(value: str) -> str:
     normalized = unicodedata.normalize('NFKD', value).encode(
         'ascii', 'ignore'
     ).decode('ascii')
@@ -287,13 +287,13 @@ def _slugify_tournament_title(value: str) -> str:
     return slug[:60]
 
 
-def _serialize_datetime_local(value: datetime | None) -> str | None:
+def serialize_datetime_local(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.strftime('%Y-%m-%dT%H:%M')
 
 
-def _deserialize_datetime_local(value: str | None) -> datetime | None:
+def deserialize_datetime_local(value: str | None) -> datetime | None:
     if not value:
         return None
 
@@ -303,7 +303,7 @@ def _deserialize_datetime_local(value: str | None) -> datetime | None:
         return None
 
 
-def _is_wizard_format_complete(state: dict) -> bool:
+def is_wizard_format_complete(state: dict) -> bool:
     return all(
         (
             state.get('category_id'),
@@ -318,15 +318,15 @@ def _is_wizard_format_complete(state: dict) -> bool:
     )
 
 
-def _is_wizard_details_complete(state: dict) -> bool:
+def is_wizard_details_complete(state: dict) -> bool:
     return bool(state.get('slug') and state.get('title'))
 
 
-def _is_wizard_schedule_complete(state: dict) -> bool:
+def is_wizard_schedule_complete(state: dict) -> bool:
     return 'registration_open' in state
 
 
-def _build_wizard_format_form(
+def build_wizard_format_form(
     party_id: str,
     *,
     state: dict,
@@ -354,14 +354,14 @@ def _build_wizard_format_form(
         )
     )
 
-    _set_category_choices_for_form(form, party_id)
+    set_category_choices_for_form(form, party_id)
 
     if erroneous_form is None and not form.category_id.data:
         default_category_id = _get_default_category_id_for_party(party_id)
         if default_category_id is not None:
             form.category_id.data = default_category_id
 
-    available_admin_users = _get_available_tournament_admin_users()
+    available_admin_users = get_available_tournament_admin_users()
     available_admin_user_ids = {str(user.id) for user in available_admin_users}
     form.set_admin_user_choices(
         [(str(user.id), user.screen_name) for user in available_admin_users]
@@ -370,7 +370,7 @@ def _build_wizard_format_form(
     return form, available_admin_user_ids
 
 
-def _build_wizard_details_form(
+def build_wizard_details_form(
     party_id: str,
     *,
     state: dict,
@@ -382,7 +382,7 @@ def _build_wizard_details_form(
         title = state.get('title') or ''
         slug = state.get('slug') or ''
         if not slug and title:
-            slug = _slugify_tournament_title(title)
+            slug = slugify_tournament_title(title)
 
         form = TournamentWizardDetailsForm(
             data={
@@ -406,13 +406,13 @@ def _build_wizard_details_form(
             }
         )
 
-    _set_logo_choices_for_form(
+    set_logo_choices_for_form(
         form,
         party_id,
         selected_tournament_logo_url=state.get('logo_url'),
         selected_sponsor_logo_url=state.get('sponsor_logo_url'),
     )
-    _set_rules_template_choices_for_form(
+    set_rules_template_choices_for_form(
         form,
         party_id,
         selected_slug=state.get('rules_page_slug'),
@@ -424,7 +424,7 @@ def _build_wizard_details_form(
     return form
 
 
-def _build_wizard_schedule_form(
+def build_wizard_schedule_form(
     *,
     party: Party,
     state: dict,
@@ -433,7 +433,7 @@ def _build_wizard_schedule_form(
     if erroneous_form is not None:
         return erroneous_form
 
-    starts_at = _deserialize_datetime_local(state.get('starts_at'))
+    starts_at = deserialize_datetime_local(state.get('starts_at'))
     if starts_at is None:
         starts_at = party.starts_at
 
@@ -442,23 +442,23 @@ def _build_wizard_schedule_form(
             'starts_at': starts_at,
             'visible_on_site': state.get('visible_on_site', True),
             'registration_open': state.get('registration_open', True),
-            'registration_deadline': _deserialize_datetime_local(
+            'registration_deadline': deserialize_datetime_local(
                 state.get('registration_deadline')
             ),
-            'roster_lock_at': _deserialize_datetime_local(
+            'roster_lock_at': deserialize_datetime_local(
                 state.get('roster_lock_at')
             ),
-            'checkin_open_at': _deserialize_datetime_local(
+            'checkin_open_at': deserialize_datetime_local(
                 state.get('checkin_open_at')
             ),
-            'checkin_close_at': _deserialize_datetime_local(
+            'checkin_close_at': deserialize_datetime_local(
                 state.get('checkin_close_at')
             ),
         }
     )
 
 
-def _get_available_tournament_admin_users():
+def get_available_tournament_admin_users():
     role_ids_by_permission = authz_service.get_assigned_roles_for_permissions()
     role_ids = role_ids_by_permission.get('netsession_tourney.admin', set())
 
@@ -470,7 +470,7 @@ def _get_available_tournament_admin_users():
     return sorted(users, key=lambda user: user.screen_name.lower())
 
 
-def _parse_admin_user_ids(
+def parse_admin_user_ids(
     raw_user_ids: list[str] | None, available_user_ids: set[str]
 ) -> set[UserID]:
     if not raw_user_ids:

@@ -11,13 +11,13 @@ from __future__ import annotations
 from flask_babel import gettext
 
 from .presentation_helpers import (
-    _build_match_overview_slot_data,
+    build_match_overview_slot_data,
     _build_round_time_range_label,
-    _get_stage_duration_minutes,
+    get_stage_duration_minutes,
 )
 
 
-def _build_match_overview_sections(
+def build_match_overview_sections(
     bracket_sections,
     stages_by_id,
     results_by_match_id,
@@ -27,7 +27,7 @@ def _build_match_overview_sections(
     skipped_match_ids,
 ):
     stage_duration_minutes_by_id = {
-        stage_id: _get_stage_duration_minutes(stage)
+        stage_id: get_stage_duration_minutes(stage)
         for stage_id, stage in stages_by_id.items()
     }
 
@@ -69,10 +69,10 @@ def _build_match_overview_sections(
                             match.id,
                             f'{gettext("Match")} #{match.match_no}',
                         ),
-                        'left': _build_match_overview_slot_data(
+                        'left': build_match_overview_slot_data(
                             left_slot, winner_slot, users_by_id
                         ),
-                        'right': _build_match_overview_slot_data(
+                        'right': build_match_overview_slot_data(
                             right_slot, winner_slot, users_by_id
                         ),
                         'score_display': score_display,

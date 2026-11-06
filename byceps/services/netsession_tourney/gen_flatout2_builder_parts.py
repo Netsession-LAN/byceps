@@ -33,7 +33,7 @@ from .result_report_mode import (
 
 
 @dataclass(frozen=True, kw_only=True)
-class _Flatout2InitialRoundSource:
+class Flatout2InitialRoundSource:
     """Where the participants of the first round stage come from."""
 
     source_mode: str
@@ -42,7 +42,7 @@ class _Flatout2InitialRoundSource:
     qualifier_top_n_per_match: int | None
 
 
-def _create_flatout2_builder_container_stage(
+def create_flatout2_builder_container_stage(
     *,
     tournament_id: TournamentID,
     order_no_start: int,
@@ -73,7 +73,7 @@ def _create_flatout2_builder_container_stage(
     return container_settings, container_stage
 
 
-def _build_flatout2_builder_round_stage_settings(
+def build_flatout2_builder_round_stage_settings(
     common_settings: dict[str, Any],
     *,
     role: str,
@@ -83,7 +83,7 @@ def _build_flatout2_builder_round_stage_settings(
     total_round_count: int,
     round_summary: dict[str, int],
     previous_stage_id: StageID | None,
-    initial_source: _Flatout2InitialRoundSource,
+    initial_source: Flatout2InitialRoundSource,
 ) -> dict[str, Any]:
     round_settings = dict(common_settings)
     round_settings.update(
@@ -127,7 +127,7 @@ def _build_flatout2_builder_round_stage_settings(
     return round_settings
 
 
-def _read_manual_flatout2_max_players_per_match(
+def read_manual_flatout2_max_players_per_match(
     settings: dict[str, Any],
 ) -> Result[int, str]:
     try:
@@ -145,7 +145,7 @@ def _read_manual_flatout2_max_players_per_match(
     return Ok(max_players_per_match)
 
 
-def _append_manual_flatout2_round_match_specs(
+def append_manual_flatout2_round_match_specs(
     raw_round: dict[str, Any],
     *,
     raw_match_blueprints: dict[str, Any],

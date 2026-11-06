@@ -25,7 +25,7 @@ from .dbmodels import (
 )
 from .engines.base import MatchSpec, SlotSpec
 from .ffa_qualifiers import (
-    _get_ffa_single_elimination_qualifier_ids,
+    get_ffa_single_elimination_qualifier_ids,
 )
 from .models import (
     MatchID,
@@ -38,7 +38,7 @@ from .models import (
 
 
 @dataclass(frozen=True, kw_only=True)
-class _Flatout2CurrentRoundGenerationContext:
+class Flatout2CurrentRoundGenerationContext:
     current_round_no: int
     total_round_count: int
     match_nos: list[int]
@@ -46,11 +46,11 @@ class _Flatout2CurrentRoundGenerationContext:
     replace_existing_matches: bool
 
 
-def _build_flatout2_materialized_round_context(
+def build_flatout2_materialized_round_context(
     stage: Stage,
     full_specs: list[MatchSpec],
     participants: list[Participant],
-) -> _Flatout2CurrentRoundGenerationContext:
+) -> Flatout2CurrentRoundGenerationContext:
     first_round_no = min(spec.round_no for spec in full_specs)
     current_round_specs = [
         spec for spec in full_specs if spec.round_no == first_round_no
@@ -63,7 +63,7 @@ def _build_flatout2_materialized_round_context(
     except (TypeError, ValueError):
         display_round_no = first_round_no
 
-    return _Flatout2CurrentRoundGenerationContext(
+    return Flatout2CurrentRoundGenerationContext(
         current_round_no=display_round_no,
         total_round_count=display_round_no,
         match_nos=[spec.match_no for spec in current_round_specs],
@@ -72,7 +72,7 @@ def _build_flatout2_materialized_round_context(
     )
 
 
-def _get_flatout2_stage_db_matches(
+def get_flatout2_stage_db_matches(
     tournament_id: TournamentID, stage_id: StageID
 ) -> list[DbNetsessionTourneyMatch]:
     return db.session.scalars(
@@ -85,7 +85,7 @@ def _get_flatout2_stage_db_matches(
     ).all()
 
 
-def _get_flatout2_qualified_participants(
+def get_flatout2_qualified_participants(
     previous_round_matches: list[DbNetsessionTourneyMatch],
     participants: list[Participant],
 ) -> list[Participant]:
@@ -106,7 +106,7 @@ def _get_flatout2_qualified_participants(
         previous_round_matches, key=lambda item: item.match_no
     ):
         qualified_participant_ids.extend(
-            _get_ffa_single_elimination_qualifier_ids(
+            get_ffa_single_elimination_qualifier_ids(
                 previous_round_match.id,
                 sorted(
                     slots_by_match_id.get(previous_round_match.id, []),
@@ -126,9 +126,9 @@ def _get_flatout2_qualified_participants(
     ]
 
 
-def _get_flatout2_round_host_participant_ids(
+def get_flatout2_round_host_participant_ids(
     stage: Stage,
-    context: _Flatout2CurrentRoundGenerationContext,
+    context: Flatout2CurrentRoundGenerationContext,
 ) -> Result[list[ParticipantID], str]:
     raw_hosts_by_round = (stage.settings or {}).get('flatout2_round_hosts', {})
     if not isinstance(raw_hosts_by_round, dict):
@@ -171,7 +171,7 @@ def _get_flatout2_round_host_participant_ids(
     return Ok(host_participant_ids)
 
 
-def _build_flatout2_host_match_spec(
+def build_flatout2_host_match_spec(
     round_no: int,
     match_no: int,
     participant_ids_for_match: list[ParticipantID],
@@ -201,7 +201,7 @@ def _build_flatout2_host_match_spec(
     )
 
 
-def _apply_flatout2_match_host(
+def apply_flatout2_match_host(
     db_match: DbNetsessionTourneyMatch,
     db_stage: DbNetsessionTourneyStage,
     host_participant_id: ParticipantID | None,

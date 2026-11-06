@@ -31,15 +31,15 @@ from .models import (
     TournamentID,
 )
 from .service_helpers import (
-    _append_audit_log,
-    _db_participant_to_model,
-    _db_stage_to_model,
+    append_audit_log,
+    db_participant_to_model,
+    db_stage_to_model,
 )
 from .stage_builder_settings import (
-    _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding,
+    is_stage_builder_v1_main_stage_with_locked_qualifier_seeding,
 )
 from .tournament_queries import (
-    _find_db_tournament_for_party,
+    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
 )
 
@@ -54,7 +54,7 @@ def set_participant_seed(
     if seed < 1:
         return Err('Der Seed muss mindestens 1 sein.')
 
-    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+    if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
     db_participants = db.session.scalars(
@@ -100,7 +100,7 @@ def set_participant_seed(
     for index, item in enumerate(seeded_participants, start=1):
         item.seed = index
 
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',
         object_id=participant_id,
@@ -110,7 +110,7 @@ def set_participant_seed(
     )
 
     db.session.commit()
-    return Ok(_db_participant_to_model(db_participant))
+    return Ok(db_participant_to_model(db_participant))
 
 
 def set_stage_generation_seeds(
@@ -129,7 +129,7 @@ def set_stage_generation_seeds(
     if db_stage is None:
         return Err('Unbekannte Stage.')
 
-    stage = _db_stage_to_model(db_stage)
+    stage = db_stage_to_model(db_stage)
     selected_participants_result = get_stage_generation_participants(
         party_id, tournament_id, stage_id
     )
@@ -201,7 +201,7 @@ def _append_stage_generation_seeds_audit_log(
     manual_seed_count: int,
     now: datetime,
 ) -> None:
-    _append_audit_log(
+    append_audit_log(
         actor_user_id=initiator.id,
         object_type='stage',
         object_id=stage_id,
@@ -237,7 +237,7 @@ def _resolve_final_seed_participant_ids(
             'Die Teilnehmerliste hat sich geändert. Bitte die Seeding-Seite neu laden.'
         )
 
-    if _is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
+    if is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
         if manual_seed_by_participant_id:
             return Err(
                 'Seeding für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'

@@ -122,7 +122,7 @@ def test_failing_generation_stores_no_matches(
         party, admin_user, make_user, make_ticket_category, 3
     )
 
-    monkeypatch.setattr(match_generation, '_auto_advance_byes', _boom)
+    monkeypatch.setattr(match_generation, 'auto_advance_byes', _boom)
     with pytest.raises(_Boom):
         match_generation.generate_stage_matches(
             party.id, tournament.id, stage.id, admin_user

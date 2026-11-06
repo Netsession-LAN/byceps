@@ -18,9 +18,9 @@ from .dbmodels import (
 )
 from .models import ParticipantID
 from .tournament_queries import (
-    _is_walkover_score_json,
-    _parse_match_result_slot_scores,
-    _parse_numeric_score_value,
+    is_walkover_score_json,
+    parse_match_result_slot_scores,
+    parse_numeric_score_value,
 )
 
 
@@ -71,12 +71,12 @@ class RankingTally:
         winner_participant_id = _winner_participant_id(
             db_result, db_match_slots
         )
-        score_slots = _parse_match_result_slot_scores(
+        score_slots = parse_match_result_slot_scores(
             real_match_slots,
             db_result.score_json,
             winner_slot=db_result.winner_slot,
         )
-        skip_rounds = self.is_swiss_stage and _is_walkover_score_json(
+        skip_rounds = self.is_swiss_stage and is_walkover_score_json(
             db_result.score_json
         )
 
@@ -200,9 +200,9 @@ def _read_slot_numbers(raw, db_match_slots) -> dict[int, int]:
 
 
 def _add_rounds(row, slot_no, real_match_slots, score_slots) -> None:
-    round_wins = _parse_numeric_score_value(_slot_value(score_slots, slot_no))
+    round_wins = parse_numeric_score_value(_slot_value(score_slots, slot_no))
     round_losses = sum(
-        _parse_numeric_score_value(_slot_value(score_slots, other.slot_no))
+        parse_numeric_score_value(_slot_value(score_slots, other.slot_no))
         for other in real_match_slots
         if other.slot_no != slot_no
     )
