@@ -30,7 +30,93 @@ from .engine_ffa_knockouts import (
 T = TypeVar('T')
 
 
-class _SingleEliminationEngine(StageEngine):
+class _AtLeastTwoParticipantsMixin:
+    """Any number of participants from two on."""
+
+    def validate(
+        self, stage: Stage, participant_ids: list[ParticipantID]
+    ) -> Result[None, str]:
+        del stage
+        if len(participant_ids) < 2:
+            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
+        return Ok(None)
+
+
+class _WinnerMovesOnMixin:
+    """The winner moves into the downstream slots."""
+
+    def advance(
+        self,
+        stage: Stage,
+        winner_id: ParticipantID | None,
+        downstream_slots: list[tuple[MatchID, int]],
+    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
+        del stage
+        if winner_id is None:
+            return []
+
+        return [
+            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
+        ]
+
+
+class _NoAdvancementMixin:
+    """Nobody moves on from a match (pairings are seeded separately)."""
+
+    def advance(
+        self,
+        stage: Stage,
+        winner_id: ParticipantID | None,
+        downstream_slots: list[tuple[MatchID, int]],
+    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
+        del stage, winner_id, downstream_slots
+        return []
+
+
+class _ScoreStandingsMixin:
+    """Standings by score."""
+
+    def standings(
+        self,
+        stage: Stage,
+        participant_ids: list[ParticipantID],
+        match_scores: dict[ParticipantID, int],
+    ) -> list[Standing]:
+        del stage
+        return _build_score_based_standings(participant_ids, match_scores)
+
+
+class _SortedScoreStandingsMixin:
+    """Standings sorted by score, ranked 1..n."""
+
+    def standings(
+        self,
+        stage: Stage,
+        participant_ids: list[ParticipantID],
+        match_scores: dict[ParticipantID, int],
+    ) -> list[Standing]:
+        del stage
+        standings = [
+            Standing(
+                participant_id=participant_id,
+                rank=0,
+                score=match_scores.get(participant_id, 0),
+            )
+            for participant_id in participant_ids
+        ]
+        standings.sort(key=lambda item: item.score, reverse=True)
+        return [
+            Standing(
+                participant_id=item.participant_id,
+                rank=index + 1,
+                score=item.score,
+            )
+            for index, item in enumerate(standings)
+        ]
+
+
+
+class _SingleEliminationEngine(_SortedScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
 
     def validate(
@@ -76,45 +162,11 @@ class _SingleEliminationEngine(StageEngine):
             updates.append((match_id, slot_no, winner_id))
         return updates
 
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        standings = [
-            Standing(
-                participant_id=participant_id,
-                rank=0,
-                score=match_scores.get(participant_id, 0),
-            )
-            for participant_id in participant_ids
-        ]
-        standings.sort(key=lambda item: item.score, reverse=True)
-        return [
-            Standing(
-                participant_id=item.participant_id,
-                rank=index + 1,
-                score=item.score,
-            )
-            for index, item in enumerate(standings)
-        ]
-
-
-class _DoubleEliminationEngine(StageEngine):
+class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
 
     def __init__(self, *, include_double_grand_final: bool = False) -> None:
         self._include_double_grand_final = include_double_grand_final
-
-    def validate(
-        self, stage: Stage, participant_ids: list[ParticipantID]
-    ) -> Result[None, str]:
-        del stage
-        if len(participant_ids) < 2:
-            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
-        return Ok(None)
 
     def _generate_for_two(self, bracket_slots) -> list[MatchSpec]:
         """Two participants: the loser of match 1 gets a second chance in a
@@ -154,40 +206,8 @@ class _DoubleEliminationEngine(StageEngine):
             )
         )
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage
-        if winner_id is None:
-            return []
-
-        return [
-            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
-        ]
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
-
-class _GauntletEngine(StageEngine):
+class _GauntletEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
-
-    def validate(
-        self, stage: Stage, participant_ids: list[ParticipantID]
-    ) -> Result[None, str]:
-        del stage
-        if len(participant_ids) < 2:
-            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
-        return Ok(None)
 
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
@@ -247,31 +267,7 @@ class _GauntletEngine(StageEngine):
 
         return Ok(specs)
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage
-        if winner_id is None:
-            return []
-
-        return [
-            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
-        ]
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
-
-class _SwissEngine(StageEngine):
+class _SwissEngine(_NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
 
     def validate(
@@ -330,41 +326,6 @@ class _SwissEngine(StageEngine):
 
         return Ok(specs)
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage, winner_id, downstream_slots
-        return []
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        standings = [
-            Standing(
-                participant_id=participant_id,
-                rank=0,
-                score=match_scores.get(participant_id, 0),
-            )
-            for participant_id in participant_ids
-        ]
-        standings.sort(key=lambda item: item.score, reverse=True)
-        return [
-            Standing(
-                participant_id=item.participant_id,
-                rank=index + 1,
-                score=item.score,
-            )
-            for index, item in enumerate(standings)
-        ]
-
-
 def _get_swiss_threshold(settings: dict | None) -> int | None:
     if not isinstance(settings, dict):
         return None
@@ -390,16 +351,8 @@ def _get_swiss_round_count_from_settings(settings: dict | None) -> int:
     return max(1, round_count)
 
 
-class _RoundRobinEngine(StageEngine):
+class _RoundRobinEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
-
-    def validate(
-        self, stage: Stage, participant_ids: list[ParticipantID]
-    ) -> Result[None, str]:
-        del stage
-        if len(participant_ids) < 2:
-            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
-        return Ok(None)
 
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
@@ -420,35 +373,8 @@ class _RoundRobinEngine(StageEngine):
         )
         return Ok(specs)
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage, winner_id, downstream_slots
-        return []
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
-
-class _RoundRobinGroupsEngine(StageEngine):
+class _RoundRobinGroupsEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
-
-    def validate(
-        self, stage: Stage, participant_ids: list[ParticipantID]
-    ) -> Result[None, str]:
-        del stage
-        if len(participant_ids) < 2:
-            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
-        return Ok(None)
 
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
@@ -487,35 +413,8 @@ class _RoundRobinGroupsEngine(StageEngine):
 
         return Ok(specs)
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage, winner_id, downstream_slots
-        return []
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
-
-class _FfaSimpleEngine(StageEngine):
+class _FfaSimpleEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine):
     mode = TournamentMode.ffa
-
-    def validate(
-        self, stage: Stage, participant_ids: list[ParticipantID]
-    ) -> Result[None, str]:
-        del stage
-        if len(participant_ids) < 2:
-            return Err('Es werden mindestens 2 Teilnehmer benötigt.')
-        return Ok(None)
 
     def generate(
         self, stage: Stage, participant_ids: list[ParticipantID]
@@ -543,42 +442,7 @@ class _FfaSimpleEngine(StageEngine):
             ]
         )
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage, winner_id, downstream_slots
-        return []
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        standings = [
-            Standing(
-                participant_id=participant_id,
-                rank=0,
-                score=match_scores.get(participant_id, 0),
-            )
-            for participant_id in participant_ids
-        ]
-        standings.sort(key=lambda item: item.score, reverse=True)
-        return [
-            Standing(
-                participant_id=item.participant_id,
-                rank=index + 1,
-                score=item.score,
-            )
-            for index, item in enumerate(standings)
-        ]
-
-
-class _FfaKnockoutEngine(StageEngine):
+class _FfaKnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.ffa
 
     def validate(
@@ -611,31 +475,7 @@ class _FfaKnockoutEngine(StageEngine):
         )
         return Ok(specs)
 
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage
-        if winner_id is None:
-            return []
-
-        return [
-            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
-        ]
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
-
-class _Flatout2KnockoutEngine(StageEngine):
+class _Flatout2KnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
     mode = TournamentMode.ffa
     qualifier_count_per_match = 3
     max_supported_players_per_match = 8
@@ -674,30 +514,6 @@ class _Flatout2KnockoutEngine(StageEngine):
             )
         )
         return Ok(specs)
-
-    def advance(
-        self,
-        stage: Stage,
-        winner_id: ParticipantID | None,
-        downstream_slots: list[tuple[MatchID, int]],
-    ) -> list[tuple[MatchID, int, ParticipantID | None]]:
-        del stage
-        if winner_id is None:
-            return []
-
-        return [
-            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
-        ]
-
-    def standings(
-        self,
-        stage: Stage,
-        participant_ids: list[ParticipantID],
-        match_scores: dict[ParticipantID, int],
-    ) -> list[Standing]:
-        del stage
-        return _build_score_based_standings(participant_ids, match_scores)
-
 
 def get_single_elimination_engine() -> StageEngine:
     return _SingleEliminationEngine()
