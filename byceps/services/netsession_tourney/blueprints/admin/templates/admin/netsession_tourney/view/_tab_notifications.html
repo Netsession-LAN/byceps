@@ -1,0 +1,132 @@
+  <section class="box ns-admin-form-section mb">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Browser-Benachrichtigungen') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Die User-Aktivierung ist global. Dieses Tab zeigt nur den Zustand für dieses Turnier.') }}</p>
+      </div>
+    </div>
+    <div class="ns-admin-page-hero-summary">
+      <div class="ns-admin-page-hero-item">
+        <span class="ns-admin-page-hero-label">{{ _('Global') }}</span>
+        <strong>{{ _('aktiv') if browser_push_config.enabled else _('inaktiv') }}</strong>
+      </div>
+      <div class="ns-admin-page-hero-item">
+        <span class="ns-admin-page-hero-label">{{ _('Aktive Teilnehmer') }}</span>
+        <strong>{{ active_participant_count }}</strong>
+      </div>
+      <div class="ns-admin-page-hero-item">
+        <span class="ns-admin-page-hero-label">{{ _('Mit Browser-Abo') }}</span>
+        <strong>{{ browser_push_subscribed_participant_count }}</strong>
+      </div>
+    </div>
+    <div class="ns-admin-form-callout mb">
+      {%- if browser_push_config.enabled %}
+      {{ _('Global aktiv. Beteiligte User sehen den Opt-in auf der Turnierübersichtsseite und erhalten danach automatisch Turnier- und Match-Notifications.') }}
+      {%- else %}
+      {{ _('Global deaktiviert. User sehen derzeit keinen Opt-in für Browser-Notifications.') }}
+      {%- endif %}
+    </div>
+    <div class="ns-admin-form-actions">
+      <a class="button is-outlined" href="{{ url_for('.notifications_index', party_id=party.id) }}">{{ _('Globale Einstellungen') }}</a>
+    </div>
+  </section>
+  <section class="box ns-admin-form-section mb">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Empfängerstatus') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Zeigt alle aktiven Turnier-User und ob für ihren Browser aktuell mindestens eine aktive Subscription hinterlegt ist.') }}</p>
+      </div>
+    </div>
+    {%- if browser_push_recipient_rows %}
+    <table class="itemlist is-vcentered is-wide">
+      <thead>
+        <tr>
+          <th>{{ _('Benutzer') }}</th>
+          <th>{{ _('Aktive Browser-Abos') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for row in browser_push_recipient_rows %}
+        <tr>
+          <td><strong>{{ row.screen_name }}</strong></td>
+          <td>
+            {%- if row.subscription_count > 0 %}
+            {{ render_tag(_('%(count)s aktiv', count=row.subscription_count), class='color-success') }}
+            {%- else %}
+            {{ render_tag(_('fehlt'), class='color-disabled') }}
+            {%- endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="ns-admin-form-callout">{{ _('Keine aktiven Turnier-User gefunden.') }}</div>
+    {%- endif %}
+  </section>
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <section class="box ns-admin-form-section mb">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Nachricht senden') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Sendet eine Browser-Benachrichtigung an aktive Teilnehmer dieses Turniers mit aktivierter Browser-Subscription.') }}</p>
+      </div>
+    </div>
+    <form action="{{ url_for('.tournament_notification_send', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-form-shell">
+      {{ render_admin_field(notification_send_form.title, _('Kurz und klar. Dieser Text erscheint als Titel der Browser-Benachrichtigung.')) }}
+      {{ render_admin_field(notification_send_form.body, _('Der eigentliche Nachrichtentext. Wird für die Browser-Benachrichtigung verwendet.'), class='ns-admin-compact-textarea') }}
+      {{ render_admin_field(notification_send_form.target_url, _('Optional. Relative Ziel-URL innerhalb der Seite, die beim Klick auf die Benachrichtigung geöffnet wird. Leer lassen für die Turnierseite.')) }}
+      <div class="ns-admin-form-actions">
+        <button type="submit" class="button color-primary">{{ _('Nachricht senden') }}</button>
+      </div>
+    </form>
+  </section>
+  {%- endif %}
+  <section class="box ns-admin-form-section mb">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Letzte Auslieferungsversuche') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Die letzten Einträge aus der Browser-Push-Queue für dieses Turnier. Hier siehst du direkt, ob etwas pending, failed, sent oder dead_letter ist.') }}</p>
+      </div>
+    </div>
+    {%- if browser_push_outbox_entries %}
+    <table class="itemlist is-vcentered is-wide">
+      <thead>
+        <tr>
+          <th>{{ _('Zeitpunkt') }}</th>
+          <th>{{ _('Benutzer') }}</th>
+          <th>{{ _('Typ') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Versuche') }}</th>
+          <th>{{ _('Nächster Versuch') }}</th>
+          <th>{{ _('Fehler') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for entry in browser_push_outbox_entries %}
+        {%- set outbox_user = browser_push_outbox_users_by_id.get(entry.user_id) if entry.user_id else none %}
+        <tr>
+          <td>{{ entry.created_at|datetimeformat }}</td>
+          <td>{{ outbox_user.screen_name if outbox_user else entry.user_id }}</td>
+          <td>
+            <strong>{{ entry.kind }}</strong>
+            {%- if entry.title %}
+            <div class="dimmed">{{ entry.title }}</div>
+            {%- endif %}
+          </td>
+          <td>
+            <span class="ns-admin-delivery-status-badge status-{{ entry.status }}">
+              {{ entry.status|replace('_', ' ') }}
+            </span>
+          </td>
+          <td>{{ entry.attempt_count }}</td>
+          <td>{{ entry.next_attempt_at|datetimeformat if entry.next_attempt_at else '-' }}</td>
+          <td>{{ entry.last_error|fallback('-') }}</td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="ns-admin-form-callout">{{ _('Noch keine Browser-Push-Auslieferungsversuche vorhanden.') }}</div>
+    {%- endif %}
+  </section>

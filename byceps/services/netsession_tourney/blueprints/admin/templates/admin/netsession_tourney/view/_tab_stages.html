@@ -1,0 +1,209 @@
+  <div class="row row--space-between row--v-centered block">
+    <h2 class="title">{{ _('Stages') }}</h2>
+    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    <div class="row row--compact">
+      <a class="button is-outlined" href="{{ url_for('.stage_builder_form', party_id=party.id, tournament_id=tournament.id) }}">
+        {{ render_icon('add') }} <span>{{ _('Stage Builder') }}</span>
+      </a>
+      <a class="button" href="{{ url_for('.stage_create_form', party_id=party.id, tournament_id=tournament.id) }}">
+        {{ render_icon('add') }} <span>{{ _('Stage erstellen') }}</span>
+      </a>
+    </div>
+    {%- endif %}
+  </div>
+
+  {%- if stages %}
+  {% set stage_type_label_by_value = {
+    'single_elimination': _('Single Elimination'),
+    'double_elimination': _('Double Elimination'),
+    'double_elimination_double_grand_final': _('Double Elimination + Reset'),
+    'swiss': _('Swiss'),
+    'round_robin_groups': _('Round-Robin-Gruppen'),
+    'league': _('League'),
+    'ffa_simple': _('FFA Simple'),
+    'ffa_single_elimination': _('FFA Single Elimination'),
+    'ffa_flatout2_single_elimination': _('FlatOut 2'),
+  } %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h3 class="ns-admin-form-section-title">{{ _('Stage-Übersicht') }}</h3>
+        <p class="ns-admin-form-section-text">{{ _('Alle Stages, Einstellungen und direkten Aktionen an einem Ort.') }}</p>
+      </div>
+    </div>
+    <div class="ns-admin-table-wrap">
+      <table class="itemlist is-wide ns-admin-stages-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{{ _('Name') }}</th>
+            <th>{{ _('Typ') }}</th>
+            <th>{{ _('Status') }}</th>
+            <th>{{ _('Aktionen') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for row in stage_display_rows %}
+          {%- set stage = row.stage %}
+          {%- set builder_meta = stage_builder_meta_by_id.get(stage.id) %}
+          {%- set builder_container_preview_meta = stage_builder_container_preview_meta_by_id.get(stage.id) %}
+          {%- set generation_state = stage_generation_state_by_id.get(stage.id, {}) %}
+          <tr class="{% if selected_stage and selected_stage.id == stage.id %}is-selected {% endif %}{% if row.kind == 'builder_container' %}ns-admin-stage-row--builder-container{% elif row.kind == 'builder_child' %}ns-admin-stage-row--builder-child{% endif %}"{% if row.kind == 'builder_container' %} data-builder-container="true"{% endif %}>
+            <td>
+              <span class="ns-admin-stage-order">{{ stage.order_no }}</span>
+            </td>
+            <td>
+              {%- if row.kind == 'builder_container' %}
+              <strong class="ns-admin-stage-name">{{ stage.name }}</strong>
+              {%- else %}
+              <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id) }}" class="disguised ns-admin-stage-name">
+                <strong>{% if row.kind == 'builder_child' %}&boxur; {% endif %}{{ stage.name }}</strong>
+              </a>
+              {%- endif %}
+              <div class="ns-admin-stage-meta">
+                {%- if builder_meta %}
+                <span><strong>{{ builder_meta.role_label }}</strong></span>
+                {%- for line in builder_meta.lines %}
+                <span>{{ line }}</span>
+                {%- endfor %}
+                {%- endif %}
+                {%- if row.kind == 'builder_container' and row.child_stages %}
+                <span>{{ _('Runden') if stage.settings.get('builder_materialized_stage_ids') else _('Gruppen') }}: {{ row.child_stages|length }}</span>
+                {%- endif %}
+                {%- if row.kind == 'builder_container' and builder_container_preview_meta %}
+                <span>{{ _('Bereit') }}: {{ builder_container_preview_meta.participant_count }}</span>
+                {%- if builder_container_preview_meta.distribution_summary %}
+                <span>{{ builder_container_preview_meta.distribution_summary }}</span>
+                {%- endif %}
+                {%- if builder_container_preview_meta.qualification_summary %}
+                <span><strong>{{ builder_container_preview_meta.qualification_summary }}</strong></span>
+                {%- endif %}
+                {%- endif %}
+                {%- if stage.settings.get('swiss_threshold') %}<span>{{ _('Swiss-Schwelle') }}: {{ stage.settings.get('swiss_threshold') }}/{{ stage.settings.get('swiss_threshold') }}</span>{% endif -%}
+                {%- if stage.settings.get('round_count') %}<span>{{ _('Runden') }}: {{ stage.settings.get('round_count') }}</span>{% endif -%}
+                {%- if stage.settings.get('group_size') %}<span>{{ _('Gruppengröße') }}: {{ stage.settings.get('group_size') }}</span>{% endif -%}
+                {%- if stage.type.value == 'ffa_simple' -%}
+                <span>{{ _('Ein Match mit allen Teilnehmern') }}</span>
+                <span>{{ _('Punkte/Kill') }}: {{ stage.settings.get('points_per_kill', 1) }}</span>
+                {%- elif stage.type.value == 'ffa_single_elimination' -%}
+                {%- if stage.settings.get('max_players_per_match') -%}
+                <span>{{ _('Max. Spieler/Match') }}: {{ stage.settings.get('max_players_per_match') }}</span>
+                {%- endif -%}
+                <span>{{ _('Punkte/Kill') }}: {{ stage.settings.get('points_per_kill', 1) }}</span>
+                {%- elif stage.type.value == 'ffa_flatout2_single_elimination' -%}
+                {%- if stage.settings.get('max_players_per_match') -%}
+                <span>{{ _('Max. Spieler/Match') }}: {{ stage.settings.get('max_players_per_match') }}</span>
+                {%- endif -%}
+                {%- if generation_state.action_hint %}
+                <span><strong>{{ generation_state.action_hint }}</strong></span>
+                {%- endif -%}
+                {%- elif stage.settings.get('max_players_per_match') -%}
+                <span>{{ _('Max. Spieler/Match') }}: {{ stage.settings.get('max_players_per_match') }}</span>
+                {%- endif -%}
+                <span>
+                  {{ _('Ergebnis-Modus') }}:
+                  {%- if stage.settings.get('result_report_mode') == 'admin_only' or stage.type.value in ['ffa_simple', 'ffa_single_elimination', 'ffa_flatout2_single_elimination'] -%}
+                    {{ _('Nur Admins tragen Ergebnisse ein') }}
+                  {%- else -%}
+                    {{ stage.settings.get('result_report_mode')|ns_report_mode }}
+                  {%- endif -%}
+                </span>
+              </div>
+            </td>
+            <td>
+              <span class="ns-admin-stage-type">
+                {%- if row.kind == 'builder_container' -%}
+                  {{ _('Builder-Container') }}
+                {%- else -%}
+                  {{ stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) }}
+                {%- endif -%}
+              </span>
+            </td>
+            <td>
+              <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
+            </td>
+            <td>
+              {%- if g.user.has_permission('netsession_tourney.manage') %}
+              <div class="ns-admin-stage-actions">
+                <a href="{{ url_for('.stage_update_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
+                {%- if row.kind != 'builder_child' and not (stage.settings.get('builder_materialized_stage_ids') or stage.settings.get('builder_is_container')) %}
+                  {%- if generation_state.block_reason %}
+                <button type="button" class="button is-compact" disabled title="{{ generation_state.block_reason }}">{{ generation_state.action_label }}</button>
+                  {%- else %}
+                <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
+                  {%- endif %}
+                {%- endif %}
+                <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
+                  <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
+                </form>
+              </div>
+              {%- else %}
+              -
+              {%- endif %}
+            </td>
+          </tr>
+          {%- if row.kind == 'builder_container' %}
+            {%- for child_stage in row.child_stages %}
+            {%- set stage = child_stage %}
+            {%- set builder_meta = stage_builder_meta_by_id.get(stage.id) %}
+            {%- set generation_state = stage_generation_state_by_id.get(stage.id) %}
+            <tr class="{% if selected_stage and selected_stage.id == stage.id %}is-selected {% endif %}ns-admin-stage-row--builder-child">
+              <td>
+                <span class="ns-admin-stage-order">{{ stage.order_no }}</span>
+              </td>
+              <td>
+                <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id) }}" class="disguised ns-admin-stage-name">
+                  <strong>&boxur; {{ stage.name }}</strong>
+                </a>
+                <div class="ns-admin-stage-meta">
+                  {%- if builder_meta %}
+                  <span><strong>{{ builder_meta.role_label }}</strong></span>
+                  {%- for line in builder_meta.lines %}
+                  <span>{{ line }}</span>
+                  {%- endfor %}
+                  {%- endif %}
+                  {%- if stage.settings.get('swiss_threshold') %}<span>{{ _('Swiss-Schwelle') }}: {{ stage.settings.get('swiss_threshold') }}/{{ stage.settings.get('swiss_threshold') }}</span>{% endif -%}
+                  {%- if stage.settings.get('round_count') %}<span>{{ _('Runden') }}: {{ stage.settings.get('round_count') }}</span>{% endif -%}
+                  {%- if stage.settings.get('group_size') %}<span>{{ _('Gruppengröße') }}: {{ stage.settings.get('group_size') }}</span>{% endif -%}
+                </div>
+              </td>
+              <td>
+                <span class="ns-admin-stage-type">{{ stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) }}</span>
+              </td>
+              <td>
+                <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
+              </td>
+              <td>
+                {%- if g.user.has_permission('netsession_tourney.manage') %}
+                <div class="ns-admin-stage-actions">
+                  <a href="{{ url_for('.stage_update_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
+                  {%- if generation_state %}
+                    {%- if generation_state.block_reason %}
+                  <button type="button" class="button is-compact" disabled title="{{ generation_state.block_reason }}">{{ generation_state.action_label }}</button>
+                    {%- else %}
+                  <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
+                    {%- endif %}
+                  {%- endif %}
+                  <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
+                    <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
+                  </form>
+                </div>
+                {%- else %}
+                -
+                {%- endif %}
+              </td>
+            </tr>
+            {%- endfor %}
+          {%- endif %}
+        {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {%- if selected_stage %}
+  {%- include 'admin/netsession_tourney/view/_stage_selected.html' %}
+  {%- endif %}
+  {%- else %}
+  <div class="box no-data-message mb">{{ _('Keine Stages vorhanden.') }}</div>
+  {%- endif %}

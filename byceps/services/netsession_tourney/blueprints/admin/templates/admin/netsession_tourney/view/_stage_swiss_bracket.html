@@ -1,0 +1,190 @@
+  <section class="ns-tourney-bracket-view ns-tourney-admin-stage-bracket-view">
+    <div class="ns-tourney-panel ns-tourney-bracket">
+      <div class="ns-tourney-bracket-controls">
+        <button
+          type="button"
+          class="button ns-tourney-bracket-fullscreen-toggle"
+          data-action="toggle-bracket-fullscreen"
+          aria-pressed="false"
+          aria-label="{{ _('Vollbild umschalten') }}"
+          title="{{ _('Vollbild umschalten') }}"
+          hidden
+        >
+          <span class="icon-expand" aria-hidden="true">
+            <svg class="icon"><use xlink:href="{{ netsession_tourney_icons_url }}#expand"></use></svg>
+          </span>
+          <span class="icon-compress" aria-hidden="true">
+            <svg class="icon"><use xlink:href="{{ netsession_tourney_icons_url }}#compress"></use></svg>
+          </span>
+        </button>
+      </div>
+      {%- for bracket_section in selected_stage_swiss_bracket_sections %}
+      <section class="ns-tourney-bracket-section">
+        {%- if bracket_section.title %}
+        <h4 class="title ns-tourney-bracket-section-title">{{ bracket_section.title }}</h4>
+        {%- endif %}
+        <div class="ns-tourney-swiss-board">
+          <div class="ns-tourney-swiss-stage">
+          <svg class="ns-tourney-swiss-lines" aria-hidden="true"></svg>
+          {%- for round in bracket_section.rounds %}
+          <section class="ns-tourney-swiss-column{% if round.is_sidecar %} is-sidecar{% endif %}">
+            <header class="ns-tourney-swiss-column-head">
+              <h5 class="ns-tourney-swiss-column-title">{{ round.display_title }}</h5>
+            </header>
+            <div class="ns-tourney-swiss-column-body">
+              {%- for block in round.blocks %}
+              {%- if block.kind == 'pool' %}
+              {%- set pool = block.item %}
+              <article
+                class="ns-tourney-swiss-pool ns-tourney-swiss-pool--{{ pool.tone }}"
+                data-swiss-node-id="{{ pool.id }}"
+                data-swiss-row-position="{{ pool.row_position }}"
+                data-swiss-winner-target-id="{{ pool.winner_target_id }}"
+                data-swiss-loser-target-id="{{ pool.loser_target_id }}"
+              >
+                <header class="ns-tourney-swiss-pool-head">
+                  <span class="ns-tourney-swiss-pool-label">{{ pool.label }}</span>
+                  <span class="ns-tourney-swiss-pool-meta">{{ pool.participant_count }} {{ _('Teams') }}</span>
+                </header>
+                <div class="ns-tourney-swiss-pool-body">
+                  {%- for item in pool.matches %}
+                  {%- set top_slot = item.slots[0] if item.slots|length > 0 else none %}
+                  {%- set bottom_slot = item.slots[1] if item.slots|length > 1 else none %}
+                  {%- set top_participant = top_slot.participant if top_slot else none %}
+                  {%- set bottom_participant = bottom_slot.participant if bottom_slot else none %}
+                  {%- set top_slot_image_url = none %}
+                  {%- if top_participant and top_participant.type.value == 'team' and top_participant.logo_url %}
+                    {%- set top_slot_image_url = top_participant.logo_url %}
+                  {%- elif top_participant and top_participant.user_id %}
+                    {%- set top_slot_user = selected_stage_users_by_id.get(top_participant.user_id) %}
+                    {%- if top_slot_user and top_slot_user.avatar_url %}
+                      {%- set top_slot_image_url = top_slot_user.avatar_url %}
+                    {%- endif %}
+                  {%- endif %}
+                  {%- set bottom_slot_image_url = none %}
+                  {%- if bottom_participant and bottom_participant.type.value == 'team' and bottom_participant.logo_url %}
+                    {%- set bottom_slot_image_url = bottom_participant.logo_url %}
+                  {%- elif bottom_participant and bottom_participant.user_id %}
+                    {%- set bottom_slot_user = selected_stage_users_by_id.get(bottom_participant.user_id) %}
+                    {%- if bottom_slot_user and bottom_slot_user.avatar_url %}
+                      {%- set bottom_slot_image_url = bottom_slot_user.avatar_url %}
+                    {%- endif %}
+                  {%- endif %}
+                  <a
+                    class="ns-tourney-swiss-match{% if item.result %} is-completed{% endif %}"
+                    href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=item.match.id, return_to='stages', stage_id=selected_stage.id) }}"
+                    title="{{ item.match_label }}"
+                  >
+                    <div class="ns-tourney-swiss-match-meta">
+                      <span class="ns-tourney-swiss-match-label">{{ item.match_label }}</span>
+                      <span class="ns-tourney-swiss-match-state">{{ item.match.state|ns_label }}</span>
+                    </div>
+                    <div class="ns-tourney-swiss-match-slots">
+                      <span
+                        class="ns-tourney-swiss-match-slot{% if item.result and item.result.winner_slot == 1 %} is-winner{% endif %}"
+                        {% if top_participant %}data-participant-id="{{ top_participant.id }}"{% endif %}
+                      >
+                        {%- if top_slot and top_slot.is_bye %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
+                        {%- elif not top_participant %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        {%- else %}
+                        <span class="ns-tourney-bracket-slot-main">
+                          <span class="ns-tourney-bracket-avatar{% if not top_slot_image_url %} is-placeholder{% endif %}">
+                            {%- if top_slot_image_url %}
+                            <img src="{{ top_slot_image_url }}" alt="{{ _('Logo') }}" loading="lazy">
+                            {%- endif %}
+                          </span>
+                          <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 1 %} ns-tourney-bracket-name--winner{% endif %}">
+                            {{ top_participant.name if top_participant else _('TBD') }}
+                          </span>
+                        </span>
+                        <span class="ns-tourney-bracket-slot-right">
+                          {%- if top_slot and top_slot.points %}
+                          <span class="ns-tourney-bracket-points">{{ top_slot.points }}</span>
+                          {%- endif %}
+                        </span>
+                        {%- endif %}
+                      </span>
+                      <span
+                        class="ns-tourney-swiss-match-slot{% if item.result and item.result.winner_slot == 2 %} is-winner{% endif %}"
+                        {% if bottom_participant %}data-participant-id="{{ bottom_participant.id }}"{% endif %}
+                      >
+                        {%- if bottom_slot and bottom_slot.is_bye %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
+                        {%- elif not bottom_participant %}
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        {%- else %}
+                        <span class="ns-tourney-bracket-slot-main">
+                          <span class="ns-tourney-bracket-avatar{% if not bottom_slot_image_url %} is-placeholder{% endif %}">
+                            {%- if bottom_slot_image_url %}
+                            <img src="{{ bottom_slot_image_url }}" alt="{{ _('Logo') }}" loading="lazy">
+                            {%- endif %}
+                          </span>
+                          <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 2 %} ns-tourney-bracket-name--winner{% endif %}">
+                            {{ bottom_participant.name if bottom_participant else _('TBD') }}
+                          </span>
+                        </span>
+                        <span class="ns-tourney-bracket-slot-right">
+                          {%- if bottom_slot and bottom_slot.points %}
+                          <span class="ns-tourney-bracket-points">{{ bottom_slot.points }}</span>
+                          {%- endif %}
+                        </span>
+                        {%- endif %}
+                      </span>
+                    </div>
+                  </a>
+                  {%- endfor %}
+                </div>
+              </article>
+              {%- else %}
+              {%- set outcome = block.item %}
+              <article
+                class="ns-tourney-swiss-outcome ns-tourney-swiss-outcome--{{ outcome.tone }}"
+                data-swiss-node-id="{{ outcome.id }}"
+                data-swiss-row-position="{{ outcome.row_position }}"
+              >
+                <header class="ns-tourney-swiss-outcome-head">{{ outcome.label }}</header>
+                <div class="ns-tourney-swiss-outcome-body">
+                  {%- if outcome.participants %}
+                  <div class="ns-tourney-swiss-outcome-list">
+                    {%- for row in outcome.participants %}
+                    <div
+                      class="ns-tourney-swiss-outcome-entry"
+                      data-participant-id="{{ row.participant.id }}"
+                    >
+                      <span class="ns-tourney-bracket-slot-main">
+                        <span class="ns-tourney-bracket-avatar{% if not row.image_url %} is-placeholder{% endif %}">
+                          {%- if row.image_url %}
+                          <img src="{{ row.image_url }}" alt="{{ row.image_alt or _('Logo') }}" loading="lazy">
+                          {%- endif %}
+                        </span>
+                        <span class="ns-tourney-bracket-name">{{ row.participant.name }}</span>
+                      </span>
+                      <span class="ns-tourney-bracket-slot-right">
+                        <span class="ns-tourney-bracket-points">{{ row.points }}</span>
+                      </span>
+                    </div>
+                    {%- endfor %}
+                    {%- for _pending in range(outcome.pending_count) %}
+                    <div class="ns-tourney-swiss-outcome-entry is-tbd">
+                      <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                    </div>
+                    {%- endfor %}
+                  </div>
+                  {%- else %}
+                  {{ outcome.count }} {{ _('Teams') }}
+                  {%- endif %}
+                </div>
+              </article>
+              {%- endif %}
+              {%- endfor %}
+            </div>
+          </section>
+          {%- endfor %}
+          </div>
+        </div>
+      </section>
+      {%- endfor %}
+    </div>
+  </section>

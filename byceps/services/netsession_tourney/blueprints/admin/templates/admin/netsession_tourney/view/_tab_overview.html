@@ -1,0 +1,249 @@
+  <section class="ns-tourney-admin-overview">
+  <div class="row row--space-between row--wrap block">
+    <div class="box ns-tourney-overview-logo-card">
+      <div class="data-label">{{ _('Logo') }}</div>
+      <div class="data-value">
+        {%- if tournament.logo_url %}
+        <span class="ns-tourney-admin-logo-preview">
+          <img src="{{ tournament.logo_url }}" alt="">
+        </span>
+        {%- else %}
+        <span class="dimmed">{{ _('Kein Logo') }}</span>
+        {%- endif %}
+      </div>
+    </div>
+
+    <div class="box ns-tourney-overview-logo-card">
+      <div class="data-label">{{ _('Sponsor') }}</div>
+      <div class="data-value">
+        {%- if tournament.is_sponsored and tournament.sponsor_logo_url %}
+        <span class="ns-tourney-admin-logo-preview ns-tourney-admin-logo-preview--banner">
+          <img src="{{ tournament.sponsor_logo_url }}" alt="" style="max-height: 30px; max-width: 220px; border-radius: 0;">
+        </span>
+        {%- elif tournament.is_sponsored %}
+        <span class="dimmed">{{ _('aktiv, aber kein Logo') }}</span>
+        {%- else %}
+        <span class="dimmed">{{ _('nicht gesponsert') }}</span>
+        {%- endif %}
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="data-label">{{ _('Kategorie') }}</div>
+      <div class="data-value">{{ category.title if category else '-' }}</div>
+    </div>
+
+    <div class="box column--grow">
+      <div class="data-label">{{ _('Untertitel') }}</div>
+      <div class="data-value">{{ tournament.subtitle|fallback('-') }}</div>
+    </div>
+  </div>
+
+  <div class="grid block" style="--column-min-width: 220px;">
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Teamgröße') }}</div>
+        <div class="data-value">
+          {{ tournament.team_size|fallback('-') }}
+          {%- if tournament.registration_mode.value != 'solo' and tournament.substitute_count %}
+            (+ max. {{ tournament.substitute_count }} {{ _('Ersatzspieler') }})
+          {%- endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Teilnehmer') }}</div>
+        <div class="data-value">
+          {{ active_participant_count }}
+          {%- if tournament.participant_limit %}
+            {{ _('von') }} {{ tournament.participant_limit }}
+          {%- endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Anmeldung') }}</div>
+        <div class="data-value">
+          {%- if tournament.registration_open %}
+            {{ render_tag(_('offen'), class='color-info') }}
+          {%- else %}
+            {{ render_tag(_('geschlossen'), class='color-disabled', icon='disabled') }}
+          {%- endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Beginn') }}</div>
+        <div class="data-value">
+          {% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid block" style="--column-min-width: 220px;">
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Modus') }}</div>
+        <div class="data-value">{{ tournament.mode|ns_label }}</div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Anmeldemodus') }}</div>
+        <div class="data-value">{{ tournament.registration_mode|ns_label }}</div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Status') }}</div>
+        <div class="data-value">{{ render_tag(tournament.status|ns_label) }}</div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Admins') }}</div>
+        <div class="data-value">
+          {%- if tournament_admin_users %}
+            {{ tournament_admin_users|map(attribute='screen_name')|join(', ') }}
+          {%- else -%}
+            -
+          {%- endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid block" style="--column-min-width: 220px;">
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Coin-Kosten') }}</div>
+        <div class="data-value">{{ tournament.coin_cost }}</div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Rückgabe') }}</div>
+        <div class="data-value">
+          {%- if tournament.coin_refund_policy.value == 'until_end_of_round_1' -%}
+            {{ _('bis einschließlich Runde 1') }}
+          {%- else -%}
+            {{ _('bis Turnierende') }}
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="box column-cell--grow">
+        <div class="data-label">{{ _('Wer zahlt?') }}</div>
+        <div class="data-value">
+          {%- if tournament.coin_charge_mode.value == 'all_members' -%}
+            {{ _('Alle Teammitglieder zahlen') }}
+          {%- else -%}
+            {{ _('Captain zahlt') }}
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row--space-between row--wrap block">
+    <div class="box">
+      <div class="data-label">{{ _('Spiel') }}</div>
+      <div class="data-value">{{ tournament.game|fallback('-') }}</div>
+    </div>
+
+    <div class="box column--grow">
+      <div class="data-label">{{ _('Regeltemplate') }}</div>
+      <div class="data-value">
+        {%- if selected_rules_template -%}
+          {{ selected_rules_template.title }} (<code>{{ selected_rules_template.slug }}</code>)
+        {%- elif tournament.rules_page_slug -%}
+          <code>{{ tournament.rules_page_slug }}</code>
+        {%- else -%}
+          -
+        {%- endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row row--space-between block">
+    <h2 class="title">{{ _('Match-Ergebnisse') }}</h2>
+    <span class="dimmed">{{ results_by_match_id|length }}</span>
+  </div>
+  {%- set result_namespace = namespace(has_results=false) %}
+  {%- for stage_group in matches_by_stage %}
+    {%- set stage_result_namespace = namespace(has_results=false) %}
+    {%- for match in stage_group.matches|reverse %}
+      {%- if results_by_match_id.get(match.id) %}
+        {%- set stage_result_namespace.has_results = true %}
+        {%- set result_namespace.has_results = true %}
+      {%- endif %}
+    {%- endfor %}
+    {%- if stage_result_namespace.has_results %}
+    <div class="box mb">
+      <div class="row row--space-between block">
+        <h3 class="title">{{ stage_group.stage.name if stage_group.stage else _('Ohne Stage') }}</h3>
+      </div>
+      <table class="itemlist is-vcentered is-wide ns-tourney-overview-results-table">
+        <thead>
+          <tr>
+            <th>{{ _('Match') }}</th>
+            <th>{{ _('Teilnehmer') }}</th>
+            <th>{{ _('Ergebnis') }}</th>
+            <th>{{ _('Gewinner') }}</th>
+            <th>{{ _('Geplant für') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for match in stage_group.matches|reverse %}
+            {%- set result = results_by_match_id.get(match.id) %}
+            {%- if result %}
+            {%- set slots = slots_by_match_id.get(match.id, []) %}
+            <tr>
+              <td>{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</td>
+              <td>
+                {%- for slot in slots %}
+                  {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+                  {{ participant.name if participant and participant.name else _('Freilos') }}{% if not loop.last %} vs {% endif %}
+                {%- endfor %}
+              </td>
+              {%- set score_display = result.score.get('display') if result.score else none %}
+              <td class="ns-tourney-overview-results-score">{{ score_display if score_display else _('Freilos') }}</td>
+              <td>
+                {%- set winner = namespace(name=_('Freilos')) %}
+                {%- for slot in slots %}
+                  {%- if slot.slot_no == result.winner_slot %}
+                    {%- set winner_participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
+                    {%- if winner_participant and winner_participant.name %}
+                      {%- set winner.name = winner_participant.name %}
+                    {%- endif %}
+                  {%- endif %}
+                {%- endfor %}
+                {{ winner.name }}
+              </td>
+              <td>{{ match.scheduled_at|datetimeformat if match.scheduled_at else '-' }}</td>
+            </tr>
+            {%- endif %}
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  {%- endfor %}
+  {%- if not result_namespace.has_results %}
+  <div class="box no-data-message mb">{{ _('Keine Match-Ergebnisse vorhanden.') }}</div>
+  {%- endif %}
+  </section>
+

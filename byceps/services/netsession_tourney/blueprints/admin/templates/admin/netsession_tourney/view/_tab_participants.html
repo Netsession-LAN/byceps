@@ -1,0 +1,83 @@
+  <div class="row row--space-between block">
+    <h2 class="title">{{ _('Teilnehmer') }}</h2>
+    <span class="dimmed">{{ participants|length }}</span>
+  </div>
+
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <div class="ns-admin-form-shell mb">
+    {%- if tournament.registration_mode.value in ['solo', 'mixed'] %}
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h3 class="ns-admin-form-section-title">{{ _('Teilnehmer hinzufügen') }}</h3>
+          <p class="ns-admin-form-section-text">{{ _('Einzelteilnehmer direkt dem Turnier zuordnen.') }}</p>
+        </div>
+      </div>
+      <form action="{{ url_for('.participant_add', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-inline-form">
+        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" list="ns-admin-screen-names" required>
+        <button type="submit" class="button">{{ _('Hinzufügen') }}</button>
+      </form>
+    </section>
+    {%- endif %}
+    {%- if tournament.registration_mode.value != 'solo' %}
+    <section class="box ns-admin-form-section">
+      <div class="ns-admin-form-section-head">
+        <div>
+          <h3 class="ns-admin-form-section-title">{{ _('Team anlegen') }}</h3>
+          <p class="ns-admin-form-section-text">{{ _('Teamname, Teamkapitän und optionales Logo in einem Schritt anlegen.') }}</p>
+        </div>
+      </div>
+      <form action="{{ url_for('.team_create', party_id=party.id, tournament_id=tournament.id) }}" method="post" enctype="multipart/form-data" class="ns-admin-participant-create-form">
+        <input class="form-control" type="text" name="name" placeholder="{{ _('Team name') }}" required>
+        <input class="form-control" type="text" name="captain_screen_name" placeholder="{{ _('Teamkapitän (Anzeigename)') }}" list="ns-admin-screen-names" required>
+        <input class="form-control" type="file" name="logo_file" accept=".png,.jpg,.jpeg,.webp,.svg">
+        <button type="submit" class="button">{{ _('Team erstellen') }}</button>
+      </form>
+    </section>
+    {%- endif %}
+    {{ form_datalist('ns-admin-screen-names', suggested_screen_names) }}
+  </div>
+  {%- endif %}
+
+  {%- if participants %}
+  <div class="ns-admin-table-wrap mb">
+    <table class="itemlist is-vcentered is-wide ns-admin-participants-table">
+      <thead>
+        <tr>
+          <th>{{ _('Name') }}</th>
+          <th>{{ _('Typ') }}</th>
+          <th>{{ _('Mitglieder') }}</th>
+          <th>{{ _('Seed') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Aktionen') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for participant in participants %}
+        <tr>
+          <td>
+            <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="disguised">
+              <strong>{{ participant.name }}</strong>
+            </a>
+          </td>
+          <td>{{ participant.type|ns_label }}</td>
+          <td>
+            {%- if participant.type.value == 'team' %}
+              {{ members_by_participant_id.get(participant.id, [])|length }}
+            {%- else %}
+              -
+            {%- endif %}
+          </td>
+          <td>{{ participant.seed|fallback('-') }}</td>
+          <td>{{ participant.status|ns_label }}{% if tournament.checkin_open_at and tournament.checkin_close_at %}<br><small>{{ _('Check-in') }}: {{ participant.checkin_state|ns_label }}</small>{% endif %}</td>
+          <td>
+            <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>{% if tournament.checkin_open_at and tournament.checkin_close_at %}{% set is_in = participant.checkin_state.value == 'checked_in' %}<form action="{{ url_for('.participant_set_checkin', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" method="post" style="display: inline"><input type="hidden" name="checked_in" value="{{ '0' if is_in else '1' }}"> <button type="submit" class="button is-compact{% if is_in %} is-outlined{% endif %}">{{ _('Check-in zurücknehmen') if is_in else _('Einchecken') }}</button></form>{% endif %}
+          </td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- else %}
+  <div class="box no-data-message mb">{{ _('Keine Teilnehmer vorhanden.') }}</div>
+  {%- endif %}
