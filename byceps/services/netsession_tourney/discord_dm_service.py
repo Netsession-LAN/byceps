@@ -28,6 +28,7 @@ from .dbmodels import (
     DbNetsessionTourneyDiscordDmConfig,
     DbNetsessionTourneyDiscordDmSubscription,
 )
+from .discord_ids import is_discord_id
 from .models import (
     DiscordDmConfig,
     DiscordDmSubscriptionID,
@@ -119,6 +120,8 @@ def configure_discord_dm(
 
     if enabled and not normalized_application_id:
         return Err('Eine Application ID ist erforderlich.')
+    if normalized_application_id and not is_discord_id(normalized_application_id):
+        return Err('Die Application ID muss aus 17 bis 20 Ziffern bestehen.')
 
     now = datetime.utcnow()
     if db_config is None:

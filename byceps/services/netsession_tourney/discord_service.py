@@ -35,6 +35,7 @@ from .discord_forum_threads import (
     _recover_deleted_discord_forum_thread,
     _sync_discord_thread_for_tournament,
 )
+from .discord_ids import is_discord_id
 from .discord_payloads import (
     _build_discord_message_payload,
 )
@@ -262,6 +263,8 @@ def configure_discord(
         discord_dm_enabled=discord_dm_enabled,
         discord_dm_event_mask=discord_dm_event_mask,
     )
+    if error is None and not all(is_discord_id(t) for t in applied_tag_ids):
+        error = 'Discord-Tag-IDs müssen aus 17 bis 20 Ziffern bestehen.'
     if error is not None:
         return Err(error)
 
@@ -315,6 +318,10 @@ def _validate_discord_configuration(
     """Return the first validation error message, or `None` if valid."""
     if enabled and not normalized_forum_channel_id:
         return 'Eine Discord-Forum-Channel-ID ist erforderlich.'
+    if normalized_forum_channel_id and not is_discord_id(
+        normalized_forum_channel_id
+    ):
+        return 'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.'
 
     invalid_events = sorted(
         set(normalized_event_mask).difference(DISCORD_SUPPORTED_EVENTS)
