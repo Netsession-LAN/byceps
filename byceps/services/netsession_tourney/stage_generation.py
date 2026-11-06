@@ -18,6 +18,7 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.util.result import Err, Ok, Result
 
+from .checkin_service import check_generation_allowed
 from .dbmodels import (
     DbNetsessionTourneyStage,
 )
@@ -278,6 +279,10 @@ def _select_ordered_generation_participants(
     tournament: Tournament,
     stage: Stage,
 ) -> Result[list[Participant], str]:
+    checkin_error = check_generation_allowed(tournament)
+    if checkin_error is not None:
+        return Err(checkin_error)
+
     selected_participants_result = _select_generation_participants_for_stage(
         party_id,
         tournament_id,

@@ -18,6 +18,7 @@ from byceps.services.party.models import PartyID
 from byceps.util.result import Err, Ok, Result
 
 from . import domain_service
+from .checkin_service import select_checked_in_participants
 from .dbmodels import (
     DbNetsessionTourneyStage,
 )
@@ -28,9 +29,13 @@ from .models import (
     StageID,
     TournamentID,
 )
-from .qualifier_selection import select_match_qualifiers, select_stage_qualifiers
+from .qualifier_selection import (
+    select_match_qualifiers,
+    select_stage_qualifiers,
+)
 from .service_helpers import (
     _db_stage_to_model,
+    _db_tournament_to_model,
 )
 from .stage_builder_settings import (
     _get_stage_builder_main_stage_size,
@@ -121,6 +126,11 @@ def _select_generation_participants_for_stage(
     all_tournament_participants = get_participants_for_tournament(
         party_id, tournament_id
     )
+    db_tournament = _find_db_tournament_for_party(party_id, tournament_id)
+    if db_tournament is not None:  # with a check-in, only checked-in ones
+        all_tournament_participants = select_checked_in_participants(
+            _db_tournament_to_model(db_tournament), all_tournament_participants
+        )
     is_stage_builder_v1_stage = _is_stage_builder_v1_main_stage(
         stage
     ) or _is_stage_builder_v1_preliminary_stage(stage)
