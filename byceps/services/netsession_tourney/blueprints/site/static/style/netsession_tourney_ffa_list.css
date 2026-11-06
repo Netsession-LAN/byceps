@@ -1,0 +1,94 @@
+/* FFA tournaments without a knockout tree: one card per match with the
+   standings (placement, team, kills). Used on the bracket page. */
+
+.ns-tourney-match-overview-ffa-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ns-tourney-match-overview-ffa-card {
+  border: 1px solid var(--line);
+  border-radius: var(--ns-radius-md);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.ns-tourney-match-overview-ffa-card.is-struck {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.ns-tourney-match-overview-ffa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.ns-tourney-match-overview-ffa-head-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  min-width: 0;
+}
+
+.ns-tourney-match-overview-ffa-meta {
+  color: var(--muted);
+  font-size: var(--ns-text-small);
+}
+
+.ns-tourney-match-overview-ffa-standings {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.ns-tourney-match-overview-ffa-row {
+  display: grid;
+  grid-template-columns: 2rem 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.85rem;
+}
+
+.ns-tourney-match-overview-ffa-row + .ns-tourney-match-overview-ffa-row {
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 50%);
+}
+
+.ns-tourney-match-overview-ffa-row.is-winner .ns-tourney-match-overview-ffa-rank,
+.ns-tourney-match-overview-ffa-row.is-winner .ns-tourney-match-overview-ffa-name,
+.ns-tourney-match-overview-ffa-row.is-winner .ns-tourney-match-overview-ffa-name a {
+  color: var(--ns-status-warning);
+}
+
+.ns-tourney-match-overview-ffa-rank {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+  color: var(--muted);
+}
+
+.ns-tourney-match-overview-ffa-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.ns-tourney-match-overview-ffa-kills {
+  color: var(--muted);
+  font-size: var(--ns-text-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .ns-tourney-match-overview-ffa-row {
+    grid-template-columns: 1.5rem 1.65rem minmax(0, 1fr) auto;
+    gap: 0.45rem;
+    padding-inline: 0.6rem;
+  }
+}

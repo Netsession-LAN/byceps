@@ -6,6 +6,7 @@
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney.css') }}">
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney.static', filename='style/netsession_tourney_ffa_list.css') }}">
 {% endblock %}
 
 {% block subnav %}
@@ -229,9 +230,7 @@
               <li class="ns-tourney-match-overview-ffa-row{% if participant.is_winner %} is-winner{% endif %}">
                 <span class="ns-tourney-match-overview-ffa-rank">{{ participant.placement or loop.index }}</span>
                 <span class="ns-tourney-match-overview-team-avatar{% if not participant.image_url %} is-placeholder{% endif %}">
-                  {%- if participant.image_url %}
-                  <img src="{{ participant.image_url }}" alt="{{ participant.image_alt or _('Team-Logo') }}" loading="lazy">
-                  {%- endif %}
+                  {%- if participant.image_url %}<img src="{{ participant.image_url }}" alt="{{ participant.image_alt or _('Team-Logo') }}" loading="lazy">{% endif -%}
                 </span>
                 <span class="ns-tourney-match-overview-ffa-name">
                   {%- if participant.participant and participant.participant.type.value == 'team' %}
