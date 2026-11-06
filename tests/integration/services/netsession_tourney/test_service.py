@@ -3364,3 +3364,54 @@ def test_canceling_a_tournament_refunds_all_coins(
 
     assert _coins(party, captain) == 10
     assert _coins(party, mate) == 10
+
+
+def test_captain_cannot_unready_a_team_that_is_in_the_bracket(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-unready-' + generate_token().lower(),
+        'NS Unready',
+        TournamentMode.duel,
+        RegistrationMode.team_captain_managed,
+        admin_user,
+        team_size=1,
+        substitute_count=0,
+    ).unwrap()
+    stage = stage_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'SE',
+        {'include_consolation_final': False},
+        admin_user,
+    ).unwrap()
+    captains, teams = [], []
+    for index in range(2):
+        captain = make_user('NS_Unready_' + generate_token())
+        _assign_party_ticket_to_user(party.id, captain, make_ticket_category)
+        team = team_captain_service.create_team_for_captain(
+            party.id, tournament.id, captain, f'Unready {index}'
+        ).unwrap()
+        assert team_captain_service.set_managed_team_ready_state(
+            party.id, tournament.id, team.id, captain, ready=True
+        ).is_ok()
+        captains.append(captain)
+        teams.append(team)
+    assert tournament_lifecycle_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+
+    result = team_captain_service.set_managed_team_ready_state(
+        party.id, tournament.id, teams[0].id, captains[0], ready=False
+    )
+
+    assert result.is_err()
+    status = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.status).filter_by(id=teams[0].id)
+    )
+    assert status == ParticipantStatus.ready.value
