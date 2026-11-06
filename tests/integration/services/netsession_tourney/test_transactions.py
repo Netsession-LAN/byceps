@@ -154,3 +154,23 @@ def test_unconfirmed_result_goes_to_admin_review_after_deadline(
     db_match = db.session.get(DbNetsessionTourneyMatch, match.id)
     assert db_match.state == MatchState.needs_admin_review.value
     assert db_match.confirmation_deadline_at is None
+
+
+def test_match_timeline_skips_tournament_events_before_the_match(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    match = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()[0]
+
+    actions = [
+        entry['action']
+        for entry in match_queries.get_match_timeline_entries(
+            party.id, tournament.id, match.id
+        )
+    ]
+
+    assert 'tournament_published' not in actions
