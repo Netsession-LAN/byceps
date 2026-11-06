@@ -44,6 +44,7 @@ from .models import (
 )
 from .result_deletion import _find_match_result_delete_blocker
 from .service_helpers import _append_audit_log, _db_match_result_to_model
+from .swiss_correction import prepare_swiss_winner_change
 from .tournament_queries import ACTIVE_PARTICIPANT_STATUS_VALUES
 
 
@@ -334,6 +335,13 @@ def _check_winner_change_allowed(
     possible."""
     if db_result.winner_slot is None or db_result.winner_slot == report.winner_slot:
         return None
+
+    # Swiss has no follow-up slots; its later rounds are re-paired instead.
+    swiss_error = prepare_swiss_winner_change(
+        db.session.get(DbNetsessionTourneyMatch, match_id)
+    )
+    if swiss_error is not None:
+        return swiss_error
 
     blocking_match_id = _find_match_result_delete_blocker(match_id)
     if blocking_match_id is None:
