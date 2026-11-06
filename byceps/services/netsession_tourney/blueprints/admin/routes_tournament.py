@@ -19,14 +19,22 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
-from ..site.views import (
-    _build_bracket_sections,
-    _build_match_labels,
-    _build_match_overview_sections,
-    _build_skipped_double_grand_final_match_ids,
-    _build_slot_scores_by_match_id,
-    _build_swiss_bracket_sections,
-    build_bracket_data,
+from ... import (
+    browser_push_service,
+    discord_dm_service,
+    double_grand_final,
+    match_queries,
+    notification_service,
+    participant_admin_service,
+    participant_state,
+    registration_validation,
+    tournament_admin_service,
+    tournament_category_service,
+    tournament_lifecycle_service,
+    tournament_prize_service,
+    tournament_queries,
+    tournament_rule_template_service,
+    tournament_service,
 )
 from ...flatout2 import get_flatout2_mode_label
 from ...forms import (
@@ -50,23 +58,14 @@ from ...models import (
     StageType,
     TournamentMode,
 )
-from ... import (
-    browser_push_service,
-    discord_dm_service,
-    double_grand_final,
-    match_queries,
-    notification_service,
-    participant_admin_service,
-    participant_state,
-    registration_validation,
-    tournament_admin_service,
-    tournament_category_service,
-    tournament_lifecycle_service,
-    tournament_prize_service,
-    tournament_queries,
-    tournament_rule_template_service,
-    tournament_service,
+from ..site.bracket_helpers import _build_bracket_sections, build_bracket_data
+from ..site.match_helpers import (
+    _build_match_labels,
+    _build_skipped_double_grand_final_match_ids,
+    _build_slot_scores_by_match_id,
 )
+from ..site.round_based_public_rendering import _build_match_overview_sections
+from ..site.swiss_public_rendering import _build_swiss_bracket_sections
 from .result_helpers import (
     _get_match_or_404,
     _get_participant_or_404,
