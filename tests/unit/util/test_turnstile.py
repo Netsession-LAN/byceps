@@ -90,3 +90,34 @@ def test_verify_token_passes_when_disabled(monkeypatch):
         assert turnstile.verify_token('anything')
 
     assert calls == []
+
+
+def test_request_without_token_passes_when_cloudflare_is_down(app, monkeypatch):
+    # The widget does not load during an outage, so the form has no token.
+    monkeypatch.setattr(turnstile, 'urlopen', _unreachable)
+
+    with app.test_request_context('/form', method='POST', data={}):
+        assert turnstile.passes_request('login')
+
+
+def test_request_without_token_is_refused_when_cloudflare_is_up(
+    app, monkeypatch
+):
+    calls = []
+    monkeypatch.setattr(
+        turnstile, 'urlopen', _fake_urlopen({'success': False}, calls)
+    )
+
+    with app.test_request_context('/form', method='POST', data={}):
+        assert not turnstile.passes_request('login')
+
+
+def test_request_with_valid_token_passes(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        turnstile, 'urlopen', _fake_urlopen({'success': True}, calls)
+    )
+    data = {'cf-turnstile-response': 'valid'}
+
+    with app.test_request_context('/form', method='POST', data=data):
+        assert turnstile.passes_request('login')
