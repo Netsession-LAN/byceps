@@ -12,6 +12,7 @@ from . import (  # noqa: F401 (the imports register the routes)
     routes_match,
     routes_pages,
     routes_preliminaries,
+    routes_team_actions,
     routes_teams,
 )
 from . import routes_checkin

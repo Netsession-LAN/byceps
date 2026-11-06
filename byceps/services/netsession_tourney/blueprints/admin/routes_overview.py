@@ -18,7 +18,7 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to, respond_no_content
 
-from ..site.views import _build_party_timetable
+from ..site.timetable_helpers import _build_party_timetable
 from ...forms import (
     BrowserPushConfigForm,
     CoinAdjustmentForm,
