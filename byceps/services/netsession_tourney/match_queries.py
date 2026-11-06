@@ -223,6 +223,12 @@ def get_match_timeline_entries(
     if _find_db_tournament_for_party(party_id, tournament_id) is None:
         return []
 
+    db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
+    if db_match is None:
+        return []
+
+    # Tournament events only from the match's lifetime: "tournament is
+    # live" usually happened before the match existed.
     db_entries = db.session.scalars(
         select(DbNetsessionTourneyAuditLog)
         .filter(
@@ -234,6 +240,7 @@ def get_match_timeline_entries(
                 (
                     (DbNetsessionTourneyAuditLog.object_type == 'tournament')
                     & (DbNetsessionTourneyAuditLog.object_id == tournament_id)
+                    & (DbNetsessionTourneyAuditLog.created_at >= db_match.created_at)
                     & DbNetsessionTourneyAuditLog.action.in_(
                         [
                             'tournament_published',

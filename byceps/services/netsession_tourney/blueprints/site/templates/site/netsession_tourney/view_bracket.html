@@ -184,7 +184,7 @@
       </section>
       {%- endfor %}
       {%- else %}
-      <p class="dimmed">{{ _('Kein Bracket vorhanden. Bitte im Admin Match-Generierung ausführen.') }}</p>
+      <p class="dimmed">{{ _('Der Turnierbaum erscheint hier, sobald die Matches erstellt sind.') }}</p>
       {%- endif %}
       {%- elif is_ffa_scoring_tournament %}
       {%- if ffa_match_sections %}
@@ -255,7 +255,7 @@
         {%- endfor %}
       </div>
       {%- else %}
-      <p class="dimmed">{{ _('Kein FFA-Match vorhanden. Bitte im Admin Match-Generierung ausführen.') }}</p>
+      <p class="dimmed">{{ _('Die Runden erscheinen hier, sobald sie erstellt sind.') }}</p>
       {%- endif %}
       {%- else %}
       {%- if is_swiss_tournament %}
@@ -440,7 +440,7 @@
       </section>
       {%- endfor %}
       {%- else %}
-      <p class="dimmed">{{ _('Kein Swiss-Bracket vorhanden. Bitte im Admin Pairings generieren.') }}</p>
+      <p class="dimmed">{{ _('Die Paarungen erscheinen hier, sobald sie erstellt sind.') }}</p>
       {%- endif %}
       {%- elif builder_stage_bracket_sections %}
       {%- for section in builder_stage_bracket_sections %}
@@ -773,7 +773,7 @@
       </section>
       {%- endfor %}
       {%- else %}
-      <p class="dimmed">{{ _('Kein Bracket vorhanden. Bitte im Admin Pairings generieren.') }}</p>
+      <p class="dimmed">{{ _('Die Paarungen erscheinen hier, sobald sie erstellt sind.') }}</p>
       {%- endif %}
       {%- endif %}
       {%- endif %}
