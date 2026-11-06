@@ -9,6 +9,7 @@ byceps.services.netsession_tourney.blueprints.site.single_elimination_rendering
 from __future__ import annotations
 
 from collections import defaultdict
+from .double_elimination_rendering import _is_loser_outcome
 
 
 def build_single_elimination_match_labels(
@@ -55,7 +56,3 @@ def build_single_elimination_match_labels(
 
     return labels_by_match_id
 
-
-def _is_loser_outcome(outcome) -> bool:
-    value = getattr(outcome, 'value', outcome)
-    return value == 'loser'

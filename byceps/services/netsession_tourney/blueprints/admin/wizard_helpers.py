@@ -18,7 +18,6 @@ from flask_babel import gettext
 
 from byceps.services.authz import authz_service
 from byceps.services.party.models import Party
-from byceps.services.ticketing import ticket_service
 from byceps.services.user import user_service
 from byceps.services.user.models import UserID
 from byceps.util.framework.flash import flash_error
@@ -136,20 +135,6 @@ def _get_default_category_id_for_party(party_id: str) -> str | None:
         return None
 
     return str(categories[0].id)
-
-
-def _get_ticket_user_screen_names_for_party(party_id: str) -> list[str]:
-    user_ids = ticket_service.get_ticket_users_for_party(party_id)
-    users = user_service.get_users(user_ids)
-
-    return sorted(
-        {
-            user.screen_name
-            for user in users
-            if user.screen_name and not getattr(user, 'deleted', False)
-        },
-        key=str.lower,
-    )
 
 
 def _parse_category_id(raw_category_id: str | None) -> TournamentCategoryID | None:
@@ -483,20 +468,6 @@ def _get_available_tournament_admin_users():
 
     users = user_service.get_users(user_ids, include_avatars=True)
     return sorted(users, key=lambda user: user.screen_name.lower())
-
-
-def _get_suggested_screen_names_for_party(party_id) -> list[str]:
-    user_ids = ticket_service.get_ticket_users_for_party(party_id)
-    users = user_service.get_users(user_ids)
-
-    return sorted(
-        {
-            user.screen_name
-            for user in users
-            if user.screen_name and not getattr(user, 'deleted', False)
-        },
-        key=str.lower,
-    )
 
 
 def _parse_admin_user_ids(

@@ -74,10 +74,9 @@ from .common import (
     _get_main_nav_current_page_id,
     _find_netsession_tourney_subnav_menu_id,
     _get_categories_with_tournaments,
-    _parse_status_filter,
-    _parse_mode_filter,
     get_participants_for_tournament_indexed_by_id,
 )
+from ...filter_parsing import parse_tournament_mode, parse_tournament_status
 
 
 @blueprint.get('')
@@ -92,8 +91,8 @@ def index():
     mode_param = request.args.get('mode')
     game = request.args.get('game')
 
-    status = _parse_status_filter(status_param)
-    mode = _parse_mode_filter(mode_param)
+    status = parse_tournament_status(status_param)
+    mode = parse_tournament_mode(mode_param)
 
     tournaments = get_tournaments_for_party(
         g.party.id,

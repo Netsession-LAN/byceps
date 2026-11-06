@@ -54,6 +54,9 @@ from ...swiss_thresholds import (
     _get_swiss_threshold_for_round_count,
 )
 from ...tournament_queries import get_stages_for_tournament
+from ...tournament_queries import _get_ffa_points_per_kill
+from ...engines.bracket_helpers import _distribute_evenly
+from ..site.builder_helpers import _get_builder_container_child_stage_ids
 
 
 def _is_stage_builder_main_complete(state: dict) -> bool:
@@ -185,19 +188,6 @@ def _format_ffa_placement_points_rules(rules) -> str:
         lines.append(f'{place_label} = {points}')
 
     return '\n'.join(lines)
-
-
-def _get_ffa_points_per_kill(settings: dict | None) -> int:
-    if not isinstance(settings, dict):
-        return 1
-
-    raw_value = settings.get('points_per_kill', 1)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 1
-
-    return max(0, value)
 
 
 def _parse_ffa_placement_points_text(raw_text: str | None) -> Result[list[dict], str]:
@@ -624,14 +614,6 @@ def _is_builder_container_stage(stage: Stage) -> bool:
     )
 
 
-def _get_builder_container_child_stage_ids(stage: Stage) -> list[str]:
-    settings = stage.settings or {}
-    raw_ids = settings.get('builder_materialized_stage_ids') or []
-    if not raw_ids and settings.get('builder_role') == 'preliminary':
-        raw_ids = settings.get('builder_materialized_group_stage_ids') or []
-    return [str(raw_id) for raw_id in raw_ids if raw_id]
-
-
 def _is_builder_preliminary_group_stage(stage: Stage) -> bool:
     settings = stage.settings or {}
     return (
@@ -1051,18 +1033,6 @@ def _build_stage_builder_container_preview_meta(
         'distribution_summary': intro.get('distribution_summary'),
         'qualification_summary': intro.get('qualification_summary'),
     }
-
-
-def _distribute_evenly(total: int, bucket_count: int) -> list[int]:
-    if bucket_count <= 0:
-        return []
-
-    base = total // bucket_count
-    remainder = total % bucket_count
-    return [
-        base + (1 if index < remainder else 0)
-        for index in range(bucket_count)
-    ]
 
 
 def _format_group_distribution_summary(group_sizes: list[int]) -> str:

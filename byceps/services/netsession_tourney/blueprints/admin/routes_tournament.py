@@ -89,7 +89,6 @@ from .stage_builder_helpers import (
 from .wizard_helpers import (
     _assert_party_has_categories_or_redirect,
     _get_available_tournament_admin_users,
-    _get_suggested_screen_names_for_party,
     _parse_admin_user_ids,
     _parse_category_id,
     _set_category_choices_for_form,
@@ -97,6 +96,7 @@ from .wizard_helpers import (
     _set_rules_template_choices_for_form,
     _update_form_with_categories,
 )
+from ...screen_name_suggestions import get_suggested_screen_names_for_party
 
 
 def register(blueprint):
@@ -434,7 +434,7 @@ def register(blueprint):
             'participants': participants,
             'participants_by_id': participants_by_id,
             'active_participant_count': active_participant_count,
-            'suggested_screen_names': _get_suggested_screen_names_for_party(party.id),
+            'suggested_screen_names': get_suggested_screen_names_for_party(party.id),
             'tournament_admin_users': tournament_admin_users,
             'members_by_participant_id': members_by_participant_id,
             'matches': matches,
@@ -550,7 +550,7 @@ def register(blueprint):
             'participant': participant,
             'members': members,
             'users_by_id': users_by_id,
-            'suggested_screen_names': _get_suggested_screen_names_for_party(party.id),
+            'suggested_screen_names': get_suggested_screen_names_for_party(party.id),
             'participant_disqualify_form': ParticipantDisqualifyForm(
                 data={'reason_code': 'admin_disqualification'}
             ),

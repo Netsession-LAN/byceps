@@ -21,6 +21,7 @@ from ...swiss_thresholds import (
     _get_round_count_for_swiss_stage,
     _get_swiss_threshold_for_stage,
 )
+from ...tournament_queries import _parse_numeric_score_value
 
 
 def _build_swiss_bracket_sections(
@@ -33,14 +34,6 @@ def _build_swiss_bracket_sections(
     match_labels_by_id,
     stages_by_id,
 ):
-    def _parse_numeric_points(value) -> int:
-        if value is None:
-            return 0
-        try:
-            return int(str(value).strip())
-        except (TypeError, ValueError):
-            return 0
-
     def _build_outcome_participant_rows(
         participant_ids: list[UUID], cumulative_points_by_participant_id: dict
     ) -> list[dict]:
@@ -236,7 +229,7 @@ def _build_swiss_bracket_sections(
                     if slot.participant_id is None:
                         continue
                     cumulative_points_by_participant_id[slot.participant_id] += (
-                        _parse_numeric_points(slot_scores.get(slot.slot_no))
+                        _parse_numeric_score_value(slot_scores.get(slot.slot_no))
                     )
 
             qualified_count = 0

@@ -127,15 +127,3 @@ def _get_stage_duration_minutes(stage) -> int | None:
 
     return None
 
-
-def _get_ffa_points_per_kill(settings) -> int:
-    if not isinstance(settings, dict):
-        return 1
-
-    raw_value = settings.get('points_per_kill', 1)
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return 1
-
-    return max(0, value)

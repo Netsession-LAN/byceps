@@ -22,13 +22,10 @@ from markupsafe import Markup
 from byceps.services.party.models import PartyID
 from byceps.services.site_navigation import site_navigation_service
 from byceps.services.site_navigation.models import NavItem, NavItemTargetType
-from byceps.services.ticketing import ticket_service
-from byceps.services.user import user_service
 from byceps.util.l10n import get_default_locale
 
 from ...enum_labels import stage_type_display_name
 from ...models import (
-    TournamentMode,
     TournamentRuleTemplate,
     TournamentStatus,
 )
@@ -130,20 +127,6 @@ def _find_netsession_tourney_subnav_menu_id(*view_names: str) -> UUID | None:
     return None
 
 
-def _get_suggested_screen_names_for_party(party_id: PartyID) -> list[str]:
-    user_ids = ticket_service.get_ticket_users_for_party(party_id)
-    users = user_service.get_users(user_ids)
-
-    return sorted(
-        {
-            user.screen_name
-            for user in users
-            if user.screen_name and not getattr(user, 'deleted', False)
-        },
-        key=str.lower,
-    )
-
-
 def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
     ns_tourney_index_url = url_for('netsession_tourney.index')
     ns_tourney_prefix = (
@@ -233,24 +216,6 @@ def _get_tournament_or_404(slug):
         abort(404)
 
     return tournament
-
-
-def _parse_status_filter(value: str | None):
-    if not value:
-        return None
-    try:
-        return TournamentStatus(value)
-    except ValueError:
-        return None
-
-
-def _parse_mode_filter(value: str | None):
-    if not value:
-        return None
-    try:
-        return TournamentMode(value)
-    except ValueError:
-        return None
 
 
 def _build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:

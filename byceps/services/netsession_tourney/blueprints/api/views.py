@@ -14,7 +14,6 @@ from byceps.services.party import party_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
 
-from ...models import TournamentMode, TournamentStatus
 from ...observability_service import record_api_request_metric
 from ...match_queries import get_matches_for_tournament
 from ...tournament_queries import (
@@ -25,6 +24,8 @@ from ...tournament_service import (
     find_tournament_for_party,
     get_tournaments_for_party,
 )
+from ...filter_parsing import parse_tournament_status as _parse_status
+from ...filter_parsing import parse_tournament_mode as _parse_mode
 
 
 blueprint = create_blueprint('netsession_tourney_api', __name__)
@@ -161,20 +162,3 @@ def serialize_match(match):
         'scheduled_at': match.scheduled_at and match.scheduled_at.isoformat(),
     }
 
-
-def _parse_status(value):
-    if not value:
-        return None
-    try:
-        return TournamentStatus(value)
-    except ValueError:
-        return None
-
-
-def _parse_mode(value):
-    if not value:
-        return None
-    try:
-        return TournamentMode(value)
-    except ValueError:
-        return None

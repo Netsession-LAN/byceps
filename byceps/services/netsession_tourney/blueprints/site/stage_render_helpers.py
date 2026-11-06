@@ -39,7 +39,6 @@ from .match_helpers import (
 from .presentation_helpers import (
     _build_round_time_range_label,
     _combine_stage_section_title,
-    _get_ffa_points_per_kill,
     _get_stage_duration_minutes,
 )
 from .stage_filters import (
@@ -50,6 +49,8 @@ from .stage_filters import (
 from .round_based_public_rendering import (
     _build_match_overview_sections,
 )
+from .round_based_public_rendering import _get_score_display
+from ...tournament_queries import _get_ffa_points_per_kill
 
 
 def _group_matches_by_round(matches):
@@ -1129,15 +1130,6 @@ def _is_bye_slot(slots, slot_no: int) -> bool:
         return False
 
     return slot.participant_id is None
-
-
-def _get_score_display(result) -> str:
-    if result is None:
-        return '-'
-    if not result.score:
-        return '-'
-
-    return result.score.get('display') or '-'
 
 
 def _get_score_side(result, index: int) -> str | None:

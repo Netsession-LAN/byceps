@@ -62,12 +62,12 @@ from .result_helpers import _get_party_or_404, _get_tournament_or_404, _parse_cs
 from .wizard_helpers import (
     _get_discord_forum_image_asset_or_404,
     _get_sponsor_logo_asset_or_404,
-    _get_ticket_user_screen_names_for_party,
     _get_tournament_category_or_404,
     _get_tournament_logo_asset_or_404,
     _get_tournament_prize_or_404,
     _get_tournament_rule_template_or_404,
 )
+from ...screen_name_suggestions import get_suggested_screen_names_for_party
 
 
 def register(blueprint):
@@ -310,7 +310,7 @@ def register(blueprint):
             'selected_user': selected_user,
             'selected_user_balance': selected_user_balance,
             'recent_coin_entries': recent_coin_entries,
-            'suggested_screen_names': _get_ticket_user_screen_names_for_party(
+            'suggested_screen_names': get_suggested_screen_names_for_party(
                 party.id
             ),
         }

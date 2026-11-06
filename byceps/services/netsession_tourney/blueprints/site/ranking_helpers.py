@@ -15,7 +15,8 @@ from .match_helpers import (
     _is_skipped_double_grand_final_result,
     _parse_slot_scores,
 )
-from .presentation_helpers import _get_ffa_points_per_kill
+from ...tournament_queries import _parse_numeric_score_value
+from ...tournament_queries import _get_ffa_points_per_kill
 
 
 def _build_ffa_ranking_rows(
@@ -436,16 +437,6 @@ def _build_ranking_rows(
         )
 
     return ranking_rows
-
-
-def _parse_numeric_score_value(value) -> int:
-    if value is None:
-        return 0
-
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return 0
 
 
 def _is_walkover_result(result) -> bool:

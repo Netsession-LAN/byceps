@@ -61,9 +61,9 @@ from .user_state_helpers import (
 from .blueprint import blueprint
 from .common import (
     _get_main_nav_current_page_id,
-    _get_suggested_screen_names_for_party,
     _get_tournament_or_404,
 )
+from ...screen_name_suggestions import get_suggested_screen_names_for_party
 
 
 def _build_team_view_context(slug, participant_id):
@@ -154,7 +154,7 @@ def _build_team_view_context(slug, participant_id):
         'team_invite_code': team_invite_code,
         'team_creation_form': TeamCreationForm(data={'name': team.name}),
         'team_member_add_form': TeamMemberAddForm(),
-        'suggested_screen_names': _get_suggested_screen_names_for_party(
+        'suggested_screen_names': get_suggested_screen_names_for_party(
             g.party.id
         ),
         'team_history': team_history,
