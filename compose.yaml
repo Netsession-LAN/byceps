@@ -53,11 +53,7 @@ services:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
-    command: >
-      sh -c "while true; do
-      uv run --no-sync python scripts/netsession_tourney/process_discord_outbox.py --limit 50;
-      sleep 15;
-      done"
+    command: uv run --no-sync python scripts/netsession_tourney/process_discord_outbox.py --limit 50 --every 15
     restart: unless-stopped
     networks:
       - byceps
@@ -66,11 +62,7 @@ services:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
-    command: >
-      sh -c "while true; do
-      uv run --no-sync python scripts/netsession_tourney/run_tourney_timers.py;
-      sleep 60;
-      done"
+    command: uv run --no-sync python scripts/netsession_tourney/run_tourney_timers.py --every 60
     restart: unless-stopped
     networks:
       - byceps
@@ -79,11 +71,7 @@ services:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
-    command: >
-      sh -c "while true; do
-      uv run --no-sync byceps process-netsession-tourney-browser-push-outbox --limit 50;
-      sleep 15;
-      done"
+    command: uv run --no-sync byceps process-netsession-tourney-browser-push-outbox --limit 50 --every 15
     restart: unless-stopped
     networks:
       - byceps
@@ -92,11 +80,7 @@ services:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
-    command: >
-      sh -c "while true; do
-      uv run --no-sync byceps process-netsession-tourney-discord-dm-outbox --limit 50;
-      sleep 15;
-      done"
+    command: uv run --no-sync byceps process-netsession-tourney-discord-dm-outbox --limit 50 --every 15
     restart: unless-stopped
     networks:
       - byceps
