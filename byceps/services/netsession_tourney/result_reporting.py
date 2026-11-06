@@ -42,6 +42,7 @@ from .models import (
     TournamentMode,
     TournamentStatus,
 )
+from .result_deletion import _find_match_result_delete_blocker
 from .service_helpers import _append_audit_log, _db_match_result_to_model
 from .tournament_queries import ACTIVE_PARTICIPANT_STATUS_VALUES
 
@@ -208,6 +209,10 @@ def store_reported_result(
     ):
         return Err('Korrekturen durch Admins brauchen einen Kommentar.')
 
+    winner_change_error = _check_winner_change_allowed(match_id, db_result, report)
+    if winner_change_error is not None:
+        return Err(winner_change_error)
+
     db_result.winner_slot = report.winner_slot
     db_result.score_json = report.score_data
     db_result.ranking_json = report.ranking_data
@@ -315,4 +320,28 @@ def advance_after_completion(
         _auto_advance_byes(tournament_id, stage, engine=engine)
     _update_optional_double_grand_final_state(
         stage=stage, source_match_id=match_id
+    )
+
+
+def _check_winner_change_allowed(
+    match_id: MatchID,
+    db_result: DbNetsessionTourneyMatchResult,
+    report: ResultReport,
+) -> str | None:
+    """A new winner would move other participants into the following
+    matches; that is refused once one of them has a reported result (the
+    same rule as for deleting a result). Score-only corrections stay
+    possible."""
+    if db_result.winner_slot is None or db_result.winner_slot == report.winner_slot:
+        return None
+
+    blocking_match_id = _find_match_result_delete_blocker(match_id)
+    if blocking_match_id is None:
+        return None
+
+    db_blocking_match = db.session.get(DbNetsessionTourneyMatch, blocking_match_id)
+    return (
+        'Der Sieger lässt sich nicht mehr ändern, weil ein Folge-Match '
+        f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '
+        'schon ein Ergebnis hat. Lösche zuerst dieses Ergebnis.'
     )
