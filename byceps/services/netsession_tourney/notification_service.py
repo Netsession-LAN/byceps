@@ -204,7 +204,6 @@ def _append_notification_for_match_report(
             ),
         },
     )
-    db.session.commit()
 
 
 def _enqueue_match_ready_notifications(

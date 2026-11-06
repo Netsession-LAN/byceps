@@ -175,13 +175,13 @@ def _apply_report(
         advance_after_completion(
             tournament.id, stage, db_match.id, sides, report.winner_slot
         )
-    db.session.commit()
 
     _append_notification_for_match_report(db_match, stage, report.actor_user_id)
     if completed:
         _announce_and_continue_after_completion(
             db_tournament, db_match, stage, sides, report
         )
+    db.session.commit()
 
     log.info(
         'netsession_tourney.result_reported',

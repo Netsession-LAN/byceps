@@ -160,14 +160,13 @@ def close_tournament(
         },
     )
 
-    db.session.commit()
-
     enqueue_discord_event(
         party_id,
         tournament_id,
         event_name='tournament_finished',
         payload=_build_discord_tournament_finished_payload(db_tournament),
     )
+    db.session.commit()
     return Ok(_db_tournament_to_model(db_tournament))
 
 
@@ -206,13 +205,13 @@ def cancel_tournament(
         },
     )
 
-    db.session.commit()
     enqueue_discord_event(
         party_id,
         tournament_id,
         event_name='tournament_canceled',
         payload={'slug': db_tournament.slug},
     )
+    db.session.commit()
 
     return Ok(_db_tournament_to_model(db_tournament))
 

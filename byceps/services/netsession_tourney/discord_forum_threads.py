@@ -164,7 +164,6 @@ def _create_discord_thread_for_tournament(
 
     db_tournament.discord_thread_id = thread_id
     db_tournament.updated_at = datetime.utcnow()
-    db.session.commit()
 
     _append_audit_log(
         actor_user_id=None,
@@ -269,7 +268,6 @@ def _clear_discord_thread_reference(
 
     db_tournament.discord_thread_id = None
     db_tournament.updated_at = datetime.utcnow()
-    db.session.commit()
 
     _append_audit_log(
         actor_user_id=None,

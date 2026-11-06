@@ -100,7 +100,6 @@ def enqueue_discord_event(
             datetime.utcnow(),
         )
     )
-    db.session.commit()
 
 
 def process_discord_outbox(*, limit: int = 50) -> int:

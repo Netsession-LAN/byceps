@@ -18,7 +18,7 @@ from .dbmodels import (
     DbNetsessionTourneyStage,
 )
 from .match_generation import (
-    generate_stage_matches,
+    _generate_stage_matches,
 )
 from .models import (
     StageID,
@@ -89,7 +89,8 @@ def _auto_generate_builder_main_stages_from_completed_source(
             deleted=False,
             avatar_url='',
         )
-        result = generate_stage_matches(
+        savepoint = db.session.begin_nested()
+        result = _generate_stage_matches(
             party_id,
             tournament_id,
             db_stage.id,
@@ -97,6 +98,7 @@ def _auto_generate_builder_main_stages_from_completed_source(
             correlation_id=correlation_id,
         )
         if result.is_err():
+            savepoint.rollback()
             log.warning(
                 'netsession_tourney.builder_main_auto_generation_failed',
                 tournament_id=str(tournament_id),
@@ -106,6 +108,7 @@ def _auto_generate_builder_main_stages_from_completed_source(
                 correlation_id=correlation_id,
             )
             continue
+        savepoint.commit()
 
         log.info(
             'netsession_tourney.builder_main_auto_generated',

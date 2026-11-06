@@ -89,6 +89,38 @@ def generate_stage_matches(
         dict[tuple[int, int], dict[str, Any]] | None
     ) = None,
 ) -> Result[list[Match], str]:
+    """Generate the matches of a stage, all or nothing."""
+    result = _generate_stage_matches(
+        party_id,
+        tournament_id,
+        stage_id,
+        initiator,
+        correlation_id=correlation_id,
+        round_starts_at_by_round_no=round_starts_at_by_round_no,
+        stage_settings_patch=stage_settings_patch,
+        match_settings_by_round_and_match_no=match_settings_by_round_and_match_no,
+    )
+    if result.is_err():
+        db.session.rollback()
+    else:
+        db.session.commit()
+    return result
+
+
+def _generate_stage_matches(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    stage_id: StageID,
+    initiator: User,
+    *,
+    correlation_id: str | None = None,
+    round_starts_at_by_round_no: dict[int, datetime] | None = None,
+    stage_settings_patch: dict[str, Any] | None = None,
+    match_settings_by_round_and_match_no: (
+        dict[tuple[int, int], dict[str, Any]] | None
+    ) = None,
+) -> Result[list[Match], str]:
+    """Generate the matches of a stage within the caller's transaction."""
     payload_result = _build_stage_generation_payload(
         party_id,
         tournament_id,
@@ -139,7 +171,7 @@ def generate_stage_matches(
     _append_matches_generated_audit_log(
         initiator, stage_id, matches, correlation_id
     )
-    db.session.commit()
+    db.session.flush()
 
     _announce_generated_stage_matches(
         party_id, tournament_id, stage_id, payload, matches, stage_started_now
@@ -274,7 +306,6 @@ def _announce_generated_stage_matches(
             if db_match is None or db_match.state != MatchState.ready.value:
                 continue
             _enqueue_match_ready_notifications(db_match)
-        db.session.commit()
 
 
 def _materialize_round_robin_builder_group_stages(
@@ -331,12 +362,11 @@ def _materialize_round_robin_builder_group_stages(
         db_stage, settings, group_stage_ids, qualifiers_per_group, now
     )
     point_main_stage_at_groups(db_main_stage, group_stage_ids, qualifiers_per_group)
-
-    db.session.commit()
+    db.session.flush()
 
     created_matches: list[Match] = []
     for group_stage_id in group_stage_ids:
-        generated_matches_result = generate_stage_matches(
+        generated_matches_result = _generate_stage_matches(
             party_id,
             tournament_id,
             group_stage_id,

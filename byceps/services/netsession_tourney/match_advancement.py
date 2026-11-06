@@ -113,7 +113,7 @@ def _auto_advance_byes(
                 tournament_id, stage, db_match, engine=engine
             ):
                 progressed = True
-        db.session.commit()
+        db.session.flush()
         if not progressed:
             return
 
@@ -286,11 +286,9 @@ def _advance_stage_from_match(
         for match_id, slot_no in downstream_loser_slots
     )
     ready_match_ids = _apply_downstream_slot_updates(tournament_id, updates)
-
-    db.session.commit()
+    db.session.flush()
 
     _enqueue_notifications_for_still_ready_matches(ready_match_ids)
-    db.session.commit()
 
 
 def _enqueue_notifications_for_still_ready_matches(
