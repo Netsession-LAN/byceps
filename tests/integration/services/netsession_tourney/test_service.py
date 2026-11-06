@@ -3345,3 +3345,22 @@ def test_delete_tournament_only_in_draft_or_canceled(
     assert result.is_ok() == deletable
     still_there = db.session.get(DbNetsessionTourneyTournament, tournament.id)
     assert (still_there is None) == deletable
+
+
+def test_canceling_a_tournament_refunds_all_coins(
+    admin_app, isolated_party, admin_user, make_user, make_ticket_category
+):
+    party = isolated_party
+    tournament, _, captain, mate = _make_coin_team_tournament(
+        party, admin_user, make_user, make_ticket_category,
+        CoinChargeMode.all_members,
+    )
+    assert _coins(party, captain) == 7
+    assert _coins(party, mate) == 7
+
+    assert tournament_lifecycle_service.cancel_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+
+    assert _coins(party, captain) == 10
+    assert _coins(party, mate) == 10
