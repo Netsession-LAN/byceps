@@ -12,8 +12,11 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from flask import current_app, request as flask_request
+import structlog
 
 VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+log = structlog.get_logger()
 
 
 def _get_cfg_raw() -> Dict[str, Any]:
@@ -50,6 +53,30 @@ def best_remote_ip(req: Optional[object] = None) -> str:
     return r.headers.get("CF-Connecting-IP") or xff_first or r.remote_addr
 
 
+def _siteverify(
+    secret_key: str, token: str, remoteip: Optional[str], timeout: float
+) -> Optional[Dict[str, Any]]:
+    """Ask Cloudflare; return its answer, or None if it cannot be reached."""
+    data = {"secret": secret_key, "response": token}
+    if remoteip:
+        data["remoteip"] = remoteip
+
+    body = urlencode(data).encode("utf-8")
+    req = Request(VERIFY_URL, data=body, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        log.warning(
+            "turnstile_cloudflare_unreachable_letting_through",
+            error=type(exc).__name__,
+            remoteip=remoteip,
+        )
+        return None
+
+
 def verify_token(
     token: Optional[str],
     *,
@@ -61,31 +88,26 @@ def verify_token(
     Strict server-side verification; requires secret_key.
     Returns True if feature is disabled (do not block flows),
     otherwise only when Cloudflare validates the token (and optional action matches).
+
+    If Cloudflare cannot be reached, the request is let through and logged
+    (decision 2026-11-06: an outage must not lock everybody out). A missing
+    token (the widget does not load during an outage) is only let through
+    if Cloudflare is really unreachable, so bots cannot just omit it.
     """
     cfg = _get_cfg_raw()
     if not bool(cfg.get("enabled", False)):
         return True  # feature off → do not block
 
     secret_key = cfg.get("secret_key") or ""
-    if not secret_key or not token:
+    if not secret_key:
         return False
 
     timeout = float(max(0.5, min(10.0, abs(timeout))))
-    data = {"secret": secret_key, "response": token}
-    if remoteip:
-        data["remoteip"] = remoteip
+    payload = _siteverify(secret_key, token or "missing", remoteip, timeout)
+    if payload is None:
+        return True  # Cloudflare down → let through (logged)
 
-    body = urlencode(data).encode("utf-8")
-    req = Request(VERIFY_URL, data=body, method="POST")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        return False
-
-    if not bool(payload.get("success")):
+    if not token or not bool(payload.get("success")):
         return False
 
     if expected_action:
