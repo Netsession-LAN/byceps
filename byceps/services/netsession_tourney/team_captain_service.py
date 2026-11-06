@@ -39,6 +39,7 @@ from .participant_state import (
     _refresh_match_states_for_participant_readiness,
 )
 from .registration_service import (
+    _ensure_registration_is_registered,
     _generate_unique_invite_code_for_tournament,
 )
 from .service_helpers import (
@@ -111,6 +112,7 @@ def create_team_for_captain(
     )
     db.session.add(db_participant)
     add_team_member(db_participant.id, user.id, TeamMemberRole.captain, now)
+    _ensure_registration_is_registered(tournament_id, user.id, created_at=now)
 
     _append_audit_log(
         actor_user_id=user.id,

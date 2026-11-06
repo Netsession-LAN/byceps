@@ -23,6 +23,10 @@ from .participant_state import (
     _is_user_already_active_participant,
     count_active_participants_for_tournament,
 )
+from .registration_locks import (
+    lock_tournament_for_registration,
+    lock_user_coins,
+)
 
 
 def validate_user_can_enter_tournament(
@@ -37,7 +41,12 @@ def validate_user_can_enter_tournament(
 
     Checks, in this order: registration open, ticket, not already an
     active participant and (if requested) the tournament not being full.
+    Locks the tournament and the user's coins first, so that simultaneous
+    registrations are checked one after the other.
     """
+    lock_tournament_for_registration(tournament_id)
+    lock_user_coins(user_id)
+
     validation_result = domain_service.validate_registration_open(
         tournament, datetime.utcnow()
     )

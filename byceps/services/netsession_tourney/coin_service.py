@@ -38,6 +38,7 @@ from .models import (
     TournamentStatus,
     UserCoinBalance,
 )
+from .registration_locks import lock_user_coins
 from .service_helpers import (
     _append_audit_log,
     _db_coin_ledger_entry_to_model,
@@ -382,6 +383,7 @@ def _charge_coins_for_tournament_registration(
     if not coin_settings.enabled or tournament.coin_cost <= 0:
         return Ok(None)
 
+    lock_user_coins(user_id)  # simultaneous charges must not overdraw
     balance = get_user_coin_balance(party_id, user_id)
     if balance.available_coins < tournament.coin_cost:
         return Err(
