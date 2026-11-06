@@ -131,6 +131,30 @@
             </div>
             {%- endif %}
 
+            {%- set checkin_phase = tournament|ns_checkin_phase %}
+            {%- if checkin_phase %}
+            {%- set membership_member = current_user_tournament_membership.member %}
+            <div class="ns-tourney-overview-checkin">
+              <h3>{{ _('Check-in') }}</h3>
+              {%- if current_participant.checkin_state.value == 'checked_in' %}
+              <p><span class="ns-tourney-open-matches-state is-ready">{{ _('Eingecheckt') }}</span></p>
+              {%- elif checkin_phase == 'open' %}
+              <p>{{ _('Offen bis %(time)s Uhr. Wer nicht eincheckt, kommt nicht in den Turnierbaum.', time=tournament.checkin_close_at|timeformat('short')) }}</p>
+              {%- if not membership_member or membership_member.role.value == 'captain' %}
+              <form action="{{ url_for('netsession_tourney.check_in_participant', slug=tournament.slug) }}" method="post">
+                <button type="submit" class="button color-primary">{{ _('Ich bin da – einchecken') }}</button>
+              </form>
+              {%- else %}
+              <p class="dimmed">{{ _('Euer Captain checkt das Team ein.') }}</p>
+              {%- endif %}
+              {%- elif checkin_phase == 'before' %}
+              <p>{{ _('Öffnet am %(date)s um %(time)s Uhr.', date=tournament.checkin_open_at|dateformat, time=tournament.checkin_open_at|timeformat('short')) }}</p>
+              {%- else %}
+              <p class="dimmed">{{ _('Check-in verpasst – nicht im Turnierbaum.') }}</p>
+              {%- endif %}
+            </div>
+            {%- endif %}
+
             <div class="ns-tourney-overview-user-matches">
               <h3>{{ _('Meine Matches') }}</h3>
               {%- if current_user_overview_matches %}

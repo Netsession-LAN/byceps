@@ -38,26 +38,6 @@ from byceps.util.framework.templating import templated
 from byceps.util.l10n import get_default_locale
 from byceps.util.views import login_required, redirect_to
 
-from ...logo_service import upload_logo_image
-from ...forms import (
-    MatchChatMessageForm,
-    MatchScoreReportForm,
-    TeamCreationForm,
-    TeamJoinForm,
-    TeamMemberAddForm,
-)
-from ...enum_labels import stage_type_display_name
-from ...flatout2 import get_flatout2_mode_label
-from ...models import (
-    MatchState,
-    ParticipantType,
-    RegistrationMode,
-    StageType,
-    TeamMemberRole,
-    TournamentMode,
-    TournamentRuleTemplate,
-    TournamentStatus,
-)
 from ...browser_push_service import (
     disable_browser_push_subscription,
     get_browser_push_public_key_for_party,
@@ -72,6 +52,16 @@ from ...discord_dm_service import (
     upsert_discord_dm_subscription,
 )
 from ...double_grand_final import get_match_results
+from ...enum_labels import stage_type_display_name
+from ...flatout2 import get_flatout2_mode_label
+from ...forms import (
+    MatchChatMessageForm,
+    MatchScoreReportForm,
+    TeamCreationForm,
+    TeamJoinForm,
+    TeamMemberAddForm,
+)
+from ...logo_service import upload_logo_image
 from ...match_chat_service import (
     can_user_access_match_chat,
     get_match_chat_messages,
@@ -84,6 +74,16 @@ from ...match_queries import (
     get_match_timeline_entries,
     get_matches_for_tournament,
     get_open_matches_for_party,
+)
+from ...models import (
+    MatchState,
+    ParticipantType,
+    RegistrationMode,
+    StageType,
+    TeamMemberRole,
+    TournamentMode,
+    TournamentRuleTemplate,
+    TournamentStatus,
 )
 from ...participant_admin_service import (
     get_active_participant_counts_for_tournaments,
@@ -123,6 +123,39 @@ from ...tournament_service import (
     find_tournament_by_slug_for_party,
     get_tournaments_for_party,
 )
+from . import routes_checkin
+from .body_rendering import (
+    render_formatted_body_html as _render_formatted_body_html,
+)
+from .bracket_helpers import _build_bracket_sections, build_bracket_data
+from .builder_display_helpers import (
+    _build_builder_stage_summary_lines,
+    _get_builder_main_display_stages,
+    _get_materialized_builder_round_robin_group_stages,
+    _select_matches_for_public_bracket,
+)
+from .builder_helpers import _get_materialized_builder_container_stages
+from .elimination_ranking import rank_by_elimination
+from .match_helpers import (
+    _build_match_labels,
+    _build_skipped_double_grand_final_match_ids,
+    _build_slot_scores_by_match_id,
+    _get_or_create_idempotency_key,
+    _parse_slot_scores,
+)
+from .match_state_labels import open_class_name, open_label, register_filters
+from .presentation_helpers import (
+    _get_stage_duration_minutes,
+    _select_builder_stage_section,
+)
+from .ranking_helpers import (
+    _are_all_rankable_matches_completed,
+    _build_ffa_ranking_rows,
+    _build_flatout2_ranking_rows,
+    _build_ranking_rows,
+    _has_rankable_results,
+)
+from .round_robin_groups_display import add_round_robin_groups
 from .stage_filters import (
     _is_ffa_scoring_stage,
     _is_ffa_single_elimination_stage,
@@ -134,48 +167,20 @@ from .stage_filters import (
     _uses_only_round_based_duel_stages,
     _uses_only_swiss_stages,
 )
-from .match_helpers import (
-    _build_match_labels,
-    _build_skipped_double_grand_final_match_ids,
-    _build_slot_scores_by_match_id,
-    _parse_slot_scores,
-)
-from .builder_helpers import _get_materialized_builder_container_stages
-from .builder_display_helpers import (
-    _build_builder_stage_summary_lines,
-    _get_builder_main_display_stages,
-    _get_materialized_builder_round_robin_group_stages,
-    _select_matches_for_public_bracket,
-)
-from .bracket_helpers import _build_bracket_sections, build_bracket_data
-from .presentation_helpers import (
-    _get_stage_duration_minutes,
-    _select_builder_stage_section,
-)
-from .body_rendering import (
-    render_formatted_body_html as _render_formatted_body_html,
-)
-from .elimination_ranking import rank_by_elimination
-from .match_helpers import _get_or_create_idempotency_key
-from .ranking_helpers import (
-    _are_all_rankable_matches_completed,
-    _build_ffa_ranking_rows,
-    _build_flatout2_ranking_rows,
-    _build_ranking_rows,
-    _has_rankable_results,
-)
 from .stage_render_helpers import (
     _build_builder_main_stage_bracket_sections,
     _build_builder_main_stage_match_sections,
     _build_builder_preliminary_match_sections,
-    _build_ffa_match_sections,
     _build_ffa_match_detail_rows,
+    _build_ffa_match_sections,
     _build_ffa_single_elimination_bracket_sections,
     _build_match_overview_sections,
     _build_team_history_rows,
     _get_ffa_placement_by_slot_no,
 )
+from .stage_tabs import build_stage_tab_rows
 from .swiss_public_rendering import _build_swiss_bracket_sections
+from .timetable_helpers import _build_party_timetable
 from .user_state_helpers import (
     _build_current_user_overview_match_rows,
     _build_registration_state,
@@ -191,14 +196,11 @@ from .user_state_helpers import (
     _get_user_registered_tournament_ids,
     _is_match_involving_user,
 )
-from .timetable_helpers import _build_party_timetable
-from .match_state_labels import open_class_name, open_label, register_filters
-from .round_robin_groups_display import add_round_robin_groups
-from .stage_tabs import build_stage_tab_rows
 
 
 blueprint = create_blueprint('netsession_tourney', __name__)
 register_filters(blueprint)
+routes_checkin.register(blueprint, lambda slug: _get_tournament_or_404(slug))
 
 
 def _build_public_tournament_status(tournament) -> dict[str, str]:
@@ -2454,10 +2456,6 @@ def _build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
     }
 
 
-def _format_stage_type_label(stage_type: StageType | None) -> str:
-    return stage_type_display_name(stage_type)
-
-
 def _build_overview_stage_type_label(stages) -> str:
     builder_main_stage = next(
         (
@@ -2470,11 +2468,11 @@ def _build_overview_stage_type_label(stages) -> str:
     )
     if builder_main_stage is None:
         primary_stage = stages[0] if stages else None
-        return _format_stage_type_label(
+        return stage_type_display_name(
             primary_stage.type if primary_stage else None
         )
 
-    main_stage_label = _format_stage_type_label(builder_main_stage.type)
+    main_stage_label = stage_type_display_name(builder_main_stage.type)
     if (builder_main_stage.settings or {}).get('builder_preliminary_stage_id'):
         return gettext(
             '%(main_stage_label)s + Vorrunden',
