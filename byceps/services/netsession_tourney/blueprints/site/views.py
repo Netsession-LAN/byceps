@@ -61,7 +61,6 @@ from ...forms import (
     TeamJoinForm,
     TeamMemberAddForm,
 )
-from ...logo_service import upload_logo_image
 from ...match_chat_service import (
     can_user_access_match_chat,
     get_match_chat_messages,
@@ -102,6 +101,10 @@ from ...team_invite_service import (
     get_team_invite_code_for_manager,
     join_team_by_invite_code,
     regenerate_team_invite_code_for_manager,
+)
+from ...team_logo_uploads import (
+    upload_logo_for_managed_team,
+    upload_logo_for_new_team,
 )
 from ...team_member_service import (
     add_team_member_by_captain,
@@ -2051,12 +2054,9 @@ def create_team(slug):
     team_logo_url = None
     logo_file = request.files.get('logo_file')
     if logo_file is not None and logo_file.filename:
-        upload_result = upload_logo_image(
-            g.party.id,
-            user,
-            logo_file.stream,
-            label=form.name.data,
-            original_filename=logo_file.filename,
+        upload_result = upload_logo_for_new_team(
+            g.party.id, tournament, user, logo_file.stream,
+            label=form.name.data, original_filename=logo_file.filename,
         )
         if upload_result.is_err():
             flash_error(upload_result.unwrap_err())
@@ -2108,12 +2108,9 @@ def update_team(slug, participant_id):
     replace_logo = bool(logo_file is not None and logo_file.filename)
     team_logo_url = None
     if replace_logo:
-        upload_result = upload_logo_image(
-            g.party.id,
-            user,
-            logo_file.stream,
-            label=form.name.data,
-            original_filename=logo_file.filename,
+        upload_result = upload_logo_for_managed_team(
+            g.party.id, tournament.id, participant_id, user, logo_file.stream,
+            label=form.name.data, original_filename=logo_file.filename,
         )
         if upload_result.is_err():
             flash_error(upload_result.unwrap_err())
