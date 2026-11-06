@@ -3309,3 +3309,39 @@ def test_team_with_substitutes_can_be_ready(
         party.id, tournament.id, team.id, mates[1].id, user
     ).is_ok()
     assert status() == ParticipantStatus.forming.value
+
+
+@pytest.mark.parametrize(
+    ('status', 'deletable'),
+    [
+        (TournamentStatus.draft, True),
+        (TournamentStatus.live, False),
+        (TournamentStatus.closed, False),
+        (TournamentStatus.canceled, True),
+    ],
+)
+def test_delete_tournament_only_in_draft_or_canceled(
+    admin_app, party, admin_user, status, deletable
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-del-' + generate_token().lower(),
+        'NS Delete',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    db.session.execute(
+        update(DbNetsessionTourneyTournament)
+        .where(DbNetsessionTourneyTournament.id == tournament.id)
+        .values(status=status.value)
+    )
+    db.session.commit()
+
+    result = tournament_lifecycle_service.delete_tournament(
+        party.id, tournament.id, admin_user
+    )
+
+    assert result.is_ok() == deletable
+    still_there = db.session.get(DbNetsessionTourneyTournament, tournament.id)
+    assert (still_there is None) == deletable
