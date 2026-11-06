@@ -219,9 +219,12 @@ def _add_loser_bracket(
         specs_by_match_no, wb_round_match_nos[0], match_no, 'loser'
     )
 
-    # Interleave remaining WB rounds into LB.
+    # Interleave remaining WB rounds into LB, crossed so that WB losers
+    # meet players from the other side of the bracket first.
     for wb_round_index in range(1, len(wb_round_match_nos)):
-        wb_round = wb_round_match_nos[wb_round_index]
+        wb_round = _crossed_for_loser_bracket(
+            wb_round_match_nos[wb_round_index], wb_round_index
+        )
 
         while len(lb_previous_round) > len(wb_round):
             lb_previous_round, match_no = _add_paired_round(
@@ -243,6 +246,22 @@ def _add_loser_bracket(
         lb_previous_round = injected_round
 
     return lb_previous_round[0], match_no
+
+
+def _crossed_for_loser_bracket(
+    wb_round: list[int], injection_index: int
+) -> list[int]:
+    """Order in which a WB round's losers drop into the loser bracket.
+
+    Without crossing, a WB loser landed next to players from their own
+    part of the bracket and often met someone again right away. Odd
+    injections are reversed, even ones reversed per half (simulated: early
+    LB rematches 8 players 75 % -> 25 %, 16 players 98 % -> 38 %).
+    """
+    if injection_index % 2 == 1:
+        return list(reversed(wb_round))
+    half = len(wb_round) // 2
+    return list(reversed(wb_round[:half])) + list(reversed(wb_round[half:]))
 
 
 def _add_paired_round(
