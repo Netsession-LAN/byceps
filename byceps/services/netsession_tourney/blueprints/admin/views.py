@@ -8,9 +8,11 @@ byceps.services.netsession_tourney.blueprints.admin.views
 
 from __future__ import annotations
 
+from byceps.services.metrics.metrics_service import register_metric_collector
 from byceps.util.framework.blueprint import create_blueprint
 
 from ...enum_labels import enum_label, report_mode_label
+from ...metrics_service import collect_metrics
 from . import (
     routes_checkin,
     routes_create,
@@ -23,6 +25,9 @@ from . import (
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
 blueprint.add_app_template_filter(enum_label, 'ns_label')
+blueprint.record_once(
+    lambda state: register_metric_collector(state.app, collect_metrics)
+)
 blueprint.add_app_template_filter(report_mode_label, 'ns_report_mode')
 
 routes_overview.register(blueprint)

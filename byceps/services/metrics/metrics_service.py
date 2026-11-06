@@ -6,7 +6,7 @@ byceps.metrics.metrics_service
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from flask import current_app, has_app_context
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,9 +20,6 @@ from byceps.services.brand import brand_service
 from byceps.services.brand.models import BrandID
 from byceps.services.consent import consent_service
 from byceps.services.metrics.models import Label, Metric
-from byceps.services.netsession_tourney import (
-    metrics_service as netsession_tourney_metrics_service,
-)
 from byceps.services.party import party_service
 from byceps.services.party.models import Party
 from byceps.services.seating import seat_service
@@ -55,7 +52,7 @@ def collect_metrics() -> Iterator[Metric]:
     yield from _collect_seating_metrics(active_parties)
     yield from _collect_ticket_metrics(active_parties)
     yield from _collect_user_metrics()
-    yield from _collect_netsession_tourney_metrics()
+    yield from _collect_registered_metrics()
 
 
 def _collect_board_metrics(brand_ids: list[BrandID]) -> Iterator[Metric]:
@@ -210,14 +207,23 @@ def _collect_user_metrics() -> Iterator[Metric]:
     yield Metric('users_total_count', users_total)
 
 
-def _collect_netsession_tourney_metrics() -> Iterator[Metric]:
+_COLLECTORS_KEY = 'byceps_metric_collectors'
+
+
+def register_metric_collector(
+    app, collector: Callable[[], Iterator[Metric]]
+) -> None:
+    """Let an optional service (e.g. Netsession's tournament system)
+    contribute metrics without this module importing it."""
+    app.extensions.setdefault(_COLLECTORS_KEY, []).append(collector)
+
+
+def _collect_registered_metrics() -> Iterator[Metric]:
     if not has_app_context():
         return
 
-    if not current_app.config.get('NETSESSION_TOURNEY_ENABLED', False):
-        return
-
-    try:
-        yield from netsession_tourney_metrics_service.collect_metrics()
-    except SQLAlchemyError:
-        return
+    for collector in current_app.extensions.get(_COLLECTORS_KEY, []):
+        try:
+            yield from collector()
+        except SQLAlchemyError:
+            continue
