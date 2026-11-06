@@ -191,6 +191,8 @@
     {%- if slots|length == 2 and slots[0].participant_id and slots[1].participant_id %}
     <form action="{{ url_for('netsession_tourney.report_match_result', slug=tournament.slug, match_id=match.id) }}" method="post" class="ns-tourney-match-report-form">
       <input type="hidden" name="next" value="{{ request.path }}">
+      {#- same key for a double submit, a new one once a report was stored #}
+      <input type="hidden" name="idempotency_key" value="site-{{ g.user.id }}-v{{ match.lock_version }}">
       <div class="ns-tourney-match-report-grid">
         {%- for slot in slots %}
           {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}

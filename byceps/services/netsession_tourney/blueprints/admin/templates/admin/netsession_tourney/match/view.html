@@ -288,7 +288,7 @@
         </div>
       </div>
       <form action="{{ url_for('.match_set_result', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
-        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="return_to" value="match"><input type="hidden" name="idempotency_key" value="admin-result-{{ g.user.id }}-v{{ match.lock_version }}">
         <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
         {%- if parent_stage_id %}
         <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
@@ -433,7 +433,7 @@
         </div>
       </div>
       <form action="{{ url_for('.match_set_walkover', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='match', parent_return_to=parent_return_to, parent_stage_id=parent_stage_id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
-        <input type="hidden" name="return_to" value="match">
+        <input type="hidden" name="return_to" value="match"><input type="hidden" name="idempotency_key" value="admin-walkover-{{ g.user.id }}-v{{ match.lock_version }}">
         <input type="hidden" name="parent_return_to" value="{{ parent_return_to }}">
         {%- if parent_stage_id %}
         <input type="hidden" name="parent_stage_id" value="{{ parent_stage_id }}">
