@@ -17,6 +17,7 @@ from byceps.services.user.models import User, UserID
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
+from . import domain_service
 from .coin_service import (
     _charge_coins_for_tournament_registration,
 )
@@ -251,9 +252,16 @@ def set_managed_team_ready_state(
 
     if ready and tournament.team_size is not None:
         member_count = _count_team_members(participant_id)
-        if int(member_count or 0) != tournament.team_size:
+        if not domain_service.is_team_member_count_complete(
+            int(member_count or 0),
+            tournament.team_size,
+            tournament.substitute_count,
+        ):
             return Err(
-                f'Das Team ist nicht vollständig. Benötigte Teamgröße: {tournament.team_size}.'
+                'Das Team ist nicht vollständig. '
+                + domain_service.describe_required_team_size(
+                    tournament.team_size, tournament.substitute_count
+                )
             )
 
     db_participant.status = (

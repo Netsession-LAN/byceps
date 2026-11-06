@@ -64,6 +64,25 @@ def validate_publishable(
     return Ok(None)
 
 
+def is_team_member_count_complete(
+    member_count: int, team_size: int, substitute_count: int | None
+) -> bool:
+    """A team is complete with the team size up to team size plus
+    substitutes."""
+    return team_size <= member_count <= team_size + (substitute_count or 0)
+
+
+def describe_required_team_size(
+    team_size: int, substitute_count: int | None
+) -> str:
+    if not substitute_count:
+        return f'Benötigte Teamgröße: {team_size}.'
+    return (
+        f'Benötigte Teamgröße: {team_size} '
+        f'(bis {team_size + substitute_count} mit Ersatz).'
+    )
+
+
 def select_bracket_ready_participants(
     participants: list[Participant],
 ) -> list[Participant]:

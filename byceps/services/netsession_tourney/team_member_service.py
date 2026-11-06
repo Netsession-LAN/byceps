@@ -232,7 +232,9 @@ def remove_team_member_by_captain(
     _refund_coins_for_tournament_registration_if_available(
         party_id, tournament, member_user_id, created_by_user_id=initiator.id
     )
-    reset_ready_if_incomplete(db_participant, tournament.team_size)
+    reset_ready_if_incomplete(
+        db_participant, tournament.team_size, tournament.substitute_count
+    )
     _append_audit_log(
         actor_user_id=initiator.id,
         object_type='participant',

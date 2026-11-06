@@ -145,8 +145,11 @@ def _validate_bracket_ready_team_sizes(
     invalid_team_names = [
         participant.name
         for participant in bracket_ready_teams
-        if len(team_members_by_participant_id.get(participant.id, []))
-        != tournament.team_size
+        if not domain_service.is_team_member_count_complete(
+            len(team_members_by_participant_id.get(participant.id, [])),
+            tournament.team_size,
+            tournament.substitute_count,
+        )
     ]
     if not invalid_team_names:
         return Ok(None)
@@ -157,5 +160,7 @@ def _validate_bracket_ready_team_sizes(
 
     return Err(
         f'Diese Teams haben nicht die nötige Größe: {shown_names}. '
-        f'Benötigte Teamgröße: {tournament.team_size}.'
+        + domain_service.describe_required_team_size(
+            tournament.team_size, tournament.substitute_count
+        )
     )

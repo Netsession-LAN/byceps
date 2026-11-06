@@ -14,6 +14,7 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import UserID
 
+from . import domain_service
 from .dbmodels import (
     DbNetsessionTourneyCoinLedgerEntry,
     DbNetsessionTourneyParticipant,
@@ -53,9 +54,11 @@ def get_unrefunded_registration_coins(
 
 
 def reset_ready_if_incomplete(
-    db_participant: DbNetsessionTourneyParticipant, team_size: int | None
+    db_participant: DbNetsessionTourneyParticipant,
+    team_size: int | None,
+    substitute_count: int | None,
 ) -> None:
-    """A team that lost a member is no longer ready."""
+    """A team that dropped below its team size is no longer ready."""
     if (
         team_size is None
         or db_participant.status != ParticipantStatus.ready.value
@@ -67,5 +70,7 @@ def reset_ready_if_incomplete(
         .select_from(DbNetsessionTourneyTeamMember)
         .filter_by(participant_id=db_participant.id)
     )
-    if member_count != team_size:  # same rule as when setting ready
+    if not domain_service.is_team_member_count_complete(
+        member_count, team_size, substitute_count
+    ):  # same rule as when setting ready
         db_participant.status = ParticipantStatus.forming.value
