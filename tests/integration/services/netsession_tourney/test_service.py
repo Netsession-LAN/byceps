@@ -3169,3 +3169,83 @@ def test_join_team_without_team_size_limit(
     assert team_invite_service.join_team_by_invite_code(
         party.id, tournament.id, invite_code, teammate
     ).is_ok()
+
+
+def _admin_report(party_id, tournament_id, match, admin_user, winner_slot, key):
+    points = {'1': int(winner_slot == 1) + 1, '2': int(winner_slot == 2) + 1}
+    return result_service.report_result(
+        party_id,
+        tournament_id,
+        match.id,
+        admin_user.id,
+        idempotency_key=key,
+        winner_slot=winner_slot,
+        score={'display': f"{points['1']}:{points['2']}", 'slots': points},
+        actor_is_admin_or_referee=True,
+        admin_comment='Korrektur',
+    )
+
+
+def test_admin_cannot_change_winner_once_following_match_is_played(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-correct-' + generate_token().lower(),
+        'NS Correct',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = stage_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'SE',
+        {'include_consolation_final': False},
+        admin_user,
+    ).unwrap()
+    for _ in range(4):
+        player = make_user('NS_Correct_' + generate_token())
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+        assert registration_service.register_user(
+            party.id, tournament.id, player
+        ).is_ok()
+    assert tournament_lifecycle_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+
+    def match(no):
+        return next(
+            m
+            for m in match_queries.get_matches_for_tournament(party.id, tournament.id)
+            if m.match_no == no
+        )
+
+    def slot_participants(no):
+        slots = match_queries.get_match_slots({match(no).id})[match(no).id]
+        return [s.participant_id for s in sorted(slots, key=lambda s: s.slot_no)]
+
+    p = party.id, tournament.id
+    assert _admin_report(*p, match(1), admin_user, 1, 'a').is_ok()
+    assert _admin_report(*p, match(2), admin_user, 1, 'b').is_ok()
+
+    # Before the final is played, the winner may still change.
+    match1_players = slot_participants(1)
+    assert _admin_report(*p, match(1), admin_user, 2, 'c').is_ok()
+    assert slot_participants(3)[0] == match1_players[1]
+
+    assert _admin_report(*p, match(3), admin_user, 1, 'd').is_ok()
+    final_before = slot_participants(3)
+
+    blocked = _admin_report(*p, match(1), admin_user, 1, 'e')
+    assert blocked.is_err()
+    assert 'Sieger lässt sich nicht mehr ändern' in blocked.unwrap_err()
+    assert slot_participants(3) == final_before
+    assert match(3).state.value == 'completed'
+
+    # Correcting only the score keeps working.
+    assert _admin_report(*p, match(1), admin_user, 2, 'f').is_ok()
