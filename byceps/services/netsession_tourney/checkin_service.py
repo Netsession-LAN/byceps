@@ -148,3 +148,39 @@ def _find_db_participant_to_check_in(
             )
         )
     ).first()
+
+
+def set_checkin_by_admin(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    participant_id,
+    checked_in: bool,
+    initiator: User,
+) -> Result[Participant, str]:
+    """Check a participant in (or take it back) on their behalf, e.g. when
+    a player has trouble at their seat. Works outside the window, too."""
+    if _find_db_tournament_for_party(party_id, tournament_id) is None:
+        return Err('Unbekanntes Turnier.')
+
+    db_participant = db.session.get(DbNetsessionTourneyParticipant, participant_id)
+    if db_participant is None or db_participant.tournament_id != tournament_id:
+        return Err('Unbekannter Teilnehmer.')
+
+    new_state = CheckinState.checked_in if checked_in else CheckinState.pending
+    if db_participant.checkin_state != new_state.value:
+        db_participant.checkin_state = new_state.value
+        _append_audit_log(
+            actor_user_id=initiator.id,
+            object_type='participant',
+            object_id=db_participant.id,
+            action=(
+                'participant_checked_in_by_admin'
+                if checked_in
+                else 'participant_checkin_revoked_by_admin'
+            ),
+            payload={},
+            created_at=datetime.utcnow(),
+        )
+        db.session.commit()
+
+    return Ok(_db_participant_to_model(db_participant))

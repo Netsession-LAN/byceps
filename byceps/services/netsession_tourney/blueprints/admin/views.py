@@ -11,12 +11,14 @@ from __future__ import annotations
 from byceps.util.framework.blueprint import create_blueprint
 
 from ...enum_labels import enum_label, report_mode_label
-
-from . import routes_create
-from . import routes_overview
-from . import routes_participants_matches
-from . import routes_stage_management
-from . import routes_tournament
+from . import (
+    routes_checkin,
+    routes_create,
+    routes_overview,
+    routes_participants_matches,
+    routes_stage_management,
+    routes_tournament,
+)
 
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
@@ -28,3 +30,4 @@ routes_create.register(blueprint)
 routes_tournament.register(blueprint)
 routes_stage_management.register(blueprint)
 routes_participants_matches.register(blueprint)
+routes_checkin.register(blueprint)
