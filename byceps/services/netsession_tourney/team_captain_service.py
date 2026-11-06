@@ -22,6 +22,7 @@ from .coin_service import (
     _charge_coins_for_tournament_registration,
 )
 from .dbmodels import (
+    DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyParticipant,
     DbNetsessionTourneyTeamMember,
 )
@@ -252,6 +253,12 @@ def set_managed_team_ready_state(
     if db_participant is None:
         return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
+    if not ready and _is_in_bracket(participant_id):
+        return Err(
+            'Das Team steht schon im Turnierbaum und kann nicht mehr auf '
+            '„nicht bereit“ gesetzt werden. Wende dich an einen Admin.'
+        )
+
     if ready and tournament.team_size is not None:
         member_count = _count_team_members(participant_id)
         if not domain_service.is_team_member_count_complete(
@@ -287,6 +294,17 @@ def set_managed_team_ready_state(
     db.session.commit()
 
     return Ok(_db_participant_to_model(db_participant))
+
+
+def _is_in_bracket(participant_id: ParticipantID) -> bool:
+    return (
+        db.session.scalar(
+            select(DbNetsessionTourneyMatchSlot.id)
+            .filter_by(participant_id=participant_id)
+            .limit(1)
+        )
+        is not None
+    )
 
 
 def _find_db_managed_team_participant(
