@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from uuid import uuid4
 
@@ -36,6 +37,7 @@ from byceps.services.netsession_tourney.models import (
 )
 from byceps.services.netsession_tourney import (
     coin_service,
+    double_grand_final,
     match_generation,
     match_queries,
     match_schedule,
@@ -2658,9 +2660,22 @@ def test_stage_scheduling_uses_stage_timing_settings(
     assert round2_match2.scheduled_at == datetime(2026, 1, 10, 13, 45, 0)
 
 
+@pytest.mark.parametrize(
+    ('player_count', 'round_count'),
+    [(4, 3), (5, 3), (6, 3), (9, 3), (10, 3), (8, 5), (10, 5)],
+)
 def test_swiss_stage_advances_through_all_rounds(
-    admin_app, party, admin_user, make_user, make_ticket_category
+    admin_app,
+    party,
+    admin_user,
+    make_user,
+    make_ticket_category,
+    player_count,
+    round_count,
 ):
+    """Every player plays until reaching the win or loss threshold, and no
+    placeholder match stays empty (follow-up rounds used to be created with
+    an estimated number of matches; 6 players got stuck in round 2)."""
     tournament = tournament_service.create_tournament(
         party.id,
         'ns-swiss-flow-' + generate_token().lower(),
@@ -2674,10 +2689,10 @@ def test_swiss_stage_advances_through_all_rounds(
         tournament.id,
         StageType.swiss,
         'Swiss',
-        {'round_count': 3},
+        {'round_count': round_count},
         admin_user,
     ).unwrap()
-    for _ in range(4):
+    for _ in range(player_count):
         participant = make_user('NS_SwissFlow_' + generate_token())
         _assign_party_ticket_to_user(party.id, participant, make_ticket_category)
         assert registration_service.register_user(
@@ -2696,8 +2711,35 @@ def test_swiss_stage_advances_through_all_rounds(
     )
 
     matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
-    assert max(match.round_no for match in matches) == 3
+    assert max(match.round_no for match in matches) == round_count
     assert all(match.state.value == 'completed' for match in matches)
+
+    slots_by_match_id = match_queries.get_match_slots({m.id for m in matches})
+    assert all(
+        any(slot.participant_id for slot in slots_by_match_id[m.id])
+        for m in matches
+    ), 'empty placeholder match left over'
+
+    threshold = (round_count + 1) // 2
+    results = double_grand_final.get_match_results({m.id for m in matches})
+    wins, losses = defaultdict(int), defaultdict(int)
+    for match in matches:
+        slots = slots_by_match_id[match.id]
+        winner_slot = results[match.id].winner_slot if match.id in results else None
+        for slot in slots:
+            if slot.participant_id is None:
+                continue
+            if slot.slot_no == winner_slot or len(
+                [s for s in slots if s.participant_id]
+            ) == 1:
+                wins[slot.participant_id] += 1
+            else:
+                losses[slot.participant_id] += 1
+    participant_ids = {s.participant_id for ss in slots_by_match_id.values() for s in ss if s.participant_id}
+    assert len(participant_ids) == player_count
+    assert all(
+        max(wins[pid], losses[pid]) == threshold for pid in participant_ids
+    ), 'a player stopped playing before reaching the threshold'
 
 
 def test_player_cannot_report_in_admin_only_stage(
