@@ -3415,3 +3415,66 @@ def test_captain_cannot_unready_a_team_that_is_in_the_bracket(
         select(DbNetsessionTourneyParticipant.status).filter_by(id=teams[0].id)
     )
     assert status == ParticipantStatus.ready.value
+
+
+def test_swiss_winner_change_repairs_the_next_round(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-swiss-fix-' + generate_token().lower(),
+        'NS Swiss Fix',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = stage_service.create_stage(
+        party.id, tournament.id, StageType.swiss, 'Swiss', {'round_count': 3},
+        admin_user,
+    ).unwrap()
+    for _ in range(4):
+        player = make_user('NS_SwissFix_' + generate_token())
+        _assign_party_ticket_to_user(party.id, player, make_ticket_category)
+        assert registration_service.register_user(
+            party.id, tournament.id, player
+        ).is_ok()
+    assert tournament_lifecycle_service.publish_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+    match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+
+    def matches_of_round(round_no):
+        return sorted(
+            (
+                m
+                for m in match_queries.get_matches_for_tournament(
+                    party.id, tournament.id
+                )
+                if m.round_no == round_no
+            ),
+            key=lambda m: m.match_no,
+        )
+
+    def players(match):
+        slots = match_queries.get_match_slots({match.id})[match.id]
+        return [s.participant_id for s in sorted(slots, key=lambda s: s.slot_no)]
+
+    p = party.id, tournament.id
+    round1 = matches_of_round(1)
+    for index, match in enumerate(round1):
+        assert _admin_report(*p, match, admin_user, 1, f'r1-{index}').is_ok()
+
+    # Correct match 1 of round 1: slot 2 won instead.
+    assert _admin_report(*p, round1[0], admin_user, 2, 'fix').is_ok()
+
+    new_winners = {players(round1[0])[1], players(round1[1])[0]}
+    round2_pairings = [set(players(m)) for m in matches_of_round(2)]
+    assert new_winners in round2_pairings
+
+    # Once round 2 is played, the winner of round 1 is fixed.
+    round2 = matches_of_round(2)
+    assert _admin_report(*p, round2[0], admin_user, 1, 'r2').is_ok()
+    blocked = _admin_report(*p, round1[0], admin_user, 1, 'fix-again')
+    assert blocked.is_err()
