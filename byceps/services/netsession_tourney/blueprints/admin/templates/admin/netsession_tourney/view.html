@@ -1286,7 +1286,7 @@
             {%- endif %}
           </td>
           <td>{{ participant.seed|fallback('-') }}</td>
-          <td>{{ participant.status|ns_label }}</td>
+          <td>{{ participant.status|ns_label }}{% if tournament.checkin_open_at and tournament.checkin_close_at %}<br><small>{{ _('Check-in') }}: {{ participant.checkin_state|ns_label }}</small>{% endif %}</td>
           <td>
             <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
           </td>
