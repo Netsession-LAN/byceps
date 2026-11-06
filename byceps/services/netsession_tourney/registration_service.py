@@ -369,7 +369,7 @@ def _generate_unique_invite_code_for_tournament(
     for _ in range(64):
         # Use strong random bytes instead of UUIDv7 prefix (timestamp-heavy),
         # which can collide frequently for short invite codes.
-        invite_code = secrets.token_hex(4)
+        invite_code = secrets.token_hex(6)  # 48 bits
         existing_participant_id = db.session.scalar(
             select(DbNetsessionTourneyParticipant.id).filter_by(
                 tournament_id=tournament_id, invite_code=invite_code
