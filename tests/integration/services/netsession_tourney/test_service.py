@@ -3249,3 +3249,63 @@ def test_admin_cannot_change_winner_once_following_match_is_played(
 
     # Correcting only the score keeps working.
     assert _admin_report(*p, match(1), admin_user, 2, 'f').is_ok()
+
+
+def test_team_with_substitutes_can_be_ready(
+    admin_app, party, admin_user, user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-subs-' + generate_token().lower(),
+        'NS Subs',
+        TournamentMode.duel,
+        RegistrationMode.team_captain_managed,
+        admin_user,
+        team_size=2,
+        substitute_count=1,
+    ).unwrap()
+    stage_service.create_stage(
+        party.id, tournament.id, StageType.single_elimination, 'SE', {}, admin_user
+    ).unwrap()
+
+    _assign_party_ticket_to_user(party.id, user, make_ticket_category)
+    team = team_captain_service.create_team_for_captain(
+        party.id, tournament.id, user, 'Team Subs'
+    ).unwrap()
+    invite_code = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)
+    )
+    mates = []
+    for _ in range(2):
+        mate = make_user('NS_SubMate_' + generate_token())
+        _assign_party_ticket_to_user(party.id, mate, make_ticket_category)
+        assert team_invite_service.join_team_by_invite_code(
+            party.id, tournament.id, invite_code, mate
+        ).is_ok()
+        mates.append(mate)
+
+    # team size + substitute
+    ready_result = team_captain_service.set_managed_team_ready_state(
+        party.id, tournament.id, team.id, user, ready=True
+    )
+    assert ready_result.is_ok(), ready_result
+    assert registration_validation._validate_bracket_ready_team_sizes(
+        tournament, [ready_result.unwrap()]
+    ).is_ok()
+
+    def status():
+        return db.session.scalar(
+            select(DbNetsessionTourneyParticipant.status).filter_by(id=team.id)
+        )
+
+    # down to the team size: still ready
+    assert team_member_service.remove_team_member_by_captain(
+        party.id, tournament.id, team.id, mates[0].id, user
+    ).is_ok()
+    assert status() == ParticipantStatus.ready.value
+
+    # below the team size: no longer ready
+    assert team_member_service.remove_team_member_by_captain(
+        party.id, tournament.id, team.id, mates[1].id, user
+    ).is_ok()
+    assert status() == ParticipantStatus.forming.value
