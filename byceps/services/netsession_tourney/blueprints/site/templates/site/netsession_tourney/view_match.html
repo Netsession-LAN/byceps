@@ -15,7 +15,8 @@
   {{ render_tournament_header(tournament, current_tournament_page, crumb_label=match_label, show_bracket_tab=not hide_bracket_tab, show_preliminaries_tab=show_preliminaries_tab|default(false)) }}
 
   <section class="ns-tourney-panel ns-tourney-match-panel mt{% if is_skipped_double_grand_final %} is-struck{% endif %}">
-    <h2 class="ns-tourney-match-title">{{ match_label }}</h2>
+    <h2 class="ns-tourney-match-title">{{ match_label }}
+      {%- if not is_skipped_double_grand_final %} <span class="ns-tourney-open-matches-state {{ match.state|ns_match_state_class }}">{{ match.state|ns_match_state_long }}</span>{% endif %}</h2>
     <p class="ns-tourney-match-subtitle">
       {{ stage.settings.get('builder_display_title') or (_('Runde') ~ ' ' ~ match.round_no) }}
       {%- if match.scheduled_at %}
@@ -68,11 +69,11 @@
           <p class="ns-tourney-match-party-card-status">
             {%- if is_bye_slot -%}
             <span class="dimmed"></span>
-            {%- elif participant -%}
+            {%- elif participant and match.state.value in ['pending', 'ready'] -%}
             <span class="ns-tourney-team-status-badge{% if is_participant_bracket_ready %} is-ready{% else %} is-not-ready{% endif %}">
               {{ _('Bereit') if is_participant_bracket_ready else _('Nicht bereit') }}
             </span>
-            {%- elif not is_bye_slot -%}
+            {%- elif not participant -%}
             <span class="dimmed">{{ _('TBD') }}</span>
             {%- else -%}
             <span class="dimmed"></span>

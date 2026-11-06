@@ -54,4 +54,6 @@ def open_class_name(state: MatchState) -> str:
 
 def register_filters(blueprint) -> None:
     blueprint.add_app_template_filter(bracket_label, 'ns_match_state')
+    blueprint.add_app_template_filter(open_label, 'ns_match_state_long')
+    blueprint.add_app_template_filter(open_class_name, 'ns_match_state_class')
     blueprint.add_app_template_filter(enum_label, 'ns_label')
