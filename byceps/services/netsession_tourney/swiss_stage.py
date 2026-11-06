@@ -47,6 +47,7 @@ from .swiss_pairing import (
     _build_follow_up_swiss_round_specs,
     _build_initial_swiss_round_specs,
 )
+from .swiss_round_reconcile import reconcile_round_placeholders
 from .swiss_thresholds import (
     _get_round_count_for_swiss_stage,
     _get_swiss_threshold_for_round_count,
@@ -239,6 +240,13 @@ def _seed_swiss_follow_up_rounds(
         if not seeded_specs:
             continue
 
+        target_matches = reconcile_round_placeholders(
+            target_matches,
+            [m for r, ms in matches_by_round_no.items() if r > round_no for m in ms],
+            seeded_specs,
+            slots_by_match_id,
+        )
+        matches_by_round_no[round_no] = target_matches
         _apply_seeded_swiss_specs(
             tournament_id,
             target_matches,
