@@ -12,14 +12,12 @@ from datetime import datetime
 from sqlalchemy import select
 
 from byceps.database import db
-from byceps.services.party.models import PartyID
 from byceps.util.uuid import generate_uuid7
 
 from .dbmodels import (
     DbNetsessionTourneyMatch,
     DbNetsessionTourneyMatchResult,
     DbNetsessionTourneyMatchSlot,
-    DbNetsessionTourneyTournament,
 )
 from .double_grand_final import (
     _update_optional_double_grand_final_state,
@@ -56,16 +54,11 @@ from .swiss_stage import (
 )
 
 
-def resolve_pending_confirmations(party_id: PartyID) -> int:
+def resolve_pending_confirmations() -> int:
+    """Send results the opponent did not confirm in time to admin review."""
     now = datetime.utcnow()
     db_matches = db.session.scalars(
         select(DbNetsessionTourneyMatch)
-        .join(
-            DbNetsessionTourneyTournament,
-            DbNetsessionTourneyMatch.tournament_id
-            == DbNetsessionTourneyTournament.id,
-        )
-        .filter(DbNetsessionTourneyTournament.party_id == party_id)
         .filter(
             DbNetsessionTourneyMatch.state
             == MatchState.pending_confirmation.value
