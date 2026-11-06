@@ -48,6 +48,7 @@ from .models import (
 from .notification_urls import (
     _build_absolute_notification_url,
 )
+from .outbox_processing import process_outbox_rows
 
 
 def process_discord_dm_outbox(*, limit: int = 50) -> int:
@@ -60,11 +61,13 @@ def process_discord_dm_outbox(*, limit: int = 50) -> int:
             return 0
         raise
 
-    for db_row in db_rows:
-        db_row.attempt_count += 1
-        db_row.updated_at = now
-        _deliver_discord_dm_outbox_row(db_row, now)
-
+    process_outbox_rows(
+        db_rows,
+        _deliver_discord_dm_outbox_row,
+        _mark_discord_dm_outbox_dead_letter,
+        now,
+        outbox_name='discord_dm',
+    )
     db.session.commit()
     return len(db_rows)
 

@@ -55,6 +55,7 @@ from .notification_urls import (
     _build_browser_push_logo_urls,
     _find_browser_push_site_server_name,
 )
+from .outbox_processing import process_outbox_rows
 from .tournament_queries import (
     _build_flatout2_first_race_summary,
 )
@@ -70,11 +71,13 @@ def process_browser_push_outbox(*, limit: int = 50) -> int:
             return 0
         raise
 
-    for db_row in db_rows:
-        db_row.attempt_count += 1
-        db_row.updated_at = now
-        _deliver_browser_push_row(db_row, now)
-
+    process_outbox_rows(
+        db_rows,
+        _deliver_browser_push_row,
+        _mark_browser_push_outbox_dead_letter,
+        now,
+        outbox_name='browser_push',
+    )
     db.session.commit()
     return len(db_rows)
 

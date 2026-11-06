@@ -44,6 +44,7 @@ from .models import (
     Tournament,
     TournamentID,
 )
+from .outbox_processing import process_outbox_rows
 from .service_helpers import (
     _append_audit_log,
     _db_tournament_to_model,
@@ -113,11 +114,15 @@ def process_discord_outbox(*, limit: int = 50) -> int:
         case Ok(credentials):
             credentials_error = None
 
-    for db_row in db_rows:
-        db_row.attempt_count += 1
-        db_row.updated_at = now
-        _deliver_discord_outbox_row(db_row, credentials, credentials_error, now)
-
+    process_outbox_rows(
+        db_rows,
+        lambda db_row, now: _deliver_discord_outbox_row(
+            db_row, credentials, credentials_error, now
+        ),
+        _mark_discord_outbox_dead_letter,
+        now,
+        outbox_name='discord',
+    )
     db.session.commit()
     return len(db_rows)
 
