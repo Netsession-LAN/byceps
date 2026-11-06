@@ -35,7 +35,7 @@ from byceps.config.models import (
 from byceps.database import db
 from byceps.services.jobs.blueprints.admin.views import enable_rq_dashboard
 from byceps.services.site.models import SiteID
-from byceps.util import templatefilters
+from byceps.util import origin_check, templatefilters
 from byceps.util.authz import load_permissions
 from byceps.util.l10n import get_current_user_locale
 from byceps.util.templating import create_site_template_loader
@@ -146,6 +146,9 @@ def _create_app(
         _enable_rq_dashboard(app)
     elif app_mode.is_site():
         register_site_blueprints(app, style_guide_enabled=style_guide_enabled)
+
+    if app_mode.is_admin() or app_mode.is_site():
+        origin_check.register(app)  # Netsession: CSRF protection
 
     templatefilters.register(app)
 
