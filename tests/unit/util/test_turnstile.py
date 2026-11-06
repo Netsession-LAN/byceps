@@ -52,9 +52,30 @@ def test_verify_token_accepts_valid_token(app, monkeypatch):
     assert len(calls) == 1
 
 
-def test_verify_token_rejects_missing_token(app):
+def test_verify_token_rejects_missing_token(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        turnstile, 'urlopen', _fake_urlopen({'success': False}, calls)
+    )
+
     with app.app_context():
         assert not turnstile.verify_token('')
+
+
+def _unreachable(req, timeout):
+    raise OSError('Cloudflare unreachable')
+
+
+@pytest.mark.parametrize('token', ['some-token', ''])
+def test_verify_token_lets_through_when_cloudflare_is_down(
+    app, monkeypatch, token
+):
+    # Decision 2026-11-06: an outage of Cloudflare must not lock
+    # everybody out; it is logged instead.
+    monkeypatch.setattr(turnstile, 'urlopen', _unreachable)
+
+    with app.app_context():
+        assert turnstile.verify_token(token)
 
 
 def test_verify_token_passes_when_disabled(monkeypatch):
