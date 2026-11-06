@@ -17,6 +17,7 @@ from byceps.services.user.models import User
 from byceps.util.result import Err, Ok, Result
 
 from . import domain_service
+from .coin_cancel_refunds import refund_all_coins_of_canceled_tournament
 from .dbmodels import (
     DbNetsessionTourneyBrowserPushOutbox,
     DbNetsessionTourneyDiscordDmOutbox,
@@ -186,6 +187,9 @@ def cancel_tournament(
     db_tournament.status = TournamentStatus.canceled.value
     db_tournament.registration_open = False
     db_tournament.updated_at = datetime.utcnow()
+    refund_all_coins_of_canceled_tournament(
+        party_id, _db_tournament_to_model(db_tournament), initiator.id
+    )
 
     _append_audit_log(
         actor_user_id=initiator.id,
