@@ -126,3 +126,27 @@ def test_self_service_captain_gets_a_registration(
         .filter_by(tournament_id=tournament.id, user_id=captain.id)
     )
     assert registration_count == 1
+
+
+def test_team_invite_codes_are_long_enough(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-invite-' + generate_token().lower(),
+        'NS Invite',
+        TournamentMode.duel,
+        RegistrationMode.team_captain_managed,
+        admin_user,
+        team_size=2,
+        substitute_count=0,
+    ).unwrap()
+    captain = _player(party, make_user, make_ticket_category)
+    team = team_captain_service.create_team_for_captain(
+        party.id, tournament.id, captain, 'Invite Team'
+    ).unwrap()
+
+    invite_code = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.invite_code).filter_by(id=team.id)
+    )
+    assert len(invite_code) >= 12  # 48 bits, was 8 hex chars (32 bits)
