@@ -21,14 +21,11 @@
 
 {% macro render_check_field(field, help_text) -%}
   <div class="form-control-block{% if field.errors %} invalid{% endif %} ns-admin-check-field">
+    {#- the checkbox carries its label as a sentence, help next to it #}
     <div class="ns-admin-field-head">
-      <span class="form-label ns-admin-form-label">{{ field.label.text }}</span>
+      <label class="form-check-label">{{ field() }} <span>{{ field.label.text }}</span></label>
       {{ render_help(help_text) }}
     </div>
-    <label class="form-check-label">
-      {{ field() }}
-      <span>{{ _('Aktivieren') }}</span>
-    </label>
     {{ form_field_errors(field) }}
   </div>
 {%- endmacro %}

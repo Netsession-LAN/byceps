@@ -133,7 +133,7 @@ class TournamentForm(LocalizedForm):
         validators=[Optional()],
         choices=[('', '-')],
     )
-    is_sponsored = BooleanField(lazy_gettext('gesponsert'))
+    is_sponsored = BooleanField(lazy_gettext('Gesponsert'))
     sponsor_logo_url = SelectField(
         lazy_gettext('Sponsor-Logo'),
         validators=[Optional()],
@@ -167,7 +167,7 @@ class TournamentForm(LocalizedForm):
     )
     starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
     visible_on_site = BooleanField(
-        lazy_gettext('auf der Website sichtbar'), default=True
+        lazy_gettext('Auf der Website sichtbar'), default=True
     )
     rules_template_slug = SelectField(
         lazy_gettext('Regeltemplate'),
@@ -476,7 +476,7 @@ class TournamentWizardDetailsForm(LocalizedForm):
         validators=[Optional()],
         choices=[('', '-')],
     )
-    is_sponsored = BooleanField(lazy_gettext('gesponsert'))
+    is_sponsored = BooleanField(lazy_gettext('Gesponsert'))
     sponsor_logo_url = SelectField(
         lazy_gettext('Sponsor-Logo'),
         validators=[Optional()],
@@ -542,7 +542,7 @@ class TournamentWizardDetailsForm(LocalizedForm):
 class TournamentWizardScheduleForm(LocalizedForm):
     starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
     visible_on_site = BooleanField(
-        lazy_gettext('auf der Website sichtbar'), default=True
+        lazy_gettext('Auf der Website sichtbar'), default=True
     )
     registration_open = BooleanField(lazy_gettext('Anmeldung offen'))
     registration_deadline = DateTimeLocalField(
