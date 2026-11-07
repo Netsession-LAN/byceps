@@ -57,6 +57,7 @@ from .stage_builder_settings import (
     is_builder_container_db_stage,
     is_builder_round_robin_summary_db_stage,
 )
+from .stage_settings_merge import is_structural_change, merge_stage_settings
 from .tournament_queries import (
     find_db_tournament_for_party,
 )
@@ -179,12 +180,17 @@ def update_stage(
     if not spec.enabled:
         return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
 
-    # Matches need regeneration after structural stage changes.
-    delete_stage_matches(stage_id)
+    type_changed = db_stage.type != type_.value
+    merged = merge_stage_settings(
+        db_stage.settings_json, settings, type_changed=type_changed
+    )
+    # Only a structural change makes the generated matches invalid.
+    if is_structural_change(db_stage.settings_json, merged, type_changed=type_changed):
+        delete_stage_matches(stage_id)
 
     db_stage.type = type_.value
     db_stage.name = name.strip()
-    db_stage.settings_json = dict(settings)
+    db_stage.settings_json = merged
 
     append_audit_log(
         actor_user_id=initiator.id,
