@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from byceps.database import db
 from byceps.services.party.models import PartyID
@@ -143,7 +143,13 @@ def close_tournament(
         return close_check
 
     db_tournament.status = TournamentStatus.closed.value
+    db_tournament.registration_open = False
     db_tournament.updated_at = datetime.utcnow()
+    db.session.execute(
+        update(DbNetsessionTourneyStage)
+        .where(DbNetsessionTourneyStage.tournament_id == tournament_id)
+        .values(status=StageStatus.closed.value)
+    )
 
     append_audit_log(
         actor_user_id=initiator.id,
