@@ -40,5 +40,5 @@
     </tbody>
   </table>
   {%- else %}
-  <div class="box no-data-message mb">{{ _('Noch keine Preise angelegt.') }}</div>
+  <div class="box no-data-message mb">{{ _('Noch keine Preise angelegt.') }}{% if g.user.has_permission('netsession_tourney.manage') %} <a href="{{ url_for('.tournament_prize_create_form', party_id=party.id, tournament_id=tournament.id) }}">{{ _('Ersten Preis anlegen') }}</a>{% endif %}</div>
   {%- endif %}

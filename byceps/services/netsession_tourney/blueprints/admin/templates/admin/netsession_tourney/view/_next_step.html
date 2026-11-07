@@ -18,7 +18,11 @@
   {%- elif status == 'live' %}
   {{ _('Alle Matches sind gespielt. Nächste Phase erzeugen oder das Turnier oben abschließen.') }}
   {%- else %}
-  {{ _('Nichts mehr zu tun, das Turnier ist beendet.') }}
+  {%- if status == 'closed' %}
+  {{ _('Das Turnier ist abgeschlossen. Den Endstand zeigt die Turnierseite unter „Endranking“; Preise trägst du im Tab „Preise“ ein.') }}
+  {%- else %}
+  {{ _('Das Turnier ist abgesagt.') }}
+  {%- endif %}
   {%- endif %}
   <div class="dimmed">
     {{ _('Teilnehmer') }}: {{ active_participant_count }}

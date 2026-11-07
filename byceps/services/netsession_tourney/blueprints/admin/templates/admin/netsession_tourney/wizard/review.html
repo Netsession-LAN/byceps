@@ -58,7 +58,7 @@
         </div>
         <div class="ns-admin-review-item">
           <dt class="ns-admin-review-label">{{ _('Ersatzspieler') }}</dt>
-          <dd class="ns-admin-review-value">{{ state.substitute_count }}</dd>
+          <dd class="ns-admin-review-value">{{ '-' if state.registration_mode == 'solo' else state.substitute_count }}</dd>
         </div>
         <div class="ns-admin-review-item">
           <dt class="ns-admin-review-label">{{ _('Max. Teams/Teilnehmer') }}</dt>
@@ -81,7 +81,9 @@
         <div class="ns-admin-review-item">
           <dt class="ns-admin-review-label">{{ _('Wer zahlt?') }}</dt>
           <dd class="ns-admin-review-value">
-            {%- if state.coin_charge_mode == 'all_members' -%}
+            {%- if state.registration_mode == 'solo' -%}
+              {{ _('Jeder Spieler selbst') }}
+            {%- elif state.coin_charge_mode == 'all_members' -%}
               {{ _('Alle Teammitglieder zahlen') }}
             {%- else -%}
               {{ _('Nur Captain zahlt') }}

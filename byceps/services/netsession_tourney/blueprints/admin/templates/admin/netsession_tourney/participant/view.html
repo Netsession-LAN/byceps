@@ -33,7 +33,7 @@
       {'label': _('Typ'), 'value': participant.type|ns_label},
       {'label': _('Status'), 'value': participant.status|ns_label},
       {'label': _('Teamkapitän') if is_team else _('Teilnehmer'), 'value': users_by_id.get(participant.manager_user_id).screen_name if participant.manager_user_id and users_by_id.get(participant.manager_user_id) else '-'},
-      {'label': _('Aktive Teilnehmer'), 'value': active_participant_count},
+      {'label': _('Check-in'), 'value': participant.checkin_state|ns_label if tournament.checkin_open_at and tournament.checkin_close_at else '-'},
     ]
   ) }}
 

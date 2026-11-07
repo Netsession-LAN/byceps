@@ -149,10 +149,12 @@
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Wer zahlt?') }}</div>
         <div class="data-value">
-          {%- if tournament.coin_charge_mode.value == 'all_members' -%}
+          {%- if tournament.registration_mode.value == 'solo' -%}
+            {{ _('Jeder Spieler selbst') }}
+          {%- elif tournament.coin_charge_mode.value == 'all_members' -%}
             {{ _('Alle Teammitglieder zahlen') }}
           {%- else -%}
-            {{ _('Captain zahlt') }}
+            {{ _('Nur Captain zahlt') }}
           {%- endif -%}
         </div>
       </div>
