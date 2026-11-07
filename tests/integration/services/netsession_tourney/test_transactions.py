@@ -174,3 +174,33 @@ def test_match_timeline_skips_tournament_events_before_the_match(
     ]
 
     assert 'tournament_published' not in actions
+
+
+def test_regenerating_a_stage_with_results_is_refused(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 4
+    )
+    matches = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+    first = next(m for m in matches if m.match_no == 1)
+    assert result_service.report_result(
+        party.id,
+        tournament.id,
+        first.id,
+        admin_user.id,
+        idempotency_key='regen',
+        winner_slot=1,
+        score={'display': '1:0', 'slots': {'1': 1, '2': 0}},
+        actor_is_admin_or_referee=True,
+    ).is_ok()
+
+    again = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    )
+
+    assert again.is_err()
+    assert 'Ergebnis' in again.unwrap_err()
+    assert double_grand_final.get_match_results({first.id}) != {}
