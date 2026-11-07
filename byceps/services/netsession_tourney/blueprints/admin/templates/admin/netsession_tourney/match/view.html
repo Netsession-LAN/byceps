@@ -273,11 +273,11 @@
   </section>
   {%- endif %}
   <div class="ns-admin-action-grid block">
-    <section class="box ns-admin-form-section">
+    {%- if match.state.value != 'pending' %}<section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div>
           <div class="ns-admin-field-head">
-            <h3 class="ns-admin-form-section-title">{{ _('Ergebnis übermitteln') }}</h3>
+            <h3 class="ns-admin-form-section-title">{{ _('Ergebnis korrigieren') if match.state.value == 'completed' else (_('Streitfall lösen: Ergebnis eintragen') if match.state.value in ['disputed', 'needs_admin_review'] else _('Ergebnis übermitteln')) }}</h3>
             {%- if is_flatout2_result_match %}
             {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Für FlatOut 2 wird die Gesamtpunktzahl pro Teilnehmer erfasst; daraus wird das Match-Ranking automatisch berechnet.')) }}
             {%- elif is_ffa_scoring %}
@@ -403,7 +403,7 @@
           <button type="submit" class="button color-primary">{{ _('Ergebnis übermitteln') }}</button>
         </div>
       </form>
-    </section>
+    </section>{%- endif %}
     {%- if result %}
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
@@ -425,7 +425,7 @@
       </form>
     </section>
     {%- endif %}
-    {%- if not is_ffa_scoring and not is_flatout2_result_match %}
+    {%- if not is_ffa_scoring and not is_flatout2_result_match and match.state.value != 'completed' %}
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div class="ns-admin-field-head">
@@ -468,7 +468,7 @@
     </section>
     {%- endif %}
   </div>
-  <div class="ns-admin-action-grid block">
+  {%- if match.state.value != 'completed' %}<details class="block"><summary>{{ _('Weitere Aktionen: neu ansetzen, Streitfall eröffnen') }}</summary><div class="ns-admin-action-grid">
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div class="ns-admin-field-head">
@@ -537,7 +537,7 @@
         </div>
       </form>
     </section>
-  </div>
+  </div></details>{%- endif %}
   {%- endif %}
 {% endblock %}
 {% block scripts %}
