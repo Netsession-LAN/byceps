@@ -19,6 +19,7 @@ from byceps.services.user.models import User
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
+from . import domain_service
 from .coin_service import (
     charge_coins_for_tournament_registration,
     refund_coins_for_tournament_registration_if_available,
@@ -270,6 +271,13 @@ def set_participant_status(
     )
     if db_participant is None:
         return Err('Unbekannter Teilnehmer.')
+
+    if status not in domain_service.ADMIN_SETTABLE_PARTICIPANT_STATUSES:
+        return Err(
+            'Dieser Status lässt sich nicht direkt setzen. Zum Abmelden '
+            '„Teilnehmer entfernen“ (mit Coin-Erstattung) oder '
+            '„Disqualifizieren“ verwenden, zum Einchecken den Check-in.'
+        )
 
     db_participant.status = status.value
 

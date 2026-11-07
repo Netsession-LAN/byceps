@@ -64,6 +64,15 @@ def validate_publishable(
     return Ok(None)
 
 
+# Participant statuses an admin may set directly; dropping, eliminating and
+# checking in have their own actions with their own consequences.
+ADMIN_SETTABLE_PARTICIPANT_STATUSES = (
+    ParticipantStatus.forming,
+    ParticipantStatus.ready,
+    ParticipantStatus.locked,
+)
+
+
 def is_team_member_count_complete(
     member_count: int, team_size: int, substitute_count: int | None
 ) -> bool:

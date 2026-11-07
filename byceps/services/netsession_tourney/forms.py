@@ -23,11 +23,11 @@ from wtforms.validators import InputRequired, Length, NumberRange, Optional, Reg
 
 from byceps.util.l10n import LocalizedForm
 
-from .enum_labels import RESULT_REPORT_MODE_LABELS, stage_type_display_name
+from .domain_service import ADMIN_SETTABLE_PARTICIPANT_STATUSES
+from .enum_labels import RESULT_REPORT_MODE_LABELS, lazy_enum_label, stage_type_display_name
 from .models import (
     CoinChargeMode,
     CoinRefundPolicy,
-    ParticipantStatus,
     RegistrationMode,
     RuleTemplateBodyFormat,
     StageFamily,
@@ -693,9 +693,9 @@ class StageForm(LocalizedForm):
             (
                 spec.type.value,
                 (
-                    f'{_build_stage_type_choice_label(spec.type)} (disabled/beta)'
+                    f'{stage_type_display_name(spec.type)} (disabled/beta)'
                     if not spec.publishable
-                    else _build_stage_type_choice_label(spec.type)
+                    else stage_type_display_name(spec.type)
                 ),
             )
             for spec in specs
@@ -827,10 +827,6 @@ class StageBuilderTimingForm(LocalizedForm):
     )
 
 
-def _build_stage_type_choice_label(stage_type: StageType) -> str:
-    return stage_type_display_name(stage_type)
-
-
 class TeamCreationForm(LocalizedForm):
     name = StringField(
         lazy_gettext('Teamname'), validators=[InputRequired(), Length(max=120)]
@@ -888,7 +884,10 @@ class ParticipantStatusForm(LocalizedForm):
     status = SelectField(
         lazy_gettext('Status'),
         validators=[InputRequired()],
-        choices=[(status.value, status.value) for status in ParticipantStatus],
+        choices=[
+            (status.value, lazy_enum_label(status))
+            for status in ADMIN_SETTABLE_PARTICIPANT_STATUSES
+        ],
     )
 
 

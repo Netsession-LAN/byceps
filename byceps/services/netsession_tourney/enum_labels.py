@@ -109,6 +109,11 @@ def stage_type_display_name(stage_type: StageType | None) -> str:
     )
 
 
+def lazy_enum_label(value: Enum):
+    """The label as lazy string, usable in form choices at import time."""
+    return _LABELS.get(value, value.value)
+
+
 def enum_label(value: Enum | None) -> str:
     """Return the German label, or the raw value for unknown ones."""
     if value is None:
