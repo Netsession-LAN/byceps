@@ -57,7 +57,7 @@
     <div class="ns-admin-match-duel">
       <article class="ns-admin-match-party-card{% if result and result.winner_slot == 1 %} is-winner{% endif %}">
         <span class="ns-admin-match-party-label">{{ _('Slot') }} 1</span>
-        <strong class="ns-admin-match-party-name">{{ participant_1.name if participant_1 else _('offen') }}</strong>
+        <strong class="ns-admin-match-party-name">{{ participant_1.name if participant_1 else (_('Freilos') if match.state.value == 'completed' else _('offen')) }}</strong>
         <span class="ns-admin-match-party-meta">
           {% if slot_1 and slot_1.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% elif slots_editable %}{{ _('Manuell verwaltbar') }}{% endif %}
         </span>
@@ -72,7 +72,7 @@
 
       <article class="ns-admin-match-party-card{% if result and result.winner_slot == 2 %} is-winner{% endif %}">
         <span class="ns-admin-match-party-label">{{ _('Slot') }} 2</span>
-        <strong class="ns-admin-match-party-name">{{ participant_2.name if participant_2 else _('offen') }}</strong>
+        <strong class="ns-admin-match-party-name">{{ participant_2.name if participant_2 else (_('Freilos') if match.state.value == 'completed' else _('offen')) }}</strong>
         <span class="ns-admin-match-party-meta">
           {% if slot_2 and slot_2.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% elif slots_editable %}{{ _('Manuell verwaltbar') }}{% endif %}
         </span>
