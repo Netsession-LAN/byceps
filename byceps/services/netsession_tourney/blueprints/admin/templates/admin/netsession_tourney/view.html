@@ -164,31 +164,32 @@
       <form
         action="{{ url_for('.cancel', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});'
+        onsubmit='return confirm({{ _('Turnier absagen? Alle Teilnehmer bekommen ihre Coins zurück. Das lässt sich nicht rückgängig machen.')|tojson }});'
       >
-        <button type="submit" class="button color-danger">{{ _('Turnier absagen') }}</button>
+        <button type="submit" class="button is-outlined color-danger">{{ _('Turnier absagen') }}</button>
       </form>
       {%- elif tournament.status.value == 'live' %}
       <form action="{{ url_for('.unpublish', party_id=party.id, tournament_id=tournament.id) }}" method="post">
         <button type="submit" class="button">{{ _('Zurück zum Entwurf') }}</button>
       </form>
-      <form action="{{ url_for('.close', party_id=party.id, tournament_id=tournament.id) }}" method="post">
-        <button type="submit" class="button">{{ _('Schließen') }}</button>
+      {%- set unfinished = matches|selectattr('state.value', 'in', ['ready', 'in_progress', 'pending_confirmation', 'needs_admin_review', 'disputed'])|list|length %}{#- as tournament_closing.OPEN_MATCH_STATES #}
+      <form action="{{ url_for('.close', party_id=party.id, tournament_id=tournament.id) }}" method="post" data-confirm-message="{{ _('Turnier abschließen? Danach lassen sich keine Ergebnisse mehr ändern.') }}">
+        <button type="submit" class="button"{% if unfinished %} disabled title="{{ ngettext('Noch %(num)s Match offen.', 'Noch %(num)s Matches offen.', unfinished) }}"{% endif %}>{{ _('Abschließen') }}</button>
       </form>
       <form
         action="{{ url_for('.cancel', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier absagen willst?')|tojson }});'
+        onsubmit='return confirm({{ _('Turnier absagen? Alle Teilnehmer bekommen ihre Coins zurück. Das lässt sich nicht rückgängig machen.')|tojson }});'
       >
-        <button type="submit" class="button color-danger">{{ _('Turnier absagen') }}</button>
+        <button type="submit" class="button is-outlined color-danger">{{ _('Turnier absagen') }}</button>
       </form>
       {%- endif %}
       {%- if tournament.status.name in ('draft', 'canceled') %}<form
         action="{{ url_for('.delete', party_id=party.id, tournament_id=tournament.id) }}"
         method="post"
-        onsubmit='return confirm({{ _('Bist du sicher, dass du dieses Turnier löschen willst?')|tojson }});'
+        onsubmit='return confirm({{ _('Turnier endgültig löschen? Phasen, Teilnehmer, Matches und Ergebnisse gehen verloren.')|tojson }});'
       >
-        <button type="submit" class="button color-danger">{{ _('Löschen') }}</button>
+        <button type="submit" class="button is-outlined color-danger">{{ _('Löschen') }}</button>
       </form>{%- endif %}
     </div>
     {%- endif %}

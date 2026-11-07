@@ -209,6 +209,15 @@
         },
         true
       );
+
+      // lock the buttons of a submitted form against double submits
+      document.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+        const buttons = event.target.querySelectorAll('button[type=submit], input[type=submit]');
+        setTimeout(() => buttons.forEach((button) => { button.disabled = true; }), 0);
+      });
     })();
   </script>
 {% endblock %}
