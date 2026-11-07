@@ -287,7 +287,7 @@ class TournamentCategoryForm(LocalizedForm):
 class CoinSettingsForm(LocalizedForm):
     enabled = BooleanField(lazy_gettext('Coins aktiviert'))
     default_coin_amount = IntegerField(
-        lazy_gettext('Default-Coins pro Ticket'),
+        lazy_gettext('Startguthaben pro Ticket'),
         validators=[InputRequired(), NumberRange(min=0, max=100000)],
         default=0,
     )

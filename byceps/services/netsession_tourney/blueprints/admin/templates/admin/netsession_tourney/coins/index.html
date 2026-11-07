@@ -15,11 +15,10 @@
     party.title,
     _('Coins'),
     _('Globale Coin-Einstellungen, Ticket-Kategorie-Werte und manuelle Korrekturen pro User.'),
-    'coins',
-    'status-draft',
+    _('Aktiv') if settings.enabled else _('Aus'),
+    'status-live' if settings.enabled else 'status-closed',
     [
-      {'label': _('Coinsystem'), 'value': _('aktiv') if settings.enabled else _('inaktiv')},
-      {'label': _('Default'), 'value': settings.default_coin_amount},
+      {'label': _('Startguthaben pro Ticket'), 'value': settings.default_coin_amount},
     ]
   ) }}
 
