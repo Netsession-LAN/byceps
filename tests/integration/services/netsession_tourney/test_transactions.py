@@ -4,6 +4,7 @@ something fails half-way, nothing of it may be stored."""
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import update
 
 from byceps.database import db
 from byceps.services.netsession_tourney import (
@@ -20,7 +21,10 @@ from byceps.services.netsession_tourney import (
     tournament_queries,
     tournament_service,
 )
-from byceps.services.netsession_tourney.dbmodels import DbNetsessionTourneyMatch
+from byceps.services.netsession_tourney.dbmodels import (
+    DbNetsessionTourneyMatch,
+    DbNetsessionTourneyTournament,
+)
 from byceps.services.netsession_tourney.models import (
     MatchState,
     RegistrationMode,
@@ -368,3 +372,42 @@ def test_dispute_walkover_and_reschedule_respect_the_match_state(
     ).is_err()
 
     assert dispute(open_match).is_ok()
+
+
+def test_closing_a_tournament_closes_registration_and_stages(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    db.session.execute(
+        update(DbNetsessionTourneyTournament)
+        .where(DbNetsessionTourneyTournament.id == tournament.id)
+        .values(registration_open=True)
+    )
+    db.session.commit()
+    final = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()[0]
+    assert result_service.report_result(
+        party.id,
+        tournament.id,
+        final.id,
+        admin_user.id,
+        idempotency_key='close',
+        winner_slot=1,
+        score={'display': '1:0', 'slots': {'1': 1, '2': 0}},
+        actor_is_admin_or_referee=True,
+    ).is_ok()
+
+    assert tournament_lifecycle_service.close_tournament(
+        party.id, tournament.id, admin_user
+    ).is_ok()
+
+    db.session.expire_all()
+    db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament.id)
+    assert db_tournament.registration_open is False
+    stages = tournament_queries.get_stages_for_tournament(
+        party.id, tournament.id
+    )
+    assert {s.status.value for s in stages} == {'closed'}
