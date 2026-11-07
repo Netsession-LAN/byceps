@@ -27,7 +27,7 @@ from . import (
     routes_stage_management,
     routes_tournament,
 )
-from .result_helpers import get_dropped_participants
+from .result_helpers import get_dropped_participants, get_round_neighbours
 
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
@@ -43,6 +43,7 @@ blueprint.add_app_template_global(
 blueprint.add_app_template_filter(format_ns_datetime, 'ns_datetime')
 blueprint.add_app_template_filter(raw_enum_label, 'ns_raw_label')
 blueprint.add_app_template_filter(status_class, 'ns_status_class')
+blueprint.add_app_template_global(get_round_neighbours, 'ns_round_neighbours')
 
 routes_overview.register(blueprint)
 routes_create.register(blueprint)

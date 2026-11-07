@@ -72,6 +72,25 @@ def get_dropped_participants(party_id, tournament_id):
     ]
 
 
+def get_round_neighbours(party_id, tournament_id, match):
+    """The previous and next match of the same phase and round (or None)."""
+    same_round = sorted(
+        (
+            item
+            for item in get_matches_for_tournament(party_id, tournament_id)
+            if item.stage_id == match.stage_id and item.round_no == match.round_no
+        ),
+        key=lambda item: item.match_no,
+    )
+    ids = [item.id for item in same_round]
+    index = ids.index(match.id) if match.id in ids else -1
+    if index < 0:
+        return None, None
+    previous = same_round[index - 1] if index > 0 else None
+    following = same_round[index + 1] if index + 1 < len(same_round) else None
+    return previous, following
+
+
 def get_match_or_404(party_id, tournament_id, match_id):
     matches = get_matches_for_tournament(party_id, tournament_id)
     for match in matches:

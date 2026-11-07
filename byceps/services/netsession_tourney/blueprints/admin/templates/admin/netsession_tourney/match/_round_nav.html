@@ -1,0 +1,12 @@
+{#- Previous / next match of the same round, to work through a round quickly. #}
+{%- set neighbours = ns_round_neighbours(party.id, tournament.id, match) %}
+{%- if neighbours[0] or neighbours[1] %}
+<p class="ns-admin-form-actions">
+  {%- if neighbours[0] %}
+  <a class="button is-compact is-outlined" href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=neighbours[0].id, return_to=parent_return_to) }}">&larr; {{ _('Vorheriges Match') }}</a>
+  {%- endif %}
+  {%- if neighbours[1] %}
+  <a class="button is-compact is-outlined" href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=neighbours[1].id, return_to=parent_return_to) }}">{{ _('Nächstes Match') }} &rarr;</a>
+  {%- endif %}
+</p>
+{%- endif %}

@@ -8,7 +8,7 @@
 {% set page_title = [_('Netsession Turniere'), tournament.title, _('Matches') if parent_return_to == 'matches' else _('Phasen'), match_label] %}
 
 {% block before_body %}
-  {{ render_backlink(back_url, back_label) }}
+  {{ render_backlink(back_url, back_label) }}{% include 'admin/netsession_tourney/match/_round_nav.html' %}
   {{ super() }}
 {% endblock %}
 
