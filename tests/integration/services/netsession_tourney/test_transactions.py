@@ -15,6 +15,7 @@ from byceps.services.netsession_tourney import (
     result_service,
     stage_service,
     tournament_lifecycle_service,
+    tournament_queries,
     tournament_service,
 )
 from byceps.services.netsession_tourney.dbmodels import DbNetsessionTourneyMatch
@@ -204,3 +205,76 @@ def test_regenerating_a_stage_with_results_is_refused(
     assert again.is_err()
     assert 'Ergebnis' in again.unwrap_err()
     assert double_grand_final.get_match_results({first.id}) != {}
+
+
+def test_updating_a_stage_keeps_builder_settings_and_matches(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament = tournament_service.create_tournament(
+        party.id,
+        'ns-stage-upd-' + generate_token().lower(),
+        'NS Stage Update',
+        TournamentMode.duel,
+        RegistrationMode.solo,
+        admin_user,
+    ).unwrap()
+    stage = stage_service.create_stage(
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'SE',
+        {
+            'include_consolation_final': False,
+            'builder_kind': 'stage_builder_v1',
+        },
+        admin_user,
+    ).unwrap()
+    for _ in range(4):
+        player = make_user('NS_StageUpd_' + generate_token())
+        category = make_ticket_category(
+            party.id, 'NS-Ticket-' + generate_token()
+        )
+        ticket = ticket_creation_service.create_ticket(category, player)
+        ticket_user_management_service.appoint_user(ticket.id, player, player)
+        registration_service.register_user(party.id, tournament.id, player)
+    match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+
+    # Renaming and timing: settings merged, matches kept.
+    assert stage_service.update_stage(
+        party.id,
+        tournament.id,
+        stage.id,
+        StageType.single_elimination,
+        'SE renamed',
+        {
+            'match_duration_minutes': 30,
+            'result_report_mode': 'both_must_confirm',
+        },
+        admin_user,
+    ).is_ok()
+    updated = tournament_queries.get_stages_for_tournament(
+        party.id, tournament.id
+    )[0]
+    assert updated.settings['builder_kind'] == 'stage_builder_v1'
+    assert updated.settings['include_consolation_final'] is False
+    assert updated.settings['match_duration_minutes'] == 30
+    assert (
+        len(match_queries.get_matches_for_tournament(party.id, tournament.id))
+        == 3
+    )
+
+    # Changing the type: matches have to be generated again.
+    assert stage_service.update_stage(
+        party.id,
+        tournament.id,
+        stage.id,
+        StageType.double_elimination,
+        'DE',
+        {'result_report_mode': 'both_must_confirm'},
+        admin_user,
+    ).is_ok()
+    assert (
+        match_queries.get_matches_for_tournament(party.id, tournament.id) == []
+    )
