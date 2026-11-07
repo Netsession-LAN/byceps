@@ -11,7 +11,9 @@ from byceps.services.netsession_tourney import (
     match_advancement,
     match_generation,
     match_queries,
+    match_schedule,
     registration_service,
+    result_deletion,
     result_service,
     stage_service,
     tournament_lifecycle_service,
@@ -309,3 +311,60 @@ def test_duel_result_needs_both_participants(
 
     first = next(m for m in matches if m.round_no == 1)
     assert report(first, 'filled').is_ok()
+
+
+def test_dispute_walkover_and_reschedule_respect_the_match_state(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 4
+    )
+    matches = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+    played, open_match = sorted(
+        (m for m in matches if m.round_no == 1), key=lambda m: m.match_no
+    )
+    empty = next(m for m in matches if m.round_no == 2)
+    assert result_service.report_result(
+        party.id,
+        tournament.id,
+        played.id,
+        admin_user.id,
+        idempotency_key='state',
+        winner_slot=1,
+        score={'display': '1:0', 'slots': {'1': 1, '2': 0}},
+        actor_is_admin_or_referee=True,
+    ).is_ok()
+
+    def dispute(match):
+        return result_deletion.open_match_dispute(
+            party.id,
+            tournament.id,
+            match.id,
+            admin_user,
+            reason_code='other',
+            comment='Test',
+        )
+
+    assert dispute(played).is_err()
+    assert dispute(empty).is_err()
+    assert result_service.apply_walkover_result(
+        party.id,
+        tournament.id,
+        played.id,
+        admin_user,
+        winner_slot=2,
+        idempotency_key='wo',
+        comment='Test',
+    ).is_err()
+    assert match_schedule.reschedule_match(
+        party.id,
+        tournament.id,
+        played.id,
+        datetime.utcnow(),
+        admin_user,
+        comment='Test',
+    ).is_err()
+
+    assert dispute(open_match).is_ok()
