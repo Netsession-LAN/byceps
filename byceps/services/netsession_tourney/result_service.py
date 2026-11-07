@@ -37,6 +37,7 @@ from .models import (
     MatchResult,
     MatchState,
     TournamentID,
+    TournamentMode,
 )
 from .notification_service import (
     append_notification_for_match_report,
@@ -127,6 +128,9 @@ def report_result(
         return Err(not_allowed)
 
     sides = load_match_sides(match_id)
+    empty_slot_error = _check_duel_slots_occupied(tournament, sides, report)
+    if empty_slot_error is not None:
+        return Err(empty_slot_error)
     if not domain_service.can_actor_report_match_result(
         tournament.mode, report.by_admin, actor_user_id in sides.manager_user_ids()
     ):
@@ -146,6 +150,16 @@ def report_result(
     return _apply_report(
         db_tournament, tournament, db_match, stage, sides, report, report_mode
     )
+
+
+def _check_duel_slots_occupied(tournament, sides: MatchSides, report) -> str | None:
+    """A duel result needs both participants; a walkover the winner."""
+    if tournament.mode != TournamentMode.duel:
+        return None
+    needed = [report.winner_slot] if report.reason_code == 'walkover' else [1, 2]
+    if any(sides.participant_id_in_slot(slot_no) is None for slot_no in needed):
+        return 'Für dieses Match stehen noch nicht alle Teilnehmer fest.'
+    return None
 
 
 def _apply_report(
