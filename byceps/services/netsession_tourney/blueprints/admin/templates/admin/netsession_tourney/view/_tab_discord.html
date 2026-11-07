@@ -9,19 +9,30 @@
     <div class="ns-admin-form-callout mb">{{ _('Discord-Forum-Thread-ID') }}: {{ discord_forum_thread_id|fallback('-') }}</div>
     <form action="{{ url_for('.discord_update', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-form-shell">
       {{ render_admin_check_field(discord_form.discord_enabled, _('Erstellt für dieses Turnier automatisch einen Discord-Forum-Thread und postet dort Turnier-Updates.')) }}
+      <div data-discord-forum-fields{% if not tournament.discord_enabled %} hidden{% endif %}>
       {{ render_admin_field(discord_form.forum_channel_id, _('Discord-Forum-Channel-ID, in dem der Bot den Turnier-Thread automatisch anlegt.')) }}
       {{ render_admin_field(discord_form.discord_forum_image_url, _('Großes Discord-Bild für den Startpost des Turnier-Threads. Das normale Turnierlogo wird bewusst nicht verwendet.')) }}
       {{ render_admin_field(discord_form.applied_tag_ids, _('Kommagetrennte Liste von Tag-IDs, die beim Erstellen des Discord-Forum-Threads automatisch gesetzt werden.')) }}
       {{ render_admin_multiselect(discord_form.event_mask, _('Wähle die Turnier-Events aus, die zusätzlich in den Discord-Forum-Thread gepostet werden sollen. Ohne Auswahl lässt sich das Discord-Forum nicht aktivieren.')) }}
+      </div>
       {%- if discord_dm_config.enabled %}
       {{ render_admin_check_field(discord_form.discord_dm_enabled, _('Aktiviert Discord-Privatbenachrichtigungen für dieses Turnier. Die technische Bot-Konfiguration wird party-weit auf der Notifications-Seite gepflegt.')) }}
+      {{ render_admin_multiselect(discord_form.discord_dm_event_mask, _('Wähle die Events aus, die für dieses Turnier per Discord-DM verschickt werden sollen. Ohne Auswahl lässt sich Discord-DM nicht aktivieren.')) }}
       {%- else %}
       <p class="dimmed">{{ _('Discord-DM ist für diese Party global ausgeschaltet. Einschalten unter Turniere › Benachrichtigungen.') }}</p>
-      {%- if tournament.discord_dm_enabled %}<input type="hidden" name="discord_dm_enabled" value="y">{% endif %}
+      {%- if tournament.discord_dm_enabled %}<input type="hidden" name="discord_dm_enabled" value="y">{% endif %}{% for event in tournament.discord_dm_event_mask %}<input type="hidden" name="discord_dm_event_mask" value="{{ event }}">{% endfor %}
       {%- endif %}
-      {{ render_admin_multiselect(discord_form.discord_dm_event_mask, _('Wähle die Events aus, die für dieses Turnier per Discord-DM verschickt werden sollen. Ohne Auswahl lässt sich Discord-DM nicht aktivieren.')) }}
       <div class="ns-admin-form-actions">
         <button type="submit" class="button color-primary">{{ _('Discord speichern') }}</button>
       </div>
     </form>
   </section>
+  <script>
+    (() => {
+      const toggle = document.querySelector('input[name="discord_enabled"]');
+      const fields = document.querySelector('[data-discord-forum-fields]');
+      if (toggle && fields) {
+        toggle.addEventListener('change', () => { fields.hidden = !toggle.checked; });
+      }
+    })();
+  </script>
