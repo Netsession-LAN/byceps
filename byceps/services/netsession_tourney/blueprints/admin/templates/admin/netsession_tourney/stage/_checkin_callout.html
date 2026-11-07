@@ -1,0 +1,11 @@
+{#- How many checked in, shown before generating (only with a check-in window). #}
+  {%- set checkin_counts = ns_checkin_counts(tournament) %}
+  {%- if checkin_counts %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ _('Check-in') }}:</strong>
+    {{ _('%(checked_in)s von %(total)s Teilnehmern eingecheckt.', checked_in=checkin_counts[0], total=checkin_counts[1]) }}
+    {%- if checkin_counts[0] < checkin_counts[1] %}
+    {{ _('Nur Eingecheckte kommen in die Matches; die übrigen werden als „Verpasst“ markiert.') }}
+    {%- endif %}
+  </div>
+  {%- endif %}

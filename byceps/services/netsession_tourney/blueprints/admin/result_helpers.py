@@ -51,12 +51,25 @@ def get_stage_or_404(party_id, tournament_id, stage_id):
 
 
 def get_participant_or_404(party_id, tournament_id, participant_id):
-    participants = get_participants_for_tournament(party_id, tournament_id)
+    """Admins also see dropped participants."""
+    participants = get_participants_for_tournament(
+        party_id, tournament_id, include_dropped=True
+    )
     for participant in participants:
         if participant.id == participant_id:
             return participant
 
     abort(404)
+
+
+def get_dropped_participants(party_id, tournament_id):
+    return [
+        participant
+        for participant in get_participants_for_tournament(
+            party_id, tournament_id, include_dropped=True
+        )
+        if participant.status.value == 'dropped'
+    ]
 
 
 def get_match_or_404(party_id, tournament_id, match_id):

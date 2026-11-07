@@ -22,6 +22,7 @@ from . import (
     routes_stage_management,
     routes_tournament,
 )
+from .result_helpers import get_dropped_participants
 
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
@@ -31,6 +32,9 @@ blueprint.record_once(
     lambda state: register_metric_collector(state.app, collect_metrics)
 )
 blueprint.add_app_template_filter(report_mode_label, 'ns_report_mode')
+blueprint.add_app_template_global(
+    get_dropped_participants, 'ns_dropped_participants'
+)
 
 routes_overview.register(blueprint)
 routes_create.register(blueprint)

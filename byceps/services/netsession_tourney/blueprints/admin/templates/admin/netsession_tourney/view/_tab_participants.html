@@ -81,3 +81,15 @@
   {%- else %}
   <div class="box no-data-message mb">{{ _('Keine Teilnehmer vorhanden.') }}</div>
   {%- endif %}
+
+  {%- set dropped_participants = ns_dropped_participants(party.id, tournament.id) %}
+  {%- if dropped_participants %}
+  <details class="box mb">
+    <summary>{{ _('Abgemeldet') }} ({{ dropped_participants|length }})</summary>
+    <ul>
+    {%- for participant in dropped_participants %}
+      <li><a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}">{{ participant.name }}</a> <span class="dimmed">({{ participant.type|ns_label }})</span></li>
+    {%- endfor %}
+    </ul>
+  </details>
+  {%- endif %}

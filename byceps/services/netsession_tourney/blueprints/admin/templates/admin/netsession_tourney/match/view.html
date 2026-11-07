@@ -13,8 +13,7 @@
 {% endblock %}
 
 {% block body %}
-  {#- the server allows slot changes only in a draft, before any result #}
-  {%- set slots_editable = tournament.status.value == 'draft' and not result and match.state.value in ['pending', 'ready'] %}
+  {%- set slots_editable = tournament.status.value == 'draft' and not result and match.state.value in ['pending', 'ready'] %}{#- the server allows slot changes only in a draft, before any result #}
   {%- set slot_1 = slots[0] if slots|length > 0 else none %}
   {%- set slot_2 = slots[1] if slots|length > 1 else none %}
   {%- set is_ffa_scoring = stage and stage.type.value in ['ffa_simple', 'ffa_single_elimination'] %}
@@ -471,7 +470,6 @@
     </section>
     {%- endif %}
   </div>
-
   <div class="ns-admin-action-grid block">
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
@@ -505,7 +503,6 @@
         </div>
       </form>
     </section>
-
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div class="ns-admin-field-head">
@@ -545,7 +542,6 @@
   </div>
   {%- endif %}
 {% endblock %}
-
 {% block scripts %}
   {{ super() }}
   <script>

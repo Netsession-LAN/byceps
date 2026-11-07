@@ -15,6 +15,8 @@
 
 {% block body %}
   {%- set is_team = participant.type.value == 'team' %}
+  {%- set is_dropped = participant.status.value == 'dropped' %}
+  {%- set can_manage = g.user.has_permission('netsession_tourney.manage') and not is_dropped %}
   {{ render_page_header(
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
@@ -34,6 +36,13 @@
       {'label': _('Aktive Teilnehmer'), 'value': active_participant_count},
     ]
   ) }}
+
+  {%- if is_dropped %}
+  <div class="box block ns-admin-form-callout">
+    <strong>{{ _('Abgemeldet') }}:</strong>
+    {{ _('Dieser Teilnehmer ist nicht mehr im Turnier. Die Angaben bleiben zur Nachverfolgung sichtbar.') }}
+  </div>
+  {%- endif %}
 
   {%- if is_team %}
   <section class="box ns-admin-form-section block">
@@ -88,7 +97,7 @@
               </span>
             </td>
             <td>
-              {%- if g.user.has_permission('netsession_tourney.manage') and member.role.value != 'captain' %}
+              {%- if can_manage and member.role.value != 'captain' %}
               <div class="ns-admin-team-member-actions">
                 <form action="{{ url_for('.team_captain_set', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post">
                   <input type="hidden" name="return_to" value="participant">
@@ -112,7 +121,7 @@
     <div class="ns-admin-form-callout no-data-message">{{ _('Keine Teammitglieder vorhanden.') }}</div>
     {%- endif %}
 
-    {%- if g.user.has_permission('netsession_tourney.manage') %}
+    {%- if can_manage %}
     <div class="ns-admin-form-divider"></div>
     <div class="ns-admin-team-roster-footer">
       <div>
@@ -133,7 +142,7 @@
   </section>
   {%- endif %}
 
-  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  {%- if can_manage %}
   <div class="ns-admin-form-shell block">
     <div class="ns-admin-action-grid">
       <section class="box ns-admin-form-section">
