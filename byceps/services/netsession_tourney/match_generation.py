@@ -150,7 +150,7 @@ def _generate_stage_matches(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     if (
         is_stage_builder_v1_preliminary_stage(payload.stage)
@@ -334,7 +334,7 @@ def _materialize_round_robin_builder_group_stages(
     settings = dict(db_stage.settings_json or {})
     if settings.get('builder_materialized_group_stage_ids'):
         return Err(
-            'Diese Builder-Vorrunde wurde bereits in echte Gruppen-Stages aufgeteilt.'
+            'Diese Vorrunde des Turnierplaners wurde bereits in echte Gruppenphasen aufgeteilt.'
         )
 
     group_plan_result = read_group_plan(payload.stage.settings)
@@ -348,13 +348,13 @@ def _materialize_round_robin_builder_group_stages(
         qualifiers_per_group=qualifiers_per_group,
     )
     if not group_stage_specs:
-        return Err('Es konnten keine Builder-Gruppen erzeugt werden.')
+        return Err('Es konnten keine Gruppen erzeugt werden.')
 
     db_main_stage = find_builder_main_stage_for_preliminary_stage(
         tournament_id, db_stage.id
     )
     if db_main_stage is None:
-        return Err('Das Builder-Hauptturnier zur Vorrunde konnte nicht gefunden werden.')
+        return Err('Das Hauptturnier des Turnierplaners zur Vorrunde konnte nicht gefunden werden.')
 
     shift_following_stages(tournament_id, db_stage, len(group_stage_specs))
 

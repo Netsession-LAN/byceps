@@ -4,7 +4,7 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage bearbeiten'), stage.name] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Phase bearbeiten'), stage.name] %}
 {% set stage_type_label_by_value = {
   'single_elimination': _('Single Elimination'),
   'double_elimination': _('Double Elimination'),
@@ -19,7 +19,7 @@
 {% set stage_type_label = stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -28,19 +28,19 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
       {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)},
-      {'label': _('Stage bearbeiten'), 'url': none},
+      {'label': _('Phase bearbeiten'), 'url': none},
     ],
     tournament.title,
-    _('Stage bearbeiten') ~ ': ' ~ stage.name,
-    _('Passe Aufbau, Teilnehmerquelle und Timing dieser Stage an, ohne die Gesamtstruktur aus dem Blick zu verlieren.'),
+    _('Phase bearbeiten') ~ ': ' ~ stage.name,
+    _('Passe Aufbau, Teilnehmerquelle und Timing dieser Phase an, ohne die Gesamtstruktur aus dem Blick zu verlieren.'),
     stage.status.value,
     'status-' ~ stage.status.value,
     [
       {'label': _('Turnier'), 'value': tournament.title},
       {'label': _('Typ'), 'value': stage_type_label},
-      {'label': _('Reihenfolge'), 'value': _('Stage') ~ ' #' ~ stage.order_no},
+      {'label': _('Reihenfolge'), 'value': _('Phase') ~ ' #' ~ stage.order_no},
     ]
   ) }}
 

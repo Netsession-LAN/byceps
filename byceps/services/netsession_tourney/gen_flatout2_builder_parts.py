@@ -207,7 +207,7 @@ def _parse_manual_flatout2_match_participant_ids(
             participant_ids.append(ParticipantID(UUID(str(raw_participant_id))))
         except (TypeError, ValueError):
             return Err(
-                'Die Teilnehmerzuordnung in der FlatOut-2-Stage ist ungültig.'
+                'Die Teilnehmerzuordnung in der FlatOut-2-Phase ist ungültig.'
             )
 
     while len(participant_ids) < max_players_per_match:

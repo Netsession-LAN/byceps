@@ -74,7 +74,7 @@ def delete_match_result_by_admin(
 
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     stage = db_stage_to_model(db_stage)
     if stage.type == StageType.swiss:

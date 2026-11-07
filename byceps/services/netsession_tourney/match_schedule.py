@@ -70,7 +70,7 @@ def build_pending_structure_match_specs_for_stage(
 ) -> Result[list[MatchSpec], str]:
     engine = find_stage_engine(stage_type)
     if engine is None:
-        return Err('Für diesen Stage-Typ gibt es noch keine Match-Erzeugung.')
+        return Err('Für diesen Phasentyp gibt es noch keine Match-Erzeugung.')
 
     preview_stage = Stage(
         id=StageID(generate_uuid7()),

@@ -163,11 +163,11 @@ def _build_discord_event_presentation(
         color = 0x3B82F6
     elif event_name == 'stage_started':
         stage_name = str(payload_data.get('stage_name') or '').strip()
-        embed_title = 'Stage gestartet'
+        embed_title = 'Phase gestartet'
         description = (
             f'**{title}**\n{stage_name} ist gestartet.'
             if stage_name
-            else f'**{title}**\nEine neue Stage ist gestartet.'
+            else f'**{title}**\nEine neue Phase ist gestartet.'
         )
         color = 0xF97316
     elif event_name == 'tournament_finished':

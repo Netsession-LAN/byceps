@@ -8,7 +8,7 @@
   {%- set stage_item = stage_group.stage %}
   <div class="box mb">
     <div class="row row--space-between block">
-      <h3 class="title">{{ stage_item.name if stage_item else _('Ohne Stage') }}</h3>
+      <h3 class="title">{{ stage_item.name if stage_item else _('Ohne Phase') }}</h3>
       <span class="dimmed">{{ stage_group.matches|length }} {{ _('Matches') }}</span>
     </div>
     <table class="itemlist is-vcentered is-wide">
@@ -35,7 +35,7 @@
         <td>
           {%- for slot in slots %}
             {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
-            {{ participant.name if participant else _('TBD') }}{% if not loop.last %} vs {% endif %}
+            {{ participant.name if participant else _('offen') }}{% if not loop.last %} vs {% endif %}
           {%- endfor %}
         </td>
         <td>

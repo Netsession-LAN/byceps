@@ -339,7 +339,7 @@
                         {%- if top_slot and top_slot.is_bye %}
                         <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
                         {%- elif not top_participant %}
-                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('offen') }}</span>
                         {%- else %}
                         <span class="ns-tourney-bracket-slot-main">
                           <span class="ns-tourney-bracket-avatar{% if not top_slot_image_url %} is-placeholder{% endif %}">
@@ -348,7 +348,7 @@
                             {%- endif %}
                           </span>
                           <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 1 %} ns-tourney-bracket-name--winner{% endif %}">
-                            {{ top_participant.name if top_participant else _('TBD') }}
+                            {{ top_participant.name if top_participant else _('offen') }}
                           </span>
                         </span>
                         <span class="ns-tourney-bracket-slot-right">
@@ -365,7 +365,7 @@
                         {%- if bottom_slot and bottom_slot.is_bye %}
                         <span class="ns-tourney-bracket-name ns-tourney-bracket-name--bye ns-tourney-bye-label">{{ _('Freilos') }}</span>
                         {%- elif not bottom_participant %}
-                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                        <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('offen') }}</span>
                         {%- else %}
                         <span class="ns-tourney-bracket-slot-main">
                           <span class="ns-tourney-bracket-avatar{% if not bottom_slot_image_url %} is-placeholder{% endif %}">
@@ -374,7 +374,7 @@
                             {%- endif %}
                           </span>
                           <span class="ns-tourney-bracket-name{% if item.result and item.result.winner_slot == 2 %} ns-tourney-bracket-name--winner{% endif %}">
-                            {{ bottom_participant.name if bottom_participant else _('TBD') }}
+                            {{ bottom_participant.name if bottom_participant else _('offen') }}
                           </span>
                         </span>
                         <span class="ns-tourney-bracket-slot-right">
@@ -420,7 +420,7 @@
                     {%- endfor %}
                     {%- for _pending in range(outcome.pending_count) %}
                     <div class="ns-tourney-swiss-outcome-entry is-tbd">
-                      <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('TBD') }}</span>
+                      <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">{{ _('offen') }}</span>
                     </div>
                     {%- endfor %}
                   </div>
@@ -587,7 +587,7 @@
                   </span>
                   {%- elif not participant %}
                   <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">
-                    {{ _('TBD') }}
+                    {{ _('offen') }}
                   </span>
                   {%- else %}
                   <span class="ns-tourney-bracket-avatar{% if not slot_image_url %} is-placeholder{% endif %}">
@@ -733,7 +733,7 @@
                   </span>
                   {%- elif not participant %}
                   <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">
-                    {{ _('TBD') }}
+                    {{ _('offen') }}
                   </span>
                   {%- else %}
                   <span class="ns-tourney-bracket-avatar{% if not slot_image_url %} is-placeholder{% endif %}">

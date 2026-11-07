@@ -33,7 +33,7 @@ DISCORD_DM_EVENT_CHOICES = [
 DISCORD_FORUM_EVENT_CHOICES = [
     ('manual_announcement', gettext('Manuelle Turniermeldung')),
     ('match_completed', gettext('Match beendet')),
-    ('stage_started', gettext('Stage gestartet')),
+    ('stage_started', gettext('Phase gestartet')),
     ('tournament_canceled', gettext('Turnier abgesagt')),
     ('tournament_finished', gettext('Turnier beendet')),
     ('tournament_live', gettext('Turnier live')),

@@ -191,7 +191,7 @@ def build_manual_flatout2_stage_generation_payload(
     settings = stage.settings or {}
     raw_rounds = settings.get('flatout2_rounds')
     if not isinstance(raw_rounds, list) or not raw_rounds:
-        return Err('Bitte die FlatOut-2-Stage zuerst vorbereiten.')
+        return Err('Bitte die FlatOut-2-Phase zuerst vorbereiten.')
 
     max_players_per_match_result = read_manual_flatout2_max_players_per_match(
         settings

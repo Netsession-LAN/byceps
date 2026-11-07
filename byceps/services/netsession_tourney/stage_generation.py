@@ -252,7 +252,7 @@ def _load_stage_generation_setup(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     stage = db_stage_to_model(db_stage)
     if stage_settings_override:
@@ -262,11 +262,11 @@ def _load_stage_generation_setup(
     tournament = db_tournament_to_model(db_tournament)
     stage_type_spec = get_stage_type_spec(stage.type)
     if not stage_type_spec.enabled:
-        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
+        return Err('Dieser Phasentyp ist zurzeit deaktiviert.')
 
     engine = find_stage_engine(stage.type)
     if engine is None:
-        return Err('Für diesen Stage-Typ gibt es noch keine Match-Erzeugung.')
+        return Err('Für diesen Phasentyp gibt es noch keine Match-Erzeugung.')
 
     return Ok(
         _StageGenerationSetup(tournament=tournament, stage=stage, engine=engine)

@@ -1,12 +1,12 @@
   <div class="row row--space-between row--v-centered block">
-    <h2 class="title">{{ _('Stages') }}</h2>
+    <h2 class="title">{{ _('Phasen') }}</h2>
     {%- if g.user.has_permission('netsession_tourney.manage') %}
     <div class="row row--compact">
       <a class="button is-outlined" href="{{ url_for('.stage_builder_form', party_id=party.id, tournament_id=tournament.id) }}">
-        {{ render_icon('add') }} <span>{{ _('Stage Builder') }}</span>
+        {{ render_icon('add') }} <span>{{ _('Turnierplaner') }}</span>
       </a>
       <a class="button" href="{{ url_for('.stage_create_form', party_id=party.id, tournament_id=tournament.id) }}">
-        {{ render_icon('add') }} <span>{{ _('Stage erstellen') }}</span>
+        {{ render_icon('add') }} <span>{{ _('Phase erstellen') }}</span>
       </a>
     </div>
     {%- endif %}
@@ -27,8 +27,8 @@
   <section class="box ns-admin-form-section block">
     <div class="ns-admin-form-section-head">
       <div>
-        <h3 class="ns-admin-form-section-title">{{ _('Stage-Übersicht') }}</h3>
-        <p class="ns-admin-form-section-text">{{ _('Alle Stages, Einstellungen und direkten Aktionen an einem Ort.') }}</p>
+        <h3 class="ns-admin-form-section-title">{{ _('Phasenübersicht') }}</h3>
+        <p class="ns-admin-form-section-text">{{ _('Alle Phasen, Einstellungen und direkten Aktionen an einem Ort.') }}</p>
       </div>
     </div>
     <div class="ns-admin-table-wrap">
@@ -113,7 +113,7 @@
             <td>
               <span class="ns-admin-stage-type">
                 {%- if row.kind == 'builder_container' -%}
-                  {{ _('Builder-Container') }}
+                  {{ _('Vorrunde (aufgeteilt)') }}
                 {%- else -%}
                   {{ stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) }}
                 {%- endif -%}
@@ -223,5 +223,5 @@
   {%- include 'admin/netsession_tourney/view/_stage_selected.html' %}
   {%- endif %}
   {%- else %}
-  <div class="box no-data-message mb">{{ _('Keine Stages vorhanden.') }}</div>
+  <div class="box no-data-message mb">{{ _('Keine Phasen vorhanden.') }}</div>
   {%- endif %}

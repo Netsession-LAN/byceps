@@ -5,10 +5,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -17,17 +17,17 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage Builder'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Turnierplaner'), 'url': none},
     ],
     tournament.title,
-    _('Stage Builder'),
-    _('Plane Hauptturnier und optionale Vorrunde geführt vor. Die konkrete Vorrundenverteilung entsteht später aus den ready Teilnehmern.'),
+    _('Turnierplaner'),
+    _('Plane Hauptturnier und optionale Vorrunde geführt vor. Die konkrete Vorrundenverteilung entsteht später aus den bereiten Teilnehmern.'),
     _('Plan'),
     'status-draft',
     [
-      {'label': _('Main Stage'), 'value': _('wird zuerst definiert')},
-      {'label': _('Teilnehmerbasis'), 'value': _('Ready-Teilnehmer bei Generierung')},
+      {'label': _('Hauptturnier'), 'value': _('wird zuerst definiert')},
+      {'label': _('Teilnehmerbasis'), 'value': _('Bereite Teilnehmer bei Generierung')},
     ]
   ) }}
 
@@ -36,29 +36,29 @@
       <section class="box ns-admin-form-section">
         <div class="ns-admin-form-section-head">
           <div>
-            <h2 class="ns-admin-form-section-title">{{ _('Builder V1') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('V1 erzeugt Main Stage plus optional eine Vorrunde als Stage-Plan. Bestehende freie Stage-Erstellung bleibt für Sonderfälle erhalten.') }}</p>
+            <h2 class="ns-admin-form-section-title">{{ _('Turnierplaner') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('V1 erzeugt Hauptturnier plus optional eine Vorrunde als Phasenplan. Bestehende freie Phasenerstellung bleibt für Sonderfälle erhalten.') }}</p>
           </div>
         </div>
 
         {% if has_existing_stages %}
         <div class="flash-message error">
-          {{ _('Dieses Turnier hat bereits Stages. Der Builder V1 arbeitet nur auf leeren Turnieren ohne vorhandene Stages.') }}
+          {{ _('Dieses Turnier hat bereits Phasen. Der Turnierplaner arbeitet nur auf leeren Turnieren ohne vorhandene Phasen.') }}
         </div>
         {% endif %}
 
         <div class="ns-admin-form-grid">
-          {{ render_field(form.generation_basis, _('V1 generiert aktuell aus Ready-Teilnehmern. Die Auswahl ist absichtlich explizit, damit die spätere Match-Generierung nachvollziehbar bleibt.')) }}
-          {{ render_field(form.main_stage_type, _('Das Hauptturnier ist das feste Ziel. Daraus leitet der Builder ab, ob und wie eine Vorrunde nötig ist.')) }}
-          {{ render_field(form.main_stage_size, _('Größe des Hauptturniers. Bei weniger oder gleich vielen ready Teilnehmern entfällt die Vorrunde automatisch.')) }}
-          {{ render_check_field(form.use_preliminary, _('Wenn aktiviert, wird bei Bedarf automatisch eine Vorrunde vor der Main Stage angelegt.')) }}
+          {{ render_field(form.generation_basis, _('V1 generiert aktuell aus bereiten Teilnehmern. Die Auswahl ist absichtlich explizit, damit die spätere Match-Generierung nachvollziehbar bleibt.')) }}
+          {{ render_field(form.main_stage_type, _('Das Hauptturnier ist das feste Ziel. Daraus leitet der Turnierplaner ab, ob und wie eine Vorrunde nötig ist.')) }}
+          {{ render_field(form.main_stage_size, _('Größe des Hauptturniers. Bei weniger oder gleich vielen bereiten Teilnehmern entfällt die Vorrunde automatisch.')) }}
+          {{ render_check_field(form.use_preliminary, _('Wenn aktiviert, wird bei Bedarf automatisch eine Vorrunde vor dem Hauptturnier angelegt.')) }}
           <div data-preliminary-field>
             {{ render_field(form.preliminary_type, _('V1 unterstützt Round Robin Groups und Swiss als Vorrundenformate.')) }}
           </div>
           <div data-swiss-field>
             {{ render_field(form.swiss_threshold, _('Nur für Swiss-Vorrunden. 2/3/4 bedeutet jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird automatisch daraus abgeleitet.')) }}
           </div>
-          {{ render_field(form.match_duration_minutes, _('Optionale Matchdauer in Minuten. Wird für die automatische Zeitplanung auf die erzeugten Stages übernommen.')) }}
+          {{ render_field(form.match_duration_minutes, _('Optionale Matchdauer in Minuten. Wird für die automatische Zeitplanung auf die erzeugten Phasen übernommen.')) }}
           {{ render_field(form.max_matches_per_round, _('Optionales Limit paralleler Matches pro Runde. Leer bedeutet: alle Matches einer Runde können gleichzeitig geplant werden.')) }}
           {{ render_field(form.break_between_rounds_minutes, _('Optionale Pause zwischen zwei Runden in Minuten.')) }}
         </div>
@@ -66,16 +66,16 @@
         <details class="ns-admin-inline-note">
           <summary>{{ _('Wie V1 plant') }}</summary>
           <div class="ns-admin-inline-note-body">
-            <div>{{ _('Der Builder erzeugt jetzt nur die Stage-Struktur. Die konkrete Verteilung der Vorrunde entsteht erst bei der Match-Generierung aus den dann vorhandenen ready Teilnehmern.') }}</div>
-            <div>{{ _('Round Robin Groups werden dabei möglichst gleichmäßig verteilt und so gewählt, dass eine feste Anzahl Qualifikanten in die Main Stage passt.') }}</div>
-            <div>{{ _('Swiss qualifiziert in V1 als Gesamtranking in die Main Stage.') }}</div>
+            <div>{{ _('Der Turnierplaner erzeugt jetzt nur die Phasenstruktur. Die konkrete Verteilung der Vorrunde entsteht erst bei der Match-Generierung aus den dann vorhandenen bereiten Teilnehmern.') }}</div>
+            <div>{{ _('Round Robin Groups werden dabei möglichst gleichmäßig verteilt und so gewählt, dass eine feste Anzahl Qualifikanten in das Hauptturnier passt.') }}</div>
+            <div>{{ _('Swiss qualifiziert in V1 als Gesamtranking in das Hauptturnier.') }}</div>
           </div>
         </details>
       </section>
     </div>
 
     <div class="ns-admin-form-actions">
-      <button type="submit" class="button color-primary" {% if has_existing_stages %}disabled{% endif %}>{{ _('Stage-Plan erzeugen') }}</button>
+      <button type="submit" class="button color-primary" {% if has_existing_stages %}disabled{% endif %}>{{ _('Phasenplan erzeugen') }}</button>
       <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
     </div>
   </form>

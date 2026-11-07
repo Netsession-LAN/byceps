@@ -4,10 +4,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stages'), stage.name, _('Stage vorbereiten') if is_flatout2_manual_stage else _('Matches generieren')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Phasen'), stage.name, _('Phase vorbereiten') if is_flatout2_manual_stage else _('Matches generieren')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -16,17 +16,17 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
       {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)},
-      {'label': _('Stage vorbereiten') if is_flatout2_manual_stage else _('Matches generieren'), 'url': none},
+      {'label': _('Phase vorbereiten') if is_flatout2_manual_stage else _('Matches generieren'), 'url': none},
     ],
     tournament.title,
-    _('Stage vorbereiten') if is_flatout2_manual_stage else _('Seeding und Matches generieren'),
-    _('Lege Runden, Matches, Rennen, Hosts und Teilnehmer für diese FlatOut-2-Stage manuell fest.') if is_flatout2_manual_stage else _('Prüfe Auto-Seeds, setze manuelle Ueberschreibungen und generiere danach die Paarungen für diese Stage.'),
+    _('Phase vorbereiten') if is_flatout2_manual_stage else _('Setzliste und Matches generieren'),
+    _('Lege Runden, Matches, Rennen, Hosts und Teilnehmer für diese FlatOut-2-Phase manuell fest.') if is_flatout2_manual_stage else _('Prüfe automatische Setzplätze, setze manuelle Überschreibungen und generiere danach die Paarungen für diese Phase.'),
     stage.status.value,
     'status-' ~ stage.status.value,
     [
-      {'label': _('Stage'), 'value': stage.name},
+      {'label': _('Phase'), 'value': stage.name},
       {'label': _('Teilnehmer'), 'value': flatout2_generation_state.participant_choices|length if is_flatout2_manual_stage else preview.participant_count},
       {'label': _('Matches'), 'value': (flatout2_generation_state.rounds | selectattr('is_active') | map(attribute='match_count') | sum) if is_flatout2_manual_stage else preview.match_count},
       {'label': _('Runden'), 'value': flatout2_generation_state.round_count if is_flatout2_manual_stage else preview.rounds|length},
@@ -37,19 +37,19 @@
     {%- if is_incremental_swiss_generation %}
   <div class="box block ns-admin-form-callout">
     <strong>{{ _('Swiss') }}:</strong>
-    {{ _('Für diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Für diese Phase sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
     {{ _('Beim nächsten Schritt wird die nächste Swiss-Runde angehängt. Vorhandene Matches bleiben erhalten.') }}
   </div>
     {%- elif is_incremental_flatout2_generation %}
   <div class="box block ns-admin-form-callout">
     <strong>{{ _('FlatOut 2') }}:</strong>
-    {{ _('Für diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Für diese Phase sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
     {{ _('Jetzt wird die nächste Runde erzeugt. Vorhandene Matches bleiben erhalten.') }}
   </div>
     {%- else %}
     <div class="box block ns-tourney-stage-regenerate-warning">
     <strong>{{ _('Achtung') }}:</strong>
-    {{ _('Für diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
+    {{ _('Für diese Phase sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
     {{ _('Neu erzeugen ersetzt alle Matches dieser Phase durch neue Paarungen (samt Chat). Sobald ein Ergebnis gemeldet ist, ist das gesperrt.') }}
   </div>
     {%- endif %}
@@ -74,18 +74,18 @@
       {% if existing_stage_match_count > 0 and not is_incremental_swiss_generation and not is_incremental_flatout2_generation %}data-needs-regenerate-confirmation="true"{% endif %}
     >
       {%- if not is_incremental_swiss_generation and not is_flatout2_manual_stage %}
-      <h2>{{ _('Seeding') }}</h2>
+      <h2>{{ _('Setzliste') }}</h2>
       {%- if is_locked_auto_seeding %}
       <p class="dimmed">
-        {{ _('Diese Main Stage übernimmt das Seeding automatisch aus den abgeschlossenen Vorrunden. Manuelle Änderungen sind hier gesperrt.') }}
+        {{ _('Dieses Hauptturnier übernimmt die Setzliste automatisch aus den abgeschlossenen Vorrunden. Manuelle Änderungen sind hier gesperrt.') }}
       </p>
       <div class="ns-admin-form-callout mb">
         <strong>{{ _('Fixe Reihenfolge') }}:</strong>
-        {{ _('Pkt., Direktvergleich bei 2er-Gleichstand, danach Rundendifferenz. Dieses Seeding wird direkt für die Match-Generierung verwendet.') }}
+        {{ _('Pkt., Direktvergleich bei 2er-Gleichstand, danach Rundendifferenz. Diese Setzliste wird direkt für die Match-Generierung verwendet.') }}
       </div>
       {%- else %}
       <p class="dimmed">
-        {{ _('Das System würfelt zuerst Auto-Seeds für alle aktuellen Teilnehmer aus. Manuelle Seeds überschreiben diese Reihenfolge als lückenloses Präfix ab Seed 1.') }}
+        {{ _('Das System würfelt zuerst automatische Setzplätze für alle aktuellen Teilnehmer aus. Manuelle Setzplätze überschreiben diese Reihenfolge als lückenloses Präfix ab Setzplatz 1.') }}
       </p>
 
       <div class="ns-admin-seeding-toolbar mb">
@@ -95,14 +95,14 @@
           <span class="ns-admin-seeding-badge is-final-auto">{{ _('Final') }}</span>
         </div>
         <div class="ns-admin-seeding-toolbar-actions">
-          <button type="button" class="button is-outlined" data-action="reroll-auto-seeds">{{ _('Auto-Seeds neu würfeln') }}</button>
+          <button type="button" class="button is-outlined" data-action="reroll-auto-seeds">{{ _('Automatische Setzplätze neu würfeln') }}</button>
           <button type="button" class="button is-outlined" data-action="reset-manual-seeds">{{ _('Manuelle Overrides zurücksetzen') }}</button>
         </div>
       </div>
 
       <div class="ns-admin-form-callout mb">
         <strong>{{ _('Live-Vorschau') }}:</strong>
-        {{ _('Der finale Seed wird sofort berechnet und genau so übernommen, sobald du unten die Match-Generierung startest.') }}
+        {{ _('Der finale Setzplatz wird sofort berechnet und genau so übernommen, sobald du unten die Match-Generierung startest.') }}
       </div>
 
       <div class="ns-admin-form-callout mb" data-role="seed-validation" hidden></div>
@@ -118,9 +118,9 @@
         <thead>
           <tr>
             <th>{{ _('Teilnehmer / Team') }}</th>
-            <th>{% if is_locked_auto_seeding %}{{ _('Qualifier-Seed') }}{% else %}{{ _('Auto-Seed') }}{% endif %}</th>
-            <th>{% if is_locked_auto_seeding %}{{ _('Modus') }}{% else %}{{ _('Manueller Seed') }}{% endif %}</th>
-            <th>{{ _('Finaler Seed (wird übernommen)') }}</th>
+            <th>{% if is_locked_auto_seeding %}{{ _('Setzplatz aus der Qualifikation') }}{% else %}{{ _('Automatisch') }}{% endif %}</th>
+            <th>{% if is_locked_auto_seeding %}{{ _('Modus') }}{% else %}{{ _('Manueller Setzplatz') }}{% endif %}</th>
+            <th>{{ _('Finaler Setzplatz (wird übernommen)') }}</th>
             <th>{{ _('Quelle') }}</th>
           </tr>
         </thead>
@@ -173,7 +173,7 @@
       {%- if not is_locked_auto_seeding %}
       <div class="ns-admin-form-callout mb">
         <strong>{{ _('Hinweis') }}:</strong>
-        {{ _('Wenn du manuelle Seeds setzt, müssen sie lückenlos bei 1 beginnen. Beispiel: 1, 2, 3 ist gültig; 1 und 3 ohne 2 ist ungültig.') }}
+        {{ _('Wenn du manuelle Setzplätze setzt, müssen sie lückenlos bei 1 beginnen. Beispiel: 1, 2, 3 ist gültig; 1 und 3 ohne 2 ist ungültig.') }}
       </div>
       {%- endif %}
       {%- endif %}
@@ -181,14 +181,14 @@
       {%- if is_builder_round_robin_summary_stage %}
       <h2>{{ _('Gruppen-Materialisierung') }}</h2>
       <p class="dimmed">
-        {{ _('Diese Vorrunden-Übersicht erzeugt beim nächsten Schritt echte Gruppen-Stages. Die eigentlichen Runden und Matches liegen danach in den Gruppen wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.') }}
+        {{ _('Diese Vorrunden-Übersicht erzeugt beim nächsten Schritt echte Gruppenphasen. Die eigentlichen Runden und Matches liegen danach in den Gruppen wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.') }}
       </p>
       <div class="ns-admin-form-callout mb">
         <strong>{{ _('Aktive RR-Strategie') }}:</strong>
         {%- if round_robin_generation_intro and round_robin_generation_intro.is_manual_mode -%}
-          {{ _('Expertenoption mit manueller Gruppenzahl. Der Builder materialisiert genau die vorgegebene Anzahl Gruppen und leitet daraus die Qualifikation ins Hauptturnier ab.') }}
+          {{ _('Expertenoption mit manueller Gruppenzahl. Der Turnierplaner materialisiert genau die vorgegebene Anzahl Gruppen und leitet daraus die Qualifikation ins Hauptturnier ab.') }}
         {%- else -%}
-          {{ _('Empfohlener Standard. Bei einer Main Stage mit 16 Plätzen bevorzugt der Builder 8 Gruppen mit Top 2 pro Gruppe und verteilt die ready Teilnehmer möglichst gleichmäßig.') }}
+          {{ _('Empfohlener Standard. Bei einem Hauptturnier mit 16 Plätzen bevorzugt der Turnierplaner 8 Gruppen mit Top 2 pro Gruppe und verteilt die bereiten Teilnehmer möglichst gleichmäßig.') }}
         {%- endif -%}
         {%- if round_robin_generation_intro and round_robin_generation_intro.distribution_summary -%}
           <br>
@@ -201,7 +201,7 @@
       </div>
       <div class="ns-admin-form-callout mb">
         <strong>{{ _('Wichtig') }}:</strong>
-        {{ _('Diese Summary-Stage hat keinen eigenen normalen Runden-Zeitplan. Startzeiten und Pairings bearbeitest du nach dem Erzeugen in den einzelnen Gruppen-Stages.') }}
+        {{ _('Diese Übersichtsphase hat keinen eigenen normalen Runden-Zeitplan. Startzeiten und Pairings bearbeitest du nach dem Erzeugen in den einzelnen Gruppenphasen.') }}
       </div>
       {%- else %}
       <h2>{{ _('Runden-Zeitplan') }}</h2>
@@ -260,7 +260,7 @@
             {%- if flatout2_generation_state %}
       <h2>{{ _('FlatOut 2 Setup') }}</h2>
       <p class="dimmed">
-        {{ _('Diese Stage wird bei FlatOut 2 vollständig manuell vorbereitet. Lege zuerst fest, wie viele Matches es in dieser Stage gibt. Danach konfigurierst du die Rennen für die Stage und weist die Teilnehmer pro Match zu.') }}
+        {{ _('Diese Phase wird bei FlatOut 2 vollständig manuell vorbereitet. Lege zuerst fest, wie viele Matches es in dieser Phase gibt. Danach konfigurierst du die Rennen für die Phase und weist die Teilnehmer pro Match zu.') }}
       </p>
 
       {%- for round_state in flatout2_generation_state.rounds %}
@@ -268,12 +268,12 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h3 class="ns-admin-form-section-title">{{ round_state.display_title }}</h3>
-            <p class="ns-admin-form-section-text">{{ _('Setup für diese Stage.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Setup für diese Phase.') }}</p>
           </div>
         </div>
 
         <div class="form-field">
-          <label class="form-label ns-admin-form-label" for="flatout2_match_count_round_{{ round_state.round_no }}">{{ _('Matches in dieser Stage') }}</label>
+          <label class="form-label ns-admin-form-label" for="flatout2_match_count_round_{{ round_state.round_no }}">{{ _('Matches in dieser Phase') }}</label>
           <select class="form-control" id="flatout2_match_count_round_{{ round_state.round_no }}" name="flatout2_match_count_round_{{ round_state.round_no }}" data-flatout2-match-count data-round-no="{{ round_state.round_no }}">
             {%- for match_count in flatout2_generation_state.match_count_choices %}
             <option value="{{ match_count }}"{% if round_state.match_count == match_count %} selected{% endif %}>{{ match_count }}</option>
@@ -282,7 +282,7 @@
         </div>
 
         <div class="form-field">
-          <label class="form-label ns-admin-form-label" for="flatout2_race_count_round_{{ round_state.round_no }}">{{ _('Rennen in dieser Stage') }}</label>
+          <label class="form-label ns-admin-form-label" for="flatout2_race_count_round_{{ round_state.round_no }}">{{ _('Rennen in dieser Phase') }}</label>
           <select class="form-control" id="flatout2_race_count_round_{{ round_state.round_no }}" name="flatout2_race_count_round_{{ round_state.round_no }}" data-flatout2-race-count data-round-no="{{ round_state.round_no }}">
             {%- for race_count in flatout2_generation_state.race_count_choices %}
             <option value="{{ race_count }}"{% if round_state.race_count == race_count %} selected{% endif %}>{{ race_count }}</option>
@@ -351,7 +351,7 @@
                 </td>
                 <td>
                   <select class="form-control" name="flatout2_participant_round_{{ round_state.round_no }}_match_{{ match_state.match_no }}_slot_{{ slot_no }}">
-                    <option value="">{{ _('TBD') }}</option>
+                    <option value="">{{ _('offen') }}</option>
                     {%- for participant in flatout2_generation_state.participant_choices %}
                     <option value="{{ participant.value }}"{% if match_state.participant_ids[slot_no - 1] == participant.value %} selected{% endif %}>{{ participant.label }}</option>
                     {%- endfor %}
@@ -370,15 +370,15 @@
       <div class="ns-admin-form-actions">
         <button type="submit" class="button color-primary">
           {%- if is_flatout2_manual_stage -%}
-            {{ _('Stage vorbereiten') if existing_stage_match_count == 0 else _('Stage neu vorbereiten') }}
+            {{ _('Phase vorbereiten') if existing_stage_match_count == 0 else _('Phase neu vorbereiten') }}
           {%- elif is_incremental_swiss_generation -%}
             {{ _('Nächste Runde generieren') }}
           {%- elif is_incremental_flatout2_generation -%}
             {{ _('%(title)s vorbereiten', title=(preview.rounds[0].display_title if preview.rounds and preview.rounds[0].display_title else _('Nächste FlatOut-2-Runde'))) }}
           {%- elif existing_stage_match_count > 0 -%}
-            {{ _('Matches mit diesen Seeds neu generieren') }}
+            {{ _('Matches mit diesen Setzplätzen neu generieren') }}
           {%- else -%}
-            {{ _('Matches mit diesen Seeds generieren') }}
+            {{ _('Matches mit diesen Setzplätzen generieren') }}
           {%- endif -%}
         </button>
         <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id) }}" class="button is-outlined">{{ _('Abbrechen') }}</a>
@@ -408,7 +408,7 @@
       const validationBox = seedingForm.querySelector('[data-role="seed-validation"]');
       const rerollButton = seedingForm.querySelector('[data-action="reroll-auto-seeds"]');
       const resetButton = seedingForm.querySelector('[data-action="reset-manual-seeds"]');
-      const invalidManualMessage = {{ _('Manuelle Seeds müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.')|tojson }};
+      const invalidManualMessage = {{ _('Manuelle Setzplätze müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.')|tojson }};
 
       const shuffle = (items) => {
         const copy = [...items];

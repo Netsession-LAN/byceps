@@ -69,7 +69,7 @@ def get_stage_generation_participants(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     stage = db_stage_to_model(db_stage)
     return select_generation_participants_for_stage(
@@ -216,7 +216,7 @@ def _decide_by_builder_main_stage_size(
         return Ok(eligible_participants)
     if not has_preliminary and len(eligible_participants) > builder_main_stage_size:
         return Err(
-            'Die aktuelle Anzahl ready Teilnehmer überschreitet die konfigurierte Main Stage Größe. '
+            'Die aktuelle Anzahl bereiter Teilnehmer überschreitet die konfigurierte Größe des Hauptturniers. '
             'Aktiviere eine Vorrunde oder reduziere die Teilnehmerbasis.'
         )
     return None
@@ -236,7 +236,7 @@ def _select_builder_fixed_participants(
             continue
 
     if not fixed_participant_ids:
-        return Err('Builder-Gruppen-Teilnehmerliste ist leer.')
+        return Err('Teilnehmerliste der Gruppe ist leer.')
 
     ready_participants_by_id = {
         participant.id: participant

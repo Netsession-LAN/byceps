@@ -52,7 +52,7 @@ def set_participant_seed(
     initiator: User,
 ) -> Result[Participant, str]:
     if seed < 1:
-        return Err('Der Seed muss mindestens 1 sein.')
+        return Err('Der Setzplatz muss mindestens 1 sein.')
 
     if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
@@ -75,7 +75,7 @@ def set_participant_seed(
     active_participant_count = len(db_participants)
     if seed > active_participant_count:
         return Err(
-            'Der Seed darf nicht größer sein als die Zahl der aktiven Teilnehmer.'
+            'Der Setzplatz darf nicht größer sein als die Zahl der aktiven Teilnehmer.'
         )
 
     seeded_participants = sorted(
@@ -90,8 +90,8 @@ def set_participant_seed(
     max_assignable_seed = len(seeded_participants) + 1
     if seed > max_assignable_seed:
         return Err(
-            'Seeds müssen lückenlos vergeben werden. '
-            f'Der nächste freie manuelle Seed ist {max_assignable_seed}.'
+            'Setzplätze müssen lückenlos vergeben werden. '
+            f'Der nächste freie manuelle Setzplatz ist {max_assignable_seed}.'
         )
 
     insertion_index = seed - 1
@@ -127,7 +127,7 @@ def set_stage_generation_seeds(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     stage = db_stage_to_model(db_stage)
     selected_participants_result = get_stage_generation_participants(
@@ -138,7 +138,7 @@ def set_stage_generation_seeds(
 
     selected_participants = selected_participants_result.unwrap()
     if len(selected_participants) < 2:
-        return Err('Zu wenige Teilnehmer für die Seed-Vergabe.')
+        return Err('Zu wenige Teilnehmer für die Vergabe der Setzplätze.')
 
     selected_participants_by_id = {
         participant.id: participant for participant in selected_participants
@@ -172,7 +172,7 @@ def set_stage_generation_seeds(
     for seed, participant_id in enumerate(final_participant_ids, start=1):
         db_participant = db_participants_by_id.get(participant_id)
         if db_participant is None:
-            return Err('Ein Teilnehmer für die Seed-Vergabe wurde nicht gefunden.')
+            return Err('Ein Teilnehmer für die Vergabe der Setzplätze wurde nicht gefunden.')
         db_participant.seed = seed
 
     _append_stage_generation_seeds_audit_log(
@@ -234,13 +234,13 @@ def _resolve_final_seed_participant_ids(
 ) -> Result[list[ParticipantID], str]:
     if set(auto_seed_participant_ids) != selected_participant_ids:
         return Err(
-            'Die Teilnehmerliste hat sich geändert. Bitte die Seeding-Seite neu laden.'
+            'Die Teilnehmerliste hat sich geändert. Bitte die Setzlisten-Seite neu laden.'
         )
 
     if is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
         if manual_seed_by_participant_id:
             return Err(
-                'Seeding für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
+                'Die Setzliste für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
             )
 
         return Ok([participant.id for participant in selected_participants])
@@ -256,7 +256,7 @@ def _resolve_final_seed_participant_ids(
     )
     if manual_seed_values != expected_manual_seed_values:
         return Err(
-            'Manuelle Seeds müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
+            'Manuelle Setzplätze müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
         )
 
     manual_prefix_participant_ids = [

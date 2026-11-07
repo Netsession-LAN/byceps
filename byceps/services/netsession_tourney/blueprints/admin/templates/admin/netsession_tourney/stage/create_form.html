@@ -4,10 +4,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage erstellen')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Phase erstellen')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -16,11 +16,11 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage erstellen'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Phase erstellen'), 'url': none},
     ],
     tournament.title,
-    _('Stage erstellen'),
+    _('Phase erstellen'),
     _('Lege Spielsystem, Teilnehmerquelle und Zeitplanung in einer klaren Reihenfolge fest.'),
     _('Neu'),
     'status-draft',
@@ -33,7 +33,7 @@
 
   {% with
     form_action=url_for('.stage_create', party_id=party.id, tournament_id=tournament.id),
-    submit_label=_('Stage anlegen'),
+    submit_label=_('Phase anlegen'),
     cancel_url=url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'),
     form_id='ns-tourney-stage-create-form',
     show_participant_source_settings=show_participant_source_settings,

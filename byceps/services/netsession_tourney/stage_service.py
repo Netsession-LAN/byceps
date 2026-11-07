@@ -98,16 +98,16 @@ def create_stage(
     if not _is_stage_type_compatible_with_tournament_mode(
         spec.family, tournament_mode
     ):
-        return Err('Dieser Stage-Typ passt nicht zum Turniermodus.')
+        return Err('Dieser Phasentyp passt nicht zum Turniermodus.')
 
     tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
-        return Err('Dieser Stage-Typ passt nicht zum Anmeldemodus.')
+        return Err('Dieser Phasentyp passt nicht zum Anmeldemodus.')
 
     if not spec.enabled:
-        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
+        return Err('Dieser Phasentyp ist zurzeit deaktiviert.')
 
     max_order_no = db.session.scalar(
         select(db.func.max(DbNetsessionTourneyStage.order_no)).filter_by(
@@ -154,7 +154,7 @@ def update_stage(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.draft.value:
-        return Err('Stages lassen sich nur im Entwurf ändern.')
+        return Err('Phasen lassen sich nur im Entwurf ändern.')
 
     db_stage = db.session.scalar(
         select(DbNetsessionTourneyStage).filter_by(
@@ -162,23 +162,23 @@ def update_stage(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     spec = get_stage_type_spec(type_)
     tournament_mode = TournamentMode(db_tournament.mode)
     if not _is_stage_type_compatible_with_tournament_mode(
         spec.family, tournament_mode
     ):
-        return Err('Dieser Stage-Typ passt nicht zum Turniermodus.')
+        return Err('Dieser Phasentyp passt nicht zum Turniermodus.')
 
     tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
-        return Err('Dieser Stage-Typ passt nicht zum Anmeldemodus.')
+        return Err('Dieser Phasentyp passt nicht zum Anmeldemodus.')
 
     if not spec.enabled:
-        return Err('Dieser Stage-Typ ist zurzeit deaktiviert.')
+        return Err('Dieser Phasentyp ist zurzeit deaktiviert.')
 
     type_changed = db_stage.type != type_.value
     merged = merge_stage_settings(
@@ -220,7 +220,7 @@ def delete_stage(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.draft.value:
-        return Err('Stages lassen sich nur im Entwurf ändern.')
+        return Err('Phasen lassen sich nur im Entwurf ändern.')
 
     db_stage = db.session.scalar(
         select(DbNetsessionTourneyStage).filter_by(
@@ -228,7 +228,7 @@ def delete_stage(
         )
     )
     if db_stage is None:
-        return Err('Unbekannte Stage.')
+        return Err('Unbekannte Phase.')
 
     if is_builder_round_robin_summary_db_stage(db_stage):
         delete_builder_generated_group_stages(

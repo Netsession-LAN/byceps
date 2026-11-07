@@ -71,7 +71,7 @@ def build_pending_builder_round_summary_lines(stage) -> list[str]:
     if source_mode == 'stage_qualifiers':
         return [
             gettext(
-                'Diese Runde startet, sobald die vorherige Builder-Stufe abgeschlossen ist.'
+                'Diese Runde startet, sobald die vorherige Stufe abgeschlossen ist.'
             )
         ]
     return [gettext('Diese Runde wurde noch nicht vorbereitet.')]

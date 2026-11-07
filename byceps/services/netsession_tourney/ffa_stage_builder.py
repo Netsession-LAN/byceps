@@ -207,10 +207,10 @@ def validate_ffa_stage_builder_settings(
         StageType.ffa_flatout2_single_elimination,
     }
     if main_stage_type not in allowed_ffa_stage_types:
-        return Err('Dieser Main-Stage-Typ wird vom FFA-Baukasten nicht unterstützt.')
+        return Err('Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.')
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Ungültige Größe der Main Stage.')
+        return Err('Ungültige Größe des Hauptturniers.')
 
     if generation_basis != 'ready':
         return Err('Ungültige Grundlage für die Erzeugung.')
@@ -297,7 +297,7 @@ def preview_ffa_stage_builder_stage(
 
     engine = find_stage_engine(stage_type)
     if engine is None:
-        return Err('Für diesen FFA-Stage-Typ gibt es keine Match-Erzeugung.')
+        return Err('Für diesen FFA-Phasentyp gibt es keine Match-Erzeugung.')
 
     preview_stage = Stage(
         id=StageID(generate_uuid7()),

@@ -5,10 +5,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Vorrunde')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Vorrunde')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -18,12 +18,12 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage Builder'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Turnierplaner'), 'url': none},
     ],
     tournament.title,
-    _('Stage Builder'),
-    _('Schritt 2 von 4: Lege fest, ob und wie bei Bedarf eine Vorrunde vorgeschaltet wird.') if not is_ffa_builder else _('Schritt 2 von 4: Lege fest, ob vor der Main Stage eine FFA-Vorrunde gespielt werden soll.'),
+    _('Turnierplaner'),
+    _('Schritt 2 von 4: Lege fest, ob und wie bei Bedarf eine Vorrunde vorgeschaltet wird.') if not is_ffa_builder else _('Schritt 2 von 4: Lege fest, ob vor dem Hauptturnier eine FFA-Vorrunde gespielt werden soll.'),
     '2/4',
     'status-draft',
     [
@@ -43,16 +43,16 @@
               {%- if not is_ffa_builder -%}
               {{ _('Round Robin Groups qualifiziert in V1 gleichmäßig pro Gruppe. Swiss qualifiziert in V1 als Gesamtranking ins Hauptturnier.') }}
               {%- else -%}
-              {{ _('Die FFA-Vorrunde spielt die Ready-Teilnehmer zunächst auf die gewählte Main-Stage-Zielgröße herunter. Danach qualifizieren sich exakt so viele Teilnehmer ins Hauptturnier.') }}
+              {{ _('Die FFA-Vorrunde spielt die bereiten Teilnehmer zunächst auf die gewählte Zielgröße des Hauptturniers herunter. Danach qualifizieren sich exakt so viele Teilnehmer ins Hauptturnier.') }}
               {%- endif -%}
             </p>
           </div>
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_check_field(form.use_preliminary, _('Wenn deaktiviert, plant der Builder ausschließlich das Hauptturnier.') if not is_ffa_builder else _('Wenn deaktiviert, startet das FFA-Turnier direkt mit der Main Stage.')) }}
+          {{ render_check_field(form.use_preliminary, _('Wenn deaktiviert, plant der Turnierplaner ausschließlich das Hauptturnier.') if not is_ffa_builder else _('Wenn deaktiviert, startet das FFA-Turnier direkt mit dem Hauptturnier.')) }}
           <div data-preliminary-field>
-            {{ render_field(form.preliminary_type, _('Wähle das Vorrundenformat, das später aus den Ready-Teilnehmern konkret aufgebaut werden soll.') if not is_ffa_builder else _('Für FFA wird hier die Stage-Familie der Vorrunde festgelegt. Die Heat-Größe bleibt identisch zur Main Stage.')) }}
+            {{ render_field(form.preliminary_type, _('Wähle das Vorrundenformat, das später aus den bereiten Teilnehmern konkret aufgebaut werden soll.') if not is_ffa_builder else _('Für FFA wird hier die Phasenfamilie der Vorrunde festgelegt. Die Heat-Größe bleibt identisch zum Hauptturnier.')) }}
           </div>
           {%- if not is_ffa_builder %}
           <div data-round-robin-field>
@@ -68,7 +68,7 @@
         </div>
         {%- if is_ffa_builder %}
         <div class="ns-admin-inline-note-body">
-          <div>{{ _('Die Zielgröße der Main Stage kommt aus Schritt 1. Genau diese Anzahl qualifiziert sich aus der Vorrunde weiter.') }}</div>
+          <div>{{ _('Die Zielgröße des Hauptturniers kommt aus Schritt 1. Genau diese Anzahl qualifiziert sich aus der Vorrunde weiter.') }}</div>
           <div>{{ _('Für FlatOut 2 bleibt auch in der Vorrunde die Regel „Top 3 je Heat“ aktiv.') }}</div>
         </div>
         {%- endif %}

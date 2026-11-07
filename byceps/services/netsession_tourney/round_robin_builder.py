@@ -67,7 +67,7 @@ def resolve_round_robin_builder_plan(
     if not candidates:
         return Err(
             'Für Round Robin Groups konnte keine sinnvolle Vorrundenverteilung gefunden werden. '
-            'Wähle eine andere Main Stage Größe oder ein anderes Vorrundenformat.'
+            'Wähle eine andere Größe des Hauptturniers oder ein anderes Vorrundenformat.'
         )
 
     candidates.sort(key=lambda item: item[0])

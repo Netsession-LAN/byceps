@@ -621,7 +621,7 @@ def register(blueprint):
                 tab='stages',
                 stage_id=back_stage_id,
             )
-            back_label = gettext('Zurück zu Stages')
+            back_label = gettext('Zurück zu Phasen')
         else:
             back_stage_id = None
             back_url = url_for(
@@ -859,7 +859,7 @@ def register(blueprint):
                 flash_success(gettext('Turnier wurde gespeichert.'))
                 if mode_changed:
                     flash_success(
-                        gettext('Modus geändert, alte Stages wurden gelöscht.')
+                        gettext('Modus geändert, alte Phasen wurden gelöscht.')
                     )
                 if registration_mode_changed:
                     flash_success(gettext('Anmeldemodus wurde geändert.'))

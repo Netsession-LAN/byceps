@@ -611,7 +611,7 @@ class TournamentPrizeForm(LocalizedForm):
 
 class StageForm(LocalizedForm):
     type = SelectField(
-        lazy_gettext('Stage-Typ'),
+        lazy_gettext('Phasentyp'),
         validators=[InputRequired()],
     )
     name = StringField(
@@ -715,11 +715,11 @@ class StageBuilderMainForm(LocalizedForm):
         validators=[InputRequired()],
     )
     main_stage_type = SelectField(
-        lazy_gettext('Main Stage Typ'),
+        lazy_gettext('Typ des Hauptturniers'),
         validators=[InputRequired()],
     )
     main_stage_size = SelectField(
-        lazy_gettext('Main Stage Größe'),
+        lazy_gettext('Größe des Hauptturniers'),
         validators=[InputRequired()],
     )
     max_players_per_match = SelectField(
@@ -893,7 +893,7 @@ class ParticipantStatusForm(LocalizedForm):
 
 class ParticipantSeedForm(LocalizedForm):
     seed = IntegerField(
-        lazy_gettext('Seed'),
+        lazy_gettext('Setzplatz'),
         validators=[InputRequired(), NumberRange(min=1, max=2048)],
     )
 

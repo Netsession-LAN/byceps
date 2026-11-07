@@ -58,7 +58,7 @@ def validate_actor_matches_report_mode(
         return None
 
     if stage_result_report_mode == RESULT_REPORT_MODE_ADMIN_ONLY:
-        return 'In dieser Stage tragen nur Admins die Ergebnisse ein.'
+        return 'In dieser Phase tragen nur Admins die Ergebnisse ein.'
 
     if tournament_mode != TournamentMode.duel:
         return None

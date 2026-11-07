@@ -7,27 +7,27 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h2 class="ns-admin-form-section-title">{{ _('Basis') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('Typ, Name und Teilnehmerquelle dieser Stage.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Typ, Name und Teilnehmerquelle dieser Phase.') }}</p>
           </div>
         </div>
 
         <div class="ns-admin-stage-field-group">
-          {{ render_field(form.type, _('Legt fest, nach welchem Spielsystem diese Stage erzeugt wird (z. B. KO-Baum, Swiss oder FFA-Heat). Die Auswahl ist auf Turniermodus und Registrierungsmodus abgestimmt.')) }}
+          {{ render_field(form.type, _('Legt fest, nach welchem Spielsystem diese Phase erzeugt wird (z. B. KO-Baum, Swiss oder FFA-Heat). Die Auswahl ist auf Turniermodus und Registrierungsmodus abgestimmt.')) }}
           <div id="{{ form_id|default('ns-tourney-stage-form') }}-type-info" class="ns-admin-form-callout ns-admin-stage-type-info"></div>
         </div>
 
         <div class="ns-admin-stage-field-group">
-          {{ render_field(form.name, _('Interner Anzeigename für diese Stage, z. B. Gruppenphase oder Finalrunde.')) }}
+          {{ render_field(form.name, _('Interner Anzeigename für diese Phase, z. B. Gruppenphase oder Finalrunde.')) }}
         </div>
 
         {%- if show_participant_source_settings|default(false) %}
         {%- set is_stage_qualifier_mode = stage_source_mode == 'stage_qualifiers' %}
         <section class="ns-admin-stage-source-box">
-          <h3 class="ns-admin-form-section-title">{{ _('Teilnehmerquelle für diese Stage') }}</h3>
+          <h3 class="ns-admin-form-section-title">{{ _('Teilnehmerquelle für diese Phase') }}</h3>
           <div class="form-field">
             <div class="ns-admin-field-head">
               <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-participant_source_mode">{{ _('Quelle') }}</label>
-              {{ render_help(_('Legt fest, ob die Stage aus dem kompletten Turnierfeld oder aus Qualifikanten vorheriger Stages befüllt wird.')) }}
+              {{ render_help(_('Legt fest, ob die Phase aus dem kompletten Turnierfeld oder aus Qualifikanten vorheriger Phasen befüllt wird.')) }}
             </div>
             <select
               class="form-control"
@@ -35,15 +35,15 @@
               name="participant_source_mode"
             >
               <option value="tournament"{% if stage_source_mode != 'stage_qualifiers' %} selected{% endif %}>{{ _('Komplettes Turnierfeld') }}</option>
-              <option value="stage_qualifiers"{% if stage_source_mode == 'stage_qualifiers' %} selected{% endif %}>{{ _('Qualifizierte aus vorherigen Stages') }}</option>
+              <option value="stage_qualifiers"{% if stage_source_mode == 'stage_qualifiers' %} selected{% endif %}>{{ _('Qualifizierte aus vorherigen Phasen') }}</option>
             </select>
           </div>
 
           <div data-stage-qualifier-settings{% if not is_stage_qualifier_mode %} hidden{% endif %}>
             <div class="form-field">
               <div class="ns-admin-field-head">
-                <div class="form-label ns-admin-form-label">{{ _('Quell-Stages (vorherige Stages)') }}</div>
-                {{ render_help(_('Hier wählst du aus, aus welchen bereits gespielten Stages Teilnehmer in diese Stage nachrücken.')) }}
+                <div class="form-label ns-admin-form-label">{{ _('Quellphasen (vorherige Phasen)') }}</div>
+                {{ render_help(_('Hier wählst du aus, aus welchen bereits gespielten Phasen Teilnehmer in diese Phase nachrücken.')) }}
               </div>
               {%- if available_source_stages %}
               <div class="ns-admin-stage-source-list">
@@ -61,14 +61,14 @@
                 {%- endfor %}
               </div>
               {%- else %}
-              <div class="dimmed">{{ _('Keine vorherigen Stages verfügbar.') }}</div>
+              <div class="dimmed">{{ _('Keine vorherigen Phasen verfügbar.') }}</div>
               {%- endif %}
             </div>
 
             <div class="form-field">
               <div class="ns-admin-field-head">
                 <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_selection_mode">{{ _('Qualifikationsmodus') }}</label>
-                {{ render_help(_('Legt fest, ob die besten Teilnehmer pro Quell-Stage oder bei Round Robin Groups pro Gruppe übernommen werden.')) }}
+                {{ render_help(_('Legt fest, ob die besten Teilnehmer pro Quellphase oder bei Round Robin Groups pro Gruppe übernommen werden.')) }}
               </div>
               <select
                 class="form-control"
@@ -76,14 +76,14 @@
                 name="qualifier_selection_mode"
                 {% if not is_stage_qualifier_mode %}disabled{% endif %}
               >
-                <option value="per_stage"{% if stage_qualifier_selection_mode|default('per_stage') != 'per_group' %} selected{% endif %}>{{ _('Top N pro Quell-Stage') }}</option>
+                <option value="per_stage"{% if stage_qualifier_selection_mode|default('per_stage') != 'per_group' %} selected{% endif %}>{{ _('Top N pro Quellphase') }}</option>
                 <option value="per_group"{% if stage_qualifier_selection_mode|default('per_stage') == 'per_group' %} selected{% endif %}>{{ _('Top N pro Gruppe') }}</option>
               </select>
             </div>
 
             <div class="form-field">
               <div class="ns-admin-field-head">
-                <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_top_n">{{ _('Top N pro Quell-Stage') }}</label>
+                <label class="form-label ns-admin-form-label" for="{{ form_id|default('ns-tourney-stage-form') }}-qualifier_top_n">{{ _('Top N pro Quellphase') }}</label>
                 {{ render_help(_('Gibt an, wie viele Teilnehmer je nach Qualifikationsmodus übernommen werden. Bei Round Robin Groups kann das auch Top N pro Gruppe sein.')) }}
               </div>
               <input
@@ -106,7 +106,7 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h2 class="ns-admin-form-section-title">{{ _('Einstellungen') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('Regeln, Größen und Zeitplanung dieser Stage.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Regeln, Größen und Zeitplanung dieser Phase.') }}</p>
           </div>
         </div>
 
@@ -226,9 +226,9 @@
       round_robin_groups: {{ _('Round Robin Groups: Jeder gegen jeden innerhalb der Gruppen.')|tojson }},
       league: {{ _('League: Jeder gegen jeden über die Liga-Runden.')|tojson }},
       swiss: {{ _('Swiss: Mehrere Runden ohne direktes Ausscheiden, Paarungen nach laufender Wertung.')|tojson }},
-      ffa_simple: {{ _('FFA Simple: Ein einzelnes FFA-Match mit allen Teilnehmern dieser Stage. Ingame-Platz und Kills werden im Admin erfasst, daraus entstehen Turnierpunkte.')|tojson }},
+      ffa_simple: {{ _('FFA Simple: Ein einzelnes FFA-Match mit allen Teilnehmern dieser Phase. Ingame-Platz und Kills werden im Admin erfasst, daraus entstehen Turnierpunkte.')|tojson }},
       ffa_single_elimination: {{ _('FFA Single Elimination: FFA-Heats mit KO-Fortschritt in Folgerunden.')|tojson }},
-      ffa_flatout2_single_elimination: {{ _('FlatOut 2: manuell vorbereitete FFA-Stage mit Runden, Matches, Host-Auswahl und konfigurierbarem Rennen-Setup pro Match. Platz- und Killpunkte werden dabei nicht verwendet.')|tojson }},
+      ffa_flatout2_single_elimination: {{ _('FlatOut 2: manuell vorbereitete FFA-Phase mit Runden, Matches, Host-Auswahl und konfigurierbarem Rennen-Setup pro Match. Platz- und Killpunkte werden dabei nicht verwendet.')|tojson }},
     };
 
     const configurableSettingContainers = Array.from(

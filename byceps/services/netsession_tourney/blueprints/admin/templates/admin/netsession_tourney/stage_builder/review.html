@@ -4,7 +4,7 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Prüfen')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Prüfen')] %}
 {% set stage_type_labels = {
   'single_elimination': 'Single Elimination',
   'double_elimination': 'Double Elimination',
@@ -16,7 +16,7 @@
 } %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -26,12 +26,12 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage Builder'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Turnierplaner'), 'url': none},
     ],
     tournament.title,
-    _('Stage Builder'),
-    _('Schritt 4 von 4: Prüfe die geplante Struktur und die aktuelle Builder-Vorschau vor dem Anlegen der Stages.'),
+    _('Turnierplaner'),
+    _('Schritt 4 von 4: Prüfe die geplante Struktur und die aktuelle Vorschau des Turnierplaners vor dem Anlegen der Phasen.'),
     '4/4',
     'status-draft',
     [
@@ -45,23 +45,23 @@
     <section class="box ns-admin-form-section">
       <div class="ns-admin-form-section-head">
         <div>
-          <h2 class="ns-admin-form-section-title">{{ _('Geplanter Stage-Plan') }}</h2>
-          <p class="ns-admin-form-section-text">{{ _('Diese Stages werden angelegt. Die konkrete Vorrundenverteilung wird später aus den Ready-Teilnehmern berechnet.') }}</p>
+          <h2 class="ns-admin-form-section-title">{{ _('Geplanter Phasenplan') }}</h2>
+          <p class="ns-admin-form-section-text">{{ _('Diese Phasen werden angelegt. Die konkrete Vorrundenverteilung wird später aus den bereiten Teilnehmern berechnet.') }}</p>
         </div>
       </div>
 
       <dl class="ns-admin-review-grid">
         <div class="ns-admin-review-item">
           <dt class="ns-admin-review-label">{{ _('Generierungsbasis') }}</dt>
-          <dd class="ns-admin-review-value">{{ _('Ready-Teilnehmer') }}</dd>
+          <dd class="ns-admin-review-value">{{ _('Bereite Teilnehmer') }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Main Stage Typ') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Typ des Hauptturniers') }}</dt>
           <dd class="ns-admin-review-value">{{ stage_type_labels.get(state.main_stage_type, state.main_stage_type) }}</dd>
         </div>
         {% if is_ffa_builder %}
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Main Stage Größe') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Größe des Hauptturniers') }}</dt>
           <dd class="ns-admin-review-value">{{ state.main_stage_size }}</dd>
         </div>
         <div class="ns-admin-review-item">
@@ -70,7 +70,7 @@
         </div>
         {% else %}
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Main Stage Größe') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Größe des Hauptturniers') }}</dt>
           <dd class="ns-admin-review-value">{{ state.main_stage_size }}</dd>
         </div>
         {% endif %}
@@ -128,7 +128,7 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h2 class="ns-admin-form-section-title">{{ stage_builder_preview_summary.title }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('Diese Vorschau verwendet die aktuelle Anzahl Ready-Teilnehmer im Turnier. Genau diese Werte fehlten bisher vor dem Generieren.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Diese Vorschau verwendet die aktuelle Anzahl bereiter Teilnehmer im Turnier. Genau diese Werte fehlten bisher vor dem Generieren.') }}</p>
           </div>
         </div>
 
@@ -148,7 +148,7 @@
   <form action="{{ url_for('.stage_builder_wizard_review_submit', party_id=party.id, tournament_id=tournament.id) }}" method="post">
     <div class="ns-admin-form-actions">
       <a href="{{ url_for('.stage_builder_wizard_timing', party_id=party.id, tournament_id=tournament.id) }}" class="button is-outlined">{{ _('Zurück') }}</a>
-      <button type="submit" class="button color-primary">{{ _('Stage-Plan erzeugen') }}</button>
+      <button type="submit" class="button color-primary">{{ _('Phasenplan erzeugen') }}</button>
     </div>
   </form>
 {% endblock %}

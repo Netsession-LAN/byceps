@@ -121,14 +121,14 @@ def get_effective_qualifier_top_n_for_source_stage(
 
     main_stage_size = get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
-        return Err('Ungültige Größe der Main Stage im Baukasten.')
+        return Err('Ungültige Größe des Hauptturniers im Baukasten.')
 
     if selection_mode == 'per_stage':
         return Ok(main_stage_size)
 
     if db_source_stage.type != StageType.round_robin_groups.value:
         return Err(
-            'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppen-Stage als Quelle.'
+            'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppenphase als Quelle.'
         )
 
     ranked_group_participant_ids_result = get_ranked_participant_ids_by_group_for_stage(
@@ -144,7 +144,7 @@ def get_effective_qualifier_top_n_for_source_stage(
         return Err('enthält keine gewerteten Gruppen.')
     if main_stage_size % group_count != 0:
         return Err(
-            'die Qualifikanten aus den Gruppen lassen sich nicht gleichmäßig auf die Größe der Main Stage verteilen.'
+            'die Qualifikanten aus den Gruppen lassen sich nicht gleichmäßig auf die Größe des Hauptturniers verteilen.'
         )
 
     top_n = main_stage_size // group_count

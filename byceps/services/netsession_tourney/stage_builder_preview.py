@@ -74,7 +74,7 @@ def preview_stage_builder_plan(
         )
 
     if tournament_mode != TournamentMode.duel:
-        return Err('Der Stage Builder V1 unterstützt diesen Turniermodus nicht.')
+        return Err('Der Turnierplaner unterstützt diesen Turniermodus nicht.')
 
     validation_error = _validate_duel_stage_builder_options(
         generation_basis=generation_basis,
@@ -234,11 +234,11 @@ def resolve_stage_builder_stage_for_generation(
 
     main_stage_size = get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
-        return Err('Ungültige Größe der Main Stage im Baukasten.')
+        return Err('Ungültige Größe des Hauptturniers im Baukasten.')
 
     if participant_count <= main_stage_size:
         return Err(
-            'Vorrunde ist mit der aktuellen Anzahl ready Teilnehmer nicht nötig.'
+            'Vorrunde ist mit der aktuellen Anzahl bereiter Teilnehmer nicht nötig.'
         )
 
     if stage.type == StageType.round_robin_groups:

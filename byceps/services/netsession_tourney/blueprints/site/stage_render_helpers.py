@@ -414,7 +414,7 @@ def _build_ffa_match_participant_data(
 
     return {
         'slot_no': slot.slot_no,
-        'name': participant.name if participant is not None else gettext('TBD'),
+        'name': participant.name if participant is not None else gettext('offen'),
         'participant': participant,
         'image_url': image_url,
         'image_alt': image_alt,
@@ -1115,7 +1115,7 @@ def _get_team_name_for_slot(slots, slot_no: int, participants_by_id) -> str:
 
     participant = participants_by_id.get(slot.participant_id)
     if participant is None:
-        return gettext('TBD')
+        return gettext('offen')
 
     return participant.name
 

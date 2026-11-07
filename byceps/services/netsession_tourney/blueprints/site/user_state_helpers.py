@@ -221,11 +221,11 @@ def get_current_user_tournament_membership(
 
 def format_open_match_participant_name(slot, *, participants_by_id) -> str:
     if slot.participant_id is None:
-        return gettext('TBD')
+        return gettext('offen')
 
     participant = participants_by_id.get(slot.participant_id)
     if participant is None:
-        return gettext('TBD')
+        return gettext('offen')
 
     return participant.name
 

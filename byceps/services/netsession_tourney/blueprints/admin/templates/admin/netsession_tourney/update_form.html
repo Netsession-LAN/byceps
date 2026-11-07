@@ -31,7 +31,7 @@
   ) }}
 
   <form action="{{ url_for('.update', party_id=party.id, tournament_id=tournament.id) }}" method="post" enctype="multipart/form-data" data-ns-admin-tourney-form
-    {%- if tournament.status.value == 'draft' and stages %} data-mode-change-confirm="{{ _('Beim Moduswechsel werden die vorhandenen Stages (%(count)s) samt Matches gelöscht. Fortfahren?', count=stages|length) }}" data-current-mode="{{ tournament.mode.value }}"{% endif %}>
+    {%- if tournament.status.value == 'draft' and stages %} data-mode-change-confirm="{{ _('Beim Moduswechsel werden die vorhandenen Phasen (%(count)s) samt Matches gelöscht. Fortfahren?', count=stages|length) }}" data-current-mode="{{ tournament.mode.value }}"{% endif %}>
     {% include 'admin/netsession_tourney/_form.html' %}
     <div class="ns-admin-form-actions">
       <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>

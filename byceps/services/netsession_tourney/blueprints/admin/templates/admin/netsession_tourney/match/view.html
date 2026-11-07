@@ -5,7 +5,7 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Matches') if parent_return_to == 'matches' else _('Stages'), match_label] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Matches') if parent_return_to == 'matches' else _('Phasen'), match_label] %}
 
 {% block before_body %}
   {{ render_backlink(back_url, back_label) }}
@@ -28,7 +28,7 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Matches') if parent_return_to == 'matches' else _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') if parent_return_to == 'matches' else url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Matches') if parent_return_to == 'matches' else _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') if parent_return_to == 'matches' else url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
       {'label': stage.name, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages', stage_id=stage.id)} if parent_return_to != 'matches' and stage else none,
       {'label': match_label, 'url': none},
     ]|reject('equalto', none)|list,
@@ -38,7 +38,7 @@
     match.state.value,
     'status-' ~ match.state.value,
     [
-      {'label': _('Stage'), 'value': stage.name if stage else '-'},
+      {'label': _('Phase'), 'value': stage.name if stage else '-'},
       {'label': _('Geplant für'), 'value': match.scheduled_at|datetimeformat if match.scheduled_at else '-'},
       {'label': _('Runde'), 'value': match.round_no},
       {'label': _('Match-Nr.'), 'value': match.match_no},
@@ -57,7 +57,7 @@
     <div class="ns-admin-match-duel">
       <article class="ns-admin-match-party-card{% if result and result.winner_slot == 1 %} is-winner{% endif %}">
         <span class="ns-admin-match-party-label">{{ _('Slot') }} 1</span>
-        <strong class="ns-admin-match-party-name">{{ participant_1.name if participant_1 else _('TBD') }}</strong>
+        <strong class="ns-admin-match-party-name">{{ participant_1.name if participant_1 else _('offen') }}</strong>
         <span class="ns-admin-match-party-meta">
           {% if slot_1 and slot_1.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% elif slots_editable %}{{ _('Manuell verwaltbar') }}{% endif %}
         </span>
@@ -72,7 +72,7 @@
 
       <article class="ns-admin-match-party-card{% if result and result.winner_slot == 2 %} is-winner{% endif %}">
         <span class="ns-admin-match-party-label">{{ _('Slot') }} 2</span>
-        <strong class="ns-admin-match-party-name">{{ participant_2.name if participant_2 else _('TBD') }}</strong>
+        <strong class="ns-admin-match-party-name">{{ participant_2.name if participant_2 else _('offen') }}</strong>
         <span class="ns-admin-match-party-meta">
           {% if slot_2 and slot_2.source_match_slot_id %}{{ _('Automatisch zugewiesen') }}{% elif slots_editable %}{{ _('Manuell verwaltbar') }}{% endif %}
         </span>
@@ -95,7 +95,7 @@
         {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
         <tr>
           <td>{{ slot.slot_no }}</td>
-          <td>{{ participant.name if participant else _('TBD') }}</td>
+          <td>{{ participant.name if participant else _('offen') }}</td>
           <td>{{ slot_placements.get(slot.slot_no|string, slot_placements.get(slot.slot_no, '-')) }}</td>
           <td>{{ slot_points.get(slot.slot_no|string, slot_points.get(slot.slot_no, '-')) }}</td>
           <td>{{ slot_scores.get(slot.slot_no|string, slot_scores.get(slot.slot_no, '-')) }}</td>
@@ -105,7 +105,7 @@
             {%- elif participant %}
               <span class="dimmed">{{ _('Teilnehmer') }}</span>
             {%- else %}
-              <span class="dimmed">{{ _('TBD') }}</span>
+              <span class="dimmed">{{ _('offen') }}</span>
             {%- endif %}
           </td>
         </tr>
@@ -128,7 +128,7 @@
         {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
         <tr>
           <td>{{ slot.slot_no }}</td>
-          <td>{{ participant.name if participant else _('TBD') }}</td>
+          <td>{{ participant.name if participant else _('offen') }}</td>
           <td>{{ slot_placements.get(slot.slot_no|string, slot_placements.get(slot.slot_no, '-')) }}</td>
           <td>{{ slot_points.get(slot.slot_no|string, slot_points.get(slot.slot_no, 0)) }}</td>
           <td>
@@ -137,7 +137,7 @@
             {%- elif participant %}
               <span class="dimmed">{{ _('Teilnehmer') }}</span>
             {%- else %}
-              <span class="dimmed">{{ _('TBD') }}</span>
+              <span class="dimmed">{{ _('offen') }}</span>
             {%- endif %}
           </td>
         </tr>
@@ -251,7 +251,7 @@
               {%- endif %}
               <div class="ns-admin-match-slot-form-fields">
                 <select class="form-control" name="participant_id"{% if slot.source_match_slot_id %} disabled{% endif %}>
-                  <option value="">{{ _('Freilos / TBD') }}</option>
+                  <option value="">{{ _('Freilos / offen') }}</option>
                   {%- for participant in participants %}
                   <option value="{{ participant.id }}"{% if participant.id == slot.participant_id %} selected{% endif %}>{{ participant.name }}</option>
                   {%- endfor %}
@@ -283,7 +283,7 @@
             {%- if is_flatout2_result_match %}
             {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Für FlatOut 2 wird die Gesamtpunktzahl pro Teilnehmer erfasst; daraus wird das Match-Ranking automatisch berechnet.')) }}
             {%- elif is_ffa_scoring %}
-            {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Bei FFA-Scoring-Stages werden Ingame-Platz und Kills pro Slot erfasst. Turnierpunkte entstehen automatisch aus dem Stage-Schema.')) }}
+            {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis. Bei FFA-Scoring-Phasen werden Ingame-Platz und Kills pro Slot erfasst. Turnierpunkte entstehen automatisch aus dem Phasenschema.')) }}
             {%- else %}
             {{ render_help(_('Setzt oder überschreibt ein Match-Ergebnis für dieses Duell.')) }}
             {%- endif %}

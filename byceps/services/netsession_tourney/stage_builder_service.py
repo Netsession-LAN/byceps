@@ -73,7 +73,7 @@ def build_stage_builder_plan(
 
     if db_tournament.status != TournamentStatus.draft.value:
         return Err(
-            'Die Stage-Struktur kann nur im Draft-Status aufgebaut werden.'
+            'Die Phasenstruktur kann nur im Entwurf aufgebaut werden.'
         )
 
     existing_stage_count = db.session.scalar(
@@ -83,7 +83,7 @@ def build_stage_builder_plan(
     )
     if existing_stage_count:
         return Err(
-            'Für den Stage Builder V1 muss das Turnier noch keine Stages haben.'
+            'Für den Turnierplaner muss das Turnier noch keine Phasen haben.'
         )
 
     tournament_mode = TournamentMode(db_tournament.mode)
@@ -103,7 +103,7 @@ def build_stage_builder_plan(
         )
 
     if tournament_mode != TournamentMode.duel:
-        return Err('Der Stage Builder V1 unterstützt diesen Turniermodus nicht.')
+        return Err('Der Turnierplaner unterstützt diesen Turniermodus nicht.')
 
     return _build_duel_stage_builder_plan(
         tournament_id,

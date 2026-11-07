@@ -435,7 +435,7 @@ def participant_source_settings_from_form(
 
     if not selected_source_stage_ids:
         return Err(
-            gettext('Bitte mindestens eine vorherige Stage als Quelle auswählen.')
+            gettext('Bitte mindestens eine vorherige Phase als Quelle auswählen.')
         )
 
     raw_top_n = (request_form.get('qualifier_top_n') or '1').strip()
@@ -498,18 +498,18 @@ def parse_stage_generation_auto_seed_participant_ids(
         try:
             participant_id = ParticipantID(UUID(raw_participant_id))
         except ValueError:
-            return Err(gettext('Ungültige Auto-Seed-Zuordnung.'))
+            return Err(gettext('Ungültige Zuordnung der automatischen Setzplätze.'))
         if participant_id not in allowed_participant_ids:
             return Err(gettext('Die Teilnehmerliste hat sich geändert.'))
         if participant_id in seen_participant_ids:
-            return Err(gettext('Die Auto-Seed-Liste ist ungültig.'))
+            return Err(gettext('Die Liste der automatischen Setzplätze ist ungültig.'))
         seen_participant_ids.add(participant_id)
         auto_seed_participant_ids.append(participant_id)
 
     if seen_participant_ids != allowed_participant_ids:
         return Err(
             gettext(
-                'Die Teilnehmerliste hat sich geändert. Bitte die Seeding-Seite neu laden.'
+                'Die Teilnehmerliste hat sich geändert. Bitte die Setzlisten-Seite neu laden.'
             )
         )
 
@@ -530,7 +530,7 @@ def parse_stage_generation_manual_seed_values_by_participant_id(
                 UUID(raw_key.removeprefix('manual_seed_'))
             )
         except ValueError:
-            return Err(gettext('Ungültige Seed-Eingabe.'))
+            return Err(gettext('Ungültige Eingabe des Setzplatzes.'))
 
         if participant_id not in allowed_participant_ids:
             return Err(gettext('Die Teilnehmerliste hat sich geändert.'))
@@ -542,10 +542,10 @@ def parse_stage_generation_manual_seed_values_by_participant_id(
         try:
             seed = int(normalized_raw_value)
         except ValueError:
-            return Err(gettext('Manuelle Seeds müssen Zahlen sein.'))
+            return Err(gettext('Manuelle Setzplätze müssen Zahlen sein.'))
 
         if seed < 1:
-            return Err(gettext('Manuelle Seeds müssen bei 1 beginnen.'))
+            return Err(gettext('Manuelle Setzplätze müssen bei 1 beginnen.'))
 
         manual_seed_values_by_participant_id[participant_id] = seed
 
@@ -654,7 +654,7 @@ def get_stage_generation_block_reason(
     source_stage_ids = parse_source_stage_ids(settings.get('qualifier_source_stage_ids', []))
     if not source_stage_ids:
         return gettext(
-            'Qualifikations-Stages fehlen. Konfiguriere zuerst die Vorrunden-Quelle.'
+            'Qualifikationsphasen fehlen. Konfiguriere zuerst die Vorrunden-Quelle.'
         )
 
     for source_stage_id in source_stage_ids:
@@ -666,13 +666,13 @@ def get_stage_generation_block_reason(
 
         if not source_matches:
             return gettext(
-                'Stage "%(stage_name)s" hat noch keine generierten Matches.',
+                'Phase "%(stage_name)s" hat noch keine generierten Matches.',
                 stage_name=source_stage_name,
             )
 
         if any(match.state != MatchState.completed for match in source_matches):
             return gettext(
-                'Stage "%(stage_name)s" ist noch nicht abgeschlossen.',
+                'Phase "%(stage_name)s" ist noch nicht abgeschlossen.',
                 stage_name=source_stage_name,
             )
 
@@ -729,7 +729,7 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
         gettext(
             'Teilnehmerbasis: %(basis)s',
             basis=(
-                gettext('Ready')
+                gettext('Bereit')
                 if generation_basis == 'ready'
                 else generation_basis
             ),
@@ -738,14 +738,14 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
 
     if role == 'preliminary':
         role_label = (
-            gettext('Builder V1: Vorrunden-Übersicht')
+            gettext('Turnierplaner: Vorrunden-Übersicht')
             if stage.type == StageType.round_robin_groups
-            else gettext('Builder V1: Vorrunde')
+            else gettext('Turnierplaner: Vorrunde')
         )
         if stage.type == StageType.round_robin_groups:
             lines.append(
                 gettext(
-                    'Diese Stage ist die reine Summary der Gruppenphase. Eigene Matches liegen in den Gruppen-Stages.'
+                    'Diese Phase ist nur die Übersicht der Gruppenphase. Eigene Matches liegen in den Gruppenphasen.'
                 )
             )
             lines.append(
@@ -757,7 +757,7 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
             if settings.get('builder_materialized_group_stage_ids'):
                 lines.append(
                     gettext(
-                        'Diese Übersicht wurde bereits in echte Gruppen-Stages materialisiert.'
+                        'Diese Übersicht wurde bereits in echte Gruppenphasen materialisiert.'
                     )
                 )
         elif stage.type == StageType.swiss:
@@ -769,39 +769,39 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
         elif settings.get('builder_materialized_stage_ids'):
             lines.append(
                 gettext(
-                    'Diese Vorrunden-Übersicht enthält eigene Runden-Stages, die nacheinander vorbereitet werden.'
+                    'Diese Vorrunden-Übersicht enthält eigene Rundenphasen, die nacheinander vorbereitet werden.'
                 )
             )
     elif role == 'preliminary_round':
         role_label = (
-            gettext('Builder V1')
+            gettext('Turnierplaner')
             if stage.type == StageType.ffa_flatout2_single_elimination
             else gettext(
-                'Builder V1: Vorrunde %(title)s',
+                'Turnierplaner: Vorrunde %(title)s',
                 title=settings.get('builder_display_title') or '?',
             )
         )
         lines.append(
-            gettext('Teilnehmerquelle: Builder-Qualifikanten der Vorrunde')
+            gettext('Teilnehmerquelle: Qualifikanten der Vorrunde')
         )
     elif role == 'main_round':
         role_label = (
-            gettext('Builder V1')
+            gettext('Turnierplaner')
             if stage.type == StageType.ffa_flatout2_single_elimination
             else gettext(
-                'Builder V1: Hauptturnier %(title)s',
+                'Turnierplaner: Hauptturnier %(title)s',
                 title=settings.get('builder_display_title') or '?',
             )
         )
         lines.append(
-            gettext('Teilnehmerquelle: Builder-Qualifikanten der Vorstufe')
+            gettext('Teilnehmerquelle: Qualifikanten der Vorstufe')
         )
     elif role == 'preliminary_group':
         role_label = gettext(
-            'Builder V1: Vorrunden-Gruppe %(label)s',
+            'Turnierplaner: Vorrunden-Gruppe %(label)s',
             label=settings.get('builder_group_label') or '?',
         )
-        lines.append(gettext('Teilnehmerquelle: feste Builder-Gruppenzuweisung'))
+        lines.append(gettext('Teilnehmerquelle: feste Gruppenzuweisung'))
         qualifier_top_n = settings.get('builder_group_qualifier_top_n')
         if qualifier_top_n:
             lines.append(
@@ -812,20 +812,20 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
             )
     else:
         role_label = (
-            gettext('Builder V1')
+            gettext('Turnierplaner')
             if stage.type == StageType.ffa_flatout2_single_elimination
-            else gettext('Builder V1: Hauptturnier')
+            else gettext('Turnierplaner: Hauptturnier')
         )
         if settings.get('builder_preliminary_stage_id'):
             lines.append(gettext('Teilnehmerquelle: automatische Qualifikation'))
         else:
             lines.append(
-                gettext('Teilnehmerquelle: direkte Ready-Teilnehmer')
+                gettext('Teilnehmerquelle: direkte bereite Teilnehmer')
             )
 
     if main_stage_size:
         lines.append(
-            gettext('Main Stage Größe: %(size)s', size=main_stage_size)
+            gettext('Größe des Hauptturniers: %(size)s', size=main_stage_size)
         )
 
     return {
@@ -846,7 +846,7 @@ def build_stage_builder_generation_summary(
     settings = resolved_stage.settings or {}
     role = (stage.settings or {}).get('builder_role')
     main_stage_size = settings.get('builder_main_stage_size')
-    lines = [gettext('Aktuelle Generierungsbasis: %(count)s ready Teilnehmer', count=participant_count)]
+    lines = [gettext('Aktuelle Generierungsbasis: %(count)s bereite Teilnehmer', count=participant_count)]
 
     if role == 'preliminary':
         if stage.type == StageType.round_robin_groups:
@@ -875,7 +875,7 @@ def build_stage_builder_generation_summary(
             else:
                 lines.append(
                     gettext(
-                        'Strategie: Empfohlener Standard, bevorzugt 8 Gruppen / Top 2 bei Main Stage 16'
+                        'Strategie: Empfohlener Standard, bevorzugt 8 Gruppen / Top 2 bei einem Hauptturnier mit 16 Plätzen'
                     )
                 )
             if group_count:
@@ -923,7 +923,7 @@ def build_stage_builder_generation_summary(
                 )
             lines.append(
                 gettext(
-                    'Beim Erzeugen werden daraus echte Gruppen-Stages wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.'
+                    'Beim Erzeugen werden daraus echte Gruppenphasen wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.'
                 )
             )
             lines.append(
@@ -933,7 +933,7 @@ def build_stage_builder_generation_summary(
             )
             lines.append(
                 gettext(
-                    'Round Count und Group Size werden bei Builder-Vorrunden aus den aktuellen ready Teilnehmern abgeleitet und sind deshalb nicht als feste statische Stage-Werte hinterlegt.'
+                    'Round Count und Group Size werden bei Vorrunden des Turnierplaners aus den aktuellen bereiten Teilnehmern abgeleitet und sind deshalb nicht als feste statische Phasenwerte hinterlegt.'
                 )
             )
         elif stage.type == StageType.swiss and main_stage_size:
@@ -948,7 +948,7 @@ def build_stage_builder_generation_summary(
             if participant_count <= int(main_stage_size or 0):
                 lines.append(
                     gettext(
-                        'Die Vorrunde ist aktuell nicht nötig. Das Hauptturnier wird direkt aus den ready Teilnehmern erzeugt.'
+                        'Die Vorrunde ist aktuell nicht nötig. Das Hauptturnier wird direkt aus den bereiten Teilnehmern erzeugt.'
                     )
                 )
             else:
@@ -959,11 +959,11 @@ def build_stage_builder_generation_summary(
                 )
         else:
             lines.append(
-                gettext('Diese Main Stage wird direkt aus ready Teilnehmern erzeugt.')
+                gettext('Dieses Hauptturnier wird direkt aus bereiten Teilnehmern erzeugt.')
             )
 
     return {
-        'title': gettext('Builder-Logik'),
+        'title': gettext('Turnierplaner'),
         'lines': lines,
     }
 
@@ -1180,7 +1180,7 @@ def assert_tournament_has_no_stages_for_builder_or_redirect(
     if stages:
         flash_error(
             gettext(
-                'Der Stage Builder V1 arbeitet nur auf Turnieren ohne vorhandene Stages.'
+                'Der Turnierplaner arbeitet nur auf Turnieren ohne vorhandene Phasen.'
             )
         )
         return redirect_to(
@@ -1229,14 +1229,14 @@ def build_stage_builder_review_preview(
     )
     if preview_result.is_err():
         return {
-            'title': gettext('Aktuelle Builder-Vorschau'),
+            'title': gettext('Aktuelle Vorschau des Turnierplaners'),
             'error': preview_result.unwrap_err(),
         }
 
     preview = preview_result.unwrap()
     lines = [
         gettext(
-            'Aktuelle Generierungsbasis: %(count)s ready Teilnehmer',
+            'Aktuelle Generierungsbasis: %(count)s bereite Teilnehmer',
             count=preview['participant_count'],
         )
     ]
@@ -1248,20 +1248,20 @@ def build_stage_builder_review_preview(
         if preview.get('generation_blocked_without_preliminary'):
             lines.append(
                 gettext(
-                    'Mit der aktuellen Ready-Zahl würde die Main Stage noch blockieren: %(participant_count)s Teilnehmer überschreiten die Zielgröße %(target_size)s.',
+                    'Mit der aktuellen Zahl bereiter Teilnehmer würde das Hauptturnier noch blockieren: %(participant_count)s Teilnehmer überschreiten die Zielgröße %(target_size)s.',
                     participant_count=preview.get('participant_count') or 0,
                     target_size=main_stage_size,
                 )
             )
             lines.append(
                 gettext(
-                    'Aktiviere eine Vorrunde oder erhöhe die Main-Stage-Zielgröße.'
+                    'Aktiviere eine Vorrunde oder erhöhe die Zielgröße des Hauptturniers.'
                 )
             )
         elif preview.get('uses_preliminary'):
             lines.append(
                 gettext(
-                    'Vorrunde aktiv: %(participant_count)s Ready-Teilnehmer starten zuerst in %(preliminary_type)s.',
+                    'Vorrunde aktiv: %(participant_count)s bereite Teilnehmer starten zuerst in %(preliminary_type)s.',
                     participant_count=preview.get('participant_count') or 0,
                     preliminary_type=(
                         'FlatOut 2'
@@ -1273,7 +1273,7 @@ def build_stage_builder_review_preview(
             )
             lines.append(
                 gettext(
-                    'Danach ziehen exakt %(count)s Teilnehmer in die Main Stage ein.',
+                    'Danach ziehen exakt %(count)s Teilnehmer in das Hauptturnier ein.',
                     count=preview.get('main_stage_participant_count')
                     or main_stage_size,
                 )
@@ -1281,7 +1281,7 @@ def build_stage_builder_review_preview(
         else:
             lines.append(
                 gettext(
-                    'Die Main Stage startet direkt mit %(count)s Ready-Teilnehmern.',
+                    'Das Hauptturnier startet direkt mit %(count)s bereiten Teilnehmern.',
                     count=preview.get('main_stage_participant_count')
                     or preview.get('participant_count')
                     or 0,
@@ -1332,11 +1332,11 @@ def build_stage_builder_review_preview(
             'round_summaries', []
         )
         if main_round_summaries:
-            lines.append(gettext('Main-Stage-Preview:'))
+            lines.append(gettext('Vorschau Hauptturnier:'))
             for round_summary in main_round_summaries:
                 lines.append(
                     gettext(
-                        'Main Stage Runde %(round_no)s: %(match_count)s Heats mit bis zu %(max_heat_size)s Teilnehmern',
+                        'Hauptturnier Runde %(round_no)s: %(match_count)s Heats mit bis zu %(max_heat_size)s Teilnehmern',
                         round_no=round_summary.get('round_no'),
                         match_count=round_summary.get('match_count'),
                         max_heat_size=round_summary.get('max_heat_size'),
@@ -1353,22 +1353,22 @@ def build_stage_builder_review_preview(
         if preview.get('main_match_count') is not None:
             lines.append(
                 gettext(
-                    '%(count)s Main-Stage-Matches im aktuellen Preview',
+                    '%(count)s Matches im Hauptturnier im aktuellen Preview',
                     count=preview.get('main_match_count'),
                 )
             )
-        return {'title': gettext('Aktuelle Builder-Vorschau'), 'lines': lines}
+        return {'title': gettext('Aktuelle Vorschau des Turnierplaners'), 'lines': lines}
 
     if preview['participant_count'] <= main_stage_size:
         lines.append(
             gettext(
-                'Mit der aktuellen Anzahl ready Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier kann direkt erzeugt werden.'
+                'Mit der aktuellen Anzahl bereiter Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier kann direkt erzeugt werden.'
             )
         )
     elif preliminary_type is None:
         lines.append(
             gettext(
-                'Mit der aktuellen Anzahl ready Teilnehmer wäre eine Vorrunde nötig. Ohne Vorrunde würde die spätere Main-Stage-Generierung blockieren.'
+                'Mit der aktuellen Anzahl bereiter Teilnehmer wäre eine Vorrunde nötig. Ohne Vorrunde würde die spätere Generierung des Hauptturniers blockieren.'
             )
         )
     elif preliminary_type == StageType.round_robin_groups:
@@ -1379,7 +1379,7 @@ def build_stage_builder_review_preview(
         else:
             lines.append(
                 gettext(
-                    'Strategie: Empfohlener Standard, bevorzugt 8 Gruppen / Top 2 bei Main Stage 16'
+                    'Strategie: Empfohlener Standard, bevorzugt 8 Gruppen / Top 2 bei einem Hauptturnier mit 16 Plätzen'
                 )
             )
         lines.append(
@@ -1402,7 +1402,7 @@ def build_stage_builder_review_preview(
             )
         lines.append(
             gettext(
-                'Beim Erzeugen werden daraus echte Gruppen-Stages wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.'
+                'Beim Erzeugen werden daraus echte Gruppenphasen wie "Vorrunde Gruppe A", "Vorrunde Gruppe B" usw.'
             )
         )
         if preview.get('match_count') is not None:
@@ -1422,7 +1422,7 @@ def build_stage_builder_review_preview(
             )
         )
 
-    return {'title': gettext('Aktuelle Builder-Vorschau'), 'lines': lines}
+    return {'title': gettext('Aktuelle Vorschau des Turnierplaners'), 'lines': lines}
 
 
 def is_flatout2_stage_type(stage_type: StageType | None) -> bool:
@@ -1450,9 +1450,9 @@ def _get_flatout2_generation_action_label(
     stage_matches: list[Match],
 ) -> str:
     return (
-        gettext('Stage neu vorbereiten')
+        gettext('Phase neu vorbereiten')
         if stage_matches
-        else gettext('Stage vorbereiten')
+        else gettext('Phase vorbereiten')
     )
 
 
@@ -1466,7 +1466,7 @@ def build_stage_generation_state(
         stages_by_id,
         matches_by_stage,
     )
-    action_label = gettext('Seeding / Matches generieren')
+    action_label = gettext('Setzliste / Matches generieren')
     action_hint = None
 
     if is_flatout2_stage_type(stage.type):
@@ -1478,16 +1478,16 @@ def build_stage_generation_state(
         action_label = _get_flatout2_generation_action_label(stage_matches)
         if total_round_count == 1:
             action_hint = gettext(
-                'Diese FlatOut-2-Stage besteht aus einem einzelnen Finale und wird komplett manuell vorbereitet.'
+                'Diese FlatOut-2-Phase besteht aus einem einzelnen Finale und wird komplett manuell vorbereitet.'
             )
         elif total_round_count is not None and total_round_count > 1:
             action_hint = gettext(
-                'Konfiguriert: %(count)s Runden. Diese FlatOut-2-Stage wird komplett manuell vorbereitet und bei Bedarf neu erzeugt.',
+                'Konfiguriert: %(count)s Runden. Diese FlatOut-2-Phase wird komplett manuell vorbereitet und bei Bedarf neu erzeugt.',
                 count=total_round_count,
             )
         else:
             action_hint = gettext(
-                'Diese FlatOut-2-Stage wird komplett manuell vorbereitet. Lege Runden, Matches, Rennen, Hosts und Teilnehmer direkt in der Stage fest.'
+                'Diese FlatOut-2-Phase wird komplett manuell vorbereitet. Lege Runden, Matches, Rennen, Hosts und Teilnehmer direkt in der Phase fest.'
             )
 
     return {

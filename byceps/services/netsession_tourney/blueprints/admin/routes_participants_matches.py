@@ -268,7 +268,7 @@ def register(blueprint):
 
         form = ParticipantSeedForm(request.form)
         if not form.validate():
-            flash_error(gettext('Ungültiger Seed.'))
+            flash_error(gettext('Ungültiger Setzplatz.'))
             return redirect_to_participant_or_tournament_view(
                 party.id, tournament.id, participant_id
             )
@@ -281,7 +281,7 @@ def register(blueprint):
             g.user.as_user(),
         ):
             case Ok(_):
-                flash_success(gettext('Seed wurde gespeichert.'))
+                flash_success(gettext('Setzplatz wurde gespeichert.'))
             case Err(message):
                 flash_error(message)
 

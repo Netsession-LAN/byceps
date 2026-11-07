@@ -49,7 +49,7 @@ def validate_publishable(
         return Err('Nur Turniere im Entwurf können veröffentlicht werden.')
 
     if not stages:
-        return Err('Es wird mindestens eine Stage benötigt.')
+        return Err('Es wird mindestens eine Phase benötigt.')
 
     if len(select_bracket_ready_participants(participants)) < 2:
         return Err('Es werden mindestens zwei bereite Teilnehmer benötigt.')
@@ -58,7 +58,7 @@ def validate_publishable(
         spec = get_stage_type_spec(stage.type)
         if not spec.publishable:
             return Err(
-                f'Stage-Typ „{stage.type.value}“ ist deaktiviert oder nur in der Beta verfügbar.'
+                f'Phasentyp „{stage.type.value}“ ist deaktiviert oder nur in der Beta verfügbar.'
             )
 
     return Ok(None)

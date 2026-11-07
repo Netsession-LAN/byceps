@@ -110,14 +110,14 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
     if settings.get('builder_materialized_stage_ids'):
         lines = [
             gettext(
-                'Diese Vorrunden-Übersicht enthält eigene Runden-Stages, die nacheinander vorbereitet und gespielt werden.'
+                'Diese Vorrunden-Übersicht enthält eigene Rundenphasen, die nacheinander vorbereitet und gespielt werden.'
             )
         ]
         child_stages = get_builder_container_child_stages(stages, stage)
         if child_stages:
             lines.append(
                 gettext(
-                    '%(count)s Runden-Stages: %(names)s',
+                    '%(count)s Rundenphasen: %(names)s',
                     count=len(child_stages),
                     names=', '.join(stage_item.name for stage_item in child_stages),
                 )
@@ -142,7 +142,7 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
 
     lines = [
         gettext(
-            'Diese Vorrunden-Übersicht fasst die Gruppenphase zusammen. Die eigentlichen Matches liegen in den Gruppen-Stages.'
+            'Diese Vorrunden-Übersicht fasst die Gruppenphase zusammen. Die eigentlichen Matches liegen in den Gruppenphasen.'
         )
     ]
 
@@ -158,7 +158,7 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
     if group_stages:
         lines.append(
             gettext(
-                '%(count)s Gruppen-Stages: %(names)s',
+                '%(count)s Gruppenphasen: %(names)s',
                 count=len(group_stages),
                 names=', '.join(stage_item.name for stage_item in group_stages),
             )

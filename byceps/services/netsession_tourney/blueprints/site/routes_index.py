@@ -405,7 +405,7 @@ def open_matches():
                 ),
                 'participants_label': ' vs '.join(participant_names),
                 'tournament_title': tournament.title,
-                'stage_name': stage.name if stage is not None else gettext('Stage'),
+                'stage_name': stage.name if stage is not None else gettext('Phase'),
                 'state_label': open_label(match.state),
                 'state_class_name': open_class_name(match.state),
                 'scheduled_label': (

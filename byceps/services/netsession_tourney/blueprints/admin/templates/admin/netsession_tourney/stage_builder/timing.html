@@ -5,10 +5,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Timing')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Timing')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -17,12 +17,12 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage Builder'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Turnierplaner'), 'url': none},
     ],
     tournament.title,
-    _('Stage Builder'),
-    _('Schritt 3 von 4: Lege optionale Timing-Parameter fest, die auf die erzeugten Stages übernommen werden.'),
+    _('Turnierplaner'),
+    _('Schritt 3 von 4: Lege optionale Timing-Parameter fest, die auf die erzeugten Phasen übernommen werden.'),
     '3/4',
     'status-draft',
     [
@@ -38,7 +38,7 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h2 class="ns-admin-form-section-title">{{ _('Timing') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('Diese Angaben steuern die automatische Rundenterminierung, ändern aber nicht die Builder-Logik selbst.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Diese Angaben steuern die automatische Rundenterminierung, ändern aber nicht die Logik des Turnierplaners selbst.') }}</p>
           </div>
         </div>
 

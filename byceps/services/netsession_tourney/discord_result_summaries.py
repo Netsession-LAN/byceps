@@ -238,7 +238,7 @@ def build_discord_tournament_finished_fields(
     if stage_name:
         fields.append(
             {
-                'name': 'Abschluss-Stage',
+                'name': 'Abschlussphase',
                 'value': stage_name[:1024],
                 'inline': True,
             }
@@ -307,7 +307,7 @@ def build_discord_match_completed_fields(
     if stage_name:
         fields.append(
             {
-                'name': 'Stage',
+                'name': 'Phase',
                 'value': stage_name[:1024],
                 'inline': True,
             }

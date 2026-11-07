@@ -74,7 +74,7 @@ def build_match_overview_slot_data(
 ) -> dict:
     if slot is None:
         return {
-            'name': gettext('TBD'),
+            'name': gettext('offen'),
             'image_url': None,
             'image_alt': None,
             'show_avatar': True,
@@ -99,7 +99,7 @@ def build_match_overview_slot_data(
     if is_bye:
         name = gettext('Freilos')
     elif participant is None:
-        name = gettext('TBD')
+        name = gettext('offen')
     else:
         name = participant.name
 

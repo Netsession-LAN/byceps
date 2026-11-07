@@ -63,7 +63,7 @@
             {%- elif is_bye_slot %}
               <span class="ns-tourney-bye-label">{{ _('Freilos') }}</span>
             {%- else %}
-              {{ _('TBD') }}
+              {{ _('offen') }}
             {%- endif %}
           </h3>
           <p class="ns-tourney-match-party-card-status">
@@ -74,7 +74,7 @@
               {{ _('Bereit') if is_participant_bracket_ready else _('Nicht bereit') }}
             </span>
             {%- elif not participant -%}
-            <span class="dimmed">{{ _('TBD') }}</span>
+            <span class="dimmed">{{ _('offen') }}</span>
             {%- else -%}
             <span class="dimmed"></span>
             {%- endif %}
@@ -201,7 +201,7 @@
           {%- set score_field_name = 'slot_1_points' if loop.index0 == 0 else 'slot_2_points' %}
           <div class="form-field">
             <label class="form-label" for="{{ score_field_id }}">
-              {{ participant.name if participant else _('TBD') }}
+              {{ participant.name if participant else _('offen') }}
             </label>
             <input
               id="{{ score_field_id }}"

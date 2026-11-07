@@ -72,7 +72,7 @@ def get_flatout2_current_round_generation_context(
 
     full_specs = full_generation_result.unwrap()
     if not full_specs:
-        return Err('Für diese FlatOut-2-Stage konnten keine Runden berechnet werden.')
+        return Err('Für diese FlatOut-2-Phase konnten keine Runden berechnet werden.')
 
     if (stage.settings or {}).get('builder_materialized_round_stage'):
         return Ok(
@@ -203,7 +203,7 @@ def set_flatout2_match_host_by_admin(
         db_stage is None
         or db_stage.type != StageType.ffa_flatout2_single_elimination.value
     ):
-        return Err('Dieses Match gehört zu keiner FlatOut-2-Stage.')
+        return Err('Dieses Match gehört zu keiner FlatOut-2-Phase.')
 
     allowed_participant_ids = {
         slot.participant_id

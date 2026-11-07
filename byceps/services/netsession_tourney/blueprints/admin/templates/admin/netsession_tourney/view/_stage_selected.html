@@ -13,7 +13,7 @@
   <div class="grid block" style="--column-min-width: 200px;">
     <div class="column">
       <div class="box column-cell--grow">
-        <div class="data-label">{{ _('Ausgewählte Stage') }}</div>
+        <div class="data-label">{{ _('Ausgewählte Phase') }}</div>
         <div class="data-value">{{ selected_stage.name }}</div>
       </div>
     </div>
@@ -52,8 +52,8 @@
   <section class="box ns-admin-form-section block">
     <div class="ns-admin-form-section-head">
       <div>
-        <h3 class="ns-admin-form-section-title">{{ _('Stage-Blick') }}</h3>
-        <p class="ns-admin-form-section-text">{{ _('Visuelle Vorschau der aktuell generierten Paarungen für die ausgewählte Stage.') }}</p>
+        <h3 class="ns-admin-form-section-title">{{ _('Phasenansicht') }}</h3>
+        <p class="ns-admin-form-section-text">{{ _('Visuelle Vorschau der aktuell generierten Paarungen für die ausgewählte Phase.') }}</p>
       </div>
       <span class="dimmed">{{ selected_stage_matches|length }} {{ _('Matches') }}</span>
     </div>
@@ -106,7 +106,7 @@
     {%- endfor %}
   </div>
   {%- else %}
-  <p class="dimmed">{{ _('Für diese Stage gibt es noch keine generierten Matches.') }}</p>
+  <p class="dimmed">{{ _('Für diese Phase gibt es noch keine generierten Matches.') }}</p>
   {%- endif %}
   {%- elif selected_stage_swiss_bracket_sections %}
   {%- include 'admin/netsession_tourney/view/_stage_swiss_bracket.html' %}
@@ -274,7 +274,7 @@
                   </span>
                   {%- elif not participant %}
                   <span class="ns-tourney-bracket-name ns-tourney-bracket-name--tbd">
-                    {{ _('TBD') }}
+                    {{ _('offen') }}
                   </span>
                   {%- else %}
                   <span class="ns-tourney-bracket-avatar{% if not slot_image_url %} is-placeholder{% endif %}">
@@ -309,7 +309,7 @@
       </section>
       {%- endfor %}
       {%- else %}
-      <p class="dimmed">{{ _('Für diese Stage gibt es noch keine generierten Matches.') }}</p>
+      <p class="dimmed">{{ _('Für diese Phase gibt es noch keine generierten Matches.') }}</p>
       {%- endif %}
     </div>
   </section>

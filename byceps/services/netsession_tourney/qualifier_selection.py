@@ -28,8 +28,8 @@ from .stage_service import parse_source_stage_ids
 
 
 TOO_FEW_QUALIFIED = (
-    'Zu wenige qualifizierte Teilnehmer für diese Stage. '
-    'Passe die Quell-Stages oder die Top-Anzahl an.'
+    'Zu wenige qualifizierte Teilnehmer für diese Phase. '
+    'Passe die Quellphasen oder die Top-Anzahl an.'
 )
 
 
@@ -181,12 +181,12 @@ def _get_source_stage_ids(stage: Stage) -> Result[list, str]:
     )
     if not source_stage_ids:
         return Err(
-            'Keine Quell-Stages eingestellt. Bitte zuerst die Quell-Stages '
+            'Keine Quellphasen eingestellt. Bitte zuerst die Quellphasen '
             'für die Qualifikation festlegen.'
         )
     if stage.id in source_stage_ids:
         return Err(
-            'Eine Stage kann nicht ihre eigene Quelle für Qualifikanten sein.'
+            'Eine Phase kann nicht ihre eigene Quelle für Qualifikanten sein.'
         )
     return Ok(source_stage_ids)
 
@@ -202,7 +202,7 @@ def _load_source_stages(
         .order_by(DbNetsessionTourneyStage.order_no.asc())
     ).all()
     if len(db_source_stages) != len(unique_source_stage_ids):
-        return Err('Mindestens eine der eingestellten Quell-Stages existiert nicht.')
+        return Err('Mindestens eine der eingestellten Quellphasen existiert nicht.')
     return Ok(list(db_source_stages))
 
 

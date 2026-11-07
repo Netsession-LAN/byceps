@@ -5,10 +5,10 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Stage Builder'), _('Hauptturnier')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Hauptturnier')] %}
 
 {% block before_body %}
-  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Stages')) }}
+  {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
   {{ super() }}
 {% endblock %}
 
@@ -18,17 +18,17 @@
     [
       {'label': _('Netsession Turniere'), 'url': url_for('.index', party_id=party.id)},
       {'label': tournament.title, 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview')},
-      {'label': _('Stages'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
-      {'label': _('Stage Builder'), 'url': none},
+      {'label': _('Phasen'), 'url': url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages')},
+      {'label': _('Turnierplaner'), 'url': none},
     ],
     tournament.title,
-    _('Stage Builder'),
-    _('Schritt 1 von 4: Definiere erst das Hauptturnier. Daraus leitet der Builder den Rest ab.') if not is_ffa_builder else _('Schritt 1 von 4: Definiere Main Stage, Zielgröße und Heat-Größe für das FFA-Turnier.'),
+    _('Turnierplaner'),
+    _('Schritt 1 von 4: Definiere erst das Hauptturnier. Daraus leitet der Turnierplaner den Rest ab.') if not is_ffa_builder else _('Schritt 1 von 4: Definiere Hauptturnier, Zielgröße und Heat-Größe für das FFA-Turnier.'),
     '1/4',
     'status-draft',
     [
       {'label': _('Schritt'), 'value': _('Hauptturnier')},
-      {'label': _('Basis'), 'value': _('Ready-Teilnehmer bei Generierung')},
+      {'label': _('Basis'), 'value': _('Bereite Teilnehmer bei Generierung')},
     ]
   ) }}
   {% include 'admin/netsession_tourney/stage_builder/_steps.html' %}
@@ -41,7 +41,7 @@
             <h2 class="ns-admin-form-section-title">{{ _('Hauptturnier') }}</h2>
             <p class="ns-admin-form-section-text">
               {%- if is_ffa_builder -%}
-              {{ _('Wähle FFA-Format, Zielgröße der Main Stage und Heat-Größe. Optional kann der Builder danach auch eine passende FFA-Vorrunde davorsetzen.') }}
+              {{ _('Wähle FFA-Format, Zielgröße des Hauptturniers und Heat-Größe. Optional kann der Turnierplaner danach auch eine passende FFA-Vorrunde davorsetzen.') }}
               {%- else -%}
               {{ _('Das Hauptturnier ist das feste Ziel. Wenn die spätere Ready-Anzahl diese Größe überschreitet, baut der Wizard davor automatisch eine passende Vorrunde.') }}
               {%- endif -%}
@@ -50,10 +50,10 @@
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_field(form.generation_basis, _('V1 arbeitet bewusst mit Ready-Teilnehmern, weil dieser Zustand in eurer UI tatsächlich existiert und die Turniergenerierung darauf aufsetzt.')) }}
+          {{ render_field(form.generation_basis, _('V1 arbeitet bewusst mit bereiten Teilnehmern, weil dieser Zustand in eurer UI tatsächlich existiert und die Turniergenerierung darauf aufsetzt.')) }}
           {{ render_field(form.main_stage_type, _('Main-Format des eigentlichen Turniers. V1 unterstützt hier Single und Double Elimination.') if not is_ffa_builder else _('Main-Format des eigentlichen FFA-Turniers. Aktuell stehen FFA Single Elimination und FlatOut 2 zur Verfügung.')) }}
           {%- if is_ffa_builder %}
-          {{ render_field(form.main_stage_size, _('Zielgröße der Main Stage. Wenn du später eine Vorrunde aktivierst, qualifizieren sich genau so viele Teilnehmer ins Hauptturnier.')) }}
+          {{ render_field(form.main_stage_size, _('Zielgröße des Hauptturniers. Wenn du später eine Vorrunde aktivierst, qualifizieren sich genau so viele Teilnehmer ins Hauptturnier.')) }}
           <div data-ffa-heat-size-field>
             {{ render_field(form.max_players_per_match, _('Wie viele Teilnehmer maximal pro Heat spielen. Für FlatOut 2 sind nur Werte von 6 bis 8 sinnvoll und erlaubt.')) }}
           </div>
@@ -64,7 +64,7 @@
 
         {%- if is_ffa_builder %}
         <div class="ns-admin-inline-note-body">
-          <div>{{ _('Die Zielgröße bestimmt, wie viele Teilnehmer am Ende wirklich in die Main Stage einziehen.') }}</div>
+          <div>{{ _('Die Zielgröße bestimmt, wie viele Teilnehmer am Ende wirklich in das Hauptturnier einziehen.') }}</div>
           <div>{{ _('FlatOut 2 bleibt dabei strikt: nur 6 bis 8 Spieler pro Heat und Top 3 qualifizieren sich je Rennen weiter.') }}</div>
         </div>
         {%- endif %}
