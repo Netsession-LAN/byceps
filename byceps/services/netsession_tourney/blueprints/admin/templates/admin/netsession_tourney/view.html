@@ -232,12 +232,11 @@
 
   <ol class="tabs mb">
     <li>{% if current_subtab == 'overview' %}<span class="tabs-tab tabs-tab--current">{{ _('Übersicht') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='overview') }}">{{ _('Übersicht') }}</a>{% endif %}</li>
-    <li>{% if current_subtab == 'stages' %}<span class="tabs-tab tabs-tab--current">{{ _('Phasen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}">{{ _('Phasen') }}</a>{% endif %}</li>
     <li>{% if current_subtab == 'participants' %}<span class="tabs-tab tabs-tab--current">{{ _('Teilnehmer') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='participants') }}">{{ _('Teilnehmer') }}</a>{% endif %}</li>
+    <li>{% if current_subtab == 'stages' %}<span class="tabs-tab tabs-tab--current">{{ _('Phasen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}">{{ _('Phasen') }}</a>{% endif %}</li>
     <li>{% if current_subtab == 'matches' %}<span class="tabs-tab tabs-tab--current">{{ _('Matches') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') }}">{{ _('Matches') }}</a>{% endif %}</li>
     <li>{% if current_subtab == 'prizes' %}<span class="tabs-tab tabs-tab--current">{{ _('Preise') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='prizes') }}">{{ _('Preise') }}</a>{% endif %}</li>
-    <li>{% if current_subtab == 'notifications' %}<span class="tabs-tab tabs-tab--current">{{ _('Browser-Benachrichtigungen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='notifications') }}">{{ _('Browser-Benachrichtigungen') }}</a>{% endif %}</li>
-    <li>{% if current_subtab == 'discord' %}<span class="tabs-tab tabs-tab--current">{{ _('Discord-Benachrichtigungen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='discord') }}">{{ _('Discord-Benachrichtigungen') }}</a>{% endif %}</li>
+    <li>{% if current_subtab in ['notifications', 'discord'] %}<span class="tabs-tab tabs-tab--current">{{ _('Benachrichtigungen') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='notifications') }}">{{ _('Benachrichtigungen') }}</a>{% endif %}</li>
   </ol>
 
   {%- if current_subtab == 'overview' %}
@@ -256,10 +255,8 @@
   {%- if current_subtab == 'prizes' %}
   {%- include 'admin/netsession_tourney/view/_tab_prizes.html' %}
   {%- endif %}
-  {%- if current_subtab == 'notifications' %}
+  {%- if current_subtab in ['notifications', 'discord'] %}
   {%- include 'admin/netsession_tourney/view/_tab_notifications.html' %}
-  {%- endif %}
-  {%- if current_subtab == 'discord' %}
   {%- include 'admin/netsession_tourney/view/_tab_discord.html' %}
   {%- endif %}
 

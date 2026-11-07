@@ -1,3 +1,21 @@
+  {%- if g.user.has_permission('netsession_tourney.manage') %}
+  <section class="box ns-admin-form-section mb">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Nachricht senden') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Sendet eine Browser-Benachrichtigung an aktive Teilnehmer dieses Turniers mit aktivierter Browser-Subscription.') }}</p>
+      </div>
+    </div>
+    <form action="{{ url_for('.tournament_notification_send', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-form-shell">
+      {{ render_admin_field(notification_send_form.title, _('Kurz und klar. Dieser Text erscheint als Titel der Browser-Benachrichtigung.')) }}
+      {{ render_admin_field(notification_send_form.body, _('Der eigentliche Nachrichtentext. Wird für die Browser-Benachrichtigung verwendet.'), class='ns-admin-compact-textarea') }}
+      {{ render_admin_field(notification_send_form.target_url, _('Optional. Relative Ziel-URL innerhalb der Seite, die beim Klick auf die Benachrichtigung geöffnet wird. Leer lassen für die Turnierseite.')) }}
+      <div class="ns-admin-form-actions">
+        <button type="submit" class="button color-primary">{{ _('Nachricht senden') }}</button>
+      </div>
+    </form>
+  </section>
+  {%- endif %}
   <section class="box ns-admin-form-section mb">
     <div class="ns-admin-form-section-head">
       <div>
@@ -38,6 +56,7 @@
       </div>
     </div>
     {%- if browser_push_recipient_rows %}
+    <details><summary>{{ _('Liste anzeigen') }} ({{ browser_push_recipient_rows|length }})</summary>
     <table class="itemlist is-vcentered is-wide">
       <thead>
         <tr>
@@ -60,28 +79,11 @@
       {%- endfor %}
       </tbody>
     </table>
+    </details>
     {%- else %}
     <div class="ns-admin-form-callout">{{ _('Keine aktiven Turnier-User gefunden.') }}</div>
     {%- endif %}
   </section>
-  {%- if g.user.has_permission('netsession_tourney.manage') %}
-  <section class="box ns-admin-form-section mb">
-    <div class="ns-admin-form-section-head">
-      <div>
-        <h2 class="ns-admin-form-section-title">{{ _('Nachricht senden') }}</h2>
-        <p class="ns-admin-form-section-text">{{ _('Sendet eine Browser-Benachrichtigung an aktive Teilnehmer dieses Turniers mit aktivierter Browser-Subscription.') }}</p>
-      </div>
-    </div>
-    <form action="{{ url_for('.tournament_notification_send', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-form-shell">
-      {{ render_admin_field(notification_send_form.title, _('Kurz und klar. Dieser Text erscheint als Titel der Browser-Benachrichtigung.')) }}
-      {{ render_admin_field(notification_send_form.body, _('Der eigentliche Nachrichtentext. Wird für die Browser-Benachrichtigung verwendet.'), class='ns-admin-compact-textarea') }}
-      {{ render_admin_field(notification_send_form.target_url, _('Optional. Relative Ziel-URL innerhalb der Seite, die beim Klick auf die Benachrichtigung geöffnet wird. Leer lassen für die Turnierseite.')) }}
-      <div class="ns-admin-form-actions">
-        <button type="submit" class="button color-primary">{{ _('Nachricht senden') }}</button>
-      </div>
-    </form>
-  </section>
-  {%- endif %}
   <section class="box ns-admin-form-section mb">
     <div class="ns-admin-form-section-head">
       <div>
@@ -90,6 +92,7 @@
       </div>
     </div>
     {%- if browser_push_outbox_entries %}
+    <details><summary>{{ _('Liste anzeigen') }} ({{ browser_push_outbox_entries|length }})</summary>
     <table class="itemlist is-vcentered is-wide">
       <thead>
         <tr>
@@ -126,6 +129,7 @@
       {%- endfor %}
       </tbody>
     </table>
+    </details>
     {%- else %}
     <div class="ns-admin-form-callout">{{ _('Noch keine Browser-Push-Auslieferungsversuche vorhanden.') }}</div>
     {%- endif %}
