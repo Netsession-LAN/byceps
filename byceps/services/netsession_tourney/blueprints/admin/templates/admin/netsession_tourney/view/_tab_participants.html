@@ -14,7 +14,7 @@
         </div>
       </div>
       <form action="{{ url_for('.participant_add', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-inline-form">
-        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" list="ns-admin-screen-names" required>
+        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" aria-label="{{ _('Anzeigename') }}" list="ns-admin-screen-names" required>
         <button type="submit" class="button">{{ _('Hinzufügen') }}</button>
       </form>
     </section>

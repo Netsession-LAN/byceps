@@ -397,7 +397,7 @@
             <label class="form-label ns-admin-form-label">{{ _('Kommentar') }}</label>
             {{ render_help(_('Pflicht, wenn ein bestehendes Ergebnis korrigiert wird. Der Kommentar dient als Audit-Hinweis im Verlauf.')) }}
           </div>
-          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" placeholder="{{ _('Pflicht bei Korrektur eines bestehenden Ergebnisses') }}"></textarea>
+          <textarea class="form-control ns-admin-compact-textarea" name="comment" rows="2" placeholder="{{ _('Pflicht bei Korrektur eines bestehenden Ergebnisses') }}" aria-label="{{ _('Pflicht bei Korrektur eines bestehenden Ergebnisses') }}"></textarea>
         </div>
         <div class="ns-admin-form-actions">
           <button type="submit" class="button color-primary">{{ _('Ergebnis übermitteln') }}</button>

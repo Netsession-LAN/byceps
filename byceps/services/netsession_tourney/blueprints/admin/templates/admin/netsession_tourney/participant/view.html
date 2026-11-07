@@ -133,7 +133,7 @@
       </div>
       <form action="{{ url_for('.team_member_add', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id, return_to='participant') }}" method="post" class="ns-admin-inline-form ns-admin-card-form">
         <input type="hidden" name="return_to" value="participant">
-        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" list="ns-admin-team-member-screen-names" required>
+        <input class="form-control" type="text" name="screen_name" placeholder="{{ _('Anzeigename') }}" aria-label="{{ _('Anzeigename') }}" list="ns-admin-team-member-screen-names" required>
         <button type="submit" class="button">{{ _('Hinzufügen') }}</button>
       </form>
       {{ form_datalist('ns-admin-team-member-screen-names', suggested_screen_names) }}
