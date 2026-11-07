@@ -32,7 +32,7 @@
             <strong>{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</strong>
           </a>
         </td>
-        <td>{{ match.state|ns_label }}</td>
+        <td><span class="ns-admin-stage-status-badge {{ match.state|ns_status_class }}">{{ match.state|ns_label }}</span></td>
         <td>{{ match.scheduled_at|ns_datetime }}</td>
         <td>
           {%- for slot in slots %}

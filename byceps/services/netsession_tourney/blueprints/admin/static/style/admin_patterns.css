@@ -1,0 +1,26 @@
+/* Shared admin patterns from the UI review (2026-11-07): visible keyboard
+   focus, required-field marker, larger touch targets on tablets. Colours
+   only via currentColor or existing variables. */
+
+.ns-admin-form-shell :focus-visible,
+.ns-admin-form-section :focus-visible,
+.ns-admin-stage-actions :focus-visible,
+.tabs :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* a field label followed by a required control gets an asterisk */
+.form-control-block:has([required]) .form-label::after,
+.form-control-block:has([required]) .ns-admin-form-label::after {
+  content: ' *';
+  color: var(--dimmed-color);
+}
+
+@media (pointer: coarse) {
+  .ns-admin-stage-actions .button,
+  .ns-admin-form-actions .button,
+  .tabs-tab {
+    min-height: 2.75rem;
+  }
+}
