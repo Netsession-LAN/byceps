@@ -52,7 +52,7 @@
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Anmeldung') }}</div>
         <div class="data-value">
-          {%- if tournament.registration_open and tournament.status.value not in ['closed', 'canceled'] %}
+          {%- if tournament.registration_open and tournament.status.value == 'draft' %}
             {{ render_tag(_('offen'), class='color-info') }}
           {%- else %}
             {{ render_tag(_('geschlossen'), class='color-disabled', icon='disabled') }}

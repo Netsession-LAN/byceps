@@ -35,7 +35,7 @@ def validate_registration_open(
         tournament.registration_deadline is not None
         and now > tournament.registration_deadline
     ):
-        return Err('Registration deadline has passed.')
+        return Err('Der Anmeldeschluss ist vorbei.')
 
     return Ok(None)
 

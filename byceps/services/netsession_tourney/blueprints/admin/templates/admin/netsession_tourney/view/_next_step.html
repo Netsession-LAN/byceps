@@ -8,7 +8,7 @@
   {%- if status == 'draft' and not stages %}
   {{ _('Phasen anlegen, am einfachsten mit dem Turnierplaner.') }} <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}">{{ _('Zu den Phasen') }}</a>
   {%- elif status == 'draft' %}
-  {{ _('Alles geprüft? Dann oben „Live schalten“, damit sich Spieler anmelden können.') }}
+  {{ _('Die Anmeldung läuft, solange das Turnier ein Entwurf ist. Ist sie vorbei, oben „Live schalten“ und danach die Matches erzeugen.') }}
   {%- elif status == 'live' and attention_matches %}
   {{ ngettext('%(num)s Match braucht eine Entscheidung.', '%(num)s Matches brauchen eine Entscheidung.', attention_matches|length) }} <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') }}">{{ _('Zu den Matches') }}</a>
   {%- elif status == 'live' and not matches %}

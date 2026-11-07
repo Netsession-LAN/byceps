@@ -212,7 +212,7 @@ def _source_stage_error(db_source_stage, message: str) -> Err:
             'ist noch nicht vollständig abgeschlossen. '
             'Schließe zuerst alle Vorrunden-Matches ab.'
         )
-    return Err(f'Quell-Stage „{db_source_stage.name}“: {message}')
+    return Err(f'Quellphase „{db_source_stage.name}“: {message}')
 
 
 def _participants_in_order(
