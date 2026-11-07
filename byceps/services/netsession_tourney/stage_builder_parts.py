@@ -82,9 +82,9 @@ def validate_duel_builder_input(
 ) -> str | None:
     """Return an error message, or `None` if the input is fine."""
     if main_stage_type not in DUEL_MAIN_STAGE_TYPES:
-        return 'Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.'
+        return 'Dieser Typ des Hauptturniers wird vom Turnierplaner nicht unterstützt.'
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return 'Ungültige Größe der Main Stage.'
+        return 'Ungültige Größe des Hauptturniers.'
     if generation_basis != 'ready':
         return 'Ungültige Grundlage für die Erzeugung.'
     if preliminary_type not in DUEL_PRELIMINARY_TYPES:

@@ -216,7 +216,7 @@ def build_discord_tournament_finished_description(
         f'Gewonnen hat **{winner_name}**.',
     ]
     if stage_name:
-        lines.append(f'Gewertet wurde die Abschluss-Stage **{stage_name}**.')
+        lines.append(f'Gewertet wurde die Abschlussphase **{stage_name}**.')
     return '\n'.join(lines)
 
 

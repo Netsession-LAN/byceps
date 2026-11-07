@@ -141,10 +141,10 @@ def _validate_duel_stage_builder_options(
         StageType.double_elimination,
         StageType.double_elimination_double_grand_final,
     }:
-        return 'Dieser Main-Stage-Typ wird vom Baukasten nicht unterstützt.'
+        return 'Dieser Typ des Hauptturniers wird vom Turnierplaner nicht unterstützt.'
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return 'Ungültige Größe der Main Stage.'
+        return 'Ungültige Größe des Hauptturniers.'
 
     if generation_basis != 'ready':
         return 'Ungültige Grundlage für die Erzeugung.'

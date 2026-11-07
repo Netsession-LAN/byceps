@@ -106,7 +106,7 @@ def select_stage_qualifiers(
         )
         if top_n_result.is_err():
             return Err(
-                f'Quell-Stage „{db_source_stage.name}“: {top_n_result.unwrap_err()}'
+                f'Quellphase „{db_source_stage.name}“: {top_n_result.unwrap_err()}'
             )
 
         pick_qualifiers = (
@@ -148,7 +148,7 @@ def _select_top_per_group(
     for ranked_group_participant_ids in groups_result.unwrap():
         if len(ranked_group_participant_ids) < top_n:
             return Err(
-                f'Quell-Stage „{db_source_stage.name}“ hat eine Gruppe mit '
+                f'Quellphase „{db_source_stage.name}“ hat eine Gruppe mit '
                 f'nur {len(ranked_group_participant_ids)} gewerteten '
                 f'Teilnehmern, gebraucht werden aber die Top {top_n} pro Gruppe.'
             )
@@ -168,7 +168,7 @@ def _select_top_of_stage(
     ranked_participant_ids = ranked_result.unwrap()
     if len(ranked_participant_ids) < top_n:
         return Err(
-            f'Quell-Stage „{db_source_stage.name}“ hat nur '
+            f'Quellphase „{db_source_stage.name}“ hat nur '
             f'{len(ranked_participant_ids)} gewertete Teilnehmer, '
             f'gebraucht werden aber die Top {top_n}.'
         )
