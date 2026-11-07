@@ -8,7 +8,7 @@
   {%- for match in attention_matches %}
     <li>
       <a href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='matches') }}">{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</a>
-      <span class="ns-admin-stage-status-badge {{ match.state|ns_status_class }}">{{ match.state|ns_label }}</span>
+      <span class="tag {{ match.state|ns_status_class }}">{{ match.state|ns_label }}</span>
     </li>
   {%- endfor %}
   </ul>

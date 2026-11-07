@@ -121,9 +121,9 @@
             </td>
             <td>
               {%- if row.kind == 'builder_container' and row.child_stages %}
-              <span class="ns-admin-stage-status-badge status-live">{{ _('aufgeteilt (%(count)s Runden)', count=row.child_stages|length) if stage.settings.get('builder_materialized_stage_ids') else _('aufgeteilt (%(count)s Gruppen)', count=row.child_stages|length) }}</span>
+              <span class="tag color-success">{{ _('aufgeteilt (%(count)s Runden)', count=row.child_stages|length) if stage.settings.get('builder_materialized_stage_ids') else _('aufgeteilt (%(count)s Gruppen)', count=row.child_stages|length) }}</span>
               {%- else %}
-              <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
+              <span class="tag {{ stage.status|ns_status_class }}">{{ stage.status|ns_label }}</span>
               {%- endif %}
             </td>
             <td>
@@ -185,7 +185,7 @@
                 <span class="ns-admin-stage-type">{{ stage_type_label_by_value.get(stage.type.value, stage.type.value|replace('_', ' ')|title) }}</span>
               </td>
               <td>
-                <span class="ns-admin-stage-status-badge status-{{ stage.status.value }}">{{ stage.status|ns_label }}</span>
+                <span class="tag {{ stage.status|ns_status_class }}">{{ stage.status|ns_label }}</span>
               </td>
               <td>
                 {%- if g.user.has_permission('netsession_tourney.manage') %}

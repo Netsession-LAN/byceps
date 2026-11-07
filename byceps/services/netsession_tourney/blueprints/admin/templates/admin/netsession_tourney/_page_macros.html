@@ -22,7 +22,7 @@
         {%- endif %}
       </div>
       {%- if badge_label %}
-      <span class="ns-admin-stage-status-badge{% if badge_class %} {{ badge_class }}{% endif %}">{{ badge_label }}</span>
+      <span class="tag {{ badge_class|ns_status_class }}">{{ badge_label }}</span>
       {%- endif %}
     </div>
 

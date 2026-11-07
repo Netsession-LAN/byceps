@@ -74,7 +74,7 @@
           </a>
           <span class="dimmed">{{ slots|length }} {{ _('Teilnehmer') }}</span>
         </div>
-        <span class="ns-admin-stage-status-badge status-{{ match.state.value }}">{{ match.state|ns_label }}</span>
+        <span class="tag {{ match.state|ns_status_class }}">{{ match.state|ns_label }}</span>
       </header>
       <ol class="ns-admin-stage-ffa-rows">
         {%- for slot in slots|sort(attribute='slot_no') %}

@@ -206,7 +206,7 @@
       </div>
 
       <div class="ns-admin-page-hero-actions">
-        <span class="ns-admin-stage-status-badge status-{{ tournament.status.value }}">{{ tournament.status|ns_label }}</span>
+        <span class="tag {{ tournament.status|ns_status_class }}">{{ tournament.status|ns_label }}</span>
       </div>
     </div>
 

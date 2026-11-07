@@ -70,7 +70,7 @@
             {%- endif %}
           </td>
           <td>{{ participant.seed|fallback('-') }}</td>
-          <td><span class="ns-admin-stage-status-badge {{ participant.status|ns_status_class }}">{{ participant.status|ns_label }}</span>{% if tournament.checkin_open_at and tournament.checkin_close_at %} <span class="ns-admin-stage-status-badge {{ participant.checkin_state|ns_status_class }}">{{ _('Check-in') }}: {{ participant.checkin_state|ns_label }}</span>{% endif %}</td>
+          <td><span class="tag {{ participant.status|ns_status_class }}">{{ participant.status|ns_label }}</span>{% if tournament.checkin_open_at and tournament.checkin_close_at %} <span class="tag {{ participant.checkin_state|ns_status_class }}">{{ _('Check-in') }}: {{ participant.checkin_state|ns_label }}</span>{% endif %}</td>
           <td>
             <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>{% if tournament.checkin_open_at and tournament.checkin_close_at and tournament.status.value == 'live' %}{% set is_in = participant.checkin_state.value == 'checked_in' %}<form action="{{ url_for('.participant_set_checkin', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" method="post" style="display: inline"><input type="hidden" name="checked_in" value="{{ '0' if is_in else '1' }}"> <button type="submit" class="button is-compact{% if is_in %} is-outlined{% endif %}">{{ _('Check-in zurücknehmen') if is_in else _('Einchecken') }}</button></form>{% endif %}
           </td>
