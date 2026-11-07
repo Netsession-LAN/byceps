@@ -63,9 +63,9 @@
               <div class="ns-admin-stage-meta">
                 {%- if builder_meta %}
                 <span><strong>{{ builder_meta.role_label }}</strong></span>
-                {%- for line in builder_meta.lines %}
-                <span>{{ line }}</span>
-                {%- endfor %}
+                {%- if builder_meta.lines %}<details class="ns-admin-stage-meta-details" style="flex-basis: 100%"><summary>{{ _('Details') }}</summary>{% for line in builder_meta.lines %}
+                <div>{{ line }}</div>
+                {%- endfor %}</details>{% endif %}
                 {%- endif %}
                 {%- if row.kind == 'builder_container' and row.child_stages %}
                 <span>{{ _('Runden') if stage.settings.get('builder_materialized_stage_ids') else _('Gruppen') }}: {{ row.child_stages|length }}</span>
@@ -172,9 +172,9 @@
                 <div class="ns-admin-stage-meta">
                   {%- if builder_meta %}
                   <span><strong>{{ builder_meta.role_label }}</strong></span>
-                  {%- for line in builder_meta.lines %}
-                  <span>{{ line }}</span>
-                  {%- endfor %}
+                  {%- if builder_meta.lines %}<details class="ns-admin-stage-meta-details" style="flex-basis: 100%"><summary>{{ _('Details') }}</summary>{% for line in builder_meta.lines %}
+                  <div>{{ line }}</div>
+                  {%- endfor %}</details>{% endif %}
                   {%- endif %}
                   {%- if stage.settings.get('swiss_threshold') %}<span>{{ _('Swiss-Schwelle') }}: {{ stage.settings.get('swiss_threshold') }}/{{ stage.settings.get('swiss_threshold') }}</span>{% endif -%}
                   {%- if stage.settings.get('round_count') %}<span>{{ _('Runden') }}: {{ stage.settings.get('round_count') }}</span>{% endif -%}
