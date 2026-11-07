@@ -15,20 +15,20 @@
 </div>
 {%- endif %}
 
-<form class="ns-admin-inline-form mb" data-match-filter onsubmit="return false">
-  <select class="form-control" name="state" aria-label="{{ _('Status') }}">
+<form class="mb" data-match-filter onsubmit="return false" style="display: flex; flex-wrap: wrap; gap: 0.5rem">
+  <select class="form-control" style="width: auto" name="state" aria-label="{{ _('Status') }}">
     <option value="">{{ _('Alle Status') }}</option>
     <option value="open">{{ _('Offen (wartet, bereit, läuft)') }}</option>
     <option value="attention">{{ _('Braucht Aufmerksamkeit') }}</option>
     <option value="completed">{{ _('Abgeschlossen') }}</option>
   </select>
-  <select class="form-control" name="stage" aria-label="{{ _('Phase') }}">
+  <select class="form-control" style="width: auto" name="stage" aria-label="{{ _('Phase') }}">
     <option value="">{{ _('Alle Phasen') }}</option>
     {%- for stage_group in matches_by_stage if stage_group.stage %}
     <option value="{{ stage_group.stage.id }}">{{ stage_group.stage.name }}</option>
     {%- endfor %}
   </select>
-  <input class="form-control" type="search" name="q" placeholder="{{ _('Teilnehmer oder Match suchen') }}" aria-label="{{ _('Suche') }}">
+  <input class="form-control" style="flex: 1 1 16rem; width: auto" type="search" name="q" placeholder="{{ _('Teilnehmer oder Match suchen') }}" aria-label="{{ _('Suche') }}">
 </form>
 <script>
   (() => {
