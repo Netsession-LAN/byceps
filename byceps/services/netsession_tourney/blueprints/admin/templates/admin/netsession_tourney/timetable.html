@@ -1,158 +1,107 @@
 ﻿{% extends 'layout/admin/netsession_tourney.html' %}
-{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/misc.html' import render_tag %}
 {% set current_page_party = party %}
 {% set current_tab = 'timetable' %}
 {% set page_title = [_('Netsession Turniere'), _('Zeitplan'), party.title] %}
 
-{% block head %}
-  <link rel="stylesheet" href="{{ url_for('netsession_tourney_admin.static', filename='style/netsession_tourney.css', v=ns_tourney_asset_version) }}">
-{% endblock %}
-
+{#- Same building blocks as the other party pages: page head, tabs, one
+    section with a table per day. #}
 {% block body %}
-  <h1 class="title">{{ _('Zeitplan') }} {{ render_extra_in_heading(timetable.item_count) }}</h1>
-
-  <section class="ns-tourney-timetable-hero block">
-    <div class="ns-tourney-timetable-hero-main">
-      <div class="ns-tourney-timetable-kicker">{{ _('Turnierfahrplan') }}</div>
-      <p class="ns-tourney-timetable-intro">
-        {{ _('Alle geplanten Turnierrunden in einer klaren Tagesansicht mit Fokus auf Startzeiten, Parallelblöcke und offene Lücken.') }}
+  <div class="ns-admin-page-head block">
+    <div class="ns-admin-page-head-main">
+      <h1 class="title">{{ _('Zeitplan') }}</h1>
+      <p class="ns-admin-page-head-meta">
+        {{ ngettext('%(num)s geplante Runde', '%(num)s geplante Runden', timetable.item_count) }}
+        · {{ ngettext('%(num)s Turnier', '%(num)s Turniere', timetable.tournament_count) }}
+        · {{ ngettext('%(num)s Tag', '%(num)s Tage', timetable.available_day_count) }}
+        {%- if timetable.unscheduled_match_total %}
+        · {{ ngettext('%(num)s Match ohne Zeit', '%(num)s Matches ohne Zeit', timetable.unscheduled_match_total) }}
+        {%- endif %}
       </p>
     </div>
-    <div class="ns-tourney-timetable-stats">
-      <div class="ns-tourney-timetable-stat">
-        <strong>{{ timetable.item_count }}</strong>
-        <span>{{ _('Runden') }}</span>
-      </div>
-      <div class="ns-tourney-timetable-stat">
-        <strong>{{ timetable.tournament_count }}</strong>
-        <span>{{ _('Turniere') }}</span>
-      </div>
-      <div class="ns-tourney-timetable-stat">
-        <strong>{{ timetable.available_day_count }}</strong>
-        <span>{{ _('Tage') }}</span>
-      </div>
-      {%- if timetable.unscheduled_match_total %}
-      <div class="ns-tourney-timetable-stat is-warning">
-        <strong>{{ timetable.unscheduled_match_total }}</strong>
-        <span>{{ _('ohne Zeit') }}</span>
-      </div>
-      {%- endif %}
-    </div>
-  </section>
+  </div>
 
-  <div class="ns-tourney-timetable-controls block">
-    <a
-      href="{{ url_for('.timetable', party_id=party.id) }}"
-      class="button is-compact{% if timetable.view_mode == 'global' %} is-active{% endif %}"
-    >{{ _('Gesamtansicht') }}</a>
+  <ol class="tabs mb">
+    <li>{% if timetable.view_mode == 'global' %}<span class="tabs-tab tabs-tab--current">{{ _('Alle Tage') }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.timetable', party_id=party.id) }}">{{ _('Alle Tage') }}</a>{% endif %}</li>
     {%- for day in timetable.available_days %}
-    <a
-      href="{{ url_for('.timetable', party_id=party.id, day=day['iso']) }}"
-      class="button is-compact{% if timetable.selected_day == day['date'] %} is-active{% endif %}"
-    >{{ day['label'] }}</a>
+    <li>{% if timetable.selected_day == day['date'] %}<span class="tabs-tab tabs-tab--current">{{ day['label'] }}</span>{% else %}<a class="tabs-tab" href="{{ url_for('.timetable', party_id=party.id, day=day['iso']) }}">{{ day['label'] }}</a>{% endif %}</li>
     {%- endfor %}
-  </div>
+  </ol>
 
-  <div class="ns-tourney-panel ns-tourney-timetable-panel">
-    {%- if timetable.agenda_days %}
-    <div class="ns-tourney-agenda">
-      {%- for day in timetable.agenda_days %}
-      <section class="ns-tourney-agenda-day">
-        <div class="ns-tourney-agenda-day-head">
-          <div class="ns-tourney-agenda-day-head-main">
-            <div class="ns-tourney-agenda-day-kicker">{{ _('Turniertag') }}</div>
-            <h2 class="ns-tourney-agenda-day-title">
-              {{ day['label'] }}
-              {%- if day['is_today'] %}
-              <span class="tag color-success">{{ _('Heute') }}</span>
-              {%- endif %}
-            </h2>
-          </div>
-          <div class="ns-tourney-agenda-day-meta">
-            <span class="ns-tourney-agenda-day-stat">{{ day['item_count'] }} {{ _('Runden') }}</span>
-            <span class="ns-tourney-agenda-day-stat">{{ day['slot_count'] }} {{ _('Zeitblöcke') }}</span>
-            <span class="ns-tourney-agenda-day-stat">{{ day['tournament_count'] }} {{ _('Turniere') }}</span>
-          </div>
-        </div>
-
-        {%- if day['slots'] %}
-        <div class="ns-tourney-agenda-list">
-          {%- for slot in day['slots'] %}
-          <section class="ns-tourney-agenda-slot{% if slot['is_parallel'] %} is-parallel{% endif %}">
-            <div class="ns-tourney-agenda-slot-rail">
-              <div class="ns-tourney-agenda-time">
-                <strong class="ns-tourney-agenda-time-start">{{ slot['start_label'] }}</strong>
-                <span class="ns-tourney-agenda-time-range">{{ slot['end_label'] }}</span>
-                <small class="ns-tourney-agenda-time-duration">{{ slot['duration_label'] }}</small>
-              </div>
-            </div>
-            <div class="ns-tourney-agenda-slot-content">
-              <div class="ns-tourney-agenda-slot-head">
-                <div class="ns-tourney-agenda-slot-head-main">
-                  <span class="ns-tourney-agenda-slot-label">
-                    {{ _('Parallelblock') if slot['is_parallel'] else _('Zeitblock') }}
-                  </span>
-                  <span class="ns-tourney-agenda-slot-summary">
-                    {{ slot['item_count'] }} {{ _('Runden') }} · {{ slot['tournament_count'] }} {{ _('Turniere') }}
-                  </span>
-                </div>
-                {%- if slot['is_parallel'] %}
-                <span class="ns-tourney-agenda-slot-badge">{{ slot['item_count'] }} {{ _('parallel') }}</span>
-                {%- endif %}
-              </div>
-              <div class="ns-tourney-agenda-slot-items">
-                {%- for item in slot['items'] %}
-                <a
-                  href="{{ url_for('.view', party_id=party.id, tournament_id=item['tournament'].id, tab='stages', stage_id=item['stage_id']) }}"
-                  class="ns-tourney-agenda-item"
-                >
-                  <span class="ns-tourney-agenda-item-kicker">{{ item['stage_name'] }} &middot; {{ _('Runde') }} {{ item['round_no'] }}</span>
-                  <div class="ns-tourney-agenda-main">
-                    <div class="ns-tourney-agenda-main-head">
-                      <strong class="ns-tourney-agenda-tournament">{{ item['tournament'].title }}</strong>
-                      <span class="ns-tourney-agenda-match-count">{{ item['match_count'] }} {{ _('Matches') }}</span>
-                    </div>
-                    <div class="ns-tourney-agenda-item-meta">
-                      <span class="ns-tourney-agenda-item-pill">{{ item['time_label'] }}</span>
-                      <span class="ns-tourney-agenda-item-pill">{{ item['duration_label'] }}</span>
-                    </div>
-                  </div>
-                </a>
-                {%- endfor %}
-              </div>
-            </div>
-          </section>
-          {%- endfor %}
-        </div>
-        {%- else %}
-        <div class="ns-tourney-agenda-empty">{{ _('Keine geplanten Runden an diesem Tag.') }}</div>
-        {%- endif %}
-      </section>
-      {%- endfor %}
-    </div>
-    {%- else %}
-    <div class="box no-data-message">{{ _('Keine geplanten Runden vorhanden.') }}</div>
-    {%- endif %}
-    {%- if timetable.unscheduled_tournaments %}
-    <details class="ns-tourney-timetable-alert">
-      <summary class="ns-tourney-timetable-alert-head">
-        <strong>{{ _('Matches ohne Zeitplanung') }}</strong>
-        <span>{{ timetable.unscheduled_match_total }} {{ _('ohne Zeit') }}</span>
-      </summary>
-      <div class="ns-tourney-agenda-unscheduled-list">
-        {%- for row in timetable.unscheduled_tournaments %}
-        <a href="{{ url_for('.view', party_id=party.id, tournament_id=row['tournament'].id, tab='stages') }}" class="ns-tourney-agenda-unscheduled-link">
-          <span class="ns-tourney-agenda-unscheduled-title">{{ row['tournament'].title }}</span>
-          <span class="ns-tourney-agenda-unscheduled-meta">
-            {{ row['unscheduled_match_count'] }} {{ _('ohne Zeit') }}
-            {%- if row['scheduled_round_count'] %}
-            · {{ row['scheduled_round_count'] }} {{ _('geplante Runden') }}
-            {%- endif %}
-          </span>
-        </a>
-        {%- endfor %}
+  {%- for day in timetable.agenda_days %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ day['label'] }}{% if day['is_today'] %} {{ render_tag(_('Heute'), class='color-success') }}{% endif %}</h2>
+        <p class="ns-admin-form-section-text">
+          {{ ngettext('%(num)s Runde', '%(num)s Runden', day['item_count']) }}
+          · {{ ngettext('%(num)s Turnier', '%(num)s Turniere', day['tournament_count']) }}
+        </p>
       </div>
-    </details>
+    </div>
+    {%- if day['slots'] %}
+    <table class="itemlist is-vcentered is-wide">
+      <thead>
+        <tr>
+          <th>{{ _('Zeit') }}</th>
+          <th>{{ _('Turnier') }}</th>
+          <th>{{ _('Phase') }}</th>
+          <th class="number">{{ _('Runde') }}</th>
+          <th class="number">{{ _('Matches') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for slot in day['slots'] %}
+        {%- for item in slot['items'] %}
+        <tr>
+          <td>
+            <strong>{{ item['time_label'] }}</strong>
+            <span class="dimmed">({{ item['duration_label'] }})</span>
+            {%- if slot['is_parallel'] %} {{ render_tag(_('parallel'), class='color-info--light') }}{% endif %}
+          </td>
+          <td><a href="{{ url_for('.view', party_id=party.id, tournament_id=item['tournament'].id, tab='stages', stage_id=item['stage_id']) }}">{{ item['tournament'].title }}</a></td>
+          <td>{{ item['stage_name'] }}</td>
+          <td class="number">{{ item['round_no'] }}</td>
+          <td class="number">{{ item['match_count'] }}</td>
+        </tr>
+        {%- endfor %}
+      {%- endfor %}
+      </tbody>
+    </table>
+    {%- else %}
+    <div class="dimmed">{{ _('Keine geplanten Runden an diesem Tag.') }}</div>
     {%- endif %}
-  </div>
+  </section>
+  {%- else %}
+  <div class="box no-data-message block">{{ _('Keine geplanten Runden vorhanden.') }}</div>
+  {%- endfor %}
+
+  {%- if timetable.unscheduled_tournaments %}
+  <section class="box ns-admin-form-section block">
+    <div class="ns-admin-form-section-head">
+      <div>
+        <h2 class="ns-admin-form-section-title">{{ _('Matches ohne Zeitplanung') }}</h2>
+        <p class="ns-admin-form-section-text">{{ _('Für diese Turniere sind Matches erzeugt, aber ohne Startzeit. Die Zeiten legst du beim Erzeugen der Phase fest.') }}</p>
+      </div>
+    </div>
+    <table class="itemlist is-vcentered is-wide">
+      <thead>
+        <tr>
+          <th>{{ _('Turnier') }}</th>
+          <th class="number">{{ _('Matches ohne Zeit') }}</th>
+          <th class="number">{{ _('Geplante Runden') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for row in timetable.unscheduled_tournaments %}
+        <tr>
+          <td><a href="{{ url_for('.view', party_id=party.id, tournament_id=row['tournament'].id, tab='stages') }}">{{ row['tournament'].title }}</a></td>
+          <td class="number">{{ row['unscheduled_match_count'] }}</td>
+          <td class="number">{{ row['scheduled_round_count'] or '-' }}</td>
+        </tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+  </section>
+  {%- endif %}
 {% endblock %}
