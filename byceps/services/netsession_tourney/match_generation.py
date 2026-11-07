@@ -26,6 +26,7 @@ from .dbmodels import (
 from .discord_service import (
     enqueue_discord_event,
 )
+from . import checkin_service
 from .generation_guard import check_generation_allowed
 from .match_advancement import (
     auto_advance_byes,
@@ -96,11 +97,11 @@ def generate_stage_matches(
     stage has results (they would be deleted) or the tournament is over."""
     db_tournament = find_db_tournament_for_party(party_id, tournament_id)
     if db_tournament is not None:
-        guard_error = check_generation_allowed(
-            db_tournament_to_model(db_tournament), stage_id
-        )
+        tournament = db_tournament_to_model(db_tournament)
+        guard_error = check_generation_allowed(tournament, stage_id)
         if guard_error is not None:
             return Err(guard_error)
+        checkin_service.mark_missed_checkins(tournament)
 
     result = _generate_stage_matches(
         party_id,

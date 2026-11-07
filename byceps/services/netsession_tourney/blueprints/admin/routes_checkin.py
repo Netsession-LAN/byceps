@@ -2,7 +2,8 @@
 byceps.services.netsession_tourney.blueprints.admin.routes_checkin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Admins check participants in by hand (or take a check-in back).
+Admins check participants in by hand (or take a check-in back), and see
+how many have checked in.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required
 
-from ...checkin_service import set_checkin_by_admin
+from ...checkin_service import count_checkins, set_checkin_by_admin
 from .result_helpers import (
     get_party_or_404,
     _get_tournament_or_404,
@@ -25,6 +26,8 @@ from .result_helpers import (
 
 
 def register(blueprint) -> None:
+    blueprint.add_app_template_global(count_checkins, 'ns_checkin_counts')
+
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>'
         '/participants/<uuid:participant_id>/checkin'

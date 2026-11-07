@@ -4,13 +4,15 @@ byceps.services.netsession_tourney.generation_guard
 
 Generating the matches of a phase replaces its existing matches – with
 their results, chats and report receipts. That is refused once a result
-was reported in the phase, and for closed or canceled tournaments.
+was reported in the phase, for closed or canceled tournaments, and
+before the check-in window has ended.
 """
 
 from __future__ import annotations
 
 from byceps.database import db
 
+from . import checkin_service
 from .dbmodels import DbNetsessionTourneyTournament
 from .models import Stage, StageID, Tournament, TournamentStatus
 from .service_helpers import db_tournament_to_model
@@ -30,7 +32,7 @@ def check_generation_allowed(tournament: Tournament, stage_id: StageID) -> str |
             'In dieser Phase gibt es schon gemeldete Ergebnisse. Neu erzeugen '
             'würde sie löschen; lösche bei Bedarf zuerst die Ergebnisse.'
         )
-    return None
+    return checkin_service.check_generation_allowed(tournament)
 
 
 def check_generation_allowed_for_stage(stage: Stage) -> str | None:

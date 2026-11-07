@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from byceps.database import db
 from byceps.services.party.models import PartyID
@@ -84,12 +84,48 @@ def select_checked_in_participants(
 
 def check_generation_allowed(tournament: Tournament) -> str | None:
     """Return why the bracket cannot be generated yet, or None."""
-    if get_checkin_phase(tournament) in {CheckinPhase.before, CheckinPhase.open}:
+    phase = get_checkin_phase(tournament)
+    if phase == CheckinPhase.before:
+        return (
+            'Der Check-in hat noch nicht begonnen. Die Matches können erst '
+            'nach dem Ende des Check-ins erzeugt werden.'
+        )
+    if phase == CheckinPhase.open:
         return (
             'Der Check-in läuft noch. Die Matches können erst nach dem Ende '
             'des Check-ins erzeugt werden.'
         )
     return None
+
+
+def count_checkins(tournament: Tournament) -> tuple[int, int] | None:
+    """Return (checked in, all active participants), or None without a
+    check-in window."""
+    if not has_checkin(tournament):
+        return None
+    states = db.session.scalars(
+        select(DbNetsessionTourneyParticipant.checkin_state).where(
+            DbNetsessionTourneyParticipant.tournament_id == tournament.id,
+            DbNetsessionTourneyParticipant.status.in_(_CHECKIN_ALLOWED_STATUSES),
+        )
+    ).all()
+    return states.count(CheckinState.checked_in.value), len(states)
+
+
+def mark_missed_checkins(tournament: Tournament) -> None:
+    """After the window, whoever did not check in has missed it. Within
+    the caller's transaction."""
+    if get_checkin_phase(tournament) != CheckinPhase.closed:
+        return
+    db.session.execute(
+        update(DbNetsessionTourneyParticipant)
+        .where(
+            DbNetsessionTourneyParticipant.tournament_id == tournament.id,
+            DbNetsessionTourneyParticipant.checkin_state
+            == CheckinState.pending.value,
+        )
+        .values(checkin_state=CheckinState.missed.value)
+    )
 
 
 def check_in(
