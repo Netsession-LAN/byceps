@@ -1,0 +1,59 @@
+{#- Matches tab: what needs an admin now, and filters for the long list. #}
+{%- set attention_states = ['needs_admin_review', 'disputed', 'pending_confirmation'] %}
+{%- set attention_matches = matches|selectattr('state.value', 'in', attention_states)|list %}
+{%- if attention_matches %}
+<div class="box mb ns-admin-attention">
+  <h3 class="title">{{ _('Braucht Aufmerksamkeit') }} ({{ attention_matches|length }})</h3>
+  <ul>
+  {%- for match in attention_matches %}
+    <li>
+      <a href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='matches') }}">{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</a>
+      <span class="ns-admin-stage-status-badge {{ match.state|ns_status_class }}">{{ match.state|ns_label }}</span>
+    </li>
+  {%- endfor %}
+  </ul>
+</div>
+{%- endif %}
+
+<form class="ns-admin-inline-form mb" data-match-filter onsubmit="return false">
+  <select class="form-control" name="state" aria-label="{{ _('Status') }}">
+    <option value="">{{ _('Alle Status') }}</option>
+    <option value="open">{{ _('Offen (wartet, bereit, läuft)') }}</option>
+    <option value="attention">{{ _('Braucht Aufmerksamkeit') }}</option>
+    <option value="completed">{{ _('Abgeschlossen') }}</option>
+  </select>
+  <select class="form-control" name="stage" aria-label="{{ _('Phase') }}">
+    <option value="">{{ _('Alle Phasen') }}</option>
+    {%- for stage_group in matches_by_stage if stage_group.stage %}
+    <option value="{{ stage_group.stage.id }}">{{ stage_group.stage.name }}</option>
+    {%- endfor %}
+  </select>
+  <input class="form-control" type="search" name="q" placeholder="{{ _('Teilnehmer oder Match suchen') }}" aria-label="{{ _('Suche') }}">
+</form>
+<script>
+  (() => {
+    const form = document.querySelector('[data-match-filter]');
+    if (!form) return;
+    const groups = {
+      open: ['pending', 'ready', 'in_progress'],
+      attention: {{ attention_states|tojson }},
+      completed: ['completed'],
+    };
+    const apply = () => {
+      const state = form.elements.state.value;
+      const stage = form.elements.stage.value;
+      const q = form.elements.q.value.trim().toLowerCase();
+      document.querySelectorAll('[data-match-row]').forEach((row) => {
+        const visible = (!state || groups[state].includes(row.dataset.state))
+          && (!stage || row.dataset.stage === stage)
+          && (!q || row.dataset.search.includes(q));
+        row.hidden = !visible;
+      });
+      document.querySelectorAll('[data-match-group]').forEach((group) => {
+        group.hidden = !group.querySelector('[data-match-row]:not([hidden])');
+      });
+    };
+    form.addEventListener('input', apply);
+    form.addEventListener('change', apply);
+  })();
+</script>

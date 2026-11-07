@@ -4,9 +4,10 @@
   </div>
 
   {%- if matches_by_stage %}
+  {%- include 'admin/netsession_tourney/view/_matches_filter.html' %}
   {%- for stage_group in matches_by_stage %}
   {%- set stage_item = stage_group.stage %}
-  <div class="box mb">
+  <div class="box mb" data-match-group>
     <div class="row row--space-between block">
       <h3 class="title">{{ stage_item.name if stage_item else _('Ohne Phase') }}</h3>
       <span class="dimmed">{{ stage_group.matches|length }} {{ _('Matches') }}</span>
@@ -24,7 +25,8 @@
     <tbody>
     {%- for match in stage_group.matches %}
       {%- set slots = slots_by_match_id.get(match.id, []) %}
-      <tr>
+      {%- set names = namespace(text='') %}{% for slot in slots if participants_by_id.get(slot.participant_id) %}{% set names.text = names.text ~ ' ' ~ participants_by_id.get(slot.participant_id).name %}{% endfor %}
+      <tr data-match-row data-state="{{ match.state.value }}" data-stage="{{ match.stage_id }}" data-search="{{ (match_labels_by_id.get(match.id, '') ~ names.text)|lower }}">
         <td>
           <a href="{{ url_for('.match_view', party_id=party.id, tournament_id=tournament.id, match_id=match.id, return_to='matches') }}" class="disguised">
             <strong>{{ match_labels_by_id.get(match.id, _('Match') ~ ' #' ~ match.match_no|string) }}</strong>

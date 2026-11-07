@@ -40,6 +40,7 @@
   {%- endif %}
 
   {%- if participants %}
+  <input class="form-control mb" type="search" placeholder="{{ _('Teilnehmer suchen') }}" aria-label="{{ _('Teilnehmer suchen') }}" oninput="const q = this.value.trim().toLowerCase(); document.querySelectorAll('[data-participant-row]').forEach((row) => { row.hidden = q !== '' && !row.dataset.search.includes(q); });">
   <div class="ns-admin-table-wrap mb">
     <table class="itemlist is-vcentered is-wide ns-admin-participants-table">
       <thead>
@@ -54,7 +55,7 @@
       </thead>
       <tbody>
       {%- for participant in participants %}
-        <tr>
+        <tr data-participant-row data-search="{{ participant.name|lower }}">
           <td>
             <a href="{{ url_for('.participant_view', party_id=party.id, tournament_id=tournament.id, participant_id=participant.id) }}" class="disguised">
               <strong>{{ participant.name }}</strong>

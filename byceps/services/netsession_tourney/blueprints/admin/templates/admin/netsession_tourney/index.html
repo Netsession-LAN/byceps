@@ -26,7 +26,12 @@
       </tr>
     </thead>
     <tbody>
-    {%- for tournament in tournaments %}
+    {#- grouped by status (running first), each group by start time #}
+    {%- for status in ['live', 'draft', 'closed', 'canceled'] %}
+    {%- set group = tournaments|selectattr('status.value', 'equalto', status)|list %}
+    {%- if group %}
+      <tr class="ns-admin-tourney-index-group"><th colspan="6">{{ group[0].status|ns_label }} ({{ group|length }})</th></tr>
+    {%- for tournament in (group|selectattr('starts_at')|sort(attribute='starts_at')|list) + (group|rejectattr('starts_at')|list) %}
       <tr>
         <td>
           <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id) }}" class="disguised ns-admin-tourney-index-link">
@@ -50,6 +55,8 @@
         <td>{{ tournament.starts_at|ns_datetime }}</td>
         <td>{{ tournament.status|ns_label }}</td>
       </tr>
+    {%- endfor %}
+    {%- endif %}
     {%- endfor %}
     </tbody>
   </table>
