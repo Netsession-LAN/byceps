@@ -54,7 +54,7 @@
           <th>{{ _('Vorschau') }}</th>
           <th>{{ _('Name') }}</th>
           <th>{{ _('Quelle') }}</th>
-          <th>{{ _('Pfad') }}</th>
+          <th>{{ _('Datei') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -67,8 +67,8 @@
             </span>
           </td>
           <td><strong>{{ logo_asset.label }}</strong></td>
-          <td><code>{{ logo_asset.party_id }}</code></td>
-          <td><code>{{ logo_asset.url_path }}</code></td>
+          <td>{{ _('diese Party') if logo_asset.party_id else _('alle Partys') }}</td>
+          <td title="{{ logo_asset.url_path }}">{{ logo_asset.url_path.rsplit('/', 1)[-1] }}</td>
           <td>
             {%- if g.user.has_permission('netsession_tourney.manage') -%}
             <div class="dropdown">

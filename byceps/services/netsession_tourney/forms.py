@@ -600,8 +600,8 @@ class TournamentPrizeForm(LocalizedForm):
         lazy_gettext('Textformat'),
         validators=[InputRequired()],
         choices=[
-            (RuleTemplateBodyFormat.html.value, 'HTML'),
             (RuleTemplateBodyFormat.markdown.value, 'Markdown'),
+            (RuleTemplateBodyFormat.html.value, 'HTML'),
         ],
     )
     body = TextAreaField(

@@ -32,7 +32,7 @@
         <tr>
           <td><strong>{{ rule_template.title }}</strong></td>
           <td><code>{{ rule_template.slug }}</code></td>
-          <td>{{ rule_template.body_format.value|upper }}</td>
+          <td>{{ 'HTML' if rule_template.body_format.value == 'html' else 'Markdown' }}</td>
           <td>
             {%- if g.user.has_permission('netsession_tourney.manage') -%}
             <div class="dropdown">

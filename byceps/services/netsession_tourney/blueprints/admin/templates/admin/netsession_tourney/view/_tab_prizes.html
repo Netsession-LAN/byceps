@@ -22,7 +22,7 @@
       <tr>
         <td class="ns-tourney-admin-prize-label">{{ _('Platz') }} {{ prize.position }}</td>
         <td class="ns-tourney-admin-prize-body">{{ prize.body|truncate(280) }}</td>
-        <td>{{ prize.body_format.value|upper }}</td>
+        <td>{{ 'HTML' if prize.body_format.value == 'html' else 'Markdown' }}</td>
         <td>
           {%- if g.user.has_permission('netsession_tourney.manage') %}
           <div class="ns-admin-form-actions">
