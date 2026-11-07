@@ -35,8 +35,12 @@ def test_raw_values_get_german_labels(admin_app):
         assert raw_enum_label(None, 'TournamentMode') == '-'
 
 
-def test_status_badges_use_one_colour_per_meaning():
-    assert status_class(MatchState.needs_admin_review) == 'status-canceled'
-    assert status_class(MatchState.completed) == 'status-closed'
-    assert status_class(ParticipantStatus.ready) == 'status-live'
-    assert status_class(TournamentStatus.draft) == 'status-draft'
+def test_status_badges_use_the_byceps_tag_colours():
+    assert status_class(MatchState.needs_admin_review) == 'color-warning'
+    assert status_class(MatchState.completed) == 'color-disabled'
+    assert status_class(ParticipantStatus.ready) == 'color-success'
+    assert status_class(TournamentStatus.draft) == ''
+    assert status_class(TournamentStatus.canceled) == 'color-danger'
+    # page headers pass "status-<value>" strings
+    assert status_class('status-live') == 'color-success'
+    assert status_class('color-success') == 'color-success'
