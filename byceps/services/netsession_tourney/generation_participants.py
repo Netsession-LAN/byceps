@@ -21,6 +21,7 @@ from . import domain_service
 from .checkin_service import select_checked_in_participants
 from .dbmodels import (
     DbNetsessionTourneyStage,
+    DbNetsessionTourneyTournament,
 )
 from .models import (
     Participant,
@@ -118,11 +119,31 @@ def order_participants_for_stage_generation(
     return contiguous_seeded + deferred_unseeded
 
 
-def select_generation_participants_for_stage(
-    party_id: PartyID,
-    tournament_id: TournamentID,
-    stage: Stage,
-) -> Result[list[Participant], str]:
+def is_builder_preliminary_skipped(stage: Stage) -> bool:
+    """A builder main stage skips its preliminary when all eligible
+    participants fit into it."""
+    size = get_stage_builder_main_stage_size(stage)
+    if (
+        not is_stage_builder_v1_main_stage(stage)
+        or size is None
+        or not stage.settings.get('builder_preliminary_stage_id')
+    ):
+        return False
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, stage.tournament_id
+    )
+    if db_tournament is None:
+        return False
+    _, eligible = _select_eligible_participants(
+        db_tournament.party_id, stage.tournament_id, stage
+    )
+    return len(eligible) <= size
+
+
+def _select_eligible_participants(
+    party_id: PartyID, tournament_id: TournamentID, stage: Stage
+) -> tuple[list[Participant], list[Participant]]:
+    """Return all (checked-in) participants and those eligible to play."""
     all_tournament_participants = get_participants_for_tournament(
         party_id, tournament_id
     )
@@ -131,15 +152,29 @@ def select_generation_participants_for_stage(
         all_tournament_participants = select_checked_in_participants(
             db_tournament_to_model(db_tournament), all_tournament_participants
         )
-    is_stage_builder_v1_stage = is_stage_builder_v1_main_stage(
-        stage
-    ) or is_stage_builder_v1_preliminary_stage(stage)
     eligible_participants = (
         domain_service.select_ready_participants(all_tournament_participants)
-        if is_stage_builder_v1_stage
+        if _is_builder_stage(stage)
         else domain_service.select_bracket_ready_participants(
             all_tournament_participants
         )
+    )
+    return all_tournament_participants, eligible_participants
+
+
+def _is_builder_stage(stage: Stage) -> bool:
+    return is_stage_builder_v1_main_stage(
+        stage
+    ) or is_stage_builder_v1_preliminary_stage(stage)
+
+
+def select_generation_participants_for_stage(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    stage: Stage,
+) -> Result[list[Participant], str]:
+    all_tournament_participants, eligible_participants = (
+        _select_eligible_participants(party_id, tournament_id, stage)
     )
     main_stage_decision = _decide_by_builder_main_stage_size(
         stage, eligible_participants
@@ -159,7 +194,7 @@ def select_generation_participants_for_stage(
             party_id,
             tournament_id,
             stage,
-            is_stage_builder_v1_stage=is_stage_builder_v1_stage,
+            is_stage_builder_v1_stage=_is_builder_stage(stage),
         )
     return Ok(eligible_participants)
 

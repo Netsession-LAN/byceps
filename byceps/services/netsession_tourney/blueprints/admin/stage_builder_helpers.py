@@ -58,6 +58,7 @@ from ...score_parsing import get_ffa_points_per_kill
 from ...engines.bracket_helpers import distribute_evenly
 from ..site.builder_helpers import get_builder_container_child_stage_ids
 from ...generation_guard import check_generation_allowed_for_stage
+from ...generation_participants import is_builder_preliminary_skipped
 from ...stage_service import parse_source_stage_ids
 
 
@@ -641,7 +642,8 @@ def get_stage_generation_block_reason(
     guard_error = check_generation_allowed_for_stage(stage)
     if guard_error is not None:  # results would be deleted, or tournament over
         return guard_error
-
+    if is_builder_preliminary_skipped(stage):
+        return None  # everybody fits, the main stage starts directly
     settings = stage.settings or {}
     if settings.get('participant_source_mode') not in {
         'stage_qualifiers',
@@ -1526,8 +1528,6 @@ def build_flatout2_generation_state(
     ]
     participant_choice_values = {choice['value'] for choice in participant_choices}
     max_match_count_per_round = 10
-    round_count = 1
-
     round_defaults_by_no: dict[int, dict] = {}
     for index, raw_round in enumerate(raw_rounds, start=1):
         if not isinstance(raw_round, dict):
