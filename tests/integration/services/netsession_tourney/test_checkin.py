@@ -10,6 +10,7 @@ from byceps.services.netsession_tourney import (
     checkin_service,
     match_generation,
     match_queries,
+    participant_admin_service,
     registration_service,
     stage_service,
     tournament_lifecycle_service,
@@ -22,6 +23,7 @@ from byceps.services.netsession_tourney.dbmodels import (
 )
 from byceps.services.netsession_tourney.models import (
     CheckinState,
+    ParticipantStatus,
     RegistrationMode,
     StageType,
     TournamentMode,
@@ -190,3 +192,34 @@ def test_checkin_reminder_is_sent_once_when_the_window_opens(
 
     checkin_reminders.send_due_checkin_reminders()
     assert reminders() == len(players)
+
+
+def test_admin_status_change_is_limited_to_safe_states(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, _, players = _tournament_with_players(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    participant_id = db.session.scalar(
+        select(DbNetsessionTourneyParticipant.id).filter_by(
+            tournament_id=tournament.id, user_id=players[0].id
+        )
+    )
+
+    dropped = participant_admin_service.set_participant_status(
+        party.id,
+        tournament.id,
+        participant_id,
+        ParticipantStatus.dropped,
+        admin_user,
+    )
+    assert dropped.is_err()
+    assert 'entfernen' in dropped.unwrap_err().lower()
+
+    assert participant_admin_service.set_participant_status(
+        party.id,
+        tournament.id,
+        participant_id,
+        ParticipantStatus.forming,
+        admin_user,
+    ).is_ok()
