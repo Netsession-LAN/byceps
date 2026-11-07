@@ -54,28 +54,6 @@
   </div>
 
   <div class="ns-tourney-panel ns-tourney-timetable-panel">
-    {%- if timetable.unscheduled_tournaments %}
-    <section class="ns-tourney-timetable-alert">
-      <div class="ns-tourney-timetable-alert-head">
-        <strong>{{ _('Matches ohne Zeitplanung') }}</strong>
-        <span>{{ timetable.unscheduled_match_total }} {{ _('ohne Zeit') }}</span>
-      </div>
-      <div class="ns-tourney-agenda-unscheduled-list">
-        {%- for row in timetable.unscheduled_tournaments %}
-        <a href="{{ url_for('.view', party_id=party.id, tournament_id=row['tournament'].id, tab='stages') }}" class="ns-tourney-agenda-unscheduled-link">
-          <span class="ns-tourney-agenda-unscheduled-title">{{ row['tournament'].title }}</span>
-          <span class="ns-tourney-agenda-unscheduled-meta">
-            {{ row['unscheduled_match_count'] }} {{ _('ohne Zeit') }}
-            {%- if row['scheduled_round_count'] %}
-            · {{ row['scheduled_round_count'] }} {{ _('geplante Runden') }}
-            {%- endif %}
-          </span>
-        </a>
-        {%- endfor %}
-      </div>
-    </section>
-    {%- endif %}
-
     {%- if timetable.agenda_days %}
     <div class="ns-tourney-agenda">
       {%- for day in timetable.agenda_days %}
@@ -154,6 +132,27 @@
     </div>
     {%- else %}
     <div class="box no-data-message">{{ _('Keine geplanten Runden vorhanden.') }}</div>
+    {%- endif %}
+    {%- if timetable.unscheduled_tournaments %}
+    <details class="ns-tourney-timetable-alert">
+      <summary class="ns-tourney-timetable-alert-head">
+        <strong>{{ _('Matches ohne Zeitplanung') }}</strong>
+        <span>{{ timetable.unscheduled_match_total }} {{ _('ohne Zeit') }}</span>
+      </summary>
+      <div class="ns-tourney-agenda-unscheduled-list">
+        {%- for row in timetable.unscheduled_tournaments %}
+        <a href="{{ url_for('.view', party_id=party.id, tournament_id=row['tournament'].id, tab='stages') }}" class="ns-tourney-agenda-unscheduled-link">
+          <span class="ns-tourney-agenda-unscheduled-title">{{ row['tournament'].title }}</span>
+          <span class="ns-tourney-agenda-unscheduled-meta">
+            {{ row['unscheduled_match_count'] }} {{ _('ohne Zeit') }}
+            {%- if row['scheduled_round_count'] %}
+            · {{ row['scheduled_round_count'] }} {{ _('geplante Runden') }}
+            {%- endif %}
+          </span>
+        </a>
+        {%- endfor %}
+      </div>
+    </details>
     {%- endif %}
   </div>
 {% endblock %}
