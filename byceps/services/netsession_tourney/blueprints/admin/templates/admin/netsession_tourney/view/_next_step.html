@@ -1,0 +1,28 @@
+{#- Overview: the one thing to do next, plus the numbers that matter on the day. #}
+{%- set open_matches = matches|selectattr('state.value', 'in', ['pending', 'ready', 'in_progress'])|list %}
+{%- set attention_matches = matches|selectattr('state.value', 'in', ['needs_admin_review', 'disputed', 'pending_confirmation'])|list %}
+{%- set checkin_counts = ns_checkin_counts(tournament) %}
+{%- set status = tournament.status.value %}
+<div class="box block ns-admin-form-callout">
+  <strong>{{ _('Nächster Schritt') }}:</strong>
+  {%- if status == 'draft' and not stages %}
+  {{ _('Phasen anlegen, am einfachsten mit dem Turnierplaner.') }} <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}">{{ _('Zu den Phasen') }}</a>
+  {%- elif status == 'draft' %}
+  {{ _('Alles geprüft? Dann oben „Live schalten“, damit sich Spieler anmelden können.') }}
+  {%- elif status == 'live' and attention_matches %}
+  {{ ngettext('%(num)s Match braucht eine Entscheidung.', '%(num)s Matches brauchen eine Entscheidung.', attention_matches|length) }} <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='matches') }}">{{ _('Zu den Matches') }}</a>
+  {%- elif status == 'live' and not matches %}
+  {{ _('Wenn Anmeldung und Check-in vorbei sind: Matches der ersten Phase erzeugen.') }} <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages') }}">{{ _('Zu den Phasen') }}</a>
+  {%- elif status == 'live' and open_matches %}
+  {{ ngettext('%(num)s Match ist noch offen.', '%(num)s Matches sind noch offen.', open_matches|length) }}
+  {%- elif status == 'live' %}
+  {{ _('Alle Matches sind gespielt. Nächste Phase erzeugen oder das Turnier oben abschließen.') }}
+  {%- else %}
+  {{ _('Nichts mehr zu tun, das Turnier ist beendet.') }}
+  {%- endif %}
+  <div class="dimmed">
+    {{ _('Teilnehmer') }}: {{ active_participant_count }}
+    {%- if checkin_counts %} · {{ _('eingecheckt') }}: {{ checkin_counts[0] }}/{{ checkin_counts[1] }}{% endif %}
+    {%- if matches %} · {{ _('offene Matches') }}: {{ open_matches|length }} · {{ _('in Prüfung') }}: {{ attention_matches|length }}{% endif %}
+  </div>
+</div>
