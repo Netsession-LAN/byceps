@@ -124,18 +124,28 @@
             </td>
             <td>
               {%- if g.user.has_permission('netsession_tourney.manage') %}
+              {%- set is_draft = tournament.status.value == 'draft' %}
               <div class="ns-admin-stage-actions">
+                {%- if is_draft %}
                 <a href="{{ url_for('.stage_update_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
-                {%- if row.kind != 'builder_child' and not (stage.settings.get('builder_materialized_stage_ids') or stage.settings.get('builder_is_container')) %}
+                {%- endif %}
+                {%- if row.kind != 'builder_child' and not (stage.settings.get('builder_materialized_stage_ids') or stage.settings.get('builder_materialized_group_stage_ids') or stage.settings.get('builder_is_container')) %}
                   {%- if generation_state.block_reason %}
                 <button type="button" class="button is-compact" disabled title="{{ generation_state.block_reason }}">{{ generation_state.action_label }}</button>
                   {%- else %}
                 <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
                   {%- endif %}
                 {%- endif %}
-                <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
-                  <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
+                {%- if is_draft %}
+                {%- if row.kind == 'builder_container' and row.child_stages %}
+                  {%- set delete_confirm = _('Diese Vorrunde mit allen %(count)s Gruppen-Phasen löschen? Das Hauptturnier wird dabei von der Vorrunde abgekoppelt.', count=row.child_stages|length) %}
+                {%- else %}
+                  {%- set delete_confirm = _('Diese Phase wirklich löschen?') %}
+                {%- endif %}
+                <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ delete_confirm|tojson }});'>
+                  <button type="submit" class="button is-compact is-outlined color-danger">{{ _('Löschen') }}</button>
                 </form>
+                {%- endif %}
               </div>
               {%- else %}
               -
@@ -176,7 +186,9 @@
               <td>
                 {%- if g.user.has_permission('netsession_tourney.manage') %}
                 <div class="ns-admin-stage-actions">
+                  {%- if tournament.status.value == 'draft' %}
                   <a href="{{ url_for('.stage_update_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact is-outlined">{{ _('Bearbeiten') }}</a>
+                  {%- endif %}
                   {%- if generation_state %}
                     {%- if generation_state.block_reason %}
                   <button type="button" class="button is-compact" disabled title="{{ generation_state.block_reason }}">{{ generation_state.action_label }}</button>
@@ -184,9 +196,11 @@
                   <a href="{{ url_for('.stage_generate_form', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" class="button is-compact" {% if generation_state.action_hint %}title="{{ generation_state.action_hint }}"{% endif %}>{{ generation_state.action_label }}</a>
                     {%- endif %}
                   {%- endif %}
-                  <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Bist du sicher, dass du diese Stage löschen willst?')|tojson }});'>
-                    <button type="submit" class="button is-compact color-danger">{{ _('Löschen') }}</button>
+                  {%- if tournament.status.value == 'draft' %}
+                  <form action="{{ url_for('.stage_delete', party_id=party.id, tournament_id=tournament.id, stage_id=stage.id) }}" method="post" onsubmit='return confirm({{ _('Diese Phase wirklich löschen?')|tojson }});'>
+                    <button type="submit" class="button is-compact is-outlined color-danger">{{ _('Löschen') }}</button>
                   </form>
+                  {%- endif %}
                 </div>
                 {%- else %}
                 -
