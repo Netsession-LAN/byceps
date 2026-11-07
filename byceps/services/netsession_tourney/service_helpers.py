@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+import structlog
 
 from byceps.database import db
 from byceps.services.party.models import PartyID
@@ -77,6 +78,9 @@ from .models import (
 )
 
 
+log = structlog.get_logger()
+
+
 def append_audit_log(
     *,
     actor_user_id: UserID | None,
@@ -96,6 +100,14 @@ def append_audit_log(
             actor_user_id=actor_user_id,
             payload_json=payload,
         )
+    )
+    # Also to the server log, without the payload (comments, personal data).
+    log.info(
+        'netsession_tourney.audit',
+        action=action,
+        object_type=object_type,
+        object_id=str(object_id),
+        actor_user_id=str(actor_user_id) if actor_user_id else None,
     )
 
 
