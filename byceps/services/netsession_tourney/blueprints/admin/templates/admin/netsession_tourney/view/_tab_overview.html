@@ -29,11 +29,6 @@
       </div>
     </div>
 
-    <div class="box">
-      <div class="data-label">{{ _('Kategorie') }}</div>
-      <div class="data-value">{{ category.title if category else '-' }}</div>
-    </div>
-
     <div class="box column--grow">
       <div class="data-label">{{ _('Untertitel') }}</div>
       <div class="data-value">{{ tournament.subtitle|fallback('-') }}</div>
@@ -55,18 +50,6 @@
 
     <div class="column">
       <div class="box column-cell--grow">
-        <div class="data-label">{{ _('Teilnehmer') }}</div>
-        <div class="data-value">
-          {{ active_participant_count }}
-          {%- if tournament.participant_limit %}
-            {{ _('von') }} {{ tournament.participant_limit }}
-          {%- endif %}
-        </div>
-      </div>
-    </div>
-
-    <div class="column">
-      <div class="box column-cell--grow">
         <div class="data-label">{{ _('Anmeldung') }}</div>
         <div class="data-value">
           {%- if tournament.registration_open %}
@@ -78,14 +61,6 @@
       </div>
     </div>
 
-    <div class="column">
-      <div class="box column-cell--grow">
-        <div class="data-label">{{ _('Beginn') }}</div>
-        <div class="data-value">
-          {{ tournament.starts_at|ns_datetime }}
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="grid block" style="--column-min-width: 220px;">
@@ -100,13 +75,6 @@
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Anmeldemodus') }}</div>
         <div class="data-value">{{ tournament.registration_mode|ns_label }}</div>
-      </div>
-    </div>
-
-    <div class="column">
-      <div class="box column-cell--grow">
-        <div class="data-label">{{ _('Status') }}</div>
-        <div class="data-value">{{ render_tag(tournament.status|ns_label) }}</div>
       </div>
     </div>
 
