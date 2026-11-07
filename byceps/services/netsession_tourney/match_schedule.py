@@ -136,6 +136,8 @@ def reschedule_match(
     )
     if db_match is None:
         return Err('Unbekanntes Match.')
+    if db_match.state == MatchState.completed.value:
+        return Err('Abgeschlossene Matches lassen sich nicht neu ansetzen.')
 
     db_match.scheduled_at = scheduled_at
     db_match.updated_at = datetime.utcnow()

@@ -293,6 +293,17 @@ def _reset_match_after_result_delete(db_match: DbNetsessionTourneyMatch) -> None
     db_match.lock_version += 1
 
 
+DISPUTABLE_MATCH_STATES = frozenset(
+    state.value
+    for state in (
+        MatchState.ready,
+        MatchState.in_progress,
+        MatchState.pending_confirmation,
+        MatchState.needs_admin_review,
+    )
+)
+
+
 def open_match_dispute(
     party_id: PartyID,
     tournament_id: TournamentID,
@@ -321,6 +332,11 @@ def open_match_dispute(
     )
     if db_match is None:
         return Err('Unbekanntes Match.')
+    if db_match.state not in DISPUTABLE_MATCH_STATES:
+        return Err(
+            'Ein Streitfall ist nur bei offenen Matches möglich. Ein '
+            'abgeschlossenes Ergebnis lässt sich korrigieren.'
+        )
 
     db_match.state = MatchState.disputed.value
     db_match.dispute_reason_code = reason_code

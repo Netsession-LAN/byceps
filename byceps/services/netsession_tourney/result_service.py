@@ -252,6 +252,11 @@ def apply_walkover_result(
     comment = comment.strip()
     if not comment:
         return Err('Bitte einen Kommentar angeben.')
+    db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
+    if db_match is not None and db_match.state == MatchState.completed.value:
+        return Err(
+            'Das Match hat schon ein Ergebnis. Zum Ändern das Ergebnis korrigieren.'
+        )
 
     return report_result(
         party_id,
