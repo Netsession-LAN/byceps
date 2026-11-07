@@ -42,7 +42,7 @@ from .models import (
 from .service_helpers import (
     db_browser_push_config_to_model,
 )
-from .tournament_queries import (
+from .notification_recipients import (
     get_active_user_ids_for_tournament,
 )
 

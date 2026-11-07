@@ -36,7 +36,7 @@ from .ranking_order import (
     sort_ranked_participant_ids,
 )
 from .stage_ranking_rows import RankingTally, new_ranking_row
-from .tournament_queries import (
+from .score_parsing import (
     get_ffa_points_per_kill,
 )
 

@@ -17,7 +17,7 @@ from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
 )
 from .models import ParticipantID
-from .tournament_queries import (
+from .score_parsing import (
     is_walkover_score_json,
     parse_match_result_slot_scores,
     parse_numeric_score_value,

@@ -54,7 +54,7 @@ from ...swiss_thresholds import (
     get_swiss_threshold_for_round_count,
 )
 from ...tournament_queries import get_stages_for_tournament
-from ...tournament_queries import get_ffa_points_per_kill
+from ...score_parsing import get_ffa_points_per_kill
 from ...engines.bracket_helpers import distribute_evenly
 from ..site.builder_helpers import get_builder_container_child_stage_ids
 

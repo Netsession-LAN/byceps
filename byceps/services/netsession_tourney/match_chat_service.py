@@ -38,9 +38,11 @@ from .service_helpers import (
     db_match_chat_message_to_model,
 )
 from .tournament_queries import (
-    build_site_match_path,
     find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+)
+from .site_paths import (
+    build_site_match_path,
 )
 
 

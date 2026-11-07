@@ -23,9 +23,11 @@ from .stage_ranking import (
     get_ranked_participant_ids_for_stage,
 )
 from .tournament_queries import (
-    parse_match_result_slot_scores,
     get_participants_for_tournament,
     get_stages_for_tournament,
+)
+from .score_parsing import (
+    parse_match_result_slot_scores,
 )
 
 

@@ -52,8 +52,10 @@ from .stage_service import (
     get_stage_setting_int,
 )
 from .tournament_queries import (
-    build_site_match_path,
     find_db_tournament_for_party,
+)
+from .site_paths import (
+    build_site_match_path,
 )
 
 

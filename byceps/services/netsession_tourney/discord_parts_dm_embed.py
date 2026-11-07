@@ -15,7 +15,7 @@ from .notification_urls import (
     build_absolute_notification_url,
     build_browser_push_logo_urls,
 )
-from .tournament_queries import (
+from .flatout2_races import (
     build_flatout2_round_race_lines,
 )
 

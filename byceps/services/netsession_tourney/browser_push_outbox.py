@@ -56,7 +56,7 @@ from .notification_urls import (
     find_browser_push_site_server_name,
 )
 from .outbox_processing import process_outbox_rows
-from .tournament_queries import (
+from .flatout2_races import (
     build_flatout2_first_race_summary,
 )
 

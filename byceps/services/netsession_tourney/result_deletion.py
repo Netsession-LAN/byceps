@@ -44,8 +44,10 @@ from .service_helpers import (
     db_stage_to_model,
 )
 from .tournament_queries import (
-    build_site_match_path,
     find_db_tournament_for_party,
+)
+from .site_paths import (
+    build_site_match_path,
 )
 
 

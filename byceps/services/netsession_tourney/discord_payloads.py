@@ -33,7 +33,7 @@ from .models import (
 from .notification_urls import (
     build_absolute_notification_url,
 )
-from .tournament_queries import (
+from .site_paths import (
     build_site_match_path,
     build_site_tournament_overview_path,
 )

@@ -20,7 +20,9 @@ from .dbmodels import DbNetsessionTourneyAuditLog, DbNetsessionTourneyTournament
 from .models import TournamentStatus
 from .notification_service import append_notifications_for_tournament
 from .service_helpers import append_audit_log
-from .tournament_queries import build_site_tournament_overview_path
+from .site_paths import (
+    build_site_tournament_overview_path,
+)
 
 
 CHECKIN_REMINDER_KIND = 'checkin_open'

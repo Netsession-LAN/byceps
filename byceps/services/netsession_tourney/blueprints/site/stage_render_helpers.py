@@ -25,9 +25,7 @@ from .builder_helpers import (
     get_materialized_builder_container_stages,
     has_materialized_builder_container_stage,
 )
-from .ffa_single_elimination_rendering import (
-    get_ffa_single_elimination_round_title,
-)
+from .ffa_single_elimination_rendering import get_ffa_single_elimination_round_title
 from .flatout2_public_rendering import (
     build_flatout2_bracket_section,
     build_flatout2_match_section,
@@ -46,11 +44,9 @@ from .stage_filters import (
     is_ffa_single_elimination_stage,
     _is_flatout2_stage,
 )
-from .round_based_public_rendering import (
-    build_match_overview_sections,
-)
+from .round_based_public_rendering import build_match_overview_sections
 from .round_based_public_rendering import _get_score_display
-from ...tournament_queries import get_ffa_points_per_kill
+from ...score_parsing import get_ffa_points_per_kill
 
 
 def _group_matches_by_round(matches):

@@ -66,10 +66,12 @@ from .stage_activation import (
 )
 from .tournament_closing import validate_can_close
 from .tournament_queries import (
-    build_site_tournament_overview_path,
     find_db_tournament_for_party,
     get_participants_for_tournament,
     get_stages_for_tournament,
+)
+from .site_paths import (
+    build_site_tournament_overview_path,
 )
 
 

@@ -21,7 +21,7 @@ from ...swiss_thresholds import (
     get_round_count_for_swiss_stage,
     get_swiss_threshold_for_stage,
 )
-from ...tournament_queries import parse_numeric_score_value
+from ...score_parsing import parse_numeric_score_value
 
 
 def build_swiss_bracket_sections(

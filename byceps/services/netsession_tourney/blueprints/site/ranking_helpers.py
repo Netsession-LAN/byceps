@@ -15,8 +15,8 @@ from .match_helpers import (
     is_skipped_double_grand_final_result,
     _parse_slot_scores,
 )
-from ...tournament_queries import parse_numeric_score_value
-from ...tournament_queries import get_ffa_points_per_kill
+from ...score_parsing import parse_numeric_score_value
+from ...score_parsing import get_ffa_points_per_kill
 
 
 def build_ffa_ranking_rows(
