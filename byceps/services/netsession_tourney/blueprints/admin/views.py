@@ -13,6 +13,7 @@ from byceps.util.framework.blueprint import create_blueprint
 
 from ...enum_labels import enum_label, report_mode_label
 from ...metrics_service import collect_metrics
+from ..assets import create_assets_blueprint
 from . import (
     routes_checkin,
     routes_create,
@@ -24,6 +25,7 @@ from . import (
 
 
 blueprint = create_blueprint('netsession_tourney_admin', __name__)
+blueprint.register_blueprint(create_assets_blueprint())
 blueprint.add_app_template_filter(enum_label, 'ns_label')
 blueprint.record_once(
     lambda state: register_metric_collector(state.app, collect_metrics)
