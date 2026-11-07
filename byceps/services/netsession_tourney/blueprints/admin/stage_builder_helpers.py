@@ -115,7 +115,7 @@ def get_stage_builder_default_main_stage_size(tournament) -> str:
             if allowed_size >= participant_limit:
                 return str(allowed_size)
 
-    return '1024'
+    return '64'  # no limit set: a sensible start, the admin adjusts it
 
 
 def is_stage_builder_timing_complete(state: dict) -> bool:
@@ -1359,12 +1359,10 @@ def build_stage_builder_review_preview(
             )
         return {'title': gettext('Aktuelle Vorschau des Turnierplaners'), 'lines': lines}
 
-    if preview['participant_count'] <= main_stage_size:
-        lines.append(
-            gettext(
-                'Mit der aktuellen Anzahl bereiter Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier kann direkt erzeugt werden.'
-            )
-        )
+    if preview['participant_count'] < 2:
+        lines.append(gettext('Noch keine 2 bereiten Teilnehmer: Matches lassen sich erst ab 2 erzeugen.'))
+    elif preview['participant_count'] <= main_stage_size:
+        lines.append(gettext('Mit der aktuellen Anzahl bereiter Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier wird direkt erzeugt, eine angelegte Vorrunde übersprungen.'))
     elif preliminary_type is None:
         lines.append(
             gettext(
