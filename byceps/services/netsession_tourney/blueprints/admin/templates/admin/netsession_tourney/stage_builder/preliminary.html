@@ -28,7 +28,7 @@
     'status-draft',
     [
       {'label': _('Schritt'), 'value': _('Vorrunde')},
-      {'label': _('V1-Formate'), 'value': _('Round Robin Groups oder Swiss') if not is_ffa_builder else _('FFA Single Elimination oder FlatOut 2')},
+      {'label': _('Formate'), 'value': _('Round Robin Groups oder Swiss') if not is_ffa_builder else _('FFA Single Elimination oder FlatOut 2')},
     ]
   ) }}
   {% include 'admin/netsession_tourney/stage_builder/_steps.html' %}
@@ -41,7 +41,7 @@
             <h2 class="ns-admin-form-section-title">{{ _('Vorrunde') }}</h2>
             <p class="ns-admin-form-section-text">
               {%- if not is_ffa_builder -%}
-              {{ _('Round Robin Groups qualifiziert in V1 gleichmäßig pro Gruppe. Swiss qualifiziert in V1 als Gesamtranking ins Hauptturnier.') }}
+              {{ _('Round Robin Groups qualifizieren gleichmäßig pro Gruppe, Swiss über die Gesamttabelle ins Hauptturnier.') }}
               {%- else -%}
               {{ _('Die FFA-Vorrunde spielt die bereiten Teilnehmer zunächst auf die gewählte Zielgröße des Hauptturniers herunter. Danach qualifizieren sich exakt so viele Teilnehmer ins Hauptturnier.') }}
               {%- endif -%}

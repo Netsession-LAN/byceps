@@ -5,7 +5,7 @@
 {% set current_page_party = party %}
 {% set current_tab = 'tournaments' %}
 {% set hide_netsession_main_tabs = true %}
-{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Timing')] %}
+{% set page_title = [_('Netsession Turniere'), tournament.title, _('Turnierplaner'), _('Zeitplan')] %}
 
 {% block before_body %}
   {{ render_backlink(url_for('.view', party_id=party.id, tournament_id=tournament.id, tab='stages'), _('Zurück zu Phasen')) }}
@@ -26,7 +26,7 @@
     '3/4',
     'status-draft',
     [
-      {'label': _('Schritt'), 'value': _('Timing')},
+      {'label': _('Schritt'), 'value': _('Zeitplan')},
       {'label': _('Übernahme'), 'value': _('für Vorrunde und Hauptturnier')},
     ]
   ) }}
@@ -37,7 +37,7 @@
       <section class="box ns-admin-form-section">
         <div class="ns-admin-form-section-head">
           <div>
-            <h2 class="ns-admin-form-section-title">{{ _('Timing') }}</h2>
+            <h2 class="ns-admin-form-section-title">{{ _('Zeitplan') }}</h2>
             <p class="ns-admin-form-section-text">{{ _('Diese Angaben steuern die automatische Rundenterminierung, ändern aber nicht die Logik des Turnierplaners selbst.') }}</p>
           </div>
         </div>

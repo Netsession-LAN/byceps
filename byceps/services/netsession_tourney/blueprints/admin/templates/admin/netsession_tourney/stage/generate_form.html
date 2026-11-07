@@ -23,7 +23,7 @@
     tournament.title,
     _('Phase vorbereiten') if is_flatout2_manual_stage else _('Setzliste und Matches generieren'),
     _('Lege Runden, Matches, Rennen, Hosts und Teilnehmer für diese FlatOut-2-Phase manuell fest.') if is_flatout2_manual_stage else _('Prüfe automatische Setzplätze, setze manuelle Überschreibungen und generiere danach die Paarungen für diese Phase.'),
-    stage.status.value,
+    stage.status|ns_label,
     'status-' ~ stage.status.value,
     [
       {'label': _('Phase'), 'value': stage.name},

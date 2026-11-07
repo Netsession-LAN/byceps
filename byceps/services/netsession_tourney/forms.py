@@ -14,6 +14,7 @@ from wtforms import (
     DateTimeLocalField,
     FileField,
     IntegerField,
+    PasswordField,
     SelectField,
     SelectMultipleField,
     StringField,
@@ -150,18 +151,18 @@ class TournamentForm(LocalizedForm):
         lazy_gettext('Modus'),
         validators=[InputRequired()],
         choices=[
-            (TournamentMode.duel.value, 'duel'),
-            (TournamentMode.ffa.value, 'ffa'),
+            (TournamentMode.duel.value, lazy_enum_label(TournamentMode.duel)),
+            (TournamentMode.ffa.value, lazy_enum_label(TournamentMode.ffa)),
         ],
     )
     registration_mode = SelectField(
         lazy_gettext('Anmeldemodus'),
         validators=[InputRequired()],
         choices=[
-            ('solo', 'solo'),
-            ('team_captain_managed', 'team_captain_managed'),
-            ('team_preformed_only', 'team_preformed_only'),
-            ('mixed', 'mixed'),
+            ('solo', lazy_enum_label(RegistrationMode.solo)),
+            ('team_captain_managed', lazy_enum_label(RegistrationMode.team_captain_managed)),
+            ('team_preformed_only', lazy_enum_label(RegistrationMode.team_preformed_only)),
+            ('mixed', lazy_enum_label(RegistrationMode.mixed)),
         ],
     )
     starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
@@ -367,18 +368,18 @@ class TournamentWizardFormatForm(LocalizedForm):
         lazy_gettext('Modus'),
         validators=[InputRequired()],
         choices=[
-            (TournamentMode.duel.value, 'duel'),
-            (TournamentMode.ffa.value, 'ffa'),
+            (TournamentMode.duel.value, lazy_enum_label(TournamentMode.duel)),
+            (TournamentMode.ffa.value, lazy_enum_label(TournamentMode.ffa)),
         ],
     )
     registration_mode = SelectField(
         lazy_gettext('Anmeldemodus'),
         validators=[InputRequired()],
         choices=[
-            ('solo', 'solo'),
-            ('team_captain_managed', 'team_captain_managed'),
-            ('team_preformed_only', 'team_preformed_only'),
-            ('mixed', 'mixed'),
+            ('solo', lazy_enum_label(RegistrationMode.solo)),
+            ('team_captain_managed', lazy_enum_label(RegistrationMode.team_captain_managed)),
+            ('team_preformed_only', lazy_enum_label(RegistrationMode.team_preformed_only)),
+            ('mixed', lazy_enum_label(RegistrationMode.mixed)),
         ],
     )
     team_size = SelectField(
@@ -1037,9 +1038,8 @@ class DiscordDmConfigForm(LocalizedForm):
         lazy_gettext('Application ID'),
         validators=[Optional(), Length(max=120)],
     )
-    bot_token = StringField(
-        lazy_gettext('Bot Token'),
-        validators=[Optional(), Length(max=500)],
+    bot_token = PasswordField(
+        lazy_gettext('Bot Token'), validators=[Optional(), Length(max=500)]
     )
     default_event_mask = StringField(
         lazy_gettext('Standard-Ereignisse (kommagetrennt)'),

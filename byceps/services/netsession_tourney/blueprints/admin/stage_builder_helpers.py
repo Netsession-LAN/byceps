@@ -763,7 +763,7 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
         elif stage.type == StageType.swiss:
             lines.append(
                 gettext(
-                    'Swiss qualifiziert in V1 als Gesamtranking ins Hauptturnier.'
+                    'Swiss qualifiziert über die Gesamttabelle ins Hauptturnier.'
                 )
             )
         elif settings.get('builder_materialized_stage_ids'):
@@ -1046,7 +1046,7 @@ def _format_group_distribution_summary(group_sizes: list[int]) -> str:
         counts_by_size[size] = counts_by_size.get(size, 0) + 1
 
     parts = [
-        gettext('%(count)s Gruppen ? %(size)s', count=count, size=size)
+        gettext('%(count)s Gruppen à %(size)s', count=count, size=size)
         for size, count in sorted(counts_by_size.items(), reverse=True)
     ]
     return gettext('Konkrete Verteilung: %(parts)s', parts=', '.join(parts))
@@ -1168,7 +1168,7 @@ def stage_builder_steps() -> list[dict[str, str]]:
     return [
         {'id': 'main', 'number': '1', 'label': gettext('Hauptturnier')},
         {'id': 'preliminary', 'number': '2', 'label': gettext('Vorrunde')},
-        {'id': 'timing', 'number': '3', 'label': gettext('Timing')},
+        {'id': 'timing', 'number': '3', 'label': gettext('Zeitplan')},
         {'id': 'review', 'number': '4', 'label': gettext('Prüfen')},
     ]
 

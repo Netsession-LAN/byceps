@@ -1,0 +1,8 @@
+{#- Current result of the match: score (or "Freilos") and winner by name. #}
+    {%- set winner_slot_item = (slots|selectattr('slot_no', 'equalto', result.winner_slot)|list|first) if result.winner_slot else none %}
+    {%- set winner = participants_by_id.get(winner_slot_item.participant_id) if winner_slot_item and winner_slot_item.participant_id else none %}
+    <div class="ns-admin-form-callout mt">
+      <strong>{{ _('Aktuelles Ergebnis') }}:</strong>
+      {{ (result.score.get('display') if result.score else none) or (_('Freilos') if winner else '-') }}
+      {%- if winner %} · {{ _('Gewinner') }}: {{ winner.name }}{%- endif %}
+    </div>

@@ -85,15 +85,15 @@
           </dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Match duration') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Matchdauer') }}</dt>
           <dd class="ns-admin-review-value">{{ state.match_duration_minutes|fallback('-') }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Maximum matches per round') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Max. Matches pro Runde') }}</dt>
           <dd class="ns-admin-review-value">{{ state.max_matches_per_round|fallback('-') }}</dd>
         </div>
         <div class="ns-admin-review-item">
-          <dt class="ns-admin-review-label">{{ _('Break between rounds') }}</dt>
+          <dt class="ns-admin-review-label">{{ _('Pause zwischen Runden') }}</dt>
           <dd class="ns-admin-review-value">{{ state.break_between_rounds_minutes|fallback(0) }}</dd>
         </div>
         {% if not is_ffa_builder and state.use_preliminary and state.preliminary_type == 'round_robin_groups' %}

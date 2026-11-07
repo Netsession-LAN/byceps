@@ -11,6 +11,11 @@ from __future__ import annotations
 from byceps.services.metrics.metrics_service import register_metric_collector
 from byceps.util.framework.blueprint import create_blueprint
 
+from ...display_filters import (
+    format_ns_datetime,
+    raw_enum_label,
+    status_class,
+)
 from ...enum_labels import enum_label, report_mode_label
 from ...metrics_service import collect_metrics
 from ..assets import create_assets_blueprint
@@ -35,6 +40,9 @@ blueprint.add_app_template_filter(report_mode_label, 'ns_report_mode')
 blueprint.add_app_template_global(
     get_dropped_participants, 'ns_dropped_participants'
 )
+blueprint.add_app_template_filter(format_ns_datetime, 'ns_datetime')
+blueprint.add_app_template_filter(raw_enum_label, 'ns_raw_label')
+blueprint.add_app_template_filter(status_class, 'ns_status_class')
 
 routes_overview.register(blueprint)
 routes_create.register(blueprint)

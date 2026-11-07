@@ -31,11 +31,11 @@
           </a>
         </td>
         <td>{{ match.state|ns_label }}</td>
-        <td>{{ match.scheduled_at|datetimeformat if match.scheduled_at else '-' }}</td>
+        <td>{{ match.scheduled_at|ns_datetime }}</td>
         <td>
           {%- for slot in slots %}
             {%- set participant = participants_by_id.get(slot.participant_id) if slot.participant_id else none %}
-            {{ participant.name if participant else _('offen') }}{% if not loop.last %} vs {% endif %}
+            {{ participant.name if participant else (_('Freilos') if match.state.value == 'completed' else _('offen')) }}{% if not loop.last %} vs {% endif %}
           {%- endfor %}
         </td>
         <td>

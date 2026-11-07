@@ -16,7 +16,7 @@
   {% set stage_type_label_by_value = {
     'single_elimination': _('Single Elimination'),
     'double_elimination': _('Double Elimination'),
-    'double_elimination_double_grand_final': _('Double Elimination + Reset'),
+    'double_elimination_double_grand_final': _('Double Elimination + Double Grand Final'),
     'swiss': _('Swiss'),
     'round_robin_groups': _('Round-Robin-Gruppen'),
     'league': _('League'),
@@ -102,7 +102,7 @@
                 {%- endif -%}
                 <span>
                   {{ _('Ergebnis-Modus') }}:
-                  {%- if stage.settings.get('result_report_mode') == 'admin_only' or stage.type.value in ['ffa_simple', 'ffa_single_elimination', 'ffa_flatout2_single_elimination'] -%}
+                  {% if stage.settings.get('result_report_mode') == 'admin_only' or stage.type.value in ['ffa_simple', 'ffa_single_elimination', 'ffa_flatout2_single_elimination'] -%}
                     {{ _('Nur Admins tragen Ergebnisse ein') }}
                   {%- else -%}
                     {{ stage.settings.get('result_report_mode')|ns_report_mode }}

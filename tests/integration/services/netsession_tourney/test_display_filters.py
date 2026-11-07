@@ -5,6 +5,12 @@ from datetime import datetime
 from byceps.services.netsession_tourney.display_filters import (
     format_ns_datetime,
     raw_enum_label,
+    status_class,
+)
+from byceps.services.netsession_tourney.models import (
+    MatchState,
+    ParticipantStatus,
+    TournamentStatus,
 )
 
 
@@ -27,3 +33,10 @@ def test_raw_values_get_german_labels(admin_app):
         assert raw_enum_label('solo', 'RegistrationMode') == 'Einzelspieler'
         assert raw_enum_label('unknown', 'TournamentMode') == 'unknown'
         assert raw_enum_label(None, 'TournamentMode') == '-'
+
+
+def test_status_badges_use_one_colour_per_meaning():
+    assert status_class(MatchState.needs_admin_review) == 'status-canceled'
+    assert status_class(MatchState.completed) == 'status-closed'
+    assert status_class(ParticipantStatus.ready) == 'status-live'
+    assert status_class(TournamentStatus.draft) == 'status-draft'

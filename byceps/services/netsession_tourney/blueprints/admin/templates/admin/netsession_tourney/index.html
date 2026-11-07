@@ -47,7 +47,7 @@
             / {{ tournament.participant_limit }}
           {%- endif %}
         </td>
-        <td>{% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}</td>
+        <td>{{ tournament.starts_at|ns_datetime }}</td>
         <td>{{ tournament.status|ns_label }}</td>
       </tr>
     {%- endfor %}

@@ -37,7 +37,7 @@
         <div class="ns-admin-form-section-head">
           <div>
             <h2 class="ns-admin-form-section-title">{{ _('Turnierplaner') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('V1 erzeugt Hauptturnier plus optional eine Vorrunde als Phasenplan. Bestehende freie Phasenerstellung bleibt für Sonderfälle erhalten.') }}</p>
+            <p class="ns-admin-form-section-text">{{ _('Der Turnierplaner legt das Hauptturnier und auf Wunsch eine Vorrunde an. Für Sonderfälle lassen sich Phasen weiterhin frei anlegen.') }}</p>
           </div>
         </div>
 
@@ -48,12 +48,12 @@
         {% endif %}
 
         <div class="ns-admin-form-grid">
-          {{ render_field(form.generation_basis, _('V1 generiert aktuell aus bereiten Teilnehmern. Die Auswahl ist absichtlich explizit, damit die spätere Match-Generierung nachvollziehbar bleibt.')) }}
+          {{ render_field(form.generation_basis, _('Die Matches werden aus den bereiten Teilnehmern erzeugt.')) }}
           {{ render_field(form.main_stage_type, _('Das Hauptturnier ist das feste Ziel. Daraus leitet der Turnierplaner ab, ob und wie eine Vorrunde nötig ist.')) }}
           {{ render_field(form.main_stage_size, _('Größe des Hauptturniers. Bei weniger oder gleich vielen bereiten Teilnehmern entfällt die Vorrunde automatisch.')) }}
           {{ render_check_field(form.use_preliminary, _('Wenn aktiviert, wird bei Bedarf automatisch eine Vorrunde vor dem Hauptturnier angelegt.')) }}
           <div data-preliminary-field>
-            {{ render_field(form.preliminary_type, _('V1 unterstützt Round Robin Groups und Swiss als Vorrundenformate.')) }}
+            {{ render_field(form.preliminary_type, _('Als Vorrunde gehen Round Robin Groups oder Swiss.')) }}
           </div>
           <div data-swiss-field>
             {{ render_field(form.swiss_threshold, _('Nur für Swiss-Vorrunden. 2/3/4 bedeutet jeweils: so viele Siege qualifizieren, so viele Niederlagen eliminieren. Die Rundenzahl wird automatisch daraus abgeleitet.')) }}
@@ -64,11 +64,11 @@
         </div>
 
         <details class="ns-admin-inline-note">
-          <summary>{{ _('Wie V1 plant') }}</summary>
+          <summary>{{ _('Wie der Turnierplaner plant') }}</summary>
           <div class="ns-admin-inline-note-body">
             <div>{{ _('Der Turnierplaner erzeugt jetzt nur die Phasenstruktur. Die konkrete Verteilung der Vorrunde entsteht erst bei der Match-Generierung aus den dann vorhandenen bereiten Teilnehmern.') }}</div>
             <div>{{ _('Round Robin Groups werden dabei möglichst gleichmäßig verteilt und so gewählt, dass eine feste Anzahl Qualifikanten in das Hauptturnier passt.') }}</div>
-            <div>{{ _('Swiss qualifiziert in V1 als Gesamtranking in das Hauptturnier.') }}</div>
+            <div>{{ _('Swiss qualifiziert über die Gesamttabelle ins Hauptturnier.') }}</div>
           </div>
         </details>
       </section>

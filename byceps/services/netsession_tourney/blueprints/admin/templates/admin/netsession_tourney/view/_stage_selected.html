@@ -97,7 +97,7 @@
             {%- endif %}
           </span>
           <span class="ns-admin-stage-ffa-name">{{ participant.name }}</span>
-          <span class="ns-admin-stage-ffa-kills">{{ slot_scores.get(slot.slot_no, '-') }} {{ _('Kills') }}</span>
+          <span class="ns-admin-stage-ffa-kills">{{ slot_scores.get(slot.slot_no, '-') }} {{ _('Punkte') if selected_stage.type.value == 'ffa_flatout2_single_elimination' else (_('Kill') if slot_scores.get(slot.slot_no) == 1 else _('Kills')) }}</span>
         </li>
           {%- endif %}
         {%- endfor %}

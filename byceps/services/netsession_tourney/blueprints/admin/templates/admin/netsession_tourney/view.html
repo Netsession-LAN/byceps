@@ -12,7 +12,7 @@
 
 {% block head %}
   {{ super() }}
-  <link rel="stylesheet" href="{{ url_for('netsession_tourney_admin.static', filename='style/netsession_tourney.css') }}">
+  <link rel="stylesheet" href="{{ url_for('netsession_tourney_admin.static', filename='style/netsession_tourney.css', v=ns_tourney_asset_version) }}">
   <style>
     .ns-tourney-admin-overview .box {
       padding: 0.7rem 0.9rem;
@@ -170,7 +170,7 @@
       </form>
       {%- elif tournament.status.value == 'live' %}
       <form action="{{ url_for('.unpublish', party_id=party.id, tournament_id=tournament.id) }}" method="post">
-        <button type="submit" class="button">{{ _('Zurück zu Draft') }}</button>
+        <button type="submit" class="button">{{ _('Zurück zum Entwurf') }}</button>
       </form>
       <form action="{{ url_for('.close', party_id=party.id, tournament_id=tournament.id) }}" method="post">
         <button type="submit" class="button">{{ _('Schließen') }}</button>
@@ -225,7 +225,7 @@
       </div>
       <div class="ns-admin-page-hero-item">
         <span class="ns-admin-page-hero-label">{{ _('Beginn') }}</span>
-        <strong>{% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}</strong>
+        <strong>{{ tournament.starts_at|ns_datetime }}</strong>
       </div>
     </div>
   </section>

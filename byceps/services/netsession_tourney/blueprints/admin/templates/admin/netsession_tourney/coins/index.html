@@ -157,7 +157,7 @@
               <tbody>
                 {%- for entry in recent_coin_entries %}
                 <tr>
-                  <td>{{ entry.created_at|datetimeformat }}</td>
+                  <td>{{ entry.created_at|ns_datetime }}</td>
                   <td>
                     {%- if entry.kind.value == 'admin_adjustment' -%}
                       {{ _('Manuelle Korrektur') }}

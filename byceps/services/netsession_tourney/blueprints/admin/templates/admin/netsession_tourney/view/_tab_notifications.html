@@ -106,7 +106,7 @@
       {%- for entry in browser_push_outbox_entries %}
         {%- set outbox_user = browser_push_outbox_users_by_id.get(entry.user_id) if entry.user_id else none %}
         <tr>
-          <td>{{ entry.created_at|datetimeformat }}</td>
+          <td>{{ entry.created_at|ns_datetime }}</td>
           <td>{{ outbox_user.screen_name if outbox_user else entry.user_id }}</td>
           <td>
             <strong>{{ entry.kind }}</strong>
@@ -120,7 +120,7 @@
             </span>
           </td>
           <td>{{ entry.attempt_count }}</td>
-          <td>{{ entry.next_attempt_at|datetimeformat if entry.next_attempt_at else '-' }}</td>
+          <td>{{ entry.next_attempt_at|ns_datetime }}</td>
           <td>{{ entry.last_error|fallback('-') }}</td>
         </tr>
       {%- endfor %}

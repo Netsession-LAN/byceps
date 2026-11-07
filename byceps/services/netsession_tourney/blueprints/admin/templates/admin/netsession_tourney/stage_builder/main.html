@@ -50,8 +50,8 @@
         </div>
 
         <div class="ns-admin-form-grid">
-          {{ render_field(form.generation_basis, _('V1 arbeitet bewusst mit bereiten Teilnehmern, weil dieser Zustand in eurer UI tatsächlich existiert und die Turniergenerierung darauf aufsetzt.')) }}
-          {{ render_field(form.main_stage_type, _('Main-Format des eigentlichen Turniers. V1 unterstützt hier Single und Double Elimination.') if not is_ffa_builder else _('Main-Format des eigentlichen FFA-Turniers. Aktuell stehen FFA Single Elimination und FlatOut 2 zur Verfügung.')) }}
+          {{ render_field(form.generation_basis, _('Die Matches werden aus den Teilnehmern erzeugt, die beim Generieren bereit sind.')) }}
+          {{ render_field(form.main_stage_type, _('Format des Hauptturniers: Single oder Double Elimination.') if not is_ffa_builder else _('Format des FFA-Hauptturniers: FFA Single Elimination oder FlatOut 2.')) }}
           {%- if is_ffa_builder %}
           {{ render_field(form.main_stage_size, _('Zielgröße des Hauptturniers. Wenn du später eine Vorrunde aktivierst, qualifizieren sich genau so viele Teilnehmer ins Hauptturnier.')) }}
           <div data-ffa-heat-size-field>

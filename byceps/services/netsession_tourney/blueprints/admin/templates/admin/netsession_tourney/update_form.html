@@ -21,7 +21,7 @@
     tournament.title,
     _('Turnier bearbeiten'),
     _('Passe Sichtbarkeit, Branding, Turnierformat und Scheduling an, ohne die Gesamtstruktur aus dem Blick zu verlieren.'),
-    tournament.status.value,
+    tournament.status|ns_label,
     'status-' ~ tournament.status.value,
     [
       {'label': _('Modus'), 'value': tournament.mode|ns_label},

@@ -35,11 +35,11 @@
     tournament.title,
     (stage.name ~ ' · ' if stage else '') ~ match_label,
     _('Match-Status, Slot-Besetzung und Admin-Eingriffe für dieses einzelne Match.'),
-    match.state.value,
-    'status-' ~ match.state.value,
+    match.state|ns_label,
+    match.state|ns_status_class,
     [
       {'label': _('Phase'), 'value': stage.name if stage else '-'},
-      {'label': _('Geplant für'), 'value': match.scheduled_at|datetimeformat if match.scheduled_at else '-'},
+      {'label': _('Geplant für'), 'value': match.scheduled_at|ns_datetime},
       {'label': _('Runde'), 'value': match.round_no},
       {'label': _('Match-Nr.'), 'value': match.match_no},
     ]
@@ -147,11 +147,7 @@
     {%- endif %}
 
     {%- if result %}
-    <div class="ns-admin-form-callout mt">
-      <strong>{{ _('Aktuelles Ergebnis') }}:</strong>
-      {{ result.score.get('display') if result.score else '-' }}
-      {%- if result.winner_slot %} · {{ _('Gewinner-Slot') }} {{ result.winner_slot }}{%- endif %}
-    </div>
+    {%- include 'admin/netsession_tourney/match/_result_line.html' %}
     {%- endif %}
   </section>
 
@@ -164,10 +160,12 @@
       </div>
     </div>
 
+    {%- if match.round_no < ((stage.settings or {}).get('round_count') or 0)|int %}
     <div class="ns-admin-form-callout">
       <strong>{{ _('Wichtig:') }}</strong>
       {{ _('Top 3 qualifizieren sich pro Heat für die nächste Runde.') }}
     </div>
+    {%- endif %}
 
     <form action="{{ url_for('.match_host_set', party_id=party.id, tournament_id=tournament.id, match_id=match.id) }}" method="post" class="ns-admin-stacked-form ns-admin-card-form">
       <div class="form-field">

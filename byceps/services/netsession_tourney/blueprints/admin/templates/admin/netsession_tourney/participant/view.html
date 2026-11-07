@@ -27,10 +27,10 @@
     tournament.title,
     participant.name,
     _('Teamdetails, Rollen und Admin-Aktionen zentral an einer Stelle verwalten.') if is_team else _('Teilnehmerstatus und Admin-Aktionen zentral an einer Stelle verwalten.'),
-    participant.status.value,
-    none,
+    participant.status|ns_label,
+    participant.status|ns_status_class,
     [
-      {'label': _('Typ'), 'value': participant.type.value|replace('_', ' ')|title},
+      {'label': _('Typ'), 'value': participant.type|ns_label},
       {'label': _('Status'), 'value': participant.status|ns_label},
       {'label': _('Teamkapitän') if is_team else _('Teilnehmer'), 'value': users_by_id.get(participant.manager_user_id).screen_name if participant.manager_user_id and users_by_id.get(participant.manager_user_id) else '-'},
       {'label': _('Aktive Teilnehmer'), 'value': active_participant_count},

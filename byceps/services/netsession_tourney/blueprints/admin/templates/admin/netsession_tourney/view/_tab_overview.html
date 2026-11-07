@@ -81,7 +81,7 @@
       <div class="box column-cell--grow">
         <div class="data-label">{{ _('Beginn') }}</div>
         <div class="data-value">
-          {% if tournament.starts_at %}{{ tournament.starts_at|dateformat }}, {{ tournament.starts_at|timeformat('short') }}{% else %}-{% endif %}
+          {{ tournament.starts_at|ns_datetime }}
         </div>
       </div>
     </div>
@@ -233,7 +233,7 @@
                 {%- endfor %}
                 {{ winner.name }}
               </td>
-              <td>{{ match.scheduled_at|datetimeformat if match.scheduled_at else '-' }}</td>
+              <td>{{ match.scheduled_at|ns_datetime }}</td>
             </tr>
             {%- endif %}
           {%- endfor %}

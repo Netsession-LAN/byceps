@@ -12,7 +12,7 @@ from flask import Blueprint
 
 
 # Bump when a file below changes: Cloudflare caches static files.
-ASSET_VERSION = '20261107'
+ASSET_VERSION = '20261107b'
 
 
 def create_assets_blueprint() -> Blueprint:

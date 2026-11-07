@@ -1475,7 +1475,7 @@ body.ns-tourney-bracket-expanded .page-footer {
 }
 
 .ns-admin-multiselect-summary-text::after {
-  content: 'v';
+  content: 'BE';
   font-size: 0.75rem;
   color: var(--dimmed-color);
 }
