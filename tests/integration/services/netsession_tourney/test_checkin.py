@@ -8,10 +8,12 @@ from byceps.database import db
 from byceps.services.netsession_tourney import (
     checkin_reminders,
     checkin_service,
+    generation_guard,
     match_generation,
     match_queries,
     participant_admin_service,
     registration_service,
+    service_helpers,
     stage_service,
     tournament_lifecycle_service,
     tournament_service,
@@ -223,3 +225,56 @@ def test_admin_status_change_is_limited_to_safe_states(
         ParticipantStatus.forming,
         admin_user,
     ).is_ok()
+
+
+def test_generation_before_the_window_names_the_phase(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage, _ = _tournament_with_players(
+        party, admin_user, make_user, make_ticket_category, 2
+    )
+    _set_window(tournament.id, 30, 60)
+
+    blocked = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    )
+
+    assert 'noch nicht begonnen' in blocked.unwrap_err()
+    # the admin sees the reason before clicking
+    reason = generation_guard.check_generation_allowed_for_stage(stage)
+    assert reason is not None
+    assert 'noch nicht begonnen' in reason
+
+
+def test_generation_marks_missing_checkins_as_missed(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage, players = _tournament_with_players(
+        party, admin_user, make_user, make_ticket_category, 3
+    )
+    _set_window(tournament.id, -5, 10)
+    for player in players[:2]:
+        assert checkin_service.check_in(party.id, tournament.id, player).is_ok()
+    assert checkin_service.count_checkins(_load_tournament(tournament.id)) == (
+        2,
+        3,
+    )
+    _set_window(tournament.id, -15, -1)
+
+    assert match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).is_ok()
+
+    states = db.session.scalars(
+        select(DbNetsessionTourneyParticipant.checkin_state).where(
+            DbNetsessionTourneyParticipant.tournament_id == tournament.id
+        )
+    ).all()
+    assert sorted(states) == ['checked_in', 'checked_in', 'missed']
+
+
+def _load_tournament(tournament_id):
+    db.session.expire_all()
+    return service_helpers.db_tournament_to_model(
+        db.session.get(DbNetsessionTourneyTournament, tournament_id)
+    )
