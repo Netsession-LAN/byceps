@@ -44,7 +44,7 @@
               >
                 <header class="ns-tourney-swiss-pool-head">
                   <span class="ns-tourney-swiss-pool-label">{{ pool.label }}</span>
-                  <span class="ns-tourney-swiss-pool-meta">{{ ngettext('%(num)s Team', '%(num)s Teams', pool.participant_count) }}</span>
+                  <span class="ns-tourney-swiss-pool-meta">{{ ngettext('%(num)s Spieler', '%(num)s Spieler', pool.participant_count) if tournament.registration_mode.value == 'solo' else ngettext('%(num)s Team', '%(num)s Teams', pool.participant_count) }}</span>
                 </header>
                 <div class="ns-tourney-swiss-pool-body">
                   {%- for item in pool.matches %}
@@ -173,7 +173,7 @@
                     {%- endfor %}
                   </div>
                   {%- else %}
-                  {{ ngettext('%(num)s Team', '%(num)s Teams', outcome.count) }}
+                  {{ ngettext('%(num)s Spieler', '%(num)s Spieler', outcome.count) if tournament.registration_mode.value == 'solo' else ngettext('%(num)s Team', '%(num)s Teams', outcome.count) }}
                   {%- endif %}
                 </div>
               </article>
