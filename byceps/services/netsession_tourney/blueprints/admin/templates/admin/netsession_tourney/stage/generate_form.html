@@ -50,7 +50,7 @@
     <div class="box block ns-tourney-stage-regenerate-warning">
     <strong>{{ _('Achtung') }}:</strong>
     {{ _('Für diese Stage sind bereits %(count)s Matches generiert.', count=existing_stage_match_count) }}
-    {{ _('Eine Neugenerierung löscht vorhandene Matches und erstellt die Paarungen neu.') }}
+    {{ _('Neu erzeugen ersetzt alle Matches dieser Phase durch neue Paarungen (samt Chat). Sobald ein Ergebnis gemeldet ist, ist das gesperrt.') }}
   </div>
     {%- endif %}
   {%- endif %}
@@ -558,7 +558,7 @@
         }
 
         const confirmed = window.confirm(
-          {{ _('Achtung: Es sind bereits Matches generiert. Neugenerierung löscht vorhandene Matches und erstellt sie neu. Fortfahren?')|tojson }}
+          {{ _('Achtung: Die vorhandenen Matches dieser Phase werden gelöscht und neu erzeugt. Fortfahren?')|tojson }}
         );
         if (!confirmed) {
           event.preventDefault();

@@ -57,6 +57,8 @@ from ...tournament_queries import get_stages_for_tournament
 from ...score_parsing import get_ffa_points_per_kill
 from ...engines.bracket_helpers import distribute_evenly
 from ..site.builder_helpers import get_builder_container_child_stage_ids
+from ...generation_guard import check_generation_allowed_for_stage
+from ...stage_service import parse_source_stage_ids
 
 
 def is_stage_builder_main_complete(state: dict) -> bool:
@@ -636,6 +638,10 @@ def get_stage_generation_block_reason(
     stages_by_id: dict[StageID, Stage],
     matches_by_stage: dict[StageID, list[Match]],
 ) -> str | None:
+    guard_error = check_generation_allowed_for_stage(stage)
+    if guard_error is not None:  # results would be deleted, or tournament over
+        return guard_error
+
     settings = stage.settings or {}
     if settings.get('participant_source_mode') not in {
         'stage_qualifiers',
@@ -643,13 +649,7 @@ def get_stage_generation_block_reason(
     }:
         return None
 
-    source_stage_ids = []
-    for raw_stage_id in settings.get('qualifier_source_stage_ids', []):
-        try:
-            source_stage_ids.append(StageID(UUID(str(raw_stage_id))))
-        except ValueError:
-            continue
-
+    source_stage_ids = parse_source_stage_ids(settings.get('qualifier_source_stage_ids', []))
     if not source_stage_ids:
         return gettext(
             'Qualifikations-Stages fehlen. Konfiguriere zuerst die Vorrunden-Quelle.'

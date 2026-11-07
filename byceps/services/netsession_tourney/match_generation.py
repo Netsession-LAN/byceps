@@ -26,6 +26,7 @@ from .dbmodels import (
 from .discord_service import (
     enqueue_discord_event,
 )
+from .generation_guard import check_generation_allowed
 from .match_advancement import (
     auto_advance_byes,
 )
@@ -57,6 +58,7 @@ from .round_robin_group_stages import (
 )
 from .service_helpers import (
     append_audit_log,
+    db_tournament_to_model,
 )
 from .stage_activation import (
     delete_stage_matches,
@@ -71,6 +73,7 @@ from .stage_generation import (
 from .stage_generation_base import (
     StageGenerationPayload,
 )
+from .tournament_queries import find_db_tournament_for_party
 
 
 log = structlog.get_logger()
@@ -89,7 +92,16 @@ def generate_stage_matches(
         dict[tuple[int, int], dict[str, Any]] | None
     ) = None,
 ) -> Result[list[Match], str]:
-    """Generate the matches of a stage, all or nothing."""
+    """Generate the matches of a stage, all or nothing. Refused once the
+    stage has results (they would be deleted) or the tournament is over."""
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
+    if db_tournament is not None:
+        guard_error = check_generation_allowed(
+            db_tournament_to_model(db_tournament), stage_id
+        )
+        if guard_error is not None:
+            return Err(guard_error)
+
     result = _generate_stage_matches(
         party_id,
         tournament_id,
