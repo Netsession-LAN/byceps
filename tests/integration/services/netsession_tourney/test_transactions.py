@@ -278,3 +278,34 @@ def test_updating_a_stage_keeps_builder_settings_and_matches(
     assert (
         match_queries.get_matches_for_tournament(party.id, tournament.id) == []
     )
+
+
+def test_duel_result_needs_both_participants(
+    admin_app, party, admin_user, make_user, make_ticket_category
+):
+    tournament, stage = _create_se_tournament(
+        party, admin_user, make_user, make_ticket_category, 4
+    )
+    matches = match_generation.generate_stage_matches(
+        party.id, tournament.id, stage.id, admin_user
+    ).unwrap()
+    final = next(m for m in matches if m.round_no == 2)  # TBD vs TBD
+
+    def report(match, key):
+        return result_service.report_result(
+            party.id,
+            tournament.id,
+            match.id,
+            admin_user.id,
+            idempotency_key=key,
+            winner_slot=1,
+            score={'display': '1:0', 'slots': {'1': 1, '2': 0}},
+            actor_is_admin_or_referee=True,
+        )
+
+    blocked = report(final, 'empty')
+    assert blocked.is_err()
+    assert 'Teilnehmer' in blocked.unwrap_err()
+
+    first = next(m for m in matches if m.round_no == 1)
+    assert report(first, 'filled').is_ok()
