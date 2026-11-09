@@ -24,3 +24,16 @@
     min-height: 2.75rem;
   }
 }
+
+/* buttons below a boxed section keep their distance */
+.ns-admin-form-shell + .ns-admin-form-actions,
+.box + .ns-admin-form-actions {
+  margin-top: 1rem;
+}
+
+/* fields in a form grid share one width */
+.ns-admin-form-grid select.form-control,
+.ns-admin-form-grid input.form-control {
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -170,7 +170,7 @@ class TournamentForm(LocalizedForm):
         lazy_gettext('Auf der Website sichtbar'), default=True
     )
     rules_template_slug = SelectField(
-        lazy_gettext('Regeltemplate'),
+        lazy_gettext('Regelvorlage'),
         validators=[Optional()],
         choices=[('', '-')],
     )
@@ -486,7 +486,7 @@ class TournamentWizardDetailsForm(LocalizedForm):
         lazy_gettext('Spiel'), validators=[Optional(), Length(max=120)]
     )
     rules_template_slug = SelectField(
-        lazy_gettext('Regeltemplate'),
+        lazy_gettext('Regelvorlage'),
         validators=[Optional()],
         choices=[('', '-')],
     )

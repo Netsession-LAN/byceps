@@ -5,8 +5,7 @@
         <p class="ns-admin-form-section-text">{{ _('Forum-Thread, Turnier-Updates und Discord-Privatbenachrichtigungen für dieses Turnier.') }}</p>
       </div>
     </div>
-    <div class="ns-admin-form-callout mb">{{ _('Discord-DM global') }}: {{ _('Aktiv') if discord_dm_config.enabled else _('Inaktiv') }}</div>
-    <div class="ns-admin-form-callout mb">{{ _('Discord-Forum-Thread-ID') }}: {{ discord_forum_thread_id|fallback('-') }}</div>
+    <p class="dimmed mb">{{ _('Discord-Privatnachrichten für die Party') }}: {{ _('an') if discord_dm_config.enabled else _('aus') }} · {{ _('Forum-Thread') }}: {{ discord_forum_thread_id|fallback(_('noch keiner')) }}</p>
     <form action="{{ url_for('.discord_update', party_id=party.id, tournament_id=tournament.id) }}" method="post" class="ns-admin-form-shell">
       {{ render_admin_check_field(discord_form.discord_enabled, _('Erstellt für dieses Turnier automatisch einen Discord-Forum-Thread und postet dort Turnier-Updates.')) }}
       <div data-discord-forum-fields{% if not tournament.discord_enabled %} hidden{% endif %}>
