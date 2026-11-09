@@ -27,6 +27,7 @@
 
 /* buttons below a boxed section keep their distance */
 .ns-admin-form-shell + .ns-admin-form-actions,
+.ns-admin-form-shell + form > .ns-admin-form-actions,
 .box + .ns-admin-form-actions {
   margin-top: 1rem;
 }

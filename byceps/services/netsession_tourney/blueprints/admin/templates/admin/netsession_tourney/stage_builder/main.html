@@ -42,7 +42,7 @@
               {%- if is_ffa_builder -%}
               {{ _('Wähle FFA-Format, Zielgröße des Hauptturniers und Heat-Größe. Optional kann der Turnierplaner danach auch eine passende FFA-Vorrunde davorsetzen.') }}
               {%- else -%}
-              {{ _('Das Hauptturnier ist das feste Ziel. Wenn die spätere Ready-Anzahl diese Größe überschreitet, baut der Wizard davor automatisch eine passende Vorrunde.') }}
+              {{ _('Das Hauptturnier ist das feste Ziel. Wenn die spätere Zahl bereiter Teilnehmer diese Größe überschreitet, baut der Turnierplaner davor automatisch eine passende Vorrunde.') }}
               {%- endif -%}
             </p>
           </div>
@@ -57,7 +57,7 @@
             {{ render_field(form.max_players_per_match, _('Wie viele Teilnehmer maximal pro Heat spielen. Für FlatOut 2 sind nur Werte von 6 bis 8 sinnvoll und erlaubt.')) }}
           </div>
           {%- else %}
-          {{ render_field(form.main_stage_size, _('Zielgröße des Hauptturniers. Bei gleicher oder kleinerer Ready-Anzahl wird keine Vorrunde benötigt.')) }}
+          {{ render_field(form.main_stage_size, _('Zielgröße des Hauptturniers. Bei gleicher oder kleinerer Zahl bereiter Teilnehmer wird keine Vorrunde benötigt.')) }}
           {%- endif %}
         </div>
 

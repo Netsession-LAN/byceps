@@ -737,7 +737,7 @@ class StageBuilderMainForm(LocalizedForm):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.generation_basis.choices = [('ready', 'Ready-Teilnehmer')]
+        self.generation_basis.choices = [('ready', 'Bereite Teilnehmer')]
         if tournament_mode == TournamentMode.ffa:
             self.main_stage_type.choices = [
                 (
