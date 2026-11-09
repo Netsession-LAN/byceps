@@ -1723,7 +1723,6 @@ body.ns-tourney-bracket-expanded .page-footer {
 .ns-admin-tourney-index-link {
   display: grid;
   gap: 0.12rem;
-  min-height: 2.9rem;
   align-content: center;
   color: inherit;
   text-decoration: none;
@@ -1737,7 +1736,6 @@ body.ns-tourney-bracket-expanded .page-footer {
 
 .ns-admin-tourney-index-subtitle {
   display: block;
-  min-height: 1.2em;
   color: var(--dimmed-color);
   line-height: 1.2;
 }

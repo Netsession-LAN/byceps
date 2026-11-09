@@ -36,7 +36,7 @@
         <td>
           <a href="{{ url_for('.view', party_id=party.id, tournament_id=tournament.id) }}" class="disguised ns-admin-tourney-index-link">
             <span class="ns-admin-tourney-index-title">{{ tournament.title }}</span>
-            <small class="ns-admin-tourney-index-subtitle">{{ tournament.subtitle|fallback('') }}</small>
+            {%- if tournament.subtitle %}<small class="ns-admin-tourney-index-subtitle">{{ tournament.subtitle }}</small>{% endif %}
           </a>
         </td>
         <td>{{ categories_by_id[tournament.category_id].title if tournament.category_id in categories_by_id else '-' }}</td>
@@ -53,7 +53,7 @@
           {%- endif %}
         </td>
         <td>{{ tournament.starts_at|ns_datetime }}</td>
-        <td>{{ tournament.status|ns_label }}</td>
+        <td><span class="tag {{ tournament.status|ns_status_class }}">{{ tournament.status|ns_label }}</span></td>
       </tr>
     {%- endfor %}
     {%- endif %}
