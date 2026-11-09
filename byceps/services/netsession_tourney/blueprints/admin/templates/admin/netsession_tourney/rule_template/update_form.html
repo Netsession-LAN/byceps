@@ -4,7 +4,7 @@
 {% from 'admin/netsession_tourney/_page_macros.html' import render_page_header %}
 {% set current_page_party = party %}
 {% set current_tab = 'rules' %}
-{% set page_title = _('Regeltemplate bearbeiten') %}
+{% set page_title = _('Regelvorlage bearbeiten') %}
 
 {% block before_body %}
 {{ render_backlink(url_for('.rule_template_index', party_id=party.id), _('Regeln')) }}
@@ -14,11 +14,11 @@
   {{ render_page_header(
     [
       {'label': _('Regeln'), 'url': url_for('.rule_template_index', party_id=party.id)},
-      {'label': _('Regeltemplate bearbeiten'), 'url': none},
+      {'label': _('Regelvorlage bearbeiten'), 'url': none},
     ],
     party.title,
     page_title,
-    _('Regeltemplates können später mehreren Turnieren zugewiesen werden.')
+    _('Regelvorlagen können später mehreren Turnieren zugewiesen werden.')
   ) }}
 
   <form action="{{ url_for('.rule_template_update', rule_template_id=rule_template.id) }}" method="post">
@@ -26,11 +26,11 @@
       <section class="box ns-admin-form-section">
         <div class="ns-admin-form-section-head">
           <div>
-            <h2 class="ns-admin-form-section-title">{{ _('Template') }}</h2>
-            <p class="ns-admin-form-section-text">{{ _('Regeltemplates können später mehreren Turnieren zugewiesen werden.') }}</p>
+            <h2 class="ns-admin-form-section-title">{{ _('Vorlage') }}</h2>
+            <p class="ns-admin-form-section-text">{{ _('Regelvorlagen können später mehreren Turnieren zugewiesen werden.') }}</p>
           </div>
         </div>
-        {{ render_field(form.title, _('Sichtbarer Titel des Regeltemplates.'), autofocus='autofocus') }}
+        {{ render_field(form.title, _('Sichtbarer Titel des Regelvorlagen.'), autofocus='autofocus') }}
         {{ render_field(form.slug, _('Eindeutiger technischer Schlüssel für die Auswahl im Turnierformular.')) }}
         {{ render_field(form.body_format, _('Wähle, ob der Regeltext als HTML oder Markdown gespeichert wird.')) }}
         {{ render_field(form.body, _('Vollständiger Regeltext, der später im Frontend angezeigt wird.'), rows=16) }}

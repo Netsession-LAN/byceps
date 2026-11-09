@@ -19,6 +19,7 @@
     'status-live' if settings.enabled else 'status-closed',
     [
       {'label': _('Startguthaben pro Ticket'), 'value': settings.default_coin_amount},
+      {'label': _('Ticket-Kategorien mit eigenem Wert'), 'value': category_amounts_by_id|length},
     ]
   ) }}
 
@@ -32,9 +33,9 @@
       </div>
 
       <form action="{{ url_for('.coins_update', party_id=party.id) }}" method="post">
-        <div class="ns-admin-form-grid">
-          {{ render_check_field(settings_form.enabled, 'Wenn deaktiviert, werden Coins in Admin- und User-UI komplett ausgeblendet und bei Registrierungen nicht geprüft.') }}
-          {{ render_field(settings_form.default_coin_amount, 'Default-Coins für einen User mit gültigem Ticket, falls für seine Ticket-Kategorie kein eigener Wert gesetzt ist.') }}
+        {{ render_check_field(settings_form.enabled, _('Wenn ausgeschaltet, sind Coins für Admins und Spieler unsichtbar und werden bei Anmeldungen nicht geprüft.')) }}
+        <div class="ns-admin-form-grid mt">
+          {{ render_field(settings_form.default_coin_amount, _('Gilt für jedes Ticket, dessen Kategorie unten keinen eigenen Wert hat.')) }}
         </div>
 
         <div class="ns-admin-coin-category-list">
@@ -60,7 +61,7 @@
           {%- endfor %}
         </div>
 
-        <div class="ns-admin-form-actions">
+        <div class="ns-admin-form-actions mt">
           <button type="submit" class="button color-primary">{{ _('Speichern') }}</button>
         </div>
       </form>

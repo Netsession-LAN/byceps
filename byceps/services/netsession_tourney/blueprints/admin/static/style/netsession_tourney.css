@@ -1475,7 +1475,7 @@ body.ns-tourney-bracket-expanded .page-footer {
 }
 
 .ns-admin-multiselect-summary-text::after {
-  content: 'BE';
+  content: '\25BE';
   font-size: 0.75rem;
   color: var(--dimmed-color);
 }
@@ -2097,9 +2097,7 @@ body.ns-tourney-bracket-expanded .page-footer {
   justify-content: start;
   gap: 0.55rem;
   align-items: center;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--line), var(--fg) 10%);
-  border-radius: 12px;
+  padding: 0.35rem 0;
   background: rgba(255, 255, 255, 0.72);
 }
 

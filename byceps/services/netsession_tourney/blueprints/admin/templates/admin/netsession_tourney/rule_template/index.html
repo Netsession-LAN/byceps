@@ -9,16 +9,16 @@
   <div class="ns-admin-page-head block">
     <div class="ns-admin-page-head-main">
       <h1 class="title">{{ _('Regeln') }} {{ render_extra_in_heading(rule_templates|length) }}</h1>
-      <p class="ns-admin-page-head-meta">{{ _('Regeltemplates werden Turnieren zentral zugewiesen und steuern die sichtbare Regelseite.') }}</p>
+      <p class="ns-admin-page-head-meta">{{ _('Regelvorlagen werden Turnieren zentral zugewiesen und steuern die sichtbare Regelseite.') }}</p>
     </div>
     {%- if g.user.has_permission('netsession_tourney.manage') %}
-    <a class="button" href="{{ url_for('.rule_template_create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Regeltemplate erstellen') }}</span></a>
+    <a class="button" href="{{ url_for('.rule_template_create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Regelvorlage erstellen') }}</span></a>
     {%- endif %}
   </div>
 
   <section class="box ns-admin-form-section">
     {%- if rule_templates %}
-    <table class="itemlist is-vcentered ns-admin-asset-table">
+    <table class="itemlist is-vcentered is-wide ns-admin-asset-table">
       <thead>
         <tr>
           <th>{{ _('Titel') }}</th>
@@ -48,7 +48,7 @@
       </tbody>
     </table>
     {%- else %}
-    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Regeltemplates vorhanden.') }}</div>
+    <div class="ns-admin-form-callout no-data-message">{{ _('Keine Regelvorlagen vorhanden.') }}</div>
     {%- endif %}
   </section>
 {% endblock %}
