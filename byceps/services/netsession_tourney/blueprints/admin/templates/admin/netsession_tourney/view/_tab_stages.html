@@ -2,9 +2,11 @@
     <h2 class="title">{{ _('Phasen') }}</h2>
     {%- if g.user.has_permission('netsession_tourney.manage') %}
     <div class="row row--compact">
+      {%- if not stages %}{#- the planner only works on a tournament without phases #}
       <a class="button is-outlined" href="{{ url_for('.stage_builder_form', party_id=party.id, tournament_id=tournament.id) }}">
         {{ render_icon('add') }} <span>{{ _('Turnierplaner') }}</span>
       </a>
+      {%- endif %}
       <a class="button" href="{{ url_for('.stage_create_form', party_id=party.id, tournament_id=tournament.id) }}">
         {{ render_icon('add') }} <span>{{ _('Phase erstellen') }}</span>
       </a>
