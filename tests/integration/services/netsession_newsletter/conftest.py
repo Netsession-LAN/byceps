@@ -29,6 +29,11 @@ def subscribe():
 
 
 @pytest.fixture(scope='module')
+def api_client(api_app):
+    return api_app.test_client()
+
+
+@pytest.fixture(scope='module')
 def sync_authz_header(admin_user):
     token = authn_api_service.create_api_token(
         admin_user.id, {PermissionID('ns_newsletter.sync')}

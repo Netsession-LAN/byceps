@@ -74,7 +74,10 @@ def test_newsletter_signal_sends_signed_json(admin_app, sent, make_user):
 def test_account_suspension_is_user_deactivated(admin_app, sent, make_user):
     user = make_user()
     event = UserAccountSuspendedEvent(
-        occurred_at=datetime(2026, 11, 11, 9, 0), initiator=None, user=user
+        occurred_at=datetime(2026, 11, 11, 9, 0),
+        initiator=None,
+        user=user,
+        reason='Test',
     )
 
     user_signals.account_suspended.send(None, event=event)
@@ -108,7 +111,10 @@ def test_nothing_is_sent_without_configured_url(
     )
     user = make_user()
     event = UserAccountSuspendedEvent(
-        occurred_at=datetime(2026, 11, 11, 9, 0), initiator=None, user=user
+        occurred_at=datetime(2026, 11, 11, 9, 0),
+        initiator=None,
+        user=user,
+        reason='Test',
     )
 
     user_signals.account_suspended.send(None, event=event)
