@@ -183,21 +183,22 @@ def test_unsubscribe_by_email_and_unknown_user(
     make_user,
     other_authz_header,
 ):
-    user = make_user(email_address_verified=True)
+    email = f'sendy-{generate_token(6)}@users.test'
+    user = make_user(email_address=email, email_address_verified=True)
     subscribe(user, newsletter_list)
     url = f'{BASE}/{newsletter_list.id}/unsubscribe'
 
     assert (
         api_client.post(
             url,
-            json={'email_address': user.email_address},
+            json={'email_address': email},
             headers=[other_authz_header],
         ).status_code
         == 403
     )
     response = api_client.post(
         url,
-        json={'email_address': user.email_address},
+        json={'email_address': email},
         headers=[sync_authz_header],
     )
     assert response.json == {'status': 'unsubscribed'}
