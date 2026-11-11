@@ -21,8 +21,9 @@
     <button type="submit" class="button color-primary">{{ _('Ja, wieder abonnieren') }}</button>
   </form>
   {%- elif state == 'resub_done' %}
-  <h1 class="title">{{ _('Schön, dass du wieder dabei bist') }}</h1>
-  <p>{{ _('Du bekommst wieder Mails über den Newsletter „%(title)s“.', title=list_title) }}</p>
+  <h1 class="title">{{ _('Fast geschafft') }}</h1>
+  <p>{{ _('Wir schicken dir gleich eine E-Mail. Bitte bestätige darin die Anmeldung zum Newsletter „%(title)s“, erst dann bekommst du wieder Mails.', title=list_title) }}</p>
+  <p class="dimmed">{{ _('Kommt keine E-Mail, warst du noch angemeldet. Dann musst du nichts weiter tun.') }}</p>
   {%- else %}
   <h1 class="title">{{ _('Link ungültig') }}</h1>
   <p>{{ _('Dieser Link funktioniert nicht mehr. Den Newsletter kannst du in deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('an- und abbestellen.') }}</p>
