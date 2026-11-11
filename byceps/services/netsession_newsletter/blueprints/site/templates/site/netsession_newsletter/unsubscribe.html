@@ -2,12 +2,8 @@
 {% set page_title = _('Newsletter wieder abonnieren') if state in ['resub_ask', 'resub_done'] else _('Newsletter abmelden') %}
 
 {#- One page for the mail links, in the card look of the Sendy pages under
-    /bestandskunden/ (page editor): unsubscribe (ask/done), resubscribe
+    /bestandskunden/ (page editor; CSS: sites/netsession/static/style/newsletter-cards.css): unsubscribe (ask/done), resubscribe
     (resub_ask/resub_done), invalid link. GET asks, POST acts. #}
-{% block head %}
-  <link rel="stylesheet" href="{{ url_for('netsession_newsletter.static', filename='newsletter_pages.css', v='20261111') }}">
-{% endblock %}
-
 {% macro card(title, kicker=_('Netsession Veranstaltungsinfos')) -%}
 <section class="ns-sendy-page">
   <article class="ns-sendy-card">
@@ -28,7 +24,7 @@
     <p>{{ _('Möchtest du dich aus den Veranstaltungsinfos austragen?') }}</p>
     <p>{{ _('Danach bekommst du keine Veranstaltungsinfos-Mails mehr.') }}</p>
     <form action="{{ url_for('.unsubscribe', token=token) }}" method="post" class="ns-sendy-actions">
-      <button type="submit" class="ns-sendy-btn">{{ _('Ja, abmelden') }}</button>
+      <button type="submit" class="ns-sendy-btn ns-sendy-btn--primary">{{ _('Ja, abmelden') }}</button>
     </form>
   {% endcall %}
   {%- elif state == 'done' %}
@@ -36,7 +32,7 @@
     <p>{{ _('Schade, du wurdest erfolgreich aus den Veranstaltungsinfos ausgetragen.') }}</p>
     <p>{{ _('Falls das ein Versehen war, kannst du dich direkt wieder anmelden.') }}</p>
     <div class="ns-sendy-actions">
-      <a class="ns-sendy-btn" href="{{ url_for('.resubscribe_form', token=token) }}">{{ _('Wieder anmelden') }}</a>
+      <a class="ns-sendy-btn ns-sendy-btn--primary" href="{{ url_for('.resubscribe_form', token=token) }}">{{ _('Wieder anmelden') }}</a>
     </div>
     <p class="ns-sendy-hint">{{ _('Der Link ist personalisiert und gilt nur für diese Adresse.') }}</p>
   {% endcall %}
@@ -45,7 +41,7 @@
     <p>{{ _('Möchtest du die Veranstaltungsinfos wieder bekommen?') }}</p>
     <p>{{ _('Abmelden kannst du dich jederzeit über den Link in jeder Veranstaltungsinfos-Mail.') }}</p>
     <form action="{{ url_for('.resubscribe', token=token) }}" method="post" class="ns-sendy-actions">
-      <button type="submit" class="ns-sendy-btn">{{ _('Ja, wieder anmelden') }}</button>
+      <button type="submit" class="ns-sendy-btn ns-sendy-btn--primary">{{ _('Ja, wieder anmelden') }}</button>
     </form>
   {% endcall %}
   {%- elif state == 'resub_done' %}
