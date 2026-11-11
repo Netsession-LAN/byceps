@@ -2,9 +2,10 @@
 byceps.services.netsession_newsletter.unsubscribe_service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Unsubscribe a user on their behalf (mail link, or Sendy via the sync).
-The subscription log records the user as initiator, like a click in the
-account settings, and the usual signal tells the sync.
+Unsubscribe a user on their behalf (mail link, or Sendy via the sync),
+or subscribe them again from the mail link. The subscription log records
+the user as initiator, like a click in the account settings, and the
+usual signal tells the sync.
 """
 
 from __future__ import annotations
@@ -38,3 +39,17 @@ def unsubscribe(
     ).unwrap()
     newsletter_signals.newsletter_unsubscribed.send(None, event=event)
     return UnsubscribeOutcome.unsubscribed
+
+
+def resubscribe(user: User, list_: List) -> bool:
+    """Subscribe again on the user's own click (mail link). Idempotent:
+    returns False, writes nothing and sends nothing when already
+    subscribed."""
+    if newsletter_service.is_user_subscribed_to_list(user.id, list_.id):
+        return False
+
+    _, event = newsletter_command_service.subscribe_user_to_list(
+        user, list_, datetime.utcnow(), user
+    ).unwrap()
+    newsletter_signals.newsletter_subscribed.send(None, event=event)
+    return True

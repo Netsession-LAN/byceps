@@ -2,8 +2,9 @@
 byceps.services.netsession_newsletter.blueprints.site.views
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Unsubscribe page for the link in the newsletter mail, without login.
-GET only asks (link scanners open links), POST unsubscribes.
+Unsubscribe and resubscribe pages for the links in the newsletter mails,
+without login, with the same signed token. GET only asks (link scanners
+open links, and must neither unsubscribe nor subscribe anybody), POST acts.
 """
 
 from __future__ import annotations
@@ -44,6 +45,29 @@ def unsubscribe(token):
     unsubscribe_service.unsubscribe(user, list_, datetime.utcnow())
     return render_template(
         _TEMPLATE, state='done', token=token, list_title=list_.title
+    )
+
+
+@blueprint.get('/resubscribe/<token>')
+def resubscribe_form(token):
+    found = _find_user_and_list(token)
+    if found is None:
+        return render_template(_TEMPLATE, state='invalid'), 404
+    _, list_ = found
+    return render_template(
+        _TEMPLATE, state='resub_ask', token=token, list_title=list_.title
+    )
+
+
+@blueprint.post('/resubscribe/<token>')
+def resubscribe(token):
+    found = _find_user_and_list(token)
+    if found is None:
+        return render_template(_TEMPLATE, state='invalid'), 404
+    user, list_ = found
+    unsubscribe_service.resubscribe(user, list_)
+    return render_template(
+        _TEMPLATE, state='resub_done', token=token, list_title=list_.title
     )
 
 

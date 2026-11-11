@@ -1,7 +1,8 @@
 {% extends 'layout/base.html' %}
-{% set page_title = _('Newsletter abmelden') %}
+{% set page_title = _('Newsletter wieder abonnieren') if state in ['resub_ask', 'resub_done'] else _('Newsletter abmelden') %}
 
-{#- One page, three states: ask (GET), done (after POST), invalid link. #}
+{#- One page for the mail links: unsubscribe (ask/done), resubscribe
+    (resub_ask/resub_done), invalid link. GET asks, POST acts. #}
 {% block body %}
   {%- if state == 'ask' %}
   <h1 class="title">{{ _('Newsletter abmelden?') }}</h1>
@@ -12,9 +13,18 @@
   {%- elif state == 'done' %}
   <h1 class="title">{{ _('Du bist abgemeldet') }}</h1>
   <p>{{ _('Du bekommst keine Mails mehr über den Newsletter „%(title)s“.', title=list_title) }}</p>
-  <p>{{ _('Falsch geklickt? In deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('kannst du ihn jederzeit wieder bestellen.') }}</p>
+  <p>{{ _('Falsch geklickt?') }} <a href="{{ url_for('.resubscribe_form', token=token) }}">{{ _('Newsletter wieder abonnieren') }}</a></p>
+  {%- elif state == 'resub_ask' %}
+  <h1 class="title">{{ _('Newsletter wieder abonnieren?') }}</h1>
+  <p>{{ _('Du bekommst dann wieder Mails über den Newsletter „%(title)s“. Abmelden kannst du dich jederzeit über den Link in jeder Mail.', title=list_title) }}</p>
+  <form action="{{ url_for('.resubscribe', token=token) }}" method="post" class="mt">
+    <button type="submit" class="button color-primary">{{ _('Ja, wieder abonnieren') }}</button>
+  </form>
+  {%- elif state == 'resub_done' %}
+  <h1 class="title">{{ _('Schön, dass du wieder dabei bist') }}</h1>
+  <p>{{ _('Du bekommst wieder Mails über den Newsletter „%(title)s“.', title=list_title) }}</p>
   {%- else %}
   <h1 class="title">{{ _('Link ungültig') }}</h1>
-  <p>{{ _('Dieser Abmeldelink funktioniert nicht mehr. Du kannst den Newsletter in deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('abbestellen.') }}</p>
+  <p>{{ _('Dieser Link funktioniert nicht mehr. Den Newsletter kannst du in deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('an- und abbestellen.') }}</p>
   {%- endif %}
 {% endblock %}
