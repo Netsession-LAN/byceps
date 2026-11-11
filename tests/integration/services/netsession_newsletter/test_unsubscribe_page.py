@@ -20,7 +20,7 @@ def test_get_only_asks_and_post_unsubscribes(
     with http_client(site_app) as client:
         shown = client.get(f'{BASE}/{token}')
         assert shown.status_code == 200
-        assert 'Newsletter abmelden?' in shown.get_data(as_text=True)
+        assert 'Abmelden?' in shown.get_data(as_text=True)
         assert newsletter_service.is_user_subscribed_to_list(
             user.id, newsletter_list.id
         )
@@ -85,7 +85,7 @@ def test_resubscribe_get_only_asks_and_post_subscribes(
         with http_client(site_app) as client:
             shown = client.get(f'{RESUB}/{token}')
             assert shown.status_code == 200
-            assert 'wieder abonnieren?' in shown.get_data(as_text=True)
+            assert 'Wieder anmelden?' in shown.get_data(as_text=True)
             assert not newsletter_service.is_user_subscribed_to_list(
                 user.id, newsletter_list.id
             )
