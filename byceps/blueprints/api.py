@@ -17,6 +17,8 @@ def register_api_blueprints(app: Flask) -> None:
     blueprints = [
         ('services.attendance.blueprints.api', '/attendances'),
         ('services.authn.api.blueprints.api', '/authentication'),
+        # Netsession: newsletter sync with Sendy.
+        ('services.netsession_newsletter.blueprints.api', '/ns-newsletter'),
         ('services.snippet.blueprints.api', '/snippets'),
         ('services.ticketing.blueprints.api', '/ticketing'),
         ('services.tourney.avatar.blueprints.api', '/tourney/avatars'),

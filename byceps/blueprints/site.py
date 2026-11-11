@@ -57,6 +57,8 @@ def register_site_blueprints(
         ('services.site.blueprints.site', None),
         ('services.snippet.blueprints.site', None),
         ('services.ticketing.blueprints.site', '/tickets'),
+        # Netsession: one-click unsubscribe from the newsletter mail.
+        ('services.netsession_newsletter.blueprints.site', '/ns-newsletter'),
         ('services.timetable.blueprints.site', '/timetable'),
         ('services.tourney.blueprints.site', '/tourneys'),
         ('services.user.avatar.blueprints.site', '/users'),

@@ -156,6 +156,11 @@ def _create_app(
 
     enable_announcements()
 
+    # Netsession: report newsletter/account changes to the Sendy sync.
+    from byceps.services.netsession_newsletter import sync_webhook
+
+    sync_webhook.connect_signals()
+
     debug_toolbar_enabled = (
         byceps_config.development.toolbar_enabled
         and (app_mode.is_admin() or app_mode.is_site())

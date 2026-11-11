@@ -1,0 +1,20 @@
+{% extends 'layout/base.html' %}
+{% set page_title = _('Newsletter abmelden') %}
+
+{#- One page, three states: ask (GET), done (after POST), invalid link. #}
+{% block body %}
+  {%- if state == 'ask' %}
+  <h1 class="title">{{ _('Newsletter abmelden?') }}</h1>
+  <p>{{ _('Du bekommst dann keine Mails mehr über den Newsletter „%(title)s“.', title=list_title) }}</p>
+  <form action="{{ url_for('.unsubscribe', token=token) }}" method="post" class="mt">
+    <button type="submit" class="button color-primary">{{ _('Ja, abmelden') }}</button>
+  </form>
+  {%- elif state == 'done' %}
+  <h1 class="title">{{ _('Du bist abgemeldet') }}</h1>
+  <p>{{ _('Du bekommst keine Mails mehr über den Newsletter „%(title)s“.', title=list_title) }}</p>
+  <p>{{ _('Falsch geklickt? In deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('kannst du ihn jederzeit wieder bestellen.') }}</p>
+  {%- else %}
+  <h1 class="title">{{ _('Link ungültig') }}</h1>
+  <p>{{ _('Dieser Abmeldelink funktioniert nicht mehr. Du kannst den Newsletter in deinen') }} <a href="{{ url_for('user_settings.view') }}">{{ _('Kontoeinstellungen') }}</a> {{ _('abbestellen.') }}</p>
+  {%- endif %}
+{% endblock %}

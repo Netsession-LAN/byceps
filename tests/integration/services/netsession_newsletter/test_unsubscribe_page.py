@@ -2,7 +2,6 @@
 shows a confirmation, only the POST unsubscribes (link scanners)."""
 
 from byceps.services.netsession_newsletter import unsubscribe_token
-
 from byceps.services.newsletter import newsletter_service
 
 from tests.helpers import http_client

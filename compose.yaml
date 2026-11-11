@@ -9,6 +9,10 @@ x-byceps-base: &byceps-base
 
 x-byceps-base-env: &byceps-base-env
   BYCEPS_CONFIG_FILE: /home/byceps/config.toml
+  # Netsession: newsletter sync (empty URL = no events sent).
+  NS_NEWSLETTER_SYNC_URL: ${NS_NEWSLETTER_SYNC_URL:-}
+  NS_NEWSLETTER_SYNC_SECRET: ${NS_NEWSLETTER_SYNC_SECRET:-}
+  NS_NEWSLETTER_SITE_ID: ${NS_NEWSLETTER_SITE_ID:-netsession}
 
 services:
 

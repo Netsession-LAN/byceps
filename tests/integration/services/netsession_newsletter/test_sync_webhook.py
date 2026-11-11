@@ -6,9 +6,9 @@ import hashlib
 import hmac
 import json
 
-from byceps.services.netsession_newsletter import sync_webhook
 import pytest
 
+from byceps.services.netsession_newsletter import sync_webhook
 from byceps.services.newsletter import signals as newsletter_signals
 from byceps.services.newsletter.events import SubscribedToNewsletterEvent
 from byceps.services.orga_team import orga_team_service

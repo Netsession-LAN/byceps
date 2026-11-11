@@ -1,11 +1,11 @@
 """API for the newsletter sync: subscribers (with the Sendy fields) and
 unsubscribing on behalf of a user, guarded by the token permission."""
 
-from byceps.services.netsession_newsletter import unsubscribe_token
 import pytest
 from sqlalchemy import select
 
 from byceps.database import db
+from byceps.services.netsession_newsletter import unsubscribe_token
 from byceps.services.newsletter import newsletter_service
 from byceps.services.newsletter.dbmodels import DbSubscriptionUpdate
 from byceps.services.orga_team import orga_team_service
