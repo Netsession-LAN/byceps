@@ -120,3 +120,13 @@ def test_nothing_is_sent_without_configured_url(
     user_signals.account_suspended.send(None, event=event)
 
     assert calls == []
+
+
+def test_delivery_uses_the_current_trimmed_secret(admin_app, sent, monkeypatch):
+    # a queued retry carries the secret it was enqueued with; a fixed .env
+    # must still win, and a stray CR (Windows) must not break the signature
+    monkeypatch.setenv('NS_NEWSLETTER_SYNC_SECRET', 's3cret\r\n')
+
+    sync_webhook.deliver('https://sync.test/x', 'old-wrong-secret', '{"a": 1}')
+
+    _verify(sent[0][1], sent[0][2])
