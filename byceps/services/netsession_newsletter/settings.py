@@ -25,7 +25,9 @@ def get_sync_url() -> str | None:
 
 
 def get_sync_secret() -> str:
-    return os.environ.get('NS_NEWSLETTER_SYNC_SECRET', '')
+    """Trimmed: a stray CR from a Windows-edited `.env` survives
+    `deploy.sh` (which sources the file) and would break the HMAC."""
+    return os.environ.get('NS_NEWSLETTER_SYNC_SECRET', '').strip()
 
 
 def find_current_party_id() -> PartyID | None:

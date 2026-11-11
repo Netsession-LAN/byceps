@@ -74,7 +74,11 @@ def send_event(
 
 
 def deliver(url: str, secret: str, body: str) -> None:
-    """RQ job: post the signed event; an error makes RQ retry."""
+    """RQ job: post the signed event; an error makes RQ retry.
+
+    Signs with the secret configured *now* (falling back to the one the job
+    was queued with), so a corrected `.env` also fixes waiting retries."""
+    secret = get_sync_secret() or secret.strip()
     timestamp = str(int(time.time()))
     content = body.encode()
     signature = hmac.new(
