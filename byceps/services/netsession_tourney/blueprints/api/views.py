@@ -9,6 +9,7 @@ GET answers carry a weak ETag; `If-None-Match` gets 304.
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
+from collections import Counter
 from time import perf_counter
 
 from flask import abort, g, request
@@ -20,6 +21,8 @@ from byceps.util.views import jsonified
 from byceps.services.netsession_api.token_auth import read_token_required
 
 from ...observability_service import record_api_request_metric
+from ...models import StageType
+from ...swiss_thresholds import get_round_count_for_swiss_stage
 from ...tournament_prize_service import get_tournament_prizes_for_tournament
 from ...tournament_service import (
     find_tournament_for_party,
@@ -28,13 +31,19 @@ from ...tournament_service import (
 from ...filter_parsing import parse_tournament_status as _parse_status
 from ...filter_parsing import parse_tournament_mode as _parse_mode
 from ..site.tournament_ranking import compute_tournament_ranking
+from .match_extras import (
+    build_advancing_ids_by_match_id,
+    build_match_extras,
+)
 from .serializers import (
+    MatchContext,
     serialize_match,
     serialize_participant,
     serialize_stage,
     serialize_standing,
     serialize_tournament,
 )
+from .stage_tables import build_stage_tables
 
 
 blueprint = create_blueprint('netsession_tourney_api', __name__)
@@ -105,16 +114,23 @@ def get_tournaments():
 def get_tournament(tournament_id):
     tournament = _get_tournament_or_404(tournament_id)
     ranking = compute_tournament_ranking(tournament.party_id, tournament.id)
-    participants_by_id = {p.id: p for p in ranking.participants}
-    slots_by_id = {
-        slot.id: slot
-        for slots in ranking.slots_by_match_id.values()
-        for slot in slots
-    }
+    tables = build_stage_tables(ranking)
+    context = MatchContext(
+        participants_by_id={p.id: p for p in ranking.participants},
+        extras=build_match_extras(ranking),
+        advancing_ids_by_match_id=build_advancing_ids_by_match_id(ranking),
+    )
 
     return {
         'tournament': serialize_tournament(tournament),
-        'stages': [serialize_stage(stage) for stage in ranking.stages],
+        'stages': [
+            serialize_stage(
+                stage,
+                tables=tables.get(stage.id),
+                rounds_total=_rounds_total(stage, ranking),
+            )
+            for stage in ranking.stages
+        ],
         'participants': [
             serialize_participant(p) for p in ranking.participants
         ],
@@ -123,8 +139,7 @@ def get_tournament(tournament_id):
                 match,
                 ranking.slots_by_match_id.get(match.id, []),
                 ranking.results_by_match_id.get(match.id),
-                participants_by_id,
-                slots_by_id,
+                context,
             )
             for match in ranking.matches
         ],
@@ -135,23 +150,50 @@ def get_tournament(tournament_id):
 @read_token_required
 @jsonified
 def get_tournament_standings(tournament_id):
-    """The ranking as on the site's ranking page, with prizes by rank."""
+    """The ranking as on the site's ranking page, with prizes by rank.
+    Shared places get the same `rank`; `rank_to` is the last place of
+    the share."""
     tournament = _get_tournament_or_404(tournament_id)
     ranking = compute_tournament_ranking(tournament.party_id, tournament.id)
     prizes_by_position = {
         prize.position: prize
         for prize in get_tournament_prizes_for_tournament(tournament.id)
     }
+    rows = ranking.rows if ranking.has_data else []
+    count_by_rank = Counter(row.get('rank') for row in rows)
 
     return {
         'tournament_id': str(tournament.id),
         'final': ranking.is_final,
         'has_results': ranking.has_data,
         'standings': [
-            serialize_standing(row, prizes_by_position)
-            for row in (ranking.rows if ranking.has_data else [])
+            {
+                **serialize_standing(row, prizes_by_position),
+                'rank_from': row.get('rank'),
+                'rank_to': (
+                    row['rank'] + count_by_rank[row['rank']] - 1
+                    if isinstance(row.get('rank'), int)
+                    else None
+                ),
+            }
+            for row in rows
         ],
     }
+
+
+def _rounds_total(stage, ranking) -> int | None:
+    if stage.type != StageType.swiss:
+        return None
+    participant_ids = {
+        slot.participant_id
+        for match in ranking.matches
+        if match.stage_id == stage.id
+        for slot in ranking.slots_by_match_id.get(match.id, [])
+        if slot.participant_id is not None
+    }
+    return get_round_count_for_swiss_stage(
+        stage, participant_count=len(participant_ids)
+    )
 
 
 def _get_tournament_or_404(tournament_id):

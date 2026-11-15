@@ -23,6 +23,8 @@ def register_api_blueprints(app: Flask) -> None:
         ('services.netsession_sponsor.blueprints.api', '/ns-sponsors'),
         # Netsession: seat statistics for Screens.
         ('services.netsession_api.blueprints.api', '/ns-seating'),
+        # Netsession: party list for Screens.
+        ('services.netsession_api.blueprints.parties', '/ns-parties'),
         ('services.snippet.blueprints.api', '/snippets'),
         ('services.ticketing.blueprints.api', '/ticketing'),
         ('services.tourney.avatar.blueprints.api', '/tourney/avatars'),

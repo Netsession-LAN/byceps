@@ -9,6 +9,7 @@ normalized, so clients need not parse the stored JSON.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, UTC
 import re
 from typing import Any
@@ -22,6 +23,11 @@ from ...models import (
     Stage,
     TournamentPrize,
 )
+from .match_extras import (
+    MatchExtras,
+    bye_slot_ids,
+    describe_match,
+)
 from ...score_parsing import (
     is_walkover_score_json,
     parse_match_result_slot_scores,
@@ -29,6 +35,16 @@ from ...score_parsing import (
 
 
 DISPLAY_SETTING_KEYS = ('best_of', 'map_count')
+STAGE_PHASES = {'draft': 'planned', 'live': 'running', 'closed': 'completed'}
+TOURNAMENT_PHASES = {**STAGE_PHASES, 'canceled': 'canceled'}
+
+
+@dataclass(frozen=True, kw_only=True)
+class MatchContext:
+    participants_by_id: dict
+    extras: MatchExtras
+    # FFA matches only: participants that play on after this match.
+    advancing_ids_by_match_id: dict
 
 
 def serialize_tournament(tournament) -> dict[str, Any]:
@@ -42,20 +58,42 @@ def serialize_tournament(tournament) -> dict[str, Any]:
         'game': tournament.game,
         'mode': tournament.mode.value,
         'status': tournament.status.value,
+        'phase': TOURNAMENT_PHASES.get(tournament.status.value),
         'starts_at': _iso(tournament.starts_at),
         'registration_open': tournament.registration_open,
     }
 
 
-def serialize_stage(stage: Stage) -> dict[str, Any]:
+def serialize_stage(
+    stage: Stage, *, tables: list | None, rounds_total: int | None
+) -> dict[str, Any]:
     return {
         'id': str(stage.id),
         'order_no': stage.order_no,
         'type': stage.type.value,
         'name': stage.name,
         'status': stage.status.value,
+        'phase': STAGE_PHASES.get(stage.status.value),
+        'advance_count': _advance_count(stage),
+        'rounds_total': rounds_total,
+        'groups': tables,
         'settings': stage.settings,
     }
+
+
+def _advance_count(stage: Stage) -> int | None:
+    """Qualifier count of this stage as a target (`qualifier_top_n`), if
+    set explicitly."""
+    settings = stage.settings or {}
+    if settings.get('builder_auto_qualifier_count'):
+        return None
+    value = settings.get('qualifier_top_n_per_match') or settings.get(
+        'qualifier_top_n'
+    )
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def serialize_participant(participant: Participant) -> dict[str, Any]:
@@ -74,9 +112,10 @@ def serialize_match(
     match: Match,
     slots: list[MatchSlot],
     result: MatchResult | None,
-    participants_by_id: dict,
-    slots_by_id: dict,
+    context: MatchContext,
 ) -> dict[str, Any]:
+    bye_ids = bye_slot_ids(slots, context.extras)
+    advancing_ids = context.advancing_ids_by_match_id.get(match.id)
     return {
         'id': str(match.id),
         'stage_id': str(match.stage_id),
@@ -84,8 +123,11 @@ def serialize_match(
         'match_no': match.match_no,
         'state': match.state.value,
         'scheduled_at': _iso(match.scheduled_at),
+        **describe_match(match, context.extras),
         'slots': [
-            _serialize_slot(slot, participants_by_id, slots_by_id)
+            _serialize_slot(
+                slot, result, context, slot.id in bye_ids, advancing_ids
+            )
             for slot in sorted(slots, key=lambda slot: slot.slot_no)
         ],
         'result': _serialize_result(match, slots, result),
@@ -98,17 +140,18 @@ def serialize_match(
 
 
 def _serialize_slot(
-    slot: MatchSlot, participants_by_id: dict, slots_by_id: dict
+    slot: MatchSlot,
+    result: MatchResult | None,
+    context: MatchContext,
+    is_bye: bool,
+    advancing_ids: set | None,
 ) -> dict[str, Any]:
-    participant = participants_by_id.get(slot.participant_id)
-    source = None
-    if slot.participant_id is None and slot.source_match_slot_id is not None:
-        source_slot = slots_by_id.get(slot.source_match_slot_id)
-        if source_slot is not None:
-            source = {
-                'match_id': str(source_slot.match_id),
-                'outcome': slot.source_outcome.value,
-            }
+    participant = context.participants_by_id.get(slot.participant_id)
+    source_match_id = context.extras.source_match_id_by_slot_id.get(slot.id)
+    ranking = (
+        result.ranking if result and isinstance(result.ranking, dict) else {}
+    )
+    key = str(slot.slot_no)
     return {
         'slot_no': slot.slot_no,
         'participant_id': str(slot.participant_id)
@@ -116,7 +159,22 @@ def _serialize_slot(
         else None,
         'name': participant.name if participant else None,
         'logo_url': participant.logo_url if participant else None,
-        'source': source,
+        'bye': is_bye,
+        'source': (
+            {
+                'match_id': str(source_match_id),
+                'outcome': slot.source_outcome.value,
+            }
+            if source_match_id is not None
+            else None
+        ),
+        'placement': (ranking.get('placements') or {}).get(key),
+        'points': (ranking.get('points') or {}).get(key),
+        'advances': (
+            slot.participant_id in advancing_ids
+            if advancing_ids is not None and slot.participant_id is not None
+            else None
+        ),
     }
 
 

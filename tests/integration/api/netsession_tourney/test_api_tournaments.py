@@ -172,6 +172,10 @@ def test_finished_bracket_shows_results_and_final_standings(
     assert first['prize']['title'] == 'be quiet! Pure Base 500'
     assert second['rank'] == 2
     assert second['prize'] is None
+    for row in standings['standings']:
+        same = [r for r in standings['standings'] if r['rank'] == row['rank']]
+        assert row['rank_from'] == row['rank']
+        assert row['rank_to'] == row['rank'] + len(same) - 1
 
 
 def test_unchanged_answer_gets_304(ns_api_client, read_headers, bracket):

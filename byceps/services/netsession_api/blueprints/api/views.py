@@ -2,8 +2,8 @@
 byceps.services.netsession_api.blueprints.api.views
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Seat statistics for read-only clients (Screens). `ns-` prefix, so a
-future upstream seating API cannot collide. Needs `ns_api.read`.
+Seat statistics for read-only clients (Screens), at `/v1/ns-seating`.
+`ns-` prefix, so a future upstream API cannot collide. Needs `ns_api.read`.
 """
 
 from flask import abort, request
