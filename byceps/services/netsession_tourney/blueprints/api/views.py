@@ -2,6 +2,9 @@
 byceps.services.netsession_tourney.blueprints.api.views
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+All endpoints need an API token with `ns_api.read` (401/403 otherwise).
+GET answers carry a weak ETag; `If-None-Match` gets 304.
+
 :Copyright: 2014-2026 Jochen Kupperschmidt
 :License: Revised BSD (see `LICENSE` file for details)
 """
@@ -14,18 +17,24 @@ from byceps.services.party import party_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
 
+from byceps.services.netsession_api.token_auth import read_token_required
+
 from ...observability_service import record_api_request_metric
-from ...match_queries import get_matches_for_tournament
-from ...tournament_queries import (
-    get_participants_for_tournament,
-    get_stages_for_tournament,
-)
+from ...tournament_prize_service import get_tournament_prizes_for_tournament
 from ...tournament_service import (
     find_tournament_for_party,
     get_tournaments_for_party,
 )
 from ...filter_parsing import parse_tournament_status as _parse_status
 from ...filter_parsing import parse_tournament_mode as _parse_mode
+from ..site.tournament_ranking import compute_tournament_ranking
+from .serializers import (
+    serialize_match,
+    serialize_participant,
+    serialize_stage,
+    serialize_standing,
+    serialize_tournament,
+)
 
 
 blueprint = create_blueprint('netsession_tourney_api', __name__)
@@ -38,6 +47,11 @@ def before_request():
 
 @blueprint.after_request
 def after_request(response):
+    if request.method == 'GET' and response.status_code == 200:
+        # Clients poll every few seconds: answer 304 if nothing changed.
+        response.add_etag(weak=True)
+        response = response.make_conditional(request)
+
     started = getattr(g, 'ns_tourney_api_request_started', None)
     if started is None or 400 <= response.status_code < 500:
         # The API is public: a row per bad request would let anybody fill
@@ -60,6 +74,7 @@ def after_request(response):
 
 
 @blueprint.get('/tournaments')
+@read_token_required
 @jsonified
 def get_tournaments():
     party_id = request.args.get('party_id')
@@ -85,8 +100,61 @@ def get_tournaments():
 
 
 @blueprint.get('/tournaments/<uuid:tournament_id>')
+@read_token_required
 @jsonified
 def get_tournament(tournament_id):
+    tournament = _get_tournament_or_404(tournament_id)
+    ranking = compute_tournament_ranking(tournament.party_id, tournament.id)
+    participants_by_id = {p.id: p for p in ranking.participants}
+    slots_by_id = {
+        slot.id: slot
+        for slots in ranking.slots_by_match_id.values()
+        for slot in slots
+    }
+
+    return {
+        'tournament': serialize_tournament(tournament),
+        'stages': [serialize_stage(stage) for stage in ranking.stages],
+        'participants': [
+            serialize_participant(p) for p in ranking.participants
+        ],
+        'matches': [
+            serialize_match(
+                match,
+                ranking.slots_by_match_id.get(match.id, []),
+                ranking.results_by_match_id.get(match.id),
+                participants_by_id,
+                slots_by_id,
+            )
+            for match in ranking.matches
+        ],
+    }
+
+
+@blueprint.get('/tournaments/<uuid:tournament_id>/standings')
+@read_token_required
+@jsonified
+def get_tournament_standings(tournament_id):
+    """The ranking as on the site's ranking page, with prizes by rank."""
+    tournament = _get_tournament_or_404(tournament_id)
+    ranking = compute_tournament_ranking(tournament.party_id, tournament.id)
+    prizes_by_position = {
+        prize.position: prize
+        for prize in get_tournament_prizes_for_tournament(tournament.id)
+    }
+
+    return {
+        'tournament_id': str(tournament.id),
+        'final': ranking.is_final,
+        'has_results': ranking.has_data,
+        'standings': [
+            serialize_standing(row, prizes_by_position)
+            for row in (ranking.rows if ranking.has_data else [])
+        ],
+    }
+
+
+def _get_tournament_or_404(tournament_id):
     party_id = request.args.get('party_id')
     if not party_id:
         abort(400)
@@ -99,66 +167,4 @@ def get_tournament(tournament_id):
     if tournament is None:
         abort(404)
 
-    stages = get_stages_for_tournament(party_id, tournament.id)
-    participants = get_participants_for_tournament(party_id, tournament.id)
-    matches = get_matches_for_tournament(party_id, tournament.id)
-
-    return {
-        'tournament': serialize_tournament(tournament),
-        'stages': [serialize_stage(stage) for stage in stages],
-        'participants': [
-            serialize_participant(participant) for participant in participants
-        ],
-        'matches': [serialize_match(match) for match in matches],
-    }
-
-
-def serialize_tournament(tournament):
-    return {
-        'id': str(tournament.id),
-        'party_id': tournament.party_id,
-        'category_id': str(tournament.category_id),
-        'slug': tournament.slug,
-        'title': tournament.title,
-        'subtitle': tournament.subtitle,
-        'game': tournament.game,
-        'mode': tournament.mode.value,
-        'status': tournament.status.value,
-        'starts_at': tournament.starts_at and tournament.starts_at.isoformat(),
-        'registration_open': tournament.registration_open,
-    }
-
-
-def serialize_stage(stage):
-    return {
-        'id': str(stage.id),
-        'order_no': stage.order_no,
-        'type': stage.type.value,
-        'name': stage.name,
-        'status': stage.status.value,
-        'settings': stage.settings,
-    }
-
-
-def serialize_participant(participant):
-    return {
-        'id': str(participant.id),
-        'name': participant.name,
-        'type': participant.type.value,
-        'logo_url': participant.logo_url,
-        'seed': participant.seed,
-        'status': participant.status.value,
-        'checkin_state': participant.checkin_state.value,
-    }
-
-
-def serialize_match(match):
-    return {
-        'id': str(match.id),
-        'stage_id': str(match.stage_id),
-        'round_no': match.round_no,
-        'match_no': match.match_no,
-        'state': match.state.value,
-        'scheduled_at': match.scheduled_at and match.scheduled_at.isoformat(),
-    }
-
+    return tournament

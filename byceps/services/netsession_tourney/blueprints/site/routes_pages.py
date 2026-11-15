@@ -24,7 +24,6 @@ from ...match_queries import (
     get_matches_for_tournament,
 )
 from ...models import (
-    StageType,
     TeamMemberRole,
 )
 from ...registration_validation import get_team_members_for_participants
@@ -41,26 +40,14 @@ from .builder_display_helpers import (
     get_materialized_builder_round_robin_group_stages,
 )
 from .builder_helpers import get_materialized_builder_container_stages
-from .elimination_ranking import rank_by_elimination
 from .match_helpers import (
     build_match_labels,
 )
-from .ranking_helpers import (
-    are_all_rankable_matches_completed,
-    build_ffa_ranking_rows,
-    build_flatout2_ranking_rows,
-    build_ranking_rows,
-    has_rankable_results,
-)
 from .stage_filters import (
-    uses_only_ffa_scoring_stages,
     uses_only_ffa_simple_stages,
     uses_only_flatout2_stages,
-    uses_only_swiss_stages,
 )
-from .stage_render_helpers import (
-    _get_ffa_placement_by_slot_no,
-)
+from .tournament_ranking import compute_tournament_ranking
 from .user_state_helpers import (
     build_current_user_overview_match_rows,
     format_team_member_role_label,
@@ -276,11 +263,10 @@ def view_participants(slug):
 @templated
 def view_ranking(slug):
     tournament = _get_tournament_or_404(slug)
-    participants = get_participants_for_tournament(g.party.id, tournament.id)
-    stages = get_stages_for_tournament(g.party.id, tournament.id)
-    matches = get_matches_for_tournament(g.party.id, tournament.id)
-    slots_by_match_id = get_match_slots({match.id for match in matches})
-    results_by_match_id = get_match_results({match.id for match in matches})
+    ranking = compute_tournament_ranking(g.party.id, tournament.id)
+    participants = ranking.participants
+    stages = ranking.stages
+    matches = ranking.matches
     user_ids = {
         participant.user_id
         for participant in participants
@@ -294,63 +280,24 @@ def view_ranking(slug):
     else:
         ranking_subject_label = gettext('Teilnehmer')
 
-    is_ffa_scoring_tournament = uses_only_ffa_scoring_stages(stages, matches)
-    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
-    is_swiss_tournament = uses_only_swiss_stages(stages, matches)
-    ranking = (
-        build_ffa_ranking_rows(
-            participants,
-            matches,
-            slots_by_match_id,
-            results_by_match_id,
-            {stage.id: stage for stage in stages},
-        )
-        if is_ffa_scoring_tournament
-        else build_flatout2_ranking_rows(
-            participants,
-            matches,
-            slots_by_match_id,
-            results_by_match_id,
-            _get_ffa_placement_by_slot_no,
-        )
-        if is_flatout2_tournament
-        else build_ranking_rows(
-            participants,
-            matches,
-            slots_by_match_id,
-            results_by_match_id,
-            stage_type=StageType.swiss if is_swiss_tournament else None,
-        )
-    )
-    ranking = rank_by_elimination(
-        ranking, stages, matches, slots_by_match_id, results_by_match_id
-    )
-    has_ranking_data = has_rankable_results(
-        matches, slots_by_match_id, results_by_match_id
-    )
-    is_final_ranking = (
-        has_ranking_data
-        and are_all_rankable_matches_completed(matches, slots_by_match_id)
-    )
-
     current_page_id = get_main_nav_current_page_id()
 
     return {
         'tournament': tournament,
-        'ranking_rows': ranking,
-        'has_ranking_data': has_ranking_data,
-        'is_final_ranking': is_final_ranking,
+        'ranking_rows': ranking.rows,
+        'has_ranking_data': ranking.has_data,
+        'is_final_ranking': ranking.is_final,
         'users_by_id': users_by_id,
         'ranking_subject_label': ranking_subject_label,
-        'is_ffa_scoring_tournament': is_ffa_scoring_tournament,
-        'is_flatout2_tournament': is_flatout2_tournament,
-        'is_swiss_tournament': is_swiss_tournament,
+        'is_ffa_scoring_tournament': ranking.is_ffa_scoring,
+        'is_flatout2_tournament': ranking.is_flatout2,
+        'is_swiss_tournament': ranking.is_swiss,
         'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
         'show_preliminaries_tab': bool(
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        ) and not ranking.is_flatout2,
         'current_page': current_page_id,
         'current_tournament_page': 'ranking',
     }
