@@ -1,0 +1,6 @@
+{#- Logos are made for the dark site; show them on a dark tile. #}
+{% macro logo_preview(url, name, height=40) -%}
+<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 8rem; padding: 0.4rem 0.6rem; border-radius: 8px; background-color: CanvasText;">
+  <img src="{{ url }}" alt="{{ name }}" style="max-height: {{ height }}px; max-width: 200px;">
+</span>
+{%- endmacro %}

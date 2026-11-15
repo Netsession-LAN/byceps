@@ -31,7 +31,9 @@ BASE = 'http://api.ns.test/v1/ns-tourneys/tournaments'
 
 
 @pytest.fixture
-def bracket(admin_app, make_party, brand, admin_user, make_user, make_ticket_category):
+def bracket(
+    admin_app, make_party, brand, admin_user, make_user, make_ticket_category
+):
     """A live single elimination with 4 players, first round not played."""
     party = make_party(brand)
     tournament = tournament_service.create_tournament(
@@ -43,14 +45,23 @@ def bracket(admin_app, make_party, brand, admin_user, make_user, make_ticket_cat
         admin_user,
     ).unwrap()
     stage = stage_service.create_stage(
-        party.id, tournament.id, StageType.single_elimination, 'KO', {}, admin_user
+        party.id,
+        tournament.id,
+        StageType.single_elimination,
+        'KO',
+        {},
+        admin_user,
     ).unwrap()
     category = make_ticket_category(party.id, 'NS-API-' + generate_token())
     for no in range(4):
         player = make_user(f'NS_Api_{no}_' + generate_token())
         ticket = ticket_creation_service.create_ticket(category, player)
-        ticket_user_management_service.appoint_user(ticket.id, player, player).unwrap()
-        registration_service.register_user(party.id, tournament.id, player).unwrap()
+        ticket_user_management_service.appoint_user(
+            ticket.id, player, player
+        ).unwrap()
+        registration_service.register_user(
+            party.id, tournament.id, player
+        ).unwrap()
     tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).unwrap()

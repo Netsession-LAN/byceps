@@ -1,0 +1,72 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_extra_in_heading %}
+{% from 'macros/icons.html' import render_icon %}
+{% from 'macros/misc.html' import render_tag %}
+{% from 'admin/netsession_sponsor/_logo_preview.html' import logo_preview %}
+{% set current_page = 'netsession_sponsor_admin' %}
+{% set current_page_party = party %}
+{% set page_title = _('Sponsoren') %}
+
+{% block body %}
+
+<div class="row row--space-between block">
+  <div>
+    <h1 class="title">{{ page_title }} {{ render_extra_in_heading(sponsors|length) }}</h1>
+  </div>
+{%- if g.user.has_permission('ns_sponsor.update') %}
+  <div>
+    <div class="button-row button-row--nowrap is-right-aligned">
+      <a class="button" href="{{ url_for('.create_form', party_id=party.id) }}">{{ render_icon('add') }} <span>{{ _('Sponsor anlegen') }}</span></a>
+    </div>
+  </div>
+{%- endif %}
+</div>
+
+<p>{{ _('Erscheinen in dieser Reihenfolge auf der Startseite (Kachel „Partner“) und in der API für Screens. Nur aktive Sponsoren werden angezeigt.') }}</p>
+
+{%- if sponsors %}
+<table class="itemlist is-vcentered is-wide">
+  <thead>
+    <tr>
+      <th>{{ _('Logo') }}</th>
+      <th>{{ _('Name') }}</th>
+      <th>{{ _('Link') }}</th>
+      <th>{{ _('Status') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {%- for sponsor in sponsors %}
+    <tr{% if not sponsor.enabled %} class="dimmed"{% endif %}>
+      <td>{{ logo_preview(sponsor.logo_url, sponsor.name) }}</td>
+      <td>
+        <strong>{{ sponsor.name }}</strong>
+        {%- if sponsor.logo_dark_path %}<br><small>{{ _('mit Logo für dunkle Bildschirme') }}</small>{% endif %}
+      </td>
+      <td>{% if sponsor.target_url %}<a href="{{ sponsor.target_url }}" target="_blank" rel="noopener">{{ sponsor.target_url|truncate(40) }}</a>{% endif %}</td>
+      <td>
+        {%- if sponsor.enabled %}
+        {{ render_tag(_('aktiv'), class='color-success') }}
+        {%- else %}
+        {{ render_tag(_('inaktiv'), class='color-disabled') }}
+        {%- endif %}
+      </td>
+      <td>
+      {%- if g.user.has_permission('ns_sponsor.update') %}
+        <div class="button-row button-row--nowrap is-right-aligned">
+          <form action="{{ url_for('.move_up', sponsor_id=sponsor.id) }}" method="post"><button type="submit" class="button button--compact" title="{{ _('nach oben') }}"{% if loop.first %} disabled{% endif %}>{{ render_icon('arrow-up') }}</button></form>
+          <form action="{{ url_for('.move_down', sponsor_id=sponsor.id) }}" method="post"><button type="submit" class="button button--compact" title="{{ _('nach unten') }}"{% if loop.last %} disabled{% endif %}>{{ render_icon('arrow-down') }}</button></form>
+          <a class="button button--compact" href="{{ url_for('.update_form', sponsor_id=sponsor.id) }}">{{ render_icon('edit') }} <span>{{ _('Bearbeiten') }}</span></a>
+          <form action="{{ url_for('.delete', sponsor_id=sponsor.id) }}" method="post" onsubmit="return confirm('{{ _('Sponsor wirklich löschen?') }}');"><button type="submit" class="button button--compact color-danger">{{ render_icon('delete') }} <span>{{ _('Löschen') }}</span></button></form>
+        </div>
+      {%- endif %}
+      </td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<div class="box no-data-message">{{ _('Noch keine Sponsoren.') }}</div>
+{%- endif %}
+
+{%- endblock %}

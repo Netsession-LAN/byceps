@@ -196,6 +196,12 @@ def get_party_items(party: Party) -> list[MoreItem]:
             required_permission='tourney.view',
         ),
         MoreItem(
+            label=gettext('Sponsoren'),
+            icon='brand',
+            url=url_for('netsession_sponsor_admin.index', party_id=party.id),
+            required_permission='ns_sponsor.view',
+        ),
+        MoreItem(
             label=gettext('Netsession Tournaments'),
             icon='trophy',
             url=(

@@ -1,0 +1,28 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_check %}
+{% set current_page = 'netsession_sponsor_admin' %}
+{% set current_page_party = party %}
+{% set page_title = _('Sponsor anlegen') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index', party_id=party.id), _('Sponsoren')) }}
+{%- endblock %}
+
+{% block body %}
+
+<h1 class="title">{{ page_title }}</h1>
+
+<form action="{{ url_for('.create', party_id=party.id) }}" method="post" enctype="multipart/form-data">
+  <div class="box">
+    {{ form_field(form.name, autofocus='autofocus') }}
+    {{ form_field(form.target_url, caption=_('optional, z. B. https://www.hetzner.com/')) }}
+    {{ form_field(form.logo, caption=_('SVG, PNG, JPEG oder WebP; für dunklen Hintergrund')) }}
+    {{ form_field(form.logo_dark, caption=_('optional; nur falls Screens eine eigene Variante braucht')) }}
+    {{ form_field_check(form.enabled) }}
+  </div>
+
+  {{ form_buttons(_('Anlegen')) }}
+</form>
+
+{%- endblock %}

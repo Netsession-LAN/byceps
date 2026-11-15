@@ -1,0 +1,36 @@
+{% extends 'layout/admin/base.html' %}
+{% from 'macros/admin.html' import render_backlink %}
+{% from 'macros/forms.html' import form_buttons, form_field, form_field_check %}
+{% from 'admin/netsession_sponsor/_logo_preview.html' import logo_preview %}
+{% set current_page = 'netsession_sponsor_admin' %}
+{% set current_page_party = party %}
+{% set page_title = _('Sponsor bearbeiten') %}
+
+{% block before_body %}
+{{ render_backlink(url_for('.index', party_id=party.id), _('Sponsoren')) }}
+{%- endblock %}
+
+{% block body %}
+
+<h1 class="title">{{ page_title }}</h1>
+
+<form action="{{ url_for('.update', sponsor_id=sponsor.id) }}" method="post" enctype="multipart/form-data">
+  <div class="box">
+    {{ form_field(form.name, autofocus='autofocus') }}
+    {{ form_field(form.target_url, caption=_('optional')) }}
+    <div class="block">{{ logo_preview(sponsor.logo_url, sponsor.name, height=60) }}</div>
+    {{ form_field(form.logo, caption=_('nur ausfüllen, um das Logo zu ersetzen')) }}
+    {%- if sponsor.logo_url_dark %}
+    <div class="block">{{ logo_preview(sponsor.logo_url_dark, sponsor.name, height=60) }}</div>
+    {%- endif %}
+    {{ form_field(form.logo_dark, caption=_('optional')) }}
+    {%- if sponsor.logo_dark_path %}
+    {{ form_field_check(form.remove_logo_dark) }}
+    {%- endif %}
+    {{ form_field_check(form.enabled) }}
+  </div>
+
+  {{ form_buttons(_('Speichern')) }}
+</form>
+
+{%- endblock %}
