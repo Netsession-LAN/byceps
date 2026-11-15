@@ -168,3 +168,33 @@ def test_ffa_match_lists_all_players(
     assert len(api_match['slots']) == 4
     assert [s['placement'] for s in api_match['slots']] == [1, 2, 3, 4]
     assert all(s['advances'] is False for s in api_match['slots'])
+
+
+def test_slot_of_removed_participant_keeps_name_and_is_flagged(
+    ns_api_client, read_headers, make_live_tourney, admin_user
+):
+    from byceps.services.netsession_tourney import (
+        participant_admin_service,
+        tournament_queries,
+    )
+
+    party, tournament = make_live_tourney(
+        TournamentMode.duel, StageType.league, 4
+    )
+    removed = tournament_queries.get_participants_for_tournament(
+        party.id, tournament.id
+    )[0]
+    participant_admin_service.remove_participant_by_admin(
+        party.id, tournament.id, removed.id, admin_user, comment='API test'
+    ).unwrap()
+
+    data = _detail(ns_api_client, read_headers, party, tournament)
+    assert str(removed.id) not in {p['id'] for p in data['participants']}
+    slots = [
+        slot
+        for m in data['matches']
+        for slot in m['slots']
+        if slot['participant_id'] == str(removed.id)
+    ]
+    assert slots
+    assert all(s['name'] == removed.name and s['withdrawn'] for s in slots)

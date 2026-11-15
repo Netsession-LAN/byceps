@@ -23,6 +23,7 @@ from byceps.services.netsession_api.token_auth import read_token_required
 from ...observability_service import record_api_request_metric
 from ...models import StageType
 from ...swiss_thresholds import get_round_count_for_swiss_stage
+from ...tournament_queries import get_participants_for_tournament
 from ...tournament_prize_service import get_tournament_prizes_for_tournament
 from ...tournament_service import (
     find_tournament_for_party,
@@ -116,7 +117,13 @@ def get_tournament(tournament_id):
     ranking = compute_tournament_ranking(tournament.party_id, tournament.id)
     tables = build_stage_tables(ranking)
     context = MatchContext(
-        participants_by_id={p.id: p for p in ranking.participants},
+        # Slots may still hold participants that dropped out.
+        participants_by_id={
+            p.id: p
+            for p in get_participants_for_tournament(
+                tournament.party_id, tournament.id, include_dropped=True
+            )
+        },
         extras=build_match_extras(ranking),
         advancing_ids_by_match_id=build_advancing_ids_by_match_id(ranking),
     )

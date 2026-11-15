@@ -20,6 +20,7 @@ from ...models import (
     MatchSlot,
     MatchState,
     Participant,
+    ParticipantStatus,
     Stage,
     TournamentPrize,
 )
@@ -160,6 +161,11 @@ def _serialize_slot(
         'name': participant.name if participant else None,
         'logo_url': participant.logo_url if participant else None,
         'bye': is_bye,
+        'withdrawn': (
+            participant.status == ParticipantStatus.dropped
+            if participant
+            else False
+        ),
         'source': (
             {
                 'match_id': str(source_match_id),
