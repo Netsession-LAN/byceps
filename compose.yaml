@@ -34,6 +34,8 @@ services:
 
   redis:
     image: "redis:7"
+    # Netsession: restart after a reboot of the VM.
+    restart: unless-stopped
     networks:
       - byceps
 
@@ -41,6 +43,7 @@ services:
     <<: *byceps-base
     environment:
       <<: *byceps-base-env
+    restart: unless-stopped
     networks:
       - byceps
       - proxy
@@ -50,6 +53,7 @@ services:
     environment:
       <<: *byceps-base-env
     command: uv run --no-sync byceps worker
+    restart: unless-stopped
     networks:
       - byceps
 
@@ -104,6 +108,10 @@ services:
 
   web:
     image: nginx
+    # Netsession: after a reboot, Docker starts containers without regard to
+    # `depends_on`; nginx exits if `byceps-apps` does not resolve yet and is
+    # simply started again.
+    restart: unless-stopped
     volumes:
       - ./docker/nginx/includes:/etc/nginx/includes:ro
       - ./docker/nginx/templates:/etc/nginx/templates:ro
