@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from ipaddress import ip_address
 
 from flask import abort, g, jsonify, request, Request, url_for
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
+
 
 from byceps.services.authn.identity_tag import authn_identity_tag_service
 from byceps.services.party import party_service
@@ -35,25 +36,30 @@ from byceps.util.views import (
 )
 
 from .decorators import client_token_required
-from .models import RegisterClientRequestModel, SetStatusRequestModel
+from .models import RegisterClientRequest, SetStatusRequest
 
 
 blueprint = create_blueprint('whereabouts_api', __name__)
 
 
+register_client_request_adapter = TypeAdapter(RegisterClientRequest)
+
+
 @blueprint.post('/client/register')
 def register_client():
     """Register a client."""
+    if not whereabouts_client_service.is_registration_open():
+        abort(403, 'Client registration is closed.')
+
     if not request.is_json:
         abort(415)
 
     try:
-        req = RegisterClientRequestModel.model_validate(request.get_json())
+        req = register_client_request_adapter.validate_python(
+            request.get_json()
+        )
     except ValidationError as e:
         abort(400, e.json())
-
-    if not whereabouts_client_service.is_registration_open():
-        abort(403, 'Client registration is closed.')
 
     source_address = _get_source_ip_address(request)
 
@@ -189,6 +195,9 @@ def get_status(user_id, party_id):
     )
 
 
+set_status_request_adapter = TypeAdapter(SetStatusRequest)
+
+
 @blueprint.post('/statuses')
 @client_token_required
 @respond_no_content
@@ -198,7 +207,7 @@ def set_status():
         abort(415)
 
     try:
-        req = SetStatusRequestModel.model_validate(request.get_json())
+        req = set_status_request_adapter.validate_python(request.get_json())
     except ValidationError as e:
         abort(400, e.json())
 
