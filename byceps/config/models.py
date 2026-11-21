@@ -52,13 +52,41 @@ class CloudflareTurnstileConfig:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
+class TomlConfig:
+    locale: str
+    propagate_exceptions: bool | None = None
+    secret_key: str
+    timezone: str
+    apps: WebAppsConfig
+    database: DatabaseConfig
+    development: DevelopmentConfig = field(
+        default_factory=lambda: DevelopmentConfig()
+    )
+    discord: DiscordConfig | None = None
+    invoiceninja: InvoiceNinjaConfig | None = None
+    jobs: JobsConfig = field(default_factory=lambda: JobsConfig())
+    metrics: MetricsConfig = field(default_factory=lambda: MetricsConfig())
+    payment_gateways: PaymentGatewaysConfig | None = field(
+        default_factory=lambda: PaymentGatewaysConfig()
+    )
+    redis: RedisConfig
+    smtp: SmtpConfig
+    # Netsession
+    steam: SteamConfig | None = None
+    netsession_tourney_enabled: bool = False
+    cloudflare_turnstile: CloudflareTurnstileConfig = field(
+        default_factory=lambda: CloudflareTurnstileConfig()
+    )
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
 class BycepsConfig:
     data_path: Path
     locale: str
     propagate_exceptions: bool | None
+    secret_key: str
     testing: bool
     timezone: str
-    secret_key: str
     database: DatabaseConfig
     development: DevelopmentConfig
     discord: DiscordConfig | None
@@ -77,9 +105,9 @@ class BycepsConfig:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class WebAppsConfig:
-    admin: AdminWebAppConfig | None
-    api: ApiWebAppConfig | None
-    sites: list[SiteWebAppConfig]
+    admin: AdminWebAppConfig | None = None
+    api: ApiWebAppConfig | None = None
+    sites: list[SiteWebAppConfig] = field(default_factory=list)
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -119,8 +147,8 @@ class WorkerAppConfig(AppConfig):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class DatabaseConfig:
-    host: str
-    port: int
+    host: str = 'localhost'
+    port: int = 5432
     username: str
     password: str
     database: str
@@ -128,8 +156,8 @@ class DatabaseConfig:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class DevelopmentConfig:
-    style_guide_enabled: bool
-    toolbar_enabled: bool
+    style_guide_enabled: bool = False
+    toolbar_enabled: bool = False
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -152,18 +180,18 @@ class InvoiceNinjaConfig:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class JobsConfig:
-    asynchronous: bool
+    asynchronous: bool = True
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class MetricsConfig:
-    enabled: bool
+    enabled: bool = False
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class PaymentGatewaysConfig:
-    paypal: PaypalConfig | None
-    stripe: StripeConfig | None
+    paypal: PaypalConfig | None = None
+    stripe: StripeConfig | None = None
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -181,13 +209,13 @@ class RedisConfig:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class SmtpConfig:
-    host: str
-    port: int
-    starttls: bool
-    use_ssl: bool
-    username: str | None
-    password: str | None
-    suppress_send: bool
+    host: str = 'localhost'
+    port: int = 25
+    starttls: bool = False
+    use_ssl: bool = False
+    username: str | None = ''
+    password: str | None = ''
+    suppress_send: bool = False
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
