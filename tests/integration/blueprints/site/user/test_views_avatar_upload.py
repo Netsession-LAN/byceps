@@ -33,17 +33,19 @@ def _png_bytes() -> bytes:
 
 
 @pytest.fixture(scope='module')
-def netsession_site_app(make_site_app, party, board):
-    """A site with ID `netsession`, so that its template overrides apply."""
+def netsession_site_app(make_site_app, brand):
+    """A site with ID `netsession`, so that its template overrides apply.
+
+    Without a party: the party API marks the party of site `netsession` as
+    the current one, which other tests do not expect.
+    """
     site_id = SiteID('netsession')
     if site_service.find_site(site_id) is None:
         create_site(
             site_id,
-            party.brand_id,
+            brand.id,
             title='Netsession',
             server_name='ns-avatar.test',
-            party_id=party.id,
-            board_id=board.id,
         )
     return make_site_app('ns-avatar.test', site_id)
 
