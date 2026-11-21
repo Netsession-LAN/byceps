@@ -105,13 +105,14 @@
             type="file"
             name="logo_file"
             accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-            maxlength="150000"
+            data-ns-max-bytes="{{ ns_upload_max_bytes() }}"
+            data-ns-too-large-message="{{ ns_upload_too_large_message() }}"
             form="ns-tourney-team-update-form"
           >
           <p class="ns-tourney-team-logo-hints">
             {{ _('Erlaubte Formate') }}: JPEG, PNG, WEBP<br>
-            {{ _('Maximale Bildgröße') }}: 512 × 512 {{ _('Pixel') }}<br>
-            {{ _('Maximale Dateigröße') }}: 150 KB<br>
+            {{ _('Maximale Bildgröße') }}: 512 × 512 {{ _('Pixel') }} ({{ _('größere Bilder werden verkleinert') }})<br>
+            {{ _('Maximale Dateigröße') }}: {{ ns_upload_max_bytes() // (1024 * 1024) }} MB<br>
             {{ _('Falls das Bild nicht quadratisch ist, wird es zugeschnitten.') }}
           </p>
           {%- endif %}

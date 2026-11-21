@@ -191,7 +191,9 @@ def _assemble_configuration(
         'SESSION_COOKIE_SAMESITE': 'Lax',
         'SESSION_COOKIE_SECURE': True,
         # Limit incoming request content.
-        'MAX_CONTENT_LENGTH': 4000000,
+        # Netsession: 10 MB for photos straight from a phone (was 4 MB);
+        # nginx allows a bit more, see `netsession_uploads`.
+        'MAX_CONTENT_LENGTH': 10 * 1024 * 1024,
     }
 
     data.update(convert_config(byceps_config))

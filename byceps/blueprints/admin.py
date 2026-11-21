@@ -82,6 +82,8 @@ def register_admin_blueprints(
         ('services.user.blueprints.admin', '/users'),
         ('services.user_badge.blueprints.admin', '/user_badges'),
         ('services.webhooks.blueprints.admin', '/webhooks'),
+        # Netsession: readable answer to too large uploads.
+        ('services.netsession_uploads.blueprints.common', None),
         # Netsession: sponsors per party.
         ('services.netsession_sponsor.blueprints.admin', '/ns-sponsors'),
         ('services.whereabouts.blueprints.admin', '/whereabouts'),

@@ -8,11 +8,16 @@ byceps.services.user.avatar.blueprints.site.views
 
 from flask import abort, g, request
 from flask_babel import gettext
+from PIL import Image
 
 from byceps.services.user import signals as user_signals, user_avatar_service
 from byceps.services.user.models import User
 from byceps.util.framework.blueprint import create_blueprint
-from byceps.util.framework.flash import flash_notice, flash_success
+from byceps.util.framework.flash import (
+    flash_error,
+    flash_notice,
+    flash_success,
+)
 from byceps.util.framework.templating import templated
 from byceps.util.image.image_type import get_image_type_names, ImageType
 from byceps.util.result import Err
@@ -67,7 +72,12 @@ def update():
 
     image = request.files.get('image')
 
-    _update(user, image)
+    # Netsession: unusable images go back to the form with a message
+    # instead of a bare error page.
+    error_message = _update(user, image)
+    if error_message is not None:
+        flash_error(error_message)
+        return redirect_to('.update_form')
 
     flash_success(gettext('Avatar image has been updated.'), icon='upload')
     user_signals.avatar_updated.send(None, user_id=user.id)
@@ -75,18 +85,29 @@ def update():
     return redirect_to('user_settings.view')
 
 
-def _update(user: User, image) -> None:
+def _update(user: User, image) -> str | None:
+    """Return an error message for the user, or `None` on success."""
     if not image or not image.filename:
         abort(400, 'No file to upload has been specified.')
 
+    allowed = ', '.join(sorted(get_image_type_names(ALLOWED_IMAGE_TYPES)))
     try:
         match user_avatar_service.update_avatar_image(
             user, image.stream, ALLOWED_IMAGE_TYPES, user
         ):
-            case Err(e):
-                abort(400, e)
+            case Err(_):
+                return gettext(
+                    'Dieses Dateiformat wird nicht unterstützt. Erlaubt sind: %(types)s.',
+                    types=allowed,
+                )
     except FileExistsError:
         abort(409, 'File already exists, not overwriting.')
+    except OSError, ValueError, Image.DecompressionBombError:
+        return gettext(
+            'Das Bild konnte nicht gelesen werden. Bitte speichere es als %(types)s neu und versuche es nochmal.',
+            types=allowed,
+        )
+    return None
 
 
 @blueprint.delete('/me/avatar')

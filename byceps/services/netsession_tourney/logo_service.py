@@ -19,13 +19,13 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import User
 from byceps.util import upload
-from byceps.util.image.dimensions import Dimensions, determine_dimensions
-from byceps.util.image.image_type import ImageType, determine_image_type
-from byceps.util.image.thumbnail import create_thumbnail
+from byceps.util.image.dimensions import Dimensions
+from byceps.util.image.image_type import ImageType
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .dbmodels import DbNetsessionTourneyLogoAsset
+from .logo_image_preparation import prepare_logo_image
 from .dbmodels import (
     DbNetsessionTourneyDiscordForumImageAsset,
     DbNetsessionTourneySponsorLogoAsset,
@@ -58,10 +58,6 @@ MAXIMUM_BANNER_DIMENSIONS = Dimensions(1200, 300)
 ALLOWED_SUFFIXES = {'.jpeg', '.jpg', '.png', '.svg', '.webp'}
 
 
-def _exceeds(size: Dimensions, maximum: Dimensions) -> bool:
-    return size.width > maximum.width or size.height > maximum.height
-
-
 def upload_logo_image(
     party_id: PartyID,
     uploaded_by: User,
@@ -70,22 +66,13 @@ def upload_logo_image(
     label: str | None = None,
     original_filename: str | None = None,
 ) -> Result[str, str]:
-    match determine_image_type(stream, ALLOWED_IMAGE_TYPES):
-        case Ok(image_type):
+    match prepare_logo_image(
+        stream, ALLOWED_IMAGE_TYPES, MAXIMUM_DIMENSIONS, force_square=True
+    ):
+        case Ok((image_type, stream)):
             pass
         case Err(error):
             return Err(error)
-
-    if image_type != ImageType.svg:
-        image_dimensions = determine_dimensions(stream)
-        image_too_large = _exceeds(image_dimensions, MAXIMUM_DIMENSIONS)
-        if image_too_large or not image_dimensions.is_square:
-            stream = create_thumbnail(
-                stream,
-                image_type.name,
-                MAXIMUM_DIMENSIONS,
-                force_square=True,
-            )
 
     logo_asset_id = LogoAssetID(generate_uuid7())
     filename = f'{logo_asset_id}.{image_type.name}'
@@ -122,9 +109,7 @@ def get_existing_logo_choices(party_id: PartyID) -> list[tuple[str, str]]:
 
     for path in _iter_logo_files(party_id):
         url_path = _to_logo_url_path(party_id, path.name)
-        choices_by_url.setdefault(
-            url_path, _label_from_filename(path.stem)
-        )
+        choices_by_url.setdefault(url_path, _label_from_filename(path.stem))
 
     return sorted(choices_by_url.items(), key=lambda item: item[1].lower())
 
@@ -275,8 +260,9 @@ def get_tournament_logo_assets(
     party_id: PartyID,
 ) -> list[TournamentLogoAsset]:
     db_assets = db.session.scalars(
-        select(DbNetsessionTourneyTournamentLogoAsset)
-        .order_by(DbNetsessionTourneyTournamentLogoAsset.label.asc())
+        select(DbNetsessionTourneyTournamentLogoAsset).order_by(
+            DbNetsessionTourneyTournamentLogoAsset.label.asc()
+        )
     ).all()
 
     return [
@@ -299,8 +285,9 @@ def get_sponsor_logo_assets(
     party_id: PartyID,
 ) -> list[SponsorLogoAsset]:
     db_assets = db.session.scalars(
-        select(DbNetsessionTourneySponsorLogoAsset)
-        .order_by(DbNetsessionTourneySponsorLogoAsset.label.asc())
+        select(DbNetsessionTourneySponsorLogoAsset).order_by(
+            DbNetsessionTourneySponsorLogoAsset.label.asc()
+        )
     ).all()
 
     return [
@@ -324,8 +311,9 @@ def get_discord_forum_image_assets(
     party_id: PartyID,
 ) -> list[DiscordForumImageAsset]:
     db_assets = db.session.scalars(
-        select(DbNetsessionTourneyDiscordForumImageAsset)
-        .order_by(DbNetsessionTourneyDiscordForumImageAsset.label.asc())
+        select(DbNetsessionTourneyDiscordForumImageAsset).order_by(
+            DbNetsessionTourneyDiscordForumImageAsset.label.asc()
+        )
     ).all()
 
     return [
@@ -347,7 +335,9 @@ def get_discord_forum_image_assets(
 def find_tournament_logo_asset(
     logo_asset_id: TournamentLogoAssetID,
 ) -> TournamentLogoAsset | None:
-    db_asset = db.session.get(DbNetsessionTourneyTournamentLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneyTournamentLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return None
 
@@ -356,7 +346,9 @@ def find_tournament_logo_asset(
         party_id=db_asset.party_id,
         filename=db_asset.filename,
         label=db_asset.label,
-        url_path=_to_tournament_logo_url_path(db_asset.party_id, db_asset.filename),
+        url_path=_to_tournament_logo_url_path(
+            db_asset.party_id, db_asset.filename
+        ),
         uploaded_by_user_id=db_asset.uploaded_by_user_id,
         created_at=db_asset.created_at,
     )
@@ -365,7 +357,9 @@ def find_tournament_logo_asset(
 def find_sponsor_logo_asset(
     logo_asset_id: SponsorLogoAssetID,
 ) -> SponsorLogoAsset | None:
-    db_asset = db.session.get(DbNetsessionTourneySponsorLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneySponsorLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return None
 
@@ -374,7 +368,9 @@ def find_sponsor_logo_asset(
         party_id=db_asset.party_id,
         filename=db_asset.filename,
         label=db_asset.label,
-        url_path=_to_sponsor_logo_url_path(db_asset.party_id, db_asset.filename),
+        url_path=_to_sponsor_logo_url_path(
+            db_asset.party_id, db_asset.filename
+        ),
         target_url=db_asset.target_url,
         uploaded_by_user_id=db_asset.uploaded_by_user_id,
         created_at=db_asset.created_at,
@@ -408,7 +404,9 @@ def set_tournament_logo_label(
     actor: User,
     label: str,
 ) -> Result[TournamentLogoAsset, str]:
-    db_asset = db.session.get(DbNetsessionTourneyTournamentLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneyTournamentLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return Err('Unbekanntes Turnierlogo.')
 
@@ -441,7 +439,9 @@ def set_sponsor_logo_label(
     label: str,
     target_url: str | None = None,
 ) -> Result[SponsorLogoAsset, str]:
-    db_asset = db.session.get(DbNetsessionTourneySponsorLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneySponsorLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return Err('Unbekanntes Sponsor-Logo.')
 
@@ -507,14 +507,20 @@ def set_discord_forum_image_label(
 def delete_tournament_logo_asset(
     logo_asset_id: TournamentLogoAssetID,
 ) -> Result[None, str]:
-    db_asset = db.session.get(DbNetsessionTourneyTournamentLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneyTournamentLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return Err('Unbekanntes Turnierlogo.')
 
-    logo_url = _to_tournament_logo_url_path(db_asset.party_id, db_asset.filename)
+    logo_url = _to_tournament_logo_url_path(
+        db_asset.party_id, db_asset.filename
+    )
     usage_count = len(
         db.session.scalars(
-            select(DbNetsessionTourneyTournament.id).filter_by(logo_url=logo_url)
+            select(DbNetsessionTourneyTournament.id).filter_by(
+                logo_url=logo_url
+            )
         ).all()
     )
     if usage_count > 0:
@@ -523,7 +529,8 @@ def delete_tournament_logo_asset(
         )
 
     file_path = (
-        _get_tournament_logo_directory_path(db_asset.party_id) / db_asset.filename
+        _get_tournament_logo_directory_path(db_asset.party_id)
+        / db_asset.filename
     )
     db.session.delete(db_asset)
     db.session.commit()
@@ -534,7 +541,9 @@ def delete_tournament_logo_asset(
 def delete_sponsor_logo_asset(
     logo_asset_id: SponsorLogoAssetID,
 ) -> Result[None, str]:
-    db_asset = db.session.get(DbNetsessionTourneySponsorLogoAsset, logo_asset_id)
+    db_asset = db.session.get(
+        DbNetsessionTourneySponsorLogoAsset, logo_asset_id
+    )
     if db_asset is None:
         return Err('Unbekanntes Sponsor-Logo.')
 
@@ -551,7 +560,9 @@ def delete_sponsor_logo_asset(
             f'Das Logo wird von {usage_count} gesponserten Turnier(en) verwendet und kann nicht gelöscht werden.'
         )
 
-    file_path = _get_sponsor_logo_directory_path(db_asset.party_id) / db_asset.filename
+    file_path = (
+        _get_sponsor_logo_directory_path(db_asset.party_id) / db_asset.filename
+    )
     db.session.delete(db_asset)
     db.session.commit()
     _unlink_file_if_exists(file_path)
@@ -673,9 +684,7 @@ def _label_from_filename(filename_stem: str) -> str:
 def _get_filename_from_logo_url_path(
     party_id: PartyID, logo_url_path: str
 ) -> str | None:
-    expected_prefix = (
-        f'/data/parties/{party_id}/netsession_tourney/logos/'
-    )
+    expected_prefix = f'/data/parties/{party_id}/netsession_tourney/logos/'
     if not logo_url_path.startswith(expected_prefix):
         return None
 
@@ -704,25 +713,13 @@ def _upload_asset_image(
     target_url: str | None = None,
     original_filename: str | None,
 ) -> Result[str, str]:
-    match determine_image_type(stream, ALLOWED_IMAGE_TYPES):
-        case Ok(image_type):
+    match prepare_logo_image(
+        stream, ALLOWED_IMAGE_TYPES, max_dimensions, force_square=force_square
+    ):
+        case Ok((image_type, stream)):
             pass
         case Err(error):
             return Err(error)
-
-    if image_type != ImageType.svg:
-        image_dimensions = determine_dimensions(stream)
-        image_too_large = _exceeds(image_dimensions, max_dimensions)
-        requires_square_conversion = (
-            force_square and not image_dimensions.is_square
-        )
-        if image_too_large or requires_square_conversion:
-            stream = create_thumbnail(
-                stream,
-                image_type.name,
-                max_dimensions,
-                force_square=force_square,
-            )
 
     logo_asset_id = asset_id_factory()
     filename = f'{logo_asset_id}.{image_type.name}'
@@ -800,7 +797,9 @@ def _iter_asset_files(directory: Path) -> list[Path]:
 def _iter_asset_files_in_all_parties(
     asset_directory_name: str,
 ) -> list[tuple[PartyID, Path]]:
-    parties_directory = get_current_byceps_app().byceps_config.data_path / 'parties'
+    parties_directory = (
+        get_current_byceps_app().byceps_config.data_path / 'parties'
+    )
     if not parties_directory.exists() or not parties_directory.is_dir():
         return []
 
@@ -852,9 +851,7 @@ def _get_tournament_logo_directory_path(party_id: PartyID) -> Path:
 
 
 def _to_tournament_logo_url_path(party_id: PartyID, filename: str) -> str:
-    return (
-        f'/data/parties/{party_id}/netsession_tourney/tournament_logos/{filename}'
-    )
+    return f'/data/parties/{party_id}/netsession_tourney/tournament_logos/{filename}'
 
 
 def _get_sponsor_logo_directory_path(party_id: PartyID) -> Path:
@@ -868,7 +865,9 @@ def _get_sponsor_logo_directory_path(party_id: PartyID) -> Path:
 
 
 def _to_sponsor_logo_url_path(party_id: PartyID, filename: str) -> str:
-    return f'/data/parties/{party_id}/netsession_tourney/sponsor_logos/{filename}'
+    return (
+        f'/data/parties/{party_id}/netsession_tourney/sponsor_logos/{filename}'
+    )
 
 
 def _get_discord_forum_image_directory_path(party_id: PartyID) -> Path:
@@ -881,12 +880,8 @@ def _get_discord_forum_image_directory_path(party_id: PartyID) -> Path:
     )
 
 
-def _to_discord_forum_image_url_path(
-    party_id: PartyID, filename: str
-) -> str:
-    return (
-        f'/data/parties/{party_id}/netsession_tourney/discord_forum_images/{filename}'
-    )
+def _to_discord_forum_image_url_path(party_id: PartyID, filename: str) -> str:
+    return f'/data/parties/{party_id}/netsession_tourney/discord_forum_images/{filename}'
 
 
 def _get_tournament_asset_filename_from_logo_url_path(

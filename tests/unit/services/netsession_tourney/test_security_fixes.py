@@ -11,11 +11,9 @@ from byceps.services.netsession_tourney.browser_push_endpoint import (
 )
 from byceps.services.netsession_tourney.logo_service import (
     ALLOWED_IMAGE_TYPES,
-    _exceeds,
 )
 from byceps.services.netsession_tourney.models import RuleTemplateBodyFormat
 from byceps.services.netsession_tourney.sponsor_link import normalize_target_url
-from byceps.util.image.dimensions import Dimensions
 from byceps.util.image.image_type import ImageType
 
 
@@ -83,18 +81,6 @@ def test_incomplete_push_subscription_is_rejected():
 
 def test_svg_uploads_are_not_allowed():
     assert ImageType.svg not in ALLOWED_IMAGE_TYPES
-
-
-@pytest.mark.parametrize(
-    ('size', 'expected'),
-    [
-        (Dimensions(600, 1200), True),  # narrow but too high (was missed)
-        (Dimensions(1300, 100), True),
-        (Dimensions(1200, 300), False),
-    ],
-)
-def test_image_size_limit_checks_width_and_height(size, expected):
-    assert _exceeds(size, Dimensions(1200, 300)) is expected
 
 
 @pytest.mark.parametrize(
