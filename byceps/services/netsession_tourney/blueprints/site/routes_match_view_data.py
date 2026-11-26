@@ -39,7 +39,7 @@ from .routes_match_flatout2_data import (
     find_current_host_name as find_current_host_name,
     get_flatout2_round_details as get_flatout2_round_details,
 )
-from .user_state_helpers import can_user_report_match_result
+from .user_state_match_access import can_user_report_match_result
 
 
 def load_tournament_matches_with_slots_and_results(tournament):

@@ -33,8 +33,8 @@ from .routes_index_notifications import (
     has_connected_discord_account as has_connected_discord_account,
     parse_browser_push_subscription_payload as parse_browser_push_subscription_payload,
 )
-from .user_state_helpers import (
-    build_registration_state,
+from .user_state_helpers import build_registration_state
+from .user_state_match_access import (
     format_open_match_participant_name,
     is_match_involving_user,
 )

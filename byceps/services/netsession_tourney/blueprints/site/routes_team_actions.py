@@ -51,10 +51,8 @@ from .stage_filters import (
     uses_only_ffa_simple_stages,
     uses_only_flatout2_stages,
 )
-from .user_state_helpers import (
-    get_captain_team_for_current_user,
-    get_registration_state_for_tournament,
-)
+from .user_state_helpers import get_registration_state_for_tournament
+from .user_state_memberships import get_captain_team_for_current_user
 
 
 @blueprint.post('/<slug>/register')
