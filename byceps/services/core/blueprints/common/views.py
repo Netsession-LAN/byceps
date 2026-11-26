@@ -12,6 +12,7 @@ from typing import Any
 from flask import g, render_template
 
 from byceps.byceps_app import get_current_byceps_app
+from byceps.util import turnstile
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.navigation import Navigation
 
@@ -37,6 +38,12 @@ def inject_template_variables() -> dict[str, Any]:
         'today': date.today(),
         'Navigation': Navigation,
     }
+
+
+@blueprint.app_template_global()
+def get_turnstile_sitekey() -> str | None:
+    """Return the Cloudflare Turnstile site key if Turnstile is enabled."""
+    return turnstile.get_sitekey()
 
 
 @blueprint.app_template_global()

@@ -19,6 +19,7 @@ from byceps.services.newsletter import newsletter_command_service
 from byceps.services.newsletter.models import List as NewsletterList
 from byceps.services.site import site_setting_service
 from byceps.services.user import signals as user_signals, user_creation_service
+from byceps.util import turnstile
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
@@ -77,6 +78,10 @@ def create():
     form = UserCreateForm(request.form)
 
     if not form.validate():
+        return create_form(form)
+
+    if not turnstile.verify_request('user_create'):
+        flash_error(gettext('Turnstile verification failed. Please try again.'))
         return create_form(form)
 
     screen_name = form.screen_name.data.strip()

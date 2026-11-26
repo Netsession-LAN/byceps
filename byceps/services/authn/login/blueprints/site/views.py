@@ -11,6 +11,7 @@ from flask_babel import gettext
 from secret_type import secret
 
 from byceps.services.authn import signals as authn_signals
+from byceps.util import turnstile
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_notice
 from byceps.util.framework.templating import templated
@@ -64,6 +65,9 @@ def log_in():
     form = LogInForm(request.form)
     if not form.validate():
         abort(401, 'Username and/or password not given')
+
+    if not turnstile.verify_request('login'):
+        abort(401, 'Turnstile verification failed')
 
     username = form.username.data.strip()
     password = secret(form.password.data)

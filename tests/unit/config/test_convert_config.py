@@ -38,6 +38,7 @@ def test_convert_config():
         secret_key='<RANDOM-BYTES>',
         testing=True,
         timezone='Europe/Berlin',
+        cloudflare_turnstile=None,
         database=DatabaseConfig(
             host='127.0.0.1',
             port=5432,

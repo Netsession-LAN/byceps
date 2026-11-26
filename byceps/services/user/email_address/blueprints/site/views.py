@@ -20,6 +20,7 @@ from byceps.services.verification_token.models import (
     EmailAddressChangeToken,
     EmailAddressConfirmationToken,
 )
+from byceps.util import turnstile
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_error, flash_notice, flash_success
 from byceps.util.framework.templating import templated
@@ -48,6 +49,10 @@ def request_confirmation_email():
     """
     form = RequestConfirmationEmailForm(request.form)
     if not form.validate():
+        return request_confirmation_email_form(form)
+
+    if not turnstile.verify_request('email_confirmation_request'):
+        flash_error(gettext('Turnstile verification failed. Please try again.'))
         return request_confirmation_email_form(form)
 
     screen_name = form.screen_name.data.strip()

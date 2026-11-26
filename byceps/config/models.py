@@ -50,6 +50,7 @@ class TomlConfig:
     secret_key: str
     timezone: str
     apps: WebAppsConfig
+    cloudflare_turnstile: CloudflareTurnstileConfig | None = None
     database: DatabaseConfig
     development: DevelopmentConfig = field(
         default_factory=lambda: DevelopmentConfig()
@@ -73,6 +74,7 @@ class BycepsConfig:
     secret_key: str
     testing: bool
     timezone: str
+    cloudflare_turnstile: CloudflareTurnstileConfig | None
     database: DatabaseConfig
     development: DevelopmentConfig
     discord: DiscordConfig | None
@@ -124,6 +126,13 @@ class SiteWebAppConfig(WebAppConfig):
 @dataclass(frozen=True, kw_only=True, slots=True)
 class WorkerAppConfig(AppConfig):
     pass
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class CloudflareTurnstileConfig:
+    enabled: bool
+    sitekey: str
+    secret_key: str
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

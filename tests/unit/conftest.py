@@ -50,6 +50,7 @@ def make_byceps_config():
             secret_key='secret-key-for-testing-ONLY',
             testing=True,
             timezone='Europe/Berlin',
+            cloudflare_turnstile=None,
             database=DatabaseConfig(
                 host='127.0.0.1',
                 port=5432,
