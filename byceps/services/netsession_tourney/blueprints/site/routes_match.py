@@ -70,9 +70,7 @@ from .stage_filters import (
     uses_only_ffa_simple_stages,
     uses_only_flatout2_stages,
 )
-from .stage_render_helpers import (
-    build_ffa_match_detail_rows,
-)
+from .stage_render_ffa_matches import build_ffa_match_detail_rows
 
 
 @blueprint.get('/<slug>/matches/<uuid:match_id>')

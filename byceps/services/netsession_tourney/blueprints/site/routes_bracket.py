@@ -44,6 +44,7 @@ from .public_match_page_data import (
     load_match_participants_and_users,
     load_match_slots_and_results,
 )
+from .round_based_public_rendering import build_match_overview_sections
 from .round_robin_groups_display import add_round_robin_groups
 from .stage_filters import (
     uses_only_ffa_scoring_stages,
@@ -53,12 +54,13 @@ from .stage_filters import (
     uses_only_round_based_duel_stages,
     uses_only_swiss_stages,
 )
+from .stage_render_ffa_bracket import (
+    build_ffa_single_elimination_bracket_sections,
+)
+from .stage_render_ffa_matches import build_ffa_match_sections
 from .stage_render_helpers import (
     build_builder_main_stage_bracket_sections,
     build_builder_main_stage_match_sections,
-    build_ffa_match_sections,
-    build_ffa_single_elimination_bracket_sections,
-    build_match_overview_sections,
 )
 from .stage_tabs import build_stage_tab_rows
 from .swiss_public_rendering import build_swiss_bracket_sections
