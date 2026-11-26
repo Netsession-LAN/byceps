@@ -41,6 +41,7 @@ from .models import (
     ParticipantType,
     RegistrationMode,
     RegistrationState,
+    Tournament,
     TournamentID,
     TournamentStatus,
 )
@@ -84,30 +85,11 @@ def add_user_participant_by_admin(
         return Err('Unbekanntes Turnier.')
 
     tournament = db_tournament_to_model(db_tournament)
-    if tournament.status != TournamentStatus.draft:
-        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
-    if tournament.registration_mode not in {
-        RegistrationMode.solo,
-        RegistrationMode.mixed,
-    }:
-        return Err(
-            'Spieler direkt hinzufügen geht nur bei Einzel- oder gemischter Anmeldung.'
-        )
-    if (
-        ticket_check := _validate_user_uses_ticket_for_party(
-            participant_user.id, party_id
-        )
-    ).is_err():
-        return ticket_check
-    if is_user_already_active_participant(tournament_id, participant_user.id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
-
-    if tournament.participant_limit is not None:
-        active_count = count_active_participants_for_tournament(
-            party_id, tournament_id
-        )
-        if active_count >= tournament.participant_limit:
-            return Err('Das Turnier ist voll.')
+    eligibility_check = _check_user_participant_addable_by_admin(
+        party_id, tournament_id, tournament, participant_user
+    )
+    if eligibility_check.is_err():
+        return eligibility_check
 
     charge_result = charge_coins_for_tournament_registration(
         party_id,
@@ -143,6 +125,50 @@ def add_user_participant_by_admin(
     db.session.commit()
 
     return Ok(db_participant_to_model(db_participant))
+
+
+def _check_user_participant_addable_by_admin(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    tournament: Tournament,
+    participant_user: User,
+) -> Result[None, str]:
+    if tournament.status != TournamentStatus.draft:
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
+    if tournament.registration_mode not in {
+        RegistrationMode.solo,
+        RegistrationMode.mixed,
+    }:
+        return Err(
+            'Spieler direkt hinzufügen geht nur bei Einzel- oder gemischter Anmeldung.'
+        )
+    if (
+        ticket_check := _validate_user_uses_ticket_for_party(
+            participant_user.id, party_id
+        )
+    ).is_err():
+        return ticket_check
+    if is_user_already_active_participant(tournament_id, participant_user.id):
+        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
+
+    if _is_tournament_full_for_admin_addition(
+        party_id, tournament_id, tournament
+    ):
+        return Err('Das Turnier ist voll.')
+
+    return Ok(None)
+
+
+def _is_tournament_full_for_admin_addition(
+    party_id: PartyID, tournament_id: TournamentID, tournament: Tournament
+) -> bool:
+    if tournament.participant_limit is None:
+        return False
+
+    active_count = count_active_participants_for_tournament(
+        party_id, tournament_id
+    )
+    return active_count >= tournament.participant_limit
 
 
 def remove_participant_by_admin(
