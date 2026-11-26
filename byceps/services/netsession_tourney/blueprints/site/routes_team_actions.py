@@ -56,10 +56,8 @@ from byceps.util.views import login_required, redirect_to
 
 from .blueprint import blueprint
 from .builder_helpers import get_materialized_builder_container_stages
-from .common import (
-    _get_tournament_or_404,
-    get_main_nav_current_page_id,
-)
+from .common import _get_tournament_or_404
+from .common_navigation import get_main_nav_current_page_id
 from .stage_filters import (
     uses_only_ffa_simple_stages,
     uses_only_flatout2_stages,
