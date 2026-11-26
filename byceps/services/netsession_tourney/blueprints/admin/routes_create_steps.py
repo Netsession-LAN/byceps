@@ -11,10 +11,12 @@ schedule and review steps (see `routes_create`).
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from flask import request
 
+from byceps.services.netsession_tourney.blueprints.admin.routes_create_review_data import (
+    get_selected_admin_users,
+    redirect_if_wizard_incomplete,
+)
 from byceps.services.netsession_tourney.forms import (
     TournamentWizardFormatForm,
     TournamentWizardScheduleForm,
@@ -29,8 +31,6 @@ from byceps.services.netsession_tourney.tournament_category_service import (
 from byceps.services.netsession_tourney.tournament_rule_template_service import (
     get_tournament_rule_templates_for_party,
 )
-from byceps.services.user import user_service
-from byceps.services.user.models import UserID
 from byceps.util.framework.templating import templated
 from byceps.util.views import permission_required, redirect_to
 
@@ -44,7 +44,6 @@ from .wizard_helpers import (
     get_create_wizard_state,
     is_wizard_details_complete,
     is_wizard_format_complete,
-    is_wizard_schedule_complete,
     parse_admin_user_ids,
     serialize_datetime_local,
     set_create_wizard_state,
@@ -214,30 +213,15 @@ def register_create_review_routes(blueprint):
             return redirect_response
 
         state = get_create_wizard_state(party.id)
-        if not is_wizard_format_complete(state):
-            return redirect_to('.create_wizard_format', party_id=party.id)
-        if not is_wizard_details_complete(state):
-            return redirect_to('.create_wizard_details', party_id=party.id)
-        if not is_wizard_schedule_complete(state):
-            return redirect_to('.create_wizard_schedule', party_id=party.id)
+        incomplete_redirect = redirect_if_wizard_incomplete(party.id, state)
+        if incomplete_redirect is not None:
+            return incomplete_redirect
 
         categories_by_id = {
             str(category.id): category
             for category in get_tournament_categories_for_party(party.id)
         }
-        selected_admin_ids: set[UserID] = set()
-        for raw_user_id in state.get('admin_user_ids', []):
-            if not raw_user_id:
-                continue
-
-            try:
-                selected_admin_ids.add(UserID(UUID(raw_user_id)))
-            except ValueError:
-                continue
-        selected_admin_users = sorted(
-            user_service.get_users(selected_admin_ids),
-            key=lambda user: user.screen_name.lower(),
-        )
+        selected_admin_users = get_selected_admin_users(state)
         rule_templates_by_slug = {
             template.slug: template
             for template in get_tournament_rule_templates_for_party(party.id)
