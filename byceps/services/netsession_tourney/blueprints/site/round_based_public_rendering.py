@@ -17,6 +17,91 @@ from .presentation_helpers import (
 )
 
 
+def _build_match_overview_row(
+    item,
+    results_by_match_id,
+    slot_scores_by_match_id,
+    match_labels_by_id,
+    users_by_id,
+    skipped_match_ids,
+) -> dict:
+    match = item['match']
+    slots = sorted(
+        item.get('slots', []),
+        key=lambda slot: slot['slot_no'],
+    )
+    left_slot = slots[0] if len(slots) >= 1 else None
+    right_slot = slots[1] if len(slots) >= 2 else None
+    result = results_by_match_id.get(match.id)
+    winner_slot = result.winner_slot if result else None
+    slot_scores = slot_scores_by_match_id.get(match.id, {})
+
+    score_display = _get_match_overview_score_display(
+        slots,
+        slot_scores,
+        result,
+        get_score_display=_get_score_display,
+    )
+
+    return {
+        'match': match,
+        'match_label': match_labels_by_id.get(
+            match.id,
+            f'{gettext("Match")} #{match.match_no}',
+        ),
+        'left': build_match_overview_slot_data(
+            left_slot, winner_slot, users_by_id
+        ),
+        'right': build_match_overview_slot_data(
+            right_slot, winner_slot, users_by_id
+        ),
+        'score_display': score_display,
+        'has_result': (result is not None and winner_slot is not None),
+        'is_struck': match.id in skipped_match_ids,
+    }
+
+
+def _build_match_overview_round(
+    round_data,
+    stage_duration_minutes_by_id,
+    results_by_match_id,
+    slot_scores_by_match_id,
+    match_labels_by_id,
+    users_by_id,
+    skipped_match_ids,
+) -> dict | None:
+    matches_in_round = sorted(
+        round_data['matches'],
+        key=lambda item: item['match'].match_no,
+    )
+
+    round_time_range_label = _build_round_time_range_label(
+        [item['match'] for item in matches_in_round],
+        stage_duration_minutes_by_id,
+    )
+
+    rows = [
+        _build_match_overview_row(
+            item,
+            results_by_match_id,
+            slot_scores_by_match_id,
+            match_labels_by_id,
+            users_by_id,
+            skipped_match_ids,
+        )
+        for item in matches_in_round
+    ]
+
+    if not rows:
+        return None
+
+    return {
+        **round_data,
+        'time_range_label': round_time_range_label,
+        'rows': rows,
+    }
+
+
 def build_match_overview_sections(
     bracket_sections,
     stages_by_id,
@@ -35,67 +120,17 @@ def build_match_overview_sections(
     for bracket_section in bracket_sections:
         rounds = []
         for round_data in bracket_section['rounds']:
-            matches_in_round = sorted(
-                round_data['matches'],
-                key=lambda item: item['match'].match_no,
-            )
-
-            round_time_range_label = _build_round_time_range_label(
-                [item['match'] for item in matches_in_round],
+            round_entry = _build_match_overview_round(
+                round_data,
                 stage_duration_minutes_by_id,
+                results_by_match_id,
+                slot_scores_by_match_id,
+                match_labels_by_id,
+                users_by_id,
+                skipped_match_ids,
             )
-
-            rows = []
-            for item in matches_in_round:
-                match = item['match']
-                slots = sorted(
-                    item.get('slots', []),
-                    key=lambda slot: slot['slot_no'],
-                )
-                left_slot = slots[0] if len(slots) >= 1 else None
-                right_slot = slots[1] if len(slots) >= 2 else None
-                result = results_by_match_id.get(match.id)
-                winner_slot = result.winner_slot if result else None
-                slot_scores = slot_scores_by_match_id.get(match.id, {})
-
-                score_display = _get_match_overview_score_display(
-                    slots,
-                    slot_scores,
-                    result,
-                    get_score_display=_get_score_display,
-                )
-
-                rows.append(
-                    {
-                        'match': match,
-                        'match_label': match_labels_by_id.get(
-                            match.id,
-                            f'{gettext("Match")} #{match.match_no}',
-                        ),
-                        'left': build_match_overview_slot_data(
-                            left_slot, winner_slot, users_by_id
-                        ),
-                        'right': build_match_overview_slot_data(
-                            right_slot, winner_slot, users_by_id
-                        ),
-                        'score_display': score_display,
-                        'has_result': (
-                            result is not None and winner_slot is not None
-                        ),
-                        'is_struck': match.id in skipped_match_ids,
-                    }
-                )
-
-            if not rows:
-                continue
-
-            rounds.append(
-                {
-                    **round_data,
-                    'time_range_label': round_time_range_label,
-                    'rows': rows,
-                }
-            )
+            if round_entry is not None:
+                rounds.append(round_entry)
 
         if rounds:
             sections.append(
