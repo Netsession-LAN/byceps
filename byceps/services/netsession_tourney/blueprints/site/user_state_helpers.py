@@ -8,8 +8,7 @@ byceps.services.netsession_tourney.blueprints.site.user_state_helpers
 
 from __future__ import annotations
 
-from flask import g, url_for
-from flask_babel import gettext
+from flask import g
 
 from byceps.services.netsession_tourney.coin_service import (
     get_coin_settings,
@@ -17,23 +16,22 @@ from byceps.services.netsession_tourney.coin_service import (
     is_tournament_coin_refund_available,
 )
 from byceps.services.netsession_tourney.models import (
-    MatchState,
-    ParticipantType,
-    TeamMemberRole,
-    TournamentMode,
     TournamentStatus,
 )
 from byceps.services.netsession_tourney.participant_admin_service import (
     get_active_participant_counts_for_tournaments,
 )
-from byceps.services.netsession_tourney.team_captain_service import (
-    find_managed_team_for_user,
-)
 from byceps.services.netsession_tourney.tournament_queries import (
     get_user_active_participation_tournament_ids,
 )
 from byceps.services.party.models import PartyID
-from byceps.services.ticketing import ticket_service
+
+from .user_state_memberships import (
+    format_team_member_role_label as format_team_member_role_label,
+    get_captain_team_for_current_user as get_captain_team_for_current_user,
+    get_current_user_tournament_membership as get_current_user_tournament_membership,
+    get_seat_data_by_user_id as get_seat_data_by_user_id,
+)
 
 
 def get_registration_state_for_tournament(tournament) -> dict:
@@ -186,183 +184,3 @@ def build_registration_state(
         'insufficient_coins': insufficient_coins,
         'refund_available': refund_available,
     }
-
-
-def _is_match_open_for_reports(tournament, match) -> bool:
-    if tournament.status != TournamentStatus.live:
-        return False
-
-    return match.state in {
-        MatchState.ready,
-        MatchState.in_progress,
-        MatchState.pending_confirmation,
-    }
-
-
-def _is_match_managed_by_user(slots, participants_by_id, user_id) -> bool:
-    return any(
-        participant is not None and participant.manager_user_id == user_id
-        for slot in slots
-        for participant in [participants_by_id.get(slot.participant_id)]
-    )
-
-
-def can_user_report_match_result(
-    user_id,
-    tournament,
-    match,
-    slots,
-    participants_by_id,
-    *,
-    is_admin_or_referee: bool,
-    admin_only: bool = False,
-) -> bool:
-    if not _is_match_open_for_reports(tournament, match):
-        return False
-
-    if is_admin_or_referee:
-        return True
-
-    if admin_only:
-        return False
-
-    if tournament.mode == TournamentMode.ffa:
-        return False
-
-    return _is_match_managed_by_user(slots, participants_by_id, user_id)
-
-
-def get_captain_team_for_current_user(tournament_id):
-    user = getattr(g, 'user', None)
-    if user is None or not user.authenticated:
-        return None
-
-    return find_managed_team_for_user(g.party.id, tournament_id, user.id)
-
-
-def _find_team_member_for_user(members, user_id):
-    for member in members:
-        if member.user_id == user_id:
-            return member
-    return None
-
-
-def _find_participant_membership(participant, members_by_participant_id, user):
-    if participant.type == ParticipantType.team:
-        member = _find_team_member_for_user(
-            members_by_participant_id.get(participant.id, []), user.id
-        )
-        if member is not None:
-            return {
-                'participant': participant,
-                'member': member,
-            }
-
-    if participant.user_id == user.id:
-        return {
-            'participant': participant,
-            'member': None,
-        }
-
-    return None
-
-
-def get_current_user_tournament_membership(
-    participants, members_by_participant_id
-):
-    user = getattr(g, 'user', None)
-    if user is None or not user.authenticated:
-        return None
-
-    for participant in participants:
-        membership = _find_participant_membership(
-            participant, members_by_participant_id, user
-        )
-        if membership is not None:
-            return membership
-
-    return None
-
-
-def format_open_match_participant_name(slot, *, participants_by_id) -> str:
-    if slot.participant_id is None:
-        return gettext('offen')
-
-    participant = participants_by_id.get(slot.participant_id)
-    if participant is None:
-        return gettext('offen')
-
-    return participant.name
-
-
-def _is_participant_involving_user(
-    participant, user_id, members_by_participant_id
-) -> bool:
-    if participant.user_id == user_id or participant.manager_user_id == user_id:
-        return True
-
-    return any(
-        member.user_id == user_id
-        for member in members_by_participant_id.get(participant.id, [])
-    )
-
-
-def is_match_involving_user(
-    user_id,
-    slots,
-    *,
-    participants_by_id,
-    members_by_participant_id,
-) -> bool:
-    for slot in slots:
-        if slot.participant_id is None:
-            continue
-
-        participant = participants_by_id.get(slot.participant_id)
-        if participant is None:
-            continue
-
-        if _is_participant_involving_user(
-            participant, user_id, members_by_participant_id
-        ):
-            return True
-
-    return False
-
-
-def format_team_member_role_label(role: TeamMemberRole) -> str:
-    if role == TeamMemberRole.captain:
-        return gettext('Teamkapitän')
-    if role == TeamMemberRole.substitute:
-        return gettext('Ersatzspieler')
-
-    return gettext('Mitspieler')
-
-
-def get_seat_data_by_user_id(party_id: PartyID, user_ids: set) -> dict:
-    seat_data_by_user_id = {}
-
-    for user_id in user_ids:
-        tickets = ticket_service.get_tickets_used_by_user(user_id, party_id)
-        for ticket in tickets:
-            seat = ticket.occupied_seat
-            if seat is None:
-                continue
-
-            seat_label = seat.label or '-'
-            seat_url = None
-            area = getattr(seat, 'area', None)
-            if area is not None and area.slug:
-                seat_url = url_for(
-                    'seating.view_area',
-                    slug=area.slug,
-                    _anchor=f'seat-{seat.id}',
-                )
-
-            seat_data_by_user_id[user_id] = {
-                'label': seat_label,
-                'url': seat_url,
-            }
-            break
-
-    return seat_data_by_user_id

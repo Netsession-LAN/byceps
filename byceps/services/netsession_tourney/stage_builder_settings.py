@@ -8,13 +8,7 @@ Stage builder (version 1): markers, sizes and the stages it generated.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 import math
-
-from sqlalchemy import select
-
-from byceps.database import db
-from byceps.services.user.models import User
 
 from .dbmodels import (
     DbNetsessionTourneyStage,
@@ -22,15 +16,13 @@ from .dbmodels import (
 from .models import (
     ParticipantID,
     Stage,
-    StageID,
     StageType,
-    TournamentID,
 )
-from .service_helpers import (
-    append_audit_log,
-)
-from .stage_activation import (
-    delete_stage_matches,
+from .stage_builder_settings_db import (
+    delete_builder_generated_child_stages as delete_builder_generated_child_stages,
+    delete_builder_generated_group_stages as delete_builder_generated_group_stages,
+    detach_builder_main_stage_from_preliminary_stage as detach_builder_main_stage_from_preliminary_stage,
+    find_builder_main_stage_for_preliminary_stage as find_builder_main_stage_for_preliminary_stage,
 )
 
 
@@ -85,23 +77,6 @@ def build_group_label(index: int) -> str:
         if value == 0:
             return label
         value -= 1
-
-
-def find_builder_main_stage_for_preliminary_stage(
-    tournament_id: TournamentID, preliminary_stage_id: StageID
-) -> DbNetsessionTourneyStage | None:
-    for db_stage in db.session.scalars(
-        select(DbNetsessionTourneyStage)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(DbNetsessionTourneyStage.order_no.asc())
-    ):
-        settings = db_stage.settings_json or {}
-        if settings.get('builder_role') == 'main' and settings.get(
-            'builder_preliminary_stage_id'
-        ) == str(preliminary_stage_id):
-            return db_stage
-
-    return None
 
 
 def is_stage_builder_v1_main_stage(stage: Stage) -> bool:
@@ -166,111 +141,3 @@ def is_builder_container_db_stage(
     return settings.get('builder_kind') == STAGE_BUILDER_KIND_V1 and bool(
         has_materialized_stage_ids or has_materialized_group_stage_ids
     )
-
-
-def _get_builder_generated_group_db_stages(
-    tournament_id: TournamentID, preliminary_stage_id: StageID
-) -> list[DbNetsessionTourneyStage]:
-    db_stages = db.session.scalars(
-        select(DbNetsessionTourneyStage)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(DbNetsessionTourneyStage.order_no.asc())
-    ).all()
-
-    return [
-        db_stage
-        for db_stage in db_stages
-        if (db_stage.settings_json or {}).get('builder_role')
-        == 'preliminary_group'
-        and (db_stage.settings_json or {}).get('builder_preliminary_stage_id')
-        == str(preliminary_stage_id)
-    ]
-
-
-def _get_builder_generated_child_db_stages(
-    tournament_id: TournamentID, parent_stage_id: StageID
-) -> list[DbNetsessionTourneyStage]:
-    db_stages = db.session.scalars(
-        select(DbNetsessionTourneyStage)
-        .filter_by(tournament_id=tournament_id)
-        .order_by(DbNetsessionTourneyStage.order_no.asc())
-    ).all()
-
-    return [
-        db_stage
-        for db_stage in db_stages
-        if (db_stage.settings_json or {}).get('builder_parent_stage_id')
-        == str(parent_stage_id)
-    ]
-
-
-def delete_builder_generated_child_stages(
-    tournament_id: TournamentID,
-    parent_stage_id: StageID,
-    *,
-    initiator: User,
-) -> None:
-    now = datetime.utcnow()
-    for db_child_stage in _get_builder_generated_child_db_stages(
-        tournament_id, parent_stage_id
-    ):
-        delete_stage_matches(db_child_stage.id)
-        db.session.delete(db_child_stage)
-        append_audit_log(
-            actor_user_id=initiator.id,
-            object_type='stage',
-            object_id=db_child_stage.id,
-            action='stage_deleted',
-            payload={
-                'name': db_child_stage.name,
-                'type': db_child_stage.type,
-                'deleted_by_builder_container': True,
-            },
-            created_at=now,
-        )
-
-
-def delete_builder_generated_group_stages(
-    tournament_id: TournamentID,
-    preliminary_stage_id: StageID,
-    *,
-    initiator: User,
-) -> None:
-    now = datetime.utcnow()
-    for db_group_stage in _get_builder_generated_group_db_stages(
-        tournament_id, preliminary_stage_id
-    ):
-        delete_stage_matches(db_group_stage.id)
-        db.session.delete(db_group_stage)
-        append_audit_log(
-            actor_user_id=initiator.id,
-            object_type='stage',
-            object_id=db_group_stage.id,
-            action='stage_deleted',
-            payload={
-                'name': db_group_stage.name,
-                'type': db_group_stage.type,
-                'deleted_by_builder_container': True,
-            },
-            created_at=now,
-        )
-
-
-def detach_builder_main_stage_from_preliminary_stage(
-    tournament_id: TournamentID, preliminary_stage_id: StageID
-) -> None:
-    db_main_stage = find_builder_main_stage_for_preliminary_stage(
-        tournament_id, preliminary_stage_id
-    )
-    if db_main_stage is None:
-        return
-
-    settings = dict(db_main_stage.settings_json or {})
-    settings.pop('builder_preliminary_stage_id', None)
-    settings.pop('qualifier_source_stage_ids', None)
-    settings.pop('qualifier_selection_mode', None)
-    settings.pop('qualifier_top_n', None)
-    settings.pop('builder_auto_qualifier_count', None)
-    settings.pop('builder_materialized_group_stage_ids', None)
-    settings['participant_source_mode'] = 'tournament'
-    db_main_stage.settings_json = settings
