@@ -90,13 +90,17 @@ from .route_config import (
     DISCORD_FORUM_EVENT_CHOICES,
     TOURNAMENT_DETAIL_TABS,
 )
-from .stage_builder_helpers import (
+from .stage_builder_flatout2_generation import (
+    build_stage_generation_state,
+    is_flatout2_stage_type,
+)
+from .stage_builder_stage_display import (
+    build_stage_display_rows,
+    build_visible_stage_tabs,
+)
+from .stage_builder_stage_meta import (
     build_stage_builder_container_preview_meta,
     build_stage_builder_meta,
-    build_stage_display_rows,
-    build_stage_generation_state,
-    build_visible_stage_tabs,
-    is_flatout2_stage_type,
 )
 from .wizard_forms import (
     set_logo_choices_for_form,

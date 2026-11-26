@@ -89,9 +89,11 @@ from .result_redirects import (
     redirect_to_related_tournament_view,
 )
 from .route_config import DISCORD_DM_EVENT_CHOICES, DISCORD_FORUM_EVENT_CHOICES
-from .stage_builder_helpers import (
-    is_ffa_result_stage_type,
+from .stage_builder_flatout2_generation import (
     is_flatout2_stage_type,
+)
+from .stage_builder_stage_form_data import (
+    is_ffa_result_stage_type,
 )
 
 

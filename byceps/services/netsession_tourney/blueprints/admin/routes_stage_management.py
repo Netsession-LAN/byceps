@@ -68,35 +68,53 @@ from .result_helpers import (
 from .result_redirects import (
     redirect_to_related_tournament_view,
 )
-from .stage_builder_helpers import (
-    assert_tournament_has_no_stages_for_builder_or_redirect,
-    build_current_manual_seed_values_by_participant_id,
+from .stage_builder_flatout2_generation import (
     build_flatout2_generation_state,
-    build_round_robin_generation_intro,
-    build_stage_builder_generation_summary,
-    build_stage_builder_main_form,
-    build_stage_builder_meta,
-    build_stage_builder_preliminary_form,
-    build_stage_builder_review_preview,
-    build_stage_builder_timing_form,
+    is_flatout2_stage_type,
+    parse_flatout2_generation_configuration,
+)
+from .stage_builder_generation_seeds import (
     build_stage_generation_seed_rows,
-    get_ffa_placement_points_row_count,
-    get_stage_builder_default_main_stage_size,
+    parse_stage_generation_auto_seed_participant_ids,
+    parse_stage_generation_manual_seed_values_by_participant_id,
+)
+from .stage_builder_helpers import (
+    build_current_manual_seed_values_by_participant_id,
     get_stage_generation_block_reason,
+)
+from .stage_builder_participant_source import (
+    participant_source_settings_from_form,
+)
+from .stage_builder_stage_display import (
     is_builder_main_stage_with_preliminary_source,
     is_builder_round_robin_summary_stage,
+)
+from .stage_builder_stage_form_data import (
+    get_ffa_placement_points_row_count,
+    stage_to_form_data,
+)
+from .stage_builder_stage_meta import (
+    build_round_robin_generation_intro,
+    build_stage_builder_generation_summary,
+    build_stage_builder_meta,
+)
+from .stage_builder_stage_settings import (
+    stage_settings_from_form,
+)
+from .stage_builder_wizard_forms import (
+    build_stage_builder_main_form,
+    build_stage_builder_preliminary_form,
+    build_stage_builder_timing_form,
+)
+from .stage_builder_wizard_state import (
+    assert_tournament_has_no_stages_for_builder_or_redirect,
+    build_stage_builder_review_preview,
+    get_stage_builder_default_main_stage_size,
     is_ffa_stage_builder_tournament,
-    is_flatout2_stage_type,
     is_stage_builder_main_complete,
     is_stage_builder_preliminary_complete,
     is_stage_builder_timing_complete,
-    parse_flatout2_generation_configuration,
-    parse_stage_generation_auto_seed_participant_ids,
-    parse_stage_generation_manual_seed_values_by_participant_id,
-    participant_source_settings_from_form,
     stage_builder_steps,
-    stage_settings_from_form,
-    stage_to_form_data,
 )
 from .wizard_helpers import (
     clear_stage_builder_wizard_state,
