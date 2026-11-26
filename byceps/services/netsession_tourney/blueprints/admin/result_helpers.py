@@ -13,13 +13,15 @@ from uuid import UUID
 from flask import abort, request
 from flask_babel import gettext
 
-from byceps.services.netsession_tourney.blueprints.admin.result_form_helpers import (
+from byceps.services.netsession_tourney.blueprints.admin.result_form_ffa import (
     build_ffa_score_and_ranking,
-    build_flatout2_score_and_ranking,
     get_ffa_winner_slot,
+    parse_ffa_slot_entries,
+)
+from byceps.services.netsession_tourney.blueprints.admin.result_form_helpers import (
+    build_flatout2_score_and_ranking,
     get_flatout2_winner_slot,
     get_occupied_slots,
-    parse_ffa_slot_entries,
     parse_flatout2_slot_points,
     parse_result_comment,
 )
