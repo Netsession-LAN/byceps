@@ -9,6 +9,7 @@ participant order.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -101,25 +102,16 @@ def build_stage_ranking_data(
             DbNetsessionTourneyMatch.match_no.asc(),
         )
     ).all()
-    if not db_matches:
-        return Err('no matches generated yet.')
-
-    if any(match.state != MatchState.completed.value for match in db_matches):
-        return Err('is not fully completed yet.')
+    matches_error = _check_stage_matches_completed(db_matches)
+    if matches_error is not None:
+        return Err(matches_error)
 
     match_ids = [match.id for match in db_matches]
     slots_by_match_id, participant_ids = _load_slots(match_ids)
     if not participant_ids:
         return Err('contains no participants.')
 
-    tally = RankingTally(
-        rows_by_participant_id=_new_rows(tournament_id, participant_ids),
-        is_ffa_scoring_stage=db_stage.type in FFA_SCORING_STAGE_TYPES,
-        is_swiss_stage=db_stage.type == StageType.swiss.value,
-        points_per_kill=get_ffa_points_per_kill(
-            dict(db_stage.settings_json or {})
-        ),
-    )
+    tally = _new_ranking_tally(db_stage, tournament_id, participant_ids)
     db_results = db.session.scalars(
         select(DbNetsessionTourneyMatchResult).filter(
             DbNetsessionTourneyMatchResult.match_id.in_(match_ids)
@@ -141,6 +133,33 @@ def build_stage_ranking_data(
             opponent_ids_by_participant_id=tally.opponent_ids_by_participant_id,
             is_ffa_scoring_stage=tally.is_ffa_scoring_stage,
         )
+    )
+
+
+def _check_stage_matches_completed(
+    db_matches: Sequence[DbNetsessionTourneyMatch],
+) -> str | None:
+    if not db_matches:
+        return 'no matches generated yet.'
+
+    if any(match.state != MatchState.completed.value for match in db_matches):
+        return 'is not fully completed yet.'
+
+    return None
+
+
+def _new_ranking_tally(
+    db_stage: DbNetsessionTourneyStage,
+    tournament_id: TournamentID,
+    participant_ids: set[ParticipantID],
+) -> RankingTally:
+    return RankingTally(
+        rows_by_participant_id=_new_rows(tournament_id, participant_ids),
+        is_ffa_scoring_stage=db_stage.type in FFA_SCORING_STAGE_TYPES,
+        is_swiss_stage=db_stage.type == StageType.swiss.value,
+        points_per_kill=get_ffa_points_per_kill(
+            dict(db_stage.settings_json or {})
+        ),
     )
 
 
