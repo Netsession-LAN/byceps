@@ -11,6 +11,7 @@ Routes to create teams and manage their members (see
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from flask import g, request
@@ -32,7 +33,7 @@ from byceps.services.netsession_tourney.team_admin_service import (
 from byceps.services.user import user_service
 from byceps.services.user.models import UserID
 from byceps.util.framework.flash import flash_error, flash_success
-from byceps.util.result import Err, Ok
+from byceps.util.result import Err, Ok, Result
 from byceps.util.views import permission_required
 
 from .result_helpers import (
@@ -45,6 +46,51 @@ from .result_redirects import (
 )
 
 
+def _get_team_form_fields() -> Any:
+    form_fields = request.form.copy()
+    if request.files:
+        form_fields.update(request.files)
+    return form_fields
+
+
+def _upload_team_logo(
+    party_id: Any, form: AdminTeamCreateForm
+) -> Result[str | None, str]:
+    """Upload the submitted team logo, if any."""
+    logo_file = request.files.get('logo_file')
+    if logo_file is None or not logo_file.filename:
+        return Ok(None)
+
+    return upload_logo_image(
+        party_id,
+        g.user.as_user(),
+        logo_file.stream,
+        label=form.name.data,
+        original_filename=logo_file.filename,
+    )
+
+
+def _create_team(
+    party_id: Any,
+    tournament_id: Any,
+    name: str,
+    captain_user: Any,
+    team_logo_url: str | None,
+) -> None:
+    match create_team_by_admin(
+        party_id,
+        tournament_id,
+        name,
+        captain_user,
+        g.user.as_user(),
+        team_logo_url=team_logo_url,
+    ):
+        case Ok(_):
+            flash_success(gettext('Team wurde angelegt.'))
+        case Err(message):
+            flash_error(message)
+
+
 def register_team_create_routes(blueprint):
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/teams/create'
@@ -54,11 +100,7 @@ def register_team_create_routes(blueprint):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        form_fields = request.form.copy()
-        if request.files:
-            form_fields.update(request.files)
-
-        form = AdminTeamCreateForm(form_fields)
+        form = AdminTeamCreateForm(_get_team_form_fields())
         if not form.validate():
             flash_error(gettext('Ungültige Teamdaten.'))
             return redirect_to_related_tournament_view(party.id, tournament.id)
@@ -71,35 +113,15 @@ def register_team_create_routes(blueprint):
             flash_error(gettext('Unbekannter Benutzer.'))
             return redirect_to_related_tournament_view(party.id, tournament.id)
 
-        team_logo_url = None
-        logo_file = request.files.get('logo_file')
-        if logo_file is not None and logo_file.filename:
-            upload_result = upload_logo_image(
-                party.id,
-                g.user.as_user(),
-                logo_file.stream,
-                label=form.name.data,
-                original_filename=logo_file.filename,
-            )
-            if upload_result.is_err():
-                flash_error(upload_result.unwrap_err())
-                return redirect_to_related_tournament_view(
-                    party.id, tournament.id
-                )
-            team_logo_url = upload_result.unwrap()
+        logo_result = _upload_team_logo(party.id, form)
+        if logo_result.is_err():
+            flash_error(logo_result.unwrap_err())
+            return redirect_to_related_tournament_view(party.id, tournament.id)
+        team_logo_url = logo_result.unwrap()
 
-        match create_team_by_admin(
-            party.id,
-            tournament.id,
-            form.name.data,
-            captain_user,
-            g.user.as_user(),
-            team_logo_url=team_logo_url,
-        ):
-            case Ok(_):
-                flash_success(gettext('Team wurde angelegt.'))
-            case Err(message):
-                flash_error(message)
+        _create_team(
+            party.id, tournament.id, form.name.data, captain_user, team_logo_url
+        )
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 

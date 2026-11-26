@@ -12,6 +12,8 @@ the participant source of a stage and delete a stage (see
 
 from __future__ import annotations
 
+from typing import Any
+
 from flask import g, request
 from flask_babel import gettext
 
@@ -126,6 +128,48 @@ def register_stage_builder_review_routes(blueprint):
         }
 
 
+def _get_eligible_source_stages(stages: list[Any], stage: Any) -> dict:
+    return {
+        stage_item.id: stage_item
+        for stage_item in stages
+        if stage_item.id != stage.id and stage_item.order_no < stage.order_no
+    }
+
+
+def _merge_participant_source_settings(
+    stage_settings: dict, participant_source_settings: dict
+) -> dict:
+    settings = dict(stage_settings)
+    for key in (
+        'participant_source_mode',
+        'qualifier_source_stage_ids',
+        'qualifier_top_n',
+    ):
+        settings.pop(key, None)
+    settings.update(participant_source_settings)
+    return settings
+
+
+def _update_stage_settings(
+    party_id: Any, tournament_id: Any, stage: Any, settings: dict
+) -> None:
+    match update_stage(
+        party_id,
+        tournament_id,
+        stage.id,
+        stage.type,
+        stage.name,
+        settings,
+        g.user.as_user(),
+    ):
+        case Ok(_):
+            flash_success(
+                gettext('Teilnehmerquelle der Phase wurde aktualisiert.')
+            )
+        case Err(message):
+            flash_error(message)
+
+
 def register_stage_participant_source_routes(blueprint):
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/participant-source'
@@ -137,12 +181,7 @@ def register_stage_participant_source_routes(blueprint):
         stage = get_stage_or_404(party.id, tournament.id, stage_id)
         stages = get_stages_for_tournament(party.id, tournament.id)
 
-        eligible_source_stages = {
-            stage_item.id: stage_item
-            for stage_item in stages
-            if stage_item.id != stage.id
-            and stage_item.order_no < stage.order_no
-        }
+        eligible_source_stages = _get_eligible_source_stages(stages, stage)
         match participant_source_settings_from_form(
             request.form, eligible_source_stages=eligible_source_stages
         ):
@@ -158,30 +197,10 @@ def register_stage_participant_source_routes(blueprint):
             case Ok(participant_source_settings):
                 pass
 
-        settings = dict(stage.settings)
-        for key in (
-            'participant_source_mode',
-            'qualifier_source_stage_ids',
-            'qualifier_top_n',
-        ):
-            settings.pop(key, None)
-        settings.update(participant_source_settings)
-
-        match update_stage(
-            party.id,
-            tournament.id,
-            stage.id,
-            stage.type,
-            stage.name,
-            settings,
-            g.user.as_user(),
-        ):
-            case Ok(_):
-                flash_success(
-                    gettext('Teilnehmerquelle der Phase wurde aktualisiert.')
-                )
-            case Err(message):
-                flash_error(message)
+        settings = _merge_participant_source_settings(
+            stage.settings, participant_source_settings
+        )
+        _update_stage_settings(party.id, tournament.id, stage, settings)
 
         return redirect_to(
             '.view',

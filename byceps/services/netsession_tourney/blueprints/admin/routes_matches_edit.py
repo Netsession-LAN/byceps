@@ -49,6 +49,22 @@ from .result_redirects import (
 )
 
 
+def _parse_form_uuid(field_name: str) -> tuple[bool, UUID | None]:
+    """Return whether the optional UUID field is valid, and its value."""
+    raw_value = (request.form.get(field_name) or '').strip()
+    if not raw_value:
+        return True, None
+
+    try:
+        return True, UUID(raw_value)
+    except ValueError:
+        return False, None
+
+
+def _get_form_comment() -> str | None:
+    return (request.form.get('comment') or '').strip() or None
+
+
 def register_match_slot_host_routes(blueprint):
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/matches/<uuid:match_id>/slots/<int:slot_no>'
@@ -58,18 +74,16 @@ def register_match_slot_host_routes(blueprint):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        raw_participant_id = (request.form.get('participant_id') or '').strip()
-        participant_id = None
-        if raw_participant_id:
-            try:
-                participant_id = UUID(raw_participant_id)
-            except ValueError:
-                flash_error(gettext('Ungültiger Teilnehmer.'))
-                return redirect_to_match_or_tournament_view(
-                    party.id, tournament.id, match_id
-                )
+        participant_id_valid, participant_id = _parse_form_uuid(
+            'participant_id'
+        )
+        if not participant_id_valid:
+            flash_error(gettext('Ungültiger Teilnehmer.'))
+            return redirect_to_match_or_tournament_view(
+                party.id, tournament.id, match_id
+            )
 
-        comment = (request.form.get('comment') or '').strip() or None
+        comment = _get_form_comment()
         match set_match_slot_participant_by_admin(
             party.id,
             tournament.id,
