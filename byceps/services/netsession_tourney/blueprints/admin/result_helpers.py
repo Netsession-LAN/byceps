@@ -8,11 +8,13 @@ byceps.services.netsession_tourney.blueprints.admin.result_helpers
 
 from __future__ import annotations
 
-from uuid import UUID
-
-from flask import abort, request
+from flask import abort
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.blueprints.admin.result_display_helpers import (
+    get_dropped_participants as get_dropped_participants,
+    get_round_neighbours as get_round_neighbours,
+)
 from byceps.services.netsession_tourney.blueprints.admin.result_form_ffa import (
     build_ffa_score_and_ranking,
     get_ffa_winner_slot,
@@ -24,6 +26,9 @@ from byceps.services.netsession_tourney.blueprints.admin.result_form_helpers imp
     get_occupied_slots,
     parse_flatout2_slot_points,
     parse_result_comment,
+)
+from byceps.services.netsession_tourney.blueprints.admin.result_redirects import (
+    redirect_to_related_tournament_view as redirect_to_related_tournament_view,
 )
 from byceps.services.netsession_tourney.match_queries import (
     get_matches_for_tournament,
@@ -39,7 +44,6 @@ from byceps.services.party import party_service
 from byceps.services.party.models import Party
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
-from byceps.util.views import redirect_to
 
 
 def get_party_or_404(party_id) -> Party:
@@ -77,44 +81,6 @@ def get_participant_or_404(party_id, tournament_id, participant_id):
     abort(404)
 
 
-def get_dropped_participants(party_id, tournament_id):
-    return [
-        participant
-        for participant in get_participants_for_tournament(
-            party_id, tournament_id, include_dropped=True
-        )
-        if participant.status.value == 'dropped'
-    ]
-
-
-def get_round_neighbours(party_id, tournament_id, match):
-    """The previous and next match of the same phase and round (or None)."""
-    same_round = _get_same_round_matches(party_id, tournament_id, match)
-    ids = [item.id for item in same_round]
-    index = ids.index(match.id) if match.id in ids else -1
-    if index < 0:
-        return None, None
-    return _get_neighbours_at(same_round, index)
-
-
-def _get_same_round_matches(party_id, tournament_id, match) -> list:
-    return sorted(
-        (
-            item
-            for item in get_matches_for_tournament(party_id, tournament_id)
-            if item.stage_id == match.stage_id
-            and item.round_no == match.round_no
-        ),
-        key=lambda item: item.match_no,
-    )
-
-
-def _get_neighbours_at(same_round: list, index: int) -> tuple:
-    previous = same_round[index - 1] if index > 0 else None
-    following = same_round[index + 1] if index + 1 < len(same_round) else None
-    return previous, following
-
-
 def get_match_or_404(party_id, tournament_id, match_id):
     matches = get_matches_for_tournament(party_id, tournament_id)
     for match in matches:
@@ -122,100 +88,6 @@ def get_match_or_404(party_id, tournament_id, match_id):
             return match
 
     abort(404)
-
-
-def redirect_to_related_tournament_view(party_id: str, tournament_id: UUID):
-    path = request.path
-    tab = 'overview'
-    if '/stages' in path:
-        tab = 'stages'
-    elif '/participants/' in path or '/teams/' in path:
-        tab = 'participants'
-    elif '/matches/' in path:
-        tab = 'matches'
-    elif '/discord' in path:
-        tab = 'discord'
-
-    return redirect_to(
-        '.view',
-        party_id=party_id,
-        tournament_id=tournament_id,
-        tab=tab,
-    )
-
-
-def redirect_to_participant_or_tournament_view(
-    party_id: str, tournament_id: UUID, participant_id: UUID
-):
-    return_to_participant = (
-        request.form.get('return_to') == 'participant'
-        or request.args.get('return_to') == 'participant'
-    )
-    if return_to_participant:
-        return redirect_to(
-            '.participant_view',
-            party_id=party_id,
-            tournament_id=tournament_id,
-            participant_id=participant_id,
-        )
-
-    return redirect_to_related_tournament_view(party_id, tournament_id)
-
-
-def redirect_to_match_or_tournament_view(
-    party_id: str, tournament_id: UUID, match_id: UUID
-):
-    return_to_match = (
-        request.form.get('return_to') == 'match'
-        or request.args.get('return_to') == 'match'
-    )
-    if return_to_match:
-        redirect_kwargs = _build_match_redirect_kwargs(
-            party_id, tournament_id, match_id
-        )
-        return redirect_to(
-            '.match_view',
-            **redirect_kwargs,
-        )
-
-    return redirect_to_related_tournament_view(party_id, tournament_id)
-
-
-def _build_match_redirect_kwargs(
-    party_id: str, tournament_id: UUID, match_id: UUID
-) -> dict:
-    redirect_kwargs = {
-        'party_id': party_id,
-        'tournament_id': tournament_id,
-        'match_id': match_id,
-    }
-    parent_return_to = (
-        _get_form_or_query_value('parent_return_to').strip().lower()
-    )
-    if parent_return_to in {'stages', 'matches'}:
-        redirect_kwargs['return_to'] = parent_return_to
-
-    if parent_return_to == 'stages':
-        parent_stage_id = _get_parent_stage_id()
-        if parent_stage_id is not None:
-            redirect_kwargs['stage_id'] = parent_stage_id
-
-    return redirect_kwargs
-
-
-def _get_form_or_query_value(name: str) -> str:
-    return request.form.get(name) or request.args.get(name) or ''
-
-
-def _get_parent_stage_id() -> UUID | None:
-    raw_parent_stage_id = _get_form_or_query_value('parent_stage_id').strip()
-    if not raw_parent_stage_id:
-        return None
-
-    try:
-        return UUID(raw_parent_stage_id)
-    except ValueError:
-        return None
 
 
 def build_score_payload(raw_score: str | None) -> dict:

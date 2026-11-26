@@ -82,6 +82,8 @@ from .result_helpers import (
     parse_admin_ffa_result_form,
     parse_admin_flatout2_result_form,
     parse_csv,
+)
+from .result_redirects import (
     redirect_to_match_or_tournament_view,
     redirect_to_participant_or_tournament_view,
     redirect_to_related_tournament_view,

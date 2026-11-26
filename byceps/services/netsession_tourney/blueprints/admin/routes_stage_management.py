@@ -64,6 +64,8 @@ from .result_helpers import (
     _get_tournament_or_404,
     get_party_or_404,
     get_stage_or_404,
+)
+from .result_redirects import (
     redirect_to_related_tournament_view,
 )
 from .stage_builder_helpers import (

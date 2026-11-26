@@ -81,6 +81,8 @@ from .result_helpers import (
     get_match_or_404,
     get_participant_or_404,
     get_party_or_404,
+)
+from .result_redirects import (
     redirect_to_related_tournament_view,
 )
 from .route_config import (
