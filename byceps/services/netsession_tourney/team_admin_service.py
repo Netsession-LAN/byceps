@@ -38,6 +38,7 @@ from .models import (
     RegistrationState,
     TeamMemberID,
     TeamMemberRole,
+    Tournament,
     TournamentID,
     TournamentStatus,
 )
@@ -84,25 +85,14 @@ def create_team_by_admin(
         return Err('Unbekanntes Turnier.')
 
     tournament = db_tournament_to_model(db_tournament)
-    if tournament.status != TournamentStatus.draft:
-        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
-    if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
-    if (
-        ticket_check := _validate_user_uses_ticket_for_party(
-            captain_user.id, party_id
-        )
-    ).is_err():
-        return ticket_check
-    if is_user_already_active_participant(tournament_id, captain_user.id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
-
-    if tournament.participant_limit is not None:
-        active_count = count_active_participants_for_tournament(
-            party_id, tournament_id
-        )
-        if active_count >= tournament.participant_limit:
-            return Err('Das Turnier ist voll.')
+    state_error = _check_team_admin_tournament_state(tournament)
+    if state_error is not None:
+        return Err(state_error)
+    registration_check = _check_team_registration_by_admin(
+        party_id, tournament_id, tournament, captain_user.id
+    )
+    if registration_check.is_err():
+        return registration_check
 
     charge_result = charge_coins_for_tournament_registration(
         party_id,
@@ -163,51 +153,25 @@ def add_team_member_by_admin(
         return Err('Unbekanntes Turnier.')
 
     tournament = db_tournament_to_model(db_tournament)
-    if tournament.status != TournamentStatus.draft:
-        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
-    if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
+    state_error = _check_team_admin_tournament_state(tournament)
+    if state_error is not None:
+        return Err(state_error)
 
-    db_participant = db.session.scalar(
-        select(DbNetsessionTourneyParticipant)
-        .filter_by(
-            id=participant_id,
-            tournament_id=tournament_id,
-            type=ParticipantType.team.value,
-        )
-        .filter(
-            DbNetsessionTourneyParticipant.status.in_(
-                ACTIVE_PARTICIPANT_STATUS_VALUES
-            )
-        )
-    )
+    db_participant = _find_active_db_team(participant_id, tournament_id)
     if db_participant is None:
         return Err('Unbekanntes Team.')
 
-    if (
-        ticket_check := _validate_user_uses_ticket_for_party(
-            member_user.id, party_id
-        )
-    ).is_err():
-        return ticket_check
-    if is_user_already_active_participant(tournament_id, member_user.id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
+    member_check = _check_team_member_addable_by_admin(
+        party_id, tournament_id, tournament, participant_id, member_user.id
+    )
+    if member_check.is_err():
+        return member_check
 
-    max_team_member_count = get_max_team_member_count(tournament)
-    if max_team_member_count is not None:
-        member_count = count_team_members(participant_id)
-        if int(member_count or 0) >= max_team_member_count:
-            return Err('Dieses Team ist bereits voll.')
-
-    if tournament.coin_charge_mode == CoinChargeMode.all_members:
-        charge_result = charge_coins_for_tournament_registration(
-            party_id,
-            tournament,
-            member_user.id,
-            created_by_user_id=initiator.id,
-        )
-        if charge_result.is_err():
-            return Err(charge_result.unwrap_err())
+    charge_result = _charge_team_member_coins_if_required(
+        party_id, tournament, member_user, initiator
+    )
+    if charge_result.is_err():
+        return charge_result
 
     db.session.add(
         DbNetsessionTourneyTeamMember(
@@ -310,12 +274,54 @@ def assign_team_captain_by_admin(
         return Err('Unbekanntes Turnier.')
 
     tournament = db_tournament_to_model(db_tournament)
-    if tournament.status != TournamentStatus.draft:
-        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
-    if tournament.registration_mode == RegistrationMode.solo:
-        return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
+    state_error = _check_team_admin_tournament_state(tournament)
+    if state_error is not None:
+        return Err(state_error)
 
-    db_participant = db.session.scalar(
+    db_participant = _find_active_db_team(participant_id, tournament_id)
+    if db_participant is None:
+        return Err('Unbekanntes Team.')
+
+    if db_participant.manager_user_id == member_user_id:
+        return Ok(None)
+
+    members_result = _find_captain_swap_members(participant_id, member_user_id)
+    if members_result.is_err():
+        return Err(members_result.unwrap_err())
+    db_member, db_current_captain_member = members_result.unwrap()
+
+    old_captain_user_id = db_participant.manager_user_id
+    db_current_captain_member.role = TeamMemberRole.player.value
+    db_member.role = TeamMemberRole.captain.value
+    db_participant.manager_user_id = member_user_id
+
+    append_audit_log(
+        actor_user_id=initiator.id,
+        object_type='participant',
+        object_id=participant_id,
+        action='team_captain_changed_by_admin',
+        payload=_build_captain_change_payload(
+            old_captain_user_id, member_user_id
+        ),
+        created_at=datetime.utcnow(),
+    )
+    db.session.commit()
+
+    return Ok(None)
+
+
+def _check_team_admin_tournament_state(tournament: Tournament) -> str | None:
+    if tournament.status != TournamentStatus.draft:
+        return 'Teilnehmer lassen sich nur im Entwurf verwalten.'
+    if tournament.registration_mode == RegistrationMode.solo:
+        return 'Bei Einzelanmeldung gibt es keine Teamverwaltung.'
+    return None
+
+
+def _find_active_db_team(
+    participant_id: ParticipantID, tournament_id: TournamentID
+) -> DbNetsessionTourneyParticipant | None:
+    return db.session.scalar(
         select(DbNetsessionTourneyParticipant)
         .filter_by(
             id=participant_id,
@@ -328,12 +334,90 @@ def assign_team_captain_by_admin(
             )
         )
     )
-    if db_participant is None:
-        return Err('Unbekanntes Team.')
 
-    if db_participant.manager_user_id == member_user_id:
+
+def _check_user_registrable_by_admin(
+    party_id: PartyID, tournament_id: TournamentID, user_id: UserID
+) -> Result[None, str]:
+    if (
+        ticket_check := _validate_user_uses_ticket_for_party(user_id, party_id)
+    ).is_err():
+        return ticket_check
+    if is_user_already_active_participant(tournament_id, user_id):
+        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
+    return Ok(None)
+
+
+def _check_team_registration_by_admin(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    tournament: Tournament,
+    captain_user_id: UserID,
+) -> Result[None, str]:
+    user_check = _check_user_registrable_by_admin(
+        party_id, tournament_id, captain_user_id
+    )
+    if user_check.is_err():
+        return user_check
+
+    if tournament.participant_limit is not None:
+        active_count = count_active_participants_for_tournament(
+            party_id, tournament_id
+        )
+        if active_count >= tournament.participant_limit:
+            return Err('Das Turnier ist voll.')
+
+    return Ok(None)
+
+
+def _check_team_member_addable_by_admin(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    tournament: Tournament,
+    participant_id: ParticipantID,
+    member_user_id: UserID,
+) -> Result[None, str]:
+    user_check = _check_user_registrable_by_admin(
+        party_id, tournament_id, member_user_id
+    )
+    if user_check.is_err():
+        return user_check
+
+    max_team_member_count = get_max_team_member_count(tournament)
+    if max_team_member_count is not None:
+        member_count = count_team_members(participant_id)
+        if int(member_count or 0) >= max_team_member_count:
+            return Err('Dieses Team ist bereits voll.')
+
+    return Ok(None)
+
+
+def _charge_team_member_coins_if_required(
+    party_id: PartyID,
+    tournament: Tournament,
+    member_user: User,
+    initiator: User,
+) -> Result[None, str]:
+    if tournament.coin_charge_mode != CoinChargeMode.all_members:
         return Ok(None)
 
+    charge_result = charge_coins_for_tournament_registration(
+        party_id,
+        tournament,
+        member_user.id,
+        created_by_user_id=initiator.id,
+    )
+    if charge_result.is_err():
+        return Err(charge_result.unwrap_err())
+
+    return Ok(None)
+
+
+def _find_captain_swap_members(
+    participant_id: ParticipantID, member_user_id: UserID
+) -> Result[
+    tuple[DbNetsessionTourneyTeamMember, DbNetsessionTourneyTeamMember], str
+]:
     db_member = db.session.scalar(
         select(DbNetsessionTourneyTeamMember).filter_by(
             participant_id=participant_id,
@@ -352,24 +436,15 @@ def assign_team_captain_by_admin(
     if db_current_captain_member is None:
         return Err('Der aktuelle Captain ließ sich nicht ermitteln.')
 
-    old_captain_user_id = db_participant.manager_user_id
-    db_current_captain_member.role = TeamMemberRole.player.value
-    db_member.role = TeamMemberRole.captain.value
-    db_participant.manager_user_id = member_user_id
+    return Ok((db_member, db_current_captain_member))
 
-    append_audit_log(
-        actor_user_id=initiator.id,
-        object_type='participant',
-        object_id=participant_id,
-        action='team_captain_changed_by_admin',
-        payload={
-            'old_captain_user_id': (
-                str(old_captain_user_id) if old_captain_user_id else None
-            ),
-            'new_captain_user_id': str(member_user_id),
-        },
-        created_at=datetime.utcnow(),
-    )
-    db.session.commit()
 
-    return Ok(None)
+def _build_captain_change_payload(
+    old_captain_user_id: UserID | None, new_captain_user_id: UserID
+) -> dict[str, str | None]:
+    return {
+        'old_captain_user_id': (
+            str(old_captain_user_id) if old_captain_user_id else None
+        ),
+        'new_captain_user_id': str(new_captain_user_id),
+    }
