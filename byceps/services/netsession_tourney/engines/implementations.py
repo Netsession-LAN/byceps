@@ -31,6 +31,7 @@ from .engine_ffa_knockouts import (
     build_ffa_knockout_follow_up_specs,
     build_flatout2_follow_up_specs,
 )
+from .engine_pairings import build_round_robin_specs, build_swiss_specs
 
 
 T = TypeVar('T')
@@ -320,33 +321,7 @@ class _SwissEngine(
             return Err(validation_result.unwrap_err())
 
         round_count = _get_swiss_round_count_from_settings(stage.settings)
-        rotating: list[ParticipantID | None] = list(participant_ids)
-        if len(rotating) % 2 == 1:
-            rotating.append(None)
-
-        specs: list[MatchSpec] = []
-        match_no = 1
-        for round_no in range(1, round_count + 1):
-            for index in range(0, len(rotating), 2):
-                p1 = rotating[index]
-                p2 = rotating[index + 1]
-                state = 'ready' if p1 and p2 else 'pending'
-                specs.append(
-                    MatchSpec(
-                        round_no=round_no,
-                        match_no=match_no,
-                        state=state,
-                        slots=seeded_slots(p1, p2),
-                    )
-                )
-                match_no += 1
-
-            # Minimal deterministic re-pairing so byes are not stuck on
-            # the same participant every round in odd-sized fields.
-            if len(rotating) > 2:
-                rotating = [rotating[0], rotating[-1], *rotating[1:-1]]
-
-        return Ok(specs)
+        return Ok(build_swiss_specs(participant_ids, round_count))
 
 
 def _get_swiss_threshold(settings: dict | None) -> int | None:
@@ -394,7 +369,7 @@ class _RoundRobinEngine(
             participant_count=len(participant_ids),
         )
 
-        specs, _ = _generate_round_robin_specs(
+        specs, _ = build_round_robin_specs(
             participant_ids,
             round_count=round_count,
             first_match_no=1,
@@ -438,7 +413,7 @@ class _RoundRobinGroupsEngine(
                 stage.settings.get('round_count'),
                 participant_count=len(group),
             )
-            group_specs, next_match_no = _generate_round_robin_specs(
+            group_specs, next_match_no = build_round_robin_specs(
                 group,
                 round_count=round_count,
                 first_match_no=next_match_no,
@@ -652,47 +627,6 @@ def _chunked(items: list[T], chunk_size: int) -> list[list[T]]:
         items[index : index + chunk_size]
         for index in range(0, len(items), chunk_size)
     ]
-
-
-def _generate_round_robin_specs(
-    participant_ids: list[ParticipantID],
-    *,
-    round_count: int,
-    first_match_no: int,
-) -> tuple[list[MatchSpec], int]:
-    rotating: list[ParticipantID | None] = list(participant_ids)
-    if len(rotating) % 2 == 1:
-        rotating.append(None)
-
-    pair_count = len(rotating) // 2
-    specs: list[MatchSpec] = []
-    match_no = first_match_no
-    round_no = 1
-
-    for _ in range(round_count):
-        for index in range(pair_count):
-            p1 = rotating[index]
-            p2 = rotating[-(index + 1)]
-            if p1 is None and p2 is None:
-                continue
-
-            if p1 is None:
-                p1, p2 = p2, p1
-
-            specs.append(
-                MatchSpec(
-                    round_no=round_no,
-                    match_no=match_no,
-                    state='pending' if p2 is None else 'ready',
-                    slots=seeded_slots(p1, p2),
-                )
-            )
-            match_no += 1
-
-        rotating = [rotating[0], rotating[-1], *rotating[1:-1]]
-        round_no += 1
-
-    return specs, match_no
 
 
 def _get_round_count(raw_value: object, *, participant_count: int) -> int:
