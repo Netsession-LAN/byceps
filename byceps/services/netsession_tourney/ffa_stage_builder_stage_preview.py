@@ -16,9 +16,6 @@ from .engines.base import MatchSpec
 from .engines.registry import (
     find_stage_engine,
 )
-from .ffa_stage_builder_validation import (
-    validate_ffa_stage_builder_settings as validate_ffa_stage_builder_settings,
-)
 from .flatout2_builder import (
     summarize_flatout2_builder_rounds,
 )
