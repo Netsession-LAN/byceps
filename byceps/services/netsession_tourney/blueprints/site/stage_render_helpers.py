@@ -13,7 +13,7 @@ from typing import Any
 
 from byceps.services.netsession_tourney.models import StageType
 
-from . import builder_helpers
+from . import builder_flatout2_placeholders
 from .bracket_helpers import build_bracket_data, build_bracket_sections
 from .builder_display_helpers import (
     get_builder_main_display_stages,
@@ -87,7 +87,7 @@ def _build_stage_public_match_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return builder_helpers._build_flatout2_placeholder_match_sections(
+            return builder_flatout2_placeholders._build_flatout2_placeholder_match_sections(
                 stage
             )
         return []
@@ -131,7 +131,7 @@ def _build_stage_public_bracket_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return builder_helpers._build_flatout2_placeholder_bracket_sections(
+            return builder_flatout2_placeholders._build_flatout2_placeholder_bracket_sections(
                 stage
             )
         return []
