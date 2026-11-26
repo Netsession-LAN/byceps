@@ -15,6 +15,7 @@ from flask_babel import gettext
 from byceps.services.netsession_tourney.models import StageType
 
 from .ranking_helpers import build_ranking_rows
+from .round_robin_group_assignment import _assign_groups, _participant_ids
 
 
 def add_round_robin_groups(
@@ -51,35 +52,6 @@ def add_round_robin_groups(
 def _is_round_robin_groups_section(rows, stages_by_id) -> bool:
     stage = stages_by_id.get(rows[0]['match'].stage_id) if rows else None
     return stage is not None and stage.type == StageType.round_robin_groups
-
-
-def _assign_groups(rows, slots_by_match_id) -> dict:
-    """Return the group index (in order of first match) per participant."""
-    parent = {}
-
-    def find(participant_id):
-        parent.setdefault(participant_id, participant_id)
-        while parent[participant_id] != participant_id:
-            participant_id = parent[participant_id]
-        return participant_id
-
-    order = []
-    for row in sorted(rows, key=lambda row: row['match'].match_no):
-        participant_ids = _participant_ids(row, slots_by_match_id)
-        order.extend(participant_ids)
-        for participant_id in participant_ids[1:]:
-            parent[find(participant_id)] = find(participant_ids[0])
-
-    group_index_by_root = {}
-    for participant_id in order:
-        group_index_by_root.setdefault(
-            find(participant_id), len(group_index_by_root)
-        )
-
-    return {
-        participant_id: group_index_by_root[find(participant_id)]
-        for participant_id in order
-    }
 
 
 def _build_group(
@@ -138,11 +110,6 @@ def _select_group_participants(
         for participant_id, group_index in group_index_by_participant_id.items()
         if group_index == index and participant_id in participants_by_id
     ]
-
-
-def _participant_ids(row, slots_by_match_id) -> list:
-    slots = slots_by_match_id.get(row['match'].id, [])
-    return [slot.participant_id for slot in slots if slot.participant_id]
 
 
 def _group_letter(index: int) -> str:

@@ -11,7 +11,6 @@ from datetime import timedelta
 
 from flask import g
 
-from byceps.services.netsession_tourney.flatout2 import get_flatout2_mode_label
 from byceps.services.netsession_tourney.match_chat_service import (
     can_user_access_match_chat,
     get_match_chat_messages,
@@ -36,7 +35,11 @@ from byceps.services.user import user_service
 from .builder_helpers import get_materialized_builder_container_stages
 from .common import get_participants_for_tournament_indexed_by_id
 from .public_match_page_data import load_match_slots_and_results
-from .user_state_helpers import can_user_report_match_result
+from .routes_match_flatout2_data import (
+    find_current_host_name as find_current_host_name,
+    get_flatout2_round_details as get_flatout2_round_details,
+)
+from .user_state_match_access import can_user_report_match_result
 
 
 def load_tournament_matches_with_slots_and_results(tournament):
@@ -192,51 +195,6 @@ def is_user_admin_or_referee(user):
 
 def is_ffa_detail_match(is_ffa_scoring_match, is_flatout2_match):
     return is_ffa_scoring_match or is_flatout2_match
-
-
-def get_flatout2_round_details(match, stage, is_flatout2_match):
-    """Return the current host participant ID and the races of a
-    FlatOut 2 round.
-    """
-    if not (is_flatout2_match and stage is not None):
-        return '', []
-
-    current_host_participant_id = str(
-        (match.settings or {}).get('host_participant_id') or ''
-    ).strip()
-    return current_host_participant_id, _get_flatout2_round_races(match)
-
-
-def _get_flatout2_round_races(match) -> list[dict]:
-    raw_flatout2_round_races = (match.settings or {}).get(
-        'flatout2_races'
-    ) or []
-    return [
-        _with_flatout2_mode_label(race)
-        for race in raw_flatout2_round_races
-        if isinstance(race, dict)
-    ]
-
-
-def _with_flatout2_mode_label(race: dict) -> dict:
-    return {
-        **race,
-        'mode_label': get_flatout2_mode_label(
-            str(race.get('mode') or '').strip() or 'single_race'
-        ),
-    }
-
-
-def find_current_host_name(ffa_match_rows, current_host_participant_id):
-    return next(
-        (
-            row['name']
-            for row in ffa_match_rows
-            if row.get('participant') is not None
-            and str(row['participant'].id) == current_host_participant_id
-        ),
-        None,
-    )
 
 
 def compute_match_end_at(match, stage_duration_minutes):

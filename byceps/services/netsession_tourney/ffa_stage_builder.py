@@ -11,21 +11,15 @@ from typing import Any
 
 from byceps.services.party.models import PartyID
 from byceps.util.result import Err, Ok, Result
-from byceps.util.uuid import generate_uuid7
 
 from . import domain_service
-from .engines.base import MatchSpec
-from .engines.registry import (
-    find_stage_engine,
+from .ffa_stage_builder_stage_preview import (
+    preview_ffa_stage_builder_stage as preview_ffa_stage_builder_stage,
 )
-from .flatout2_builder import (
-    summarize_flatout2_builder_rounds,
+from .ffa_stage_builder_validation import (
+    validate_ffa_stage_builder_settings as validate_ffa_stage_builder_settings,
 )
 from .models import (
-    ParticipantID,
-    Stage,
-    StageID,
-    StageStatus,
     StageType,
     TournamentID,
     TournamentMode,
@@ -35,7 +29,6 @@ from .result_report_mode import (
 )
 from .stage_builder_settings import (
     STAGE_BUILDER_KIND_V1,
-    STAGE_BUILDER_MAIN_STAGE_SIZES,
 )
 from .tournament_queries import (
     get_participants_for_tournament,
@@ -238,95 +231,6 @@ def _assemble_ffa_stage_builder_preview(
     }
 
 
-def validate_ffa_stage_builder_settings(
-    *,
-    main_stage_type: StageType,
-    main_stage_size: int,
-    max_players_per_match: int | None,
-    preliminary_type: StageType | None,
-    generation_basis: str,
-) -> Result[None, str]:
-    error = _check_ffa_stage_builder_structure(
-        main_stage_type=main_stage_type,
-        main_stage_size=main_stage_size,
-        preliminary_type=preliminary_type,
-        generation_basis=generation_basis,
-    )
-    if error is not None:
-        return Err(error)
-
-    error = _check_ffa_stage_builder_max_players(
-        main_stage_type=main_stage_type,
-        preliminary_type=preliminary_type,
-        max_players_per_match=max_players_per_match,
-    )
-    if error is not None:
-        return Err(error)
-
-    return Ok(None)
-
-
-_ALLOWED_FFA_STAGE_BUILDER_STAGE_TYPES = {
-    StageType.ffa_single_elimination,
-    StageType.ffa_flatout2_single_elimination,
-}
-
-
-def _check_ffa_stage_builder_structure(
-    *,
-    main_stage_type: StageType,
-    main_stage_size: int,
-    preliminary_type: StageType | None,
-    generation_basis: str,
-) -> str | None:
-    allowed_ffa_stage_types = _ALLOWED_FFA_STAGE_BUILDER_STAGE_TYPES
-    if main_stage_type not in allowed_ffa_stage_types:
-        return 'Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.'
-
-    if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return 'Ungültige Größe des Hauptturniers.'
-
-    if generation_basis != 'ready':
-        return 'Ungültige Grundlage für die Erzeugung.'
-
-    if (
-        preliminary_type is not None
-        and preliminary_type not in allowed_ffa_stage_types
-    ):
-        return 'Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.'
-
-    return None
-
-
-def _check_ffa_stage_builder_max_players(
-    *,
-    main_stage_type: StageType,
-    preliminary_type: StageType | None,
-    max_players_per_match: int | None,
-) -> str | None:
-    if max_players_per_match is None:
-        return 'Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.'
-
-    if max_players_per_match < 2 or max_players_per_match > 64:
-        return 'Ungültige maximale Spielerzahl pro Match.'
-
-    if _has_invalid_flatout2_heat_size(main_stage_type, max_players_per_match):
-        return 'FlatOut 2 braucht 6 bis 8 Spieler pro Match.'
-
-    if _has_invalid_flatout2_heat_size(preliminary_type, max_players_per_match):
-        return 'FlatOut 2 braucht 6 bis 8 Spieler pro Match.'
-
-    return None
-
-
-def _has_invalid_flatout2_heat_size(
-    stage_type: StageType | None, max_players_per_match: int
-) -> bool:
-    return stage_type == StageType.ffa_flatout2_single_elimination and (
-        max_players_per_match < 6 or max_players_per_match > 8
-    )
-
-
 def build_ffa_stage_builder_common_settings(
     *,
     generation_basis: str,
@@ -352,111 +256,3 @@ def build_ffa_stage_builder_common_settings(
         settings['break_between_rounds_minutes'] = break_between_rounds_minutes
 
     return settings
-
-
-def preview_ffa_stage_builder_stage(
-    *,
-    tournament_id: TournamentID,
-    stage_type: StageType,
-    participant_count: int,
-    max_players_per_match: int,
-    stop_when_participants_at_most: int | None = None,
-) -> Result[dict[str, Any], str]:
-    if stage_type == StageType.ffa_flatout2_single_elimination:
-        return Ok(
-            _preview_flatout2_builder_stage(
-                participant_count=participant_count,
-                max_players_per_match=max_players_per_match,
-                stop_when_participants_at_most=stop_when_participants_at_most,
-            )
-        )
-
-    engine = find_stage_engine(stage_type)
-    if engine is None:
-        return Err('Für diesen FFA-Phasentyp gibt es keine Match-Erzeugung.')
-
-    preview_stage = Stage(
-        id=StageID(generate_uuid7()),
-        tournament_id=tournament_id,
-        order_no=1,
-        type=stage_type,
-        name='Preview',
-        settings={'max_players_per_match': max_players_per_match},
-        status=StageStatus.draft,
-    )
-    preview_participant_ids = [
-        ParticipantID(generate_uuid7()) for _ in range(participant_count)
-    ]
-    generated_specs_result = engine.generate(
-        preview_stage, preview_participant_ids
-    )
-    if generated_specs_result.is_err():
-        return Err(generated_specs_result.unwrap_err())
-
-    specs = generated_specs_result.unwrap()
-    round_summaries = _summarize_ffa_builder_match_specs(specs)
-
-    return Ok(
-        {
-            'round_summaries': round_summaries,
-            'match_count': len(specs),
-            'expected_final_heat_size': _get_expected_final_heat_size(
-                round_summaries
-            ),
-        }
-    )
-
-
-def _preview_flatout2_builder_stage(
-    *,
-    participant_count: int,
-    max_players_per_match: int,
-    stop_when_participants_at_most: int | None,
-) -> dict[str, Any]:
-    round_summaries = summarize_flatout2_builder_rounds(
-        participant_count=participant_count,
-        max_players_per_match=max_players_per_match,
-        stop_when_participants_at_most=stop_when_participants_at_most,
-    )
-    return {
-        'round_summaries': round_summaries,
-        'match_count': sum(
-            round_summary['match_count'] for round_summary in round_summaries
-        ),
-        'expected_final_heat_size': _get_expected_final_heat_size(
-            round_summaries
-        ),
-    }
-
-
-def _get_expected_final_heat_size(round_summaries: list[dict[str, Any]]) -> int:
-    return round_summaries[-1]['max_heat_size'] if round_summaries else 0
-
-
-def _summarize_ffa_builder_match_specs(
-    specs: list[MatchSpec],
-) -> list[dict[str, int]]:
-    round_summaries = []
-    for round_no in sorted({spec.round_no for spec in specs}):
-        round_specs = [spec for spec in specs if spec.round_no == round_no]
-        heat_sizes = [_count_ffa_spec_heat_size(spec) for spec in round_specs]
-        round_summaries.append(
-            {
-                'round_no': round_no,
-                'match_count': len(round_specs),
-                'max_heat_size': max(heat_sizes) if heat_sizes else 0,
-            }
-        )
-
-    return round_summaries
-
-
-def _count_ffa_spec_heat_size(spec: MatchSpec) -> int:
-    return len(
-        [
-            slot
-            for slot in spec.slots
-            if slot.participant_id is not None
-            or slot.source_match_no is not None
-        ]
-    )

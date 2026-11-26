@@ -10,14 +10,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from flask_babel import gettext
-
-
-_BRACKET_BY_SOURCE_BRACKETS = {
-    frozenset({'WB'}): 'WB',
-    frozenset({'LB'}): 'LB',
-    frozenset({'WB', 'LB'}): 'GF',
-}
+from .double_elimination_brackets import (
+    _assign_double_elimination_brackets,
+    is_loser_outcome as is_loser_outcome,
+)
+from .double_elimination_sections import (
+    build_double_elimination_bracket_sections as build_double_elimination_bracket_sections,
+)
 
 
 def build_double_elimination_match_labels(
@@ -71,54 +70,6 @@ def build_double_elimination_match_labels(
     return labels_by_match_id
 
 
-def _assign_double_elimination_brackets(
-    sorted_matches, incoming_by_match_id, stage_match_ids
-) -> dict:
-    bracket_by_match_id = {}
-
-    changed = True
-    while changed:
-        changed = False
-        for match in sorted_matches:
-            incoming = _get_stage_incoming(
-                match, incoming_by_match_id, stage_match_ids
-            )
-            bracket = bracket_by_match_id.get(match.id)
-            next_bracket = _determine_bracket(
-                bracket, incoming, bracket_by_match_id
-            )
-            if next_bracket != bracket:
-                bracket_by_match_id[match.id] = next_bracket
-                changed = True
-
-    return bracket_by_match_id
-
-
-def _get_stage_incoming(match, incoming_by_match_id, stage_match_ids) -> list:
-    return [
-        (source_match_id, outcome)
-        for source_match_id, outcome in incoming_by_match_id.get(match.id, [])
-        if source_match_id in stage_match_ids
-    ]
-
-
-def _determine_bracket(bracket, incoming, bracket_by_match_id):
-    if not incoming:
-        return 'WB'
-
-    source_brackets = {
-        bracket_by_match_id.get(source_match_id)
-        for source_match_id, _ in incoming
-    }
-    source_brackets.discard(None)
-
-    if 'GF' in source_brackets:
-        return 'GF'
-    if any(is_loser_outcome(outcome) for _, outcome in incoming):
-        return 'LB'
-    return _BRACKET_BY_SOURCE_BRACKETS.get(frozenset(source_brackets), bracket)
-
-
 def _select_bracket_matches(sorted_matches, bracket_by_match_id, bracket):
     return [
         match
@@ -164,134 +115,6 @@ def _is_winner_side_label(label: str) -> bool:
         or label.startswith('Grand Final')
         or label.startswith('Double Grand Final')
     )
-
-
-def build_double_elimination_bracket_sections(bracket, match_labels_by_id):
-    winner_rounds = []
-    loser_rounds = []
-
-    for round_data in bracket:
-        winner_items = []
-        loser_items = []
-
-        for item in round_data['matches']:
-            label = match_labels_by_id.get(item['match'].id, '')
-            if label.startswith('LB '):
-                loser_items.append(item)
-            else:
-                winner_items.append(item)
-
-        if winner_items:
-            winner_rounds.append(
-                {'round_no': round_data['round_no'], 'matches': winner_items}
-            )
-        if loser_items:
-            loser_rounds.append(
-                {'round_no': round_data['round_no'], 'matches': loser_items}
-            )
-
-    _decorate_double_elimination_winner_rounds(
-        winner_rounds, match_labels_by_id
-    )
-    _decorate_double_elimination_loser_rounds(loser_rounds)
-
-    sections = []
-    if winner_rounds:
-        sections.append(
-            {
-                'key': 'winner',
-                'title': gettext('Winner Bracket'),
-                'rounds': winner_rounds,
-            }
-        )
-    sections.append(
-        {
-            'key': 'loser',
-            'title': gettext('Loser Bracket'),
-            'rounds': loser_rounds,
-        }
-    )
-    return sections
-
-
-def _decorate_double_elimination_winner_rounds(
-    winner_rounds,
-    match_labels_by_id,
-) -> None:
-    wb_rounds = []
-    gf_rounds = []
-
-    for round_data in winner_rounds:
-        labels = [
-            match_labels_by_id.get(item['match'].id, '')
-            for item in round_data['matches']
-        ]
-        grand_final_title = _get_grand_final_round_title(labels)
-        if grand_final_title is not None:
-            round_data['display_title'] = grand_final_title
-            gf_rounds.append(round_data)
-        else:
-            wb_rounds.append(round_data)
-
-    for index, round_data in enumerate(wb_rounds):
-        round_data['display_round_no'] = str(index + 1)
-        round_data['display_title'] = (
-            _get_double_elimination_winner_round_title(
-                index,
-                len(wb_rounds),
-            )
-        )
-
-    for index, round_data in enumerate(gf_rounds):
-        round_data['display_round_no'] = str(len(wb_rounds) + index + 1)
-
-
-def _get_grand_final_round_title(labels: list[str]) -> str | None:
-    if any(label.startswith('Double Grand Final') for label in labels):
-        return 'Double Grand Final'
-    if any(label.startswith('Grand Final') for label in labels):
-        return 'Grand Final'
-    return None
-
-
-def _decorate_double_elimination_loser_rounds(loser_rounds) -> None:
-    for index, round_data in enumerate(loser_rounds):
-        round_data['display_round_no'] = str(index + 1)
-        round_data['display_title'] = _get_double_elimination_loser_round_title(
-            index,
-            len(loser_rounds),
-        )
-
-
-def _get_double_elimination_winner_round_title(
-    round_index: int, round_count: int
-) -> str:
-    if round_count <= 1 or round_index == round_count - 1:
-        return gettext('Winner Bracket Final')
-    if round_index == round_count - 2:
-        return gettext('Winner Bracket Semi-Final')
-    return gettext(
-        'Winner Bracket Round %(round_no)s',
-        round_no=round_index + 1,
-    )
-
-
-def _get_double_elimination_loser_round_title(
-    round_index: int, round_count: int
-) -> str:
-    if round_count <= 1 or round_index == round_count - 1:
-        return gettext('Loser Bracket Final')
-    if round_count >= 3 and round_index == round_count - 2:
-        return gettext('Loser Bracket Semi-Final')
-    return gettext(
-        'Loser Bracket Round %(round_no)s',
-        round_no=round_index + 1,
-    )
-
-
-def is_loser_outcome(outcome) -> bool:
-    value = getattr(outcome, 'value', outcome)
-    return value == 'loser'
 
 
 def _label_bracket_matches(
