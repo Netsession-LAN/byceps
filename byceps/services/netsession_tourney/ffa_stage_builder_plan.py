@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 from byceps.database import db
@@ -75,43 +76,42 @@ def build_ffa_stage_builder_plan(
         return Err(input_error)
 
     participant_count = _count_ready_participants(party_id, tournament_id)
-    uses_preliminary = (
-        preliminary_type is not None and participant_count > main_stage_size
+    uses_preliminary = _uses_ffa_preliminary(
+        preliminary_type, participant_count, main_stage_size
     )
 
-    def common_settings() -> dict[str, Any]:
-        return build_ffa_stage_builder_common_settings(
-            generation_basis=generation_basis,
-            main_stage_size=main_stage_size,
-            max_players_per_match=max_players_per_match,
-            match_duration_minutes=match_duration_minutes,
-            max_matches_per_round=max_matches_per_round,
-            break_between_rounds_minutes=break_between_rounds_minutes,
-        )
+    common_settings = partial(
+        build_ffa_stage_builder_common_settings,
+        generation_basis=generation_basis,
+        main_stage_size=main_stage_size,
+        max_players_per_match=max_players_per_match,
+        match_duration_minutes=match_duration_minutes,
+        max_matches_per_round=max_matches_per_round,
+        break_between_rounds_minutes=break_between_rounds_minutes,
+    )
 
     now = datetime.utcnow()
-    plan = _FfaPreliminary()
-    if uses_preliminary and preliminary_type is not None:
-        preliminary_result = _create_ffa_preliminary(
-            tournament_id,
-            preliminary_type,
-            participant_count=participant_count,
-            main_stage_size=main_stage_size,
-            max_players_per_match=max_players_per_match,
-            settings=common_settings(),
-            now=now,
-        )
-        if preliminary_result.is_err():
-            return Err(preliminary_result.unwrap_err())
-        plan = preliminary_result.unwrap()
+    preliminary_result = _create_ffa_preliminary_if_needed(
+        tournament_id,
+        preliminary_type,
+        uses_preliminary=uses_preliminary,
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        max_players_per_match=max_players_per_match,
+        common_settings=common_settings,
+        now=now,
+    )
+    if preliminary_result.is_err():
+        return Err(preliminary_result.unwrap_err())
+    plan = preliminary_result.unwrap()
 
     main_stage_result = _create_ffa_main_stage(
         tournament_id,
         main_stage_type,
         main_stage_size=main_stage_size,
-        participant_count=main_stage_size
-        if uses_preliminary
-        else participant_count,
+        participant_count=_get_ffa_main_stage_participant_count(
+            uses_preliminary, participant_count, main_stage_size
+        ),
         max_players_per_match=max_players_per_match,
         plan=plan,
         preliminary_type=preliminary_type,
@@ -133,6 +133,46 @@ def _count_ready_participants(
 ) -> int:
     participants = get_participants_for_tournament(party_id, tournament_id)
     return len(domain_service.select_ready_participants(participants))
+
+
+def _uses_ffa_preliminary(
+    preliminary_type: StageType | None,
+    participant_count: int,
+    main_stage_size: int,
+) -> bool:
+    return preliminary_type is not None and participant_count > main_stage_size
+
+
+def _get_ffa_main_stage_participant_count(
+    uses_preliminary: bool, participant_count: int, main_stage_size: int
+) -> int:
+    return main_stage_size if uses_preliminary else participant_count
+
+
+def _create_ffa_preliminary_if_needed(
+    tournament_id: TournamentID,
+    preliminary_type: StageType | None,
+    *,
+    uses_preliminary: bool,
+    participant_count: int,
+    main_stage_size: int,
+    max_players_per_match: int,
+    common_settings: Callable[[], dict[str, Any]],
+    now: datetime,
+) -> Result[_FfaPreliminary, str]:
+    """Create the preliminary stages, if the plan uses a preliminary."""
+    if not (uses_preliminary and preliminary_type is not None):
+        return Ok(_FfaPreliminary())
+
+    return _create_ffa_preliminary(
+        tournament_id,
+        preliminary_type,
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        max_players_per_match=max_players_per_match,
+        settings=common_settings(),
+        now=now,
+    )
 
 
 @dataclass(kw_only=True)
