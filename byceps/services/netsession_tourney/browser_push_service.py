@@ -139,23 +139,29 @@ def configure_browser_push(
         db_config = DbNetsessionTourneyBrowserPushConfig(party_id, now)
         db.session.add(db_config)
 
-    if enabled and (
-        not db_config.vapid_public_key
-        or not db_config.vapid_private_key_encrypted
-    ):
-        private_key_pem = _generate_browser_push_private_key_pem()
-        db_config.vapid_public_key = _derive_browser_push_public_key(
-            private_key_pem
-        )
-        db_config.vapid_private_key_encrypted = (
-            _encrypt_browser_push_private_key(private_key_pem)
-        )
+    if enabled:
+        _ensure_browser_push_vapid_keys(db_config)
 
     db_config.enabled = enabled
     db_config.updated_at = now
     db.session.commit()
 
     return Ok(db_browser_push_config_to_model(db_config))
+
+
+def _ensure_browser_push_vapid_keys(
+    db_config: DbNetsessionTourneyBrowserPushConfig,
+) -> None:
+    if db_config.vapid_public_key and db_config.vapid_private_key_encrypted:
+        return
+
+    private_key_pem = _generate_browser_push_private_key_pem()
+    db_config.vapid_public_key = _derive_browser_push_public_key(
+        private_key_pem
+    )
+    db_config.vapid_private_key_encrypted = _encrypt_browser_push_private_key(
+        private_key_pem
+    )
 
 
 def upsert_browser_push_subscription(
@@ -201,20 +207,26 @@ def upsert_browser_push_subscription(
             endpoint_p256dh,
             endpoint_auth,
             now,
-            user_agent=(user_agent or '').strip()[:500] or None,
+            user_agent=_normalize_browser_push_user_agent(user_agent),
         )
         db.session.add(db_subscription)
     else:
         db_subscription.user_id = user_id
         db_subscription.endpoint_p256dh = endpoint_p256dh
         db_subscription.endpoint_auth = endpoint_auth
-        db_subscription.user_agent = (user_agent or '').strip()[:500] or None
+        db_subscription.user_agent = _normalize_browser_push_user_agent(
+            user_agent
+        )
         db_subscription.enabled = True
         db_subscription.last_seen_at = now
         db_subscription.updated_at = now
 
     db.session.commit()
     return Ok(None)
+
+
+def _normalize_browser_push_user_agent(user_agent: str | None) -> str | None:
+    return (user_agent or '').strip()[:500] or None
 
 
 def disable_browser_push_subscription(
@@ -364,24 +376,37 @@ def get_recent_browser_push_outbox_entries_for_tournament(
 
     entries = []
     for db_outbox, db_notification in rows:
-        payload = dict(db_notification.payload_json or {})
         entries.append(
-            {
-                'notification_id': db_notification.id,
-                'user_id': db_notification.user_id,
-                'kind': db_notification.kind,
-                'title': str(payload.get('title') or '').strip() or None,
-                'body': str(payload.get('body') or '').strip() or None,
-                'status': db_outbox.status,
-                'attempt_count': db_outbox.attempt_count,
-                'next_attempt_at': db_outbox.next_attempt_at,
-                'last_error': db_outbox.last_error,
-                'created_at': db_outbox.created_at,
-                'updated_at': db_outbox.updated_at,
-            }
+            _build_browser_push_outbox_entry(db_outbox, db_notification)
         )
 
     return entries
+
+
+def _build_browser_push_outbox_entry(
+    db_outbox: DbNetsessionTourneyBrowserPushOutbox,
+    db_notification: DbNetsessionTourneyNotification,
+) -> dict[str, Any]:
+    payload = dict(db_notification.payload_json or {})
+    return {
+        'notification_id': db_notification.id,
+        'user_id': db_notification.user_id,
+        'kind': db_notification.kind,
+        'title': _clean_browser_push_payload_text(payload, 'title'),
+        'body': _clean_browser_push_payload_text(payload, 'body'),
+        'status': db_outbox.status,
+        'attempt_count': db_outbox.attempt_count,
+        'next_attempt_at': db_outbox.next_attempt_at,
+        'last_error': db_outbox.last_error,
+        'created_at': db_outbox.created_at,
+        'updated_at': db_outbox.updated_at,
+    }
+
+
+def _clean_browser_push_payload_text(
+    payload: dict[str, Any], key: str
+) -> str | None:
+    return str(payload.get(key) or '').strip() or None
 
 
 def _get_browser_push_fernet() -> Fernet:

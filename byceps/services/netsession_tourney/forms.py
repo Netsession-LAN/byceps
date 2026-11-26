@@ -34,21 +34,16 @@ from .domain_service import ADMIN_SETTABLE_PARTICIPANT_STATUSES
 from .enum_labels import (
     lazy_enum_label,
     RESULT_REPORT_MODE_LABELS,
-    stage_type_display_name,
 )
 from .models import (
     CoinChargeMode,
     CoinRefundPolicy,
     RegistrationMode,
     RuleTemplateBodyFormat,
-    StageFamily,
     StageType,
     TournamentMode,
 )
-from .registration_validation import (
-    is_stage_type_compatible_with_registration_mode,
-)
-from .stage_service import get_available_stage_type_specs
+from .stage_form_choices import build_stage_form_type_choices
 
 
 SLUG_REGEX = re.compile(r'^[a-z0-9-]+$')
@@ -695,37 +690,9 @@ class StageForm(LocalizedForm):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        specs = get_available_stage_type_specs()
-        if tournament_mode is not None:
-            expected_family = (
-                StageFamily.duel
-                if tournament_mode == TournamentMode.duel
-                else StageFamily.ffa
-            )
-            specs = [spec for spec in specs if spec.family == expected_family]
-        if registration_mode is not None:
-            tournament_registration_mode = RegistrationMode(registration_mode)
-            specs = [
-                spec
-                for spec in specs
-                if is_stage_type_compatible_with_registration_mode(
-                    spec.type,
-                    tournament_registration_mode,
-                )
-            ]
-
-        self.type.choices = [
-            (
-                spec.type.value,
-                (
-                    f'{stage_type_display_name(spec.type)} (disabled/beta)'
-                    if not spec.publishable
-                    else stage_type_display_name(spec.type)
-                ),
-            )
-            for spec in specs
-            if spec.enabled
-        ]
+        self.type.choices = build_stage_form_type_choices(
+            tournament_mode, registration_mode
+        )
         self.swiss_threshold.choices = [
             ('', '-'),
             (2, '2'),

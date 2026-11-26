@@ -131,38 +131,56 @@ def validate_bracket_ready_team_sizes(
     if tournament.team_size is None:
         return Ok(None)
 
-    bracket_ready_teams = [
+    bracket_ready_teams = _select_bracket_ready_teams(participants)
+    if not bracket_ready_teams:
+        return Ok(None)
+
+    invalid_team_names = _get_incomplete_team_names(
+        tournament, bracket_ready_teams
+    )
+    if not invalid_team_names:
+        return Ok(None)
+
+    return Err(
+        f'Diese Teams haben nicht die nötige Größe: '
+        f'{_shorten_team_names(invalid_team_names)}. '
+        + domain_service.describe_required_team_size(
+            tournament.team_size, tournament.substitute_count
+        )
+    )
+
+
+def _select_bracket_ready_teams(
+    participants: list[Participant],
+) -> list[Participant]:
+    return [
         participant
         for participant in domain_service.select_bracket_ready_participants(
             participants
         )
         if participant.type == ParticipantType.team
     ]
-    if not bracket_ready_teams:
-        return Ok(None)
 
+
+def _get_incomplete_team_names(
+    tournament: Tournament, teams: list[Participant]
+) -> list[str]:
     team_members_by_participant_id = get_team_members_for_participants(
-        {participant.id for participant in bracket_ready_teams}
+        {participant.id for participant in teams}
     )
-    invalid_team_names = [
+    return [
         participant.name
-        for participant in bracket_ready_teams
+        for participant in teams
         if not domain_service.is_team_member_count_complete(
             len(team_members_by_participant_id.get(participant.id, [])),
             tournament.team_size,
             tournament.substitute_count,
         )
     ]
-    if not invalid_team_names:
-        return Ok(None)
 
-    shown_names = ', '.join(invalid_team_names[:3])
-    if len(invalid_team_names) > 3:
+
+def _shorten_team_names(team_names: list[str]) -> str:
+    shown_names = ', '.join(team_names[:3])
+    if len(team_names) > 3:
         shown_names += ', ...'
-
-    return Err(
-        f'Diese Teams haben nicht die nötige Größe: {shown_names}. '
-        + domain_service.describe_required_team_size(
-            tournament.team_size, tournament.substitute_count
-        )
-    )
+    return shown_names

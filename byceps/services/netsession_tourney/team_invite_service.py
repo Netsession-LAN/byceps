@@ -29,6 +29,7 @@ from .models import (
     ParticipantType,
     RegistrationMode,
     TeamMemberRole,
+    Tournament,
     TournamentID,
     TournamentStatus,
 )
@@ -76,6 +77,31 @@ def join_team_by_invite_code(
     if entry_error is not None:
         return Err(entry_error)
 
+    team_result = _find_joinable_team_by_invite_code(
+        tournament_id, tournament, invite_code
+    )
+    if team_result.is_err():
+        return Err(team_result.unwrap_err())
+    db_participant = team_result.unwrap()
+
+    charge_result = _charge_invite_join_coins_if_required(
+        party_id, tournament, user
+    )
+    if charge_result.is_err():
+        return Err(charge_result.unwrap_err())
+
+    ensure_registration_is_registered(tournament_id, user.id)
+    add_team_member(
+        db_participant.id, user.id, TeamMemberRole.player, datetime.utcnow()
+    )
+    db.session.commit()
+
+    return Ok(db_participant_to_model(db_participant))
+
+
+def _find_joinable_team_by_invite_code(
+    tournament_id: TournamentID, tournament: Tournament, invite_code: str
+) -> Result[DbNetsessionTourneyParticipant, str]:
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant).filter_by(
             tournament_id=tournament_id,
@@ -93,23 +119,25 @@ def join_team_by_invite_code(
         if int(member_count or 0) >= max_team_member_count:
             return Err('Dieses Team ist bereits voll.')
 
-    if tournament.coin_charge_mode == CoinChargeMode.all_members:
-        charge_result = charge_coins_for_tournament_registration(
-            party_id,
-            tournament,
-            user.id,
-            created_by_user_id=user.id,
-        )
-        if charge_result.is_err():
-            return Err(charge_result.unwrap_err())
+    return Ok(db_participant)
 
-    ensure_registration_is_registered(tournament_id, user.id)
-    add_team_member(
-        db_participant.id, user.id, TeamMemberRole.player, datetime.utcnow()
+
+def _charge_invite_join_coins_if_required(
+    party_id: PartyID, tournament: Tournament, user: User
+) -> Result[None, str]:
+    if tournament.coin_charge_mode != CoinChargeMode.all_members:
+        return Ok(None)
+
+    charge_result = charge_coins_for_tournament_registration(
+        party_id,
+        tournament,
+        user.id,
+        created_by_user_id=user.id,
     )
-    db.session.commit()
+    if charge_result.is_err():
+        return Err(charge_result.unwrap_err())
 
-    return Ok(db_participant_to_model(db_participant))
+    return Ok(None)
 
 
 def get_team_invite_code_for_manager(

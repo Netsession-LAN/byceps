@@ -202,10 +202,8 @@ def persist_generated_matches(
             spec.match_no,
             now,
             state=MatchState(spec.state),
-            settings_json=dict(
-                (match_settings_by_round_and_match_no or {}).get(
-                    (spec.round_no, spec.match_no), {}
-                )
+            settings_json=_get_generated_match_settings(
+                match_settings_by_round_and_match_no, spec
             ),
         )
         db.session.add(db_match)
@@ -215,26 +213,49 @@ def persist_generated_matches(
     db.session.flush()
 
     for spec in specs:
-        for slot in spec.slots:
-            source_slot_id = None
-            if slot.source_match_no is not None:
-                source_slot_id = source_slot_id_by_match_no.get(
-                    slot.source_match_no
-                )
-            db_slot = DbNetsessionTourneyMatchSlot(
-                MatchSlotID(generate_uuid7()),
-                match_id_by_match_no[spec.match_no],
-                slot.slot_no,
-                participant_id=slot.participant_id,
-                source_match_slot_id=source_slot_id,
-                source_outcome=parse_source_outcome(slot.source_outcome),
-            )
-            db.session.add(db_slot)
-            if slot.slot_no == 1:
-                source_slot_id_by_match_no[spec.match_no] = db_slot.id
+        _persist_generated_match_slots(
+            spec, match_id_by_match_no, source_slot_id_by_match_no
+        )
 
     db.session.flush()
     return [db_match_to_model(item) for item in created_matches]
+
+
+def _get_generated_match_settings(
+    match_settings_by_round_and_match_no: (
+        dict[tuple[int, int], dict[str, Any]] | None
+    ),
+    spec: MatchSpec,
+) -> dict[str, Any]:
+    return dict(
+        (match_settings_by_round_and_match_no or {}).get(
+            (spec.round_no, spec.match_no), {}
+        )
+    )
+
+
+def _persist_generated_match_slots(
+    spec: MatchSpec,
+    match_id_by_match_no: dict[int, MatchID],
+    source_slot_id_by_match_no: dict[int, MatchSlotID],
+) -> None:
+    for slot in spec.slots:
+        source_slot_id = None
+        if slot.source_match_no is not None:
+            source_slot_id = source_slot_id_by_match_no.get(
+                slot.source_match_no
+            )
+        db_slot = DbNetsessionTourneyMatchSlot(
+            MatchSlotID(generate_uuid7()),
+            match_id_by_match_no[spec.match_no],
+            slot.slot_no,
+            participant_id=slot.participant_id,
+            source_match_slot_id=source_slot_id,
+            source_outcome=parse_source_outcome(slot.source_outcome),
+        )
+        db.session.add(db_slot)
+        if slot.slot_no == 1:
+            source_slot_id_by_match_no[spec.match_no] = db_slot.id
 
 
 def schedule_generated_matches(
@@ -247,11 +268,9 @@ def schedule_generated_matches(
     if not match_ids:
         return
 
-    round_starts_at_overrides = {
-        round_no: starts_at
-        for round_no, starts_at in (round_starts_at_by_round_no or {}).items()
-        if round_no > 0
-    }
+    round_starts_at_overrides = _get_round_starts_at_overrides(
+        round_starts_at_by_round_no
+    )
 
     match_duration_minutes = get_stage_setting_int(
         stage.settings, 'match_duration_minutes', minimum=1
@@ -270,17 +289,55 @@ def schedule_generated_matches(
     if not db_matches_by_round_no:
         return
 
-    if (
-        tournament_starts_at is None
-        and not round_starts_at_overrides
-        and match_duration_minutes is None
+    if not _has_generated_match_schedule_basis(
+        tournament_starts_at, round_starts_at_overrides, match_duration_minutes
     ):
         return
-    if match_duration_minutes is None and not round_starts_at_overrides:
-        return
-    if tournament_starts_at is None and not round_starts_at_overrides:
-        return
 
+    _schedule_generated_rounds(
+        db_matches_by_round_no,
+        tournament_starts_at,
+        round_starts_at_overrides,
+        match_duration_minutes=match_duration_minutes,
+        max_matches_per_round=max_matches_per_round,
+        break_between_rounds_minutes=break_between_rounds_minutes,
+    )
+
+
+def _get_round_starts_at_overrides(
+    round_starts_at_by_round_no: dict[int, datetime] | None,
+) -> dict[int, datetime]:
+    return {
+        round_no: starts_at
+        for round_no, starts_at in (round_starts_at_by_round_no or {}).items()
+        if round_no > 0
+    }
+
+
+def _has_generated_match_schedule_basis(
+    tournament_starts_at: datetime | None,
+    round_starts_at_overrides: dict[int, datetime],
+    match_duration_minutes: int | None,
+) -> bool:
+    """Scheduling needs round start overrides, or both a tournament start
+    and a match duration."""
+    if round_starts_at_overrides:
+        return True
+
+    return (
+        match_duration_minutes is not None and tournament_starts_at is not None
+    )
+
+
+def _schedule_generated_rounds(
+    db_matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]],
+    tournament_starts_at: datetime | None,
+    round_starts_at_overrides: dict[int, datetime],
+    *,
+    match_duration_minutes: int | None,
+    max_matches_per_round: int | None,
+    break_between_rounds_minutes: int | None,
+) -> None:
     round_starts_at = tournament_starts_at
     for round_no in sorted(db_matches_by_round_no.keys()):
         db_round_matches = db_matches_by_round_no[round_no]
@@ -291,10 +348,9 @@ def schedule_generated_matches(
             continue
 
         if match_duration_minutes is None:
-            if round_override_starts_at is None:
-                continue
-            for db_match in db_round_matches:
-                db_match.scheduled_at = round_starts_at
+            _schedule_round_matches_at_override(
+                db_round_matches, round_override_starts_at, round_starts_at
+            )
             continue
 
         wave_count = _schedule_round_matches_in_waves(
@@ -308,6 +364,20 @@ def schedule_generated_matches(
             minutes=(wave_count * match_duration_minutes)
             + break_between_rounds_minutes
         )
+
+
+def _schedule_round_matches_at_override(
+    db_round_matches: list[DbNetsessionTourneyMatch],
+    round_override_starts_at: datetime | None,
+    round_starts_at: datetime,
+) -> None:
+    """Without a match duration, only rounds with an explicit start time
+    are scheduled."""
+    if round_override_starts_at is None:
+        return
+
+    for db_match in db_round_matches:
+        db_match.scheduled_at = round_starts_at
 
 
 def _get_db_matches_by_round_no(

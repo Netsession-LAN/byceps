@@ -17,6 +17,9 @@ from flask import abort, session
 from flask_babel import gettext
 
 from byceps.services.authz import authz_service
+from byceps.services.netsession_tourney.blueprints.admin.wizard_form_data import (
+    build_wizard_format_form_data,
+)
 from byceps.services.netsession_tourney.forms import (
     TournamentForm,
     TournamentWizardDetailsForm,
@@ -32,14 +35,10 @@ from byceps.services.netsession_tourney.logo_service import (
     get_tournament_logo_choices,
 )
 from byceps.services.netsession_tourney.models import (
-    CoinChargeMode,
-    CoinRefundPolicy,
     DiscordForumImageAssetID,
-    RegistrationMode,
     SponsorLogoAssetID,
     TournamentCategoryID,
     TournamentLogoAssetID,
-    TournamentMode,
     TournamentPrizeID,
     TournamentRuleTemplateID,
 )
@@ -338,30 +337,14 @@ def build_wizard_format_form(
         erroneous_form
         if erroneous_form is not None
         else TournamentWizardFormatForm(
-            data={
-                'category_id': state.get('category_id'),
-                'mode': state.get('mode') or TournamentMode.duel.value,
-                'registration_mode': state.get('registration_mode')
-                or RegistrationMode.solo.value,
-                'team_size': state.get('team_size') or 1,
-                'substitute_count': state.get('substitute_count') or 0,
-                'participant_limit': state.get('participant_limit'),
-                'coin_cost': state.get('coin_cost', 0),
-                'coin_refund_policy': state.get('coin_refund_policy')
-                or CoinRefundPolicy.until_tournament_end.value,
-                'coin_charge_mode': state.get('coin_charge_mode')
-                or CoinChargeMode.all_members.value,
-                'admin_user_ids': state.get('admin_user_ids') or [],
-            }
+            data=build_wizard_format_form_data(state)
         )
     )
 
     set_category_choices_for_form(form, party_id)
 
     if erroneous_form is None and not form.category_id.data:
-        default_category_id = _get_default_category_id_for_party(party_id)
-        if default_category_id is not None:
-            form.category_id.data = default_category_id
+        _set_default_category_id(form, party_id)
 
     available_admin_users = get_available_tournament_admin_users()
     available_admin_user_ids = {str(user.id) for user in available_admin_users}
@@ -370,6 +353,14 @@ def build_wizard_format_form(
     )
 
     return form, available_admin_user_ids
+
+
+def _set_default_category_id(
+    form: TournamentWizardFormatForm, party_id: str
+) -> None:
+    default_category_id = _get_default_category_id_for_party(party_id)
+    if default_category_id is not None:
+        form.category_id.data = default_category_id
 
 
 def build_wizard_details_form(
@@ -381,29 +372,8 @@ def build_wizard_details_form(
     if erroneous_form is not None:
         form = erroneous_form
     else:
-        title = state.get('title') or ''
-        slug = state.get('slug') or ''
-        if not slug and title:
-            slug = slugify_tournament_title(title)
-
         form = TournamentWizardDetailsForm(
-            data={
-                'slug': slug,
-                'title': title,
-                'subtitle': state.get('subtitle'),
-                'tournament_logo_url': state.get('logo_url'),
-                'is_sponsored': state.get('is_sponsored', False),
-                'sponsor_logo_url': state.get('sponsor_logo_url'),
-                'game': state.get('game'),
-                'rules_template_slug': state.get('rules_page_slug'),
-                'discord_enabled': state.get('discord_enabled', False),
-                'forum_channel_id': state.get('discord_forum_channel_id'),
-                'discord_forum_image_url': state.get('discord_forum_image_url'),
-                'applied_tag_ids': ', '.join(
-                    state.get('discord_applied_tag_ids') or []
-                ),
-                'event_mask': state.get('discord_event_mask') or [],
-            }
+            data=_build_wizard_details_form_data(state)
         )
 
     set_logo_choices_for_form(
@@ -422,6 +392,31 @@ def build_wizard_details_form(
     )
     form.event_mask.choices = DISCORD_FORUM_EVENT_CHOICES
     return form
+
+
+def _build_wizard_details_form_data(state: dict) -> dict:
+    title = state.get('title') or ''
+    slug = state.get('slug') or ''
+    if not slug and title:
+        slug = slugify_tournament_title(title)
+
+    return {
+        'slug': slug,
+        'title': title,
+        'subtitle': state.get('subtitle'),
+        'tournament_logo_url': state.get('logo_url'),
+        'is_sponsored': state.get('is_sponsored', False),
+        'sponsor_logo_url': state.get('sponsor_logo_url'),
+        'game': state.get('game'),
+        'rules_template_slug': state.get('rules_page_slug'),
+        'discord_enabled': state.get('discord_enabled', False),
+        'forum_channel_id': state.get('discord_forum_channel_id'),
+        'discord_forum_image_url': state.get('discord_forum_image_url'),
+        'applied_tag_ids': ', '.join(
+            state.get('discord_applied_tag_ids') or []
+        ),
+        'event_mask': state.get('discord_event_mask') or [],
+    }
 
 
 def build_wizard_schedule_form(

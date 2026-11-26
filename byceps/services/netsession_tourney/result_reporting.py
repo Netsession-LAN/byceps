@@ -185,37 +185,69 @@ def store_reported_result(
         select(DbNetsessionTourneyMatchResult).filter_by(match_id=match_id)
     )
     if db_result is None:
-        db_result = DbNetsessionTourneyMatchResult(
-            MatchResultID(generate_uuid7()),
-            match_id,
-            now,
-            winner_slot=report.winner_slot,
-            score_json=report.score_data,
-            ranking_json=report.ranking_data,
-            submitted_by_user_id=report.actor_user_id,
-        )
-        db.session.add(db_result)
-        return Ok((db_result, False))
+        return Ok((_create_reported_result(match_id, report, now), False))
 
-    reports_agree = (
+    reports_agree = _do_reports_agree(db_result, report)
+
+    update_error = _get_reported_result_update_error(
+        match_id, db_result, report
+    )
+    if update_error is not None:
+        return Err(update_error)
+
+    _update_reported_result(db_result, report, now)
+
+    return Ok((db_result, reports_agree))
+
+
+def _create_reported_result(
+    match_id: MatchID, report: ResultReport, now: datetime
+) -> DbNetsessionTourneyMatchResult:
+    db_result = DbNetsessionTourneyMatchResult(
+        MatchResultID(generate_uuid7()),
+        match_id,
+        now,
+        winner_slot=report.winner_slot,
+        score_json=report.score_data,
+        ranking_json=report.ranking_data,
+        submitted_by_user_id=report.actor_user_id,
+    )
+    db.session.add(db_result)
+    return db_result
+
+
+def _do_reports_agree(
+    db_result: DbNetsessionTourneyMatchResult, report: ResultReport
+) -> bool:
+    """Tell whether the report matches the stored one of the other side."""
+    return (
         db_result.winner_slot == report.winner_slot
         and db_result.score_json == report.score_data
         and db_result.ranking_json == report.ranking_data
         and db_result.submitted_by_user_id != report.actor_user_id
     )
+
+
+def _get_reported_result_update_error(
+    match_id: MatchID,
+    db_result: DbNetsessionTourneyMatchResult,
+    report: ResultReport,
+) -> str | None:
     if (
         report.by_admin
         and db_result.submitted_by_user_id is not None
         and not report.admin_comment
     ):
-        return Err('Korrekturen durch Admins brauchen einen Kommentar.')
+        return 'Korrekturen durch Admins brauchen einen Kommentar.'
 
-    winner_change_error = _check_winner_change_allowed(
-        match_id, db_result, report
-    )
-    if winner_change_error is not None:
-        return Err(winner_change_error)
+    return _check_winner_change_allowed(match_id, db_result, report)
 
+
+def _update_reported_result(
+    db_result: DbNetsessionTourneyMatchResult,
+    report: ResultReport,
+    now: datetime,
+) -> None:
     db_result.winner_slot = report.winner_slot
     db_result.score_json = report.score_data
     db_result.ranking_json = report.ranking_data
@@ -227,8 +259,6 @@ def store_reported_result(
         and db_result.submitted_by_user_id != report.actor_user_id
     ):
         db_result.confirmed_by_user_id = report.actor_user_id
-
-    return Ok((db_result, reports_agree))
 
 
 def is_conflicting_duel_report(

@@ -17,13 +17,17 @@ from .flatout2_round_helpers import (
 )
 
 
+def _get_raw_builder_container_child_stage_ids(settings) -> list:
+    raw_stage_ids = settings.get('builder_materialized_stage_ids') or []
+    if raw_stage_ids or settings.get('builder_role') != 'preliminary':
+        return raw_stage_ids
+
+    return settings.get('builder_materialized_group_stage_ids') or []
+
+
 def get_builder_container_child_stage_ids(stage) -> list[str]:
     settings = stage.settings or {}
-    raw_stage_ids = settings.get('builder_materialized_stage_ids') or []
-    if not raw_stage_ids and settings.get('builder_role') == 'preliminary':
-        raw_stage_ids = (
-            settings.get('builder_materialized_group_stage_ids') or []
-        )
+    raw_stage_ids = _get_raw_builder_container_child_stage_ids(settings)
     return [str(stage_id) for stage_id in raw_stage_ids if stage_id]
 
 

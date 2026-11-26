@@ -63,6 +63,19 @@ def validate_actor_matches_report_mode(
     if tournament_mode != TournamentMode.duel:
         return None
 
+    return _validate_duel_reporter(
+        stage_result_report_mode,
+        actor_slot_no=actor_slot_no,
+        winner_slot=winner_slot,
+    )
+
+
+def _validate_duel_reporter(
+    stage_result_report_mode: str,
+    *,
+    actor_slot_no: int | None,
+    winner_slot: int | None,
+) -> str | None:
     if stage_result_report_mode == RESULT_REPORT_MODE_BOTH_MUST_CONFIRM:
         return None
 
@@ -71,6 +84,14 @@ def validate_actor_matches_report_mode(
     if actor_slot_no is None:
         return 'Only participants of this match can report a result.'
 
+    return _validate_duel_reporter_side(
+        stage_result_report_mode, actor_slot_no, winner_slot
+    )
+
+
+def _validate_duel_reporter_side(
+    stage_result_report_mode: str, actor_slot_no: int, winner_slot: int
+) -> str | None:
     if stage_result_report_mode == RESULT_REPORT_MODE_WINNER_CAN_REPORT:
         if actor_slot_no != winner_slot:
             return 'Only the winner can report the result for this stage.'

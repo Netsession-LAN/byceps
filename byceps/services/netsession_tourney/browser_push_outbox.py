@@ -10,8 +10,6 @@ from __future__ import annotations
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
 import json
-from typing import Any
-from uuid import UUID
 
 from cryptography.hazmat.primitives import serialization
 from flask import current_app
@@ -28,6 +26,9 @@ except ImportError:  # pragma: no cover - optional dependency during rollout
 from byceps.database import db
 from byceps.services.party.models import PartyID
 
+from .browser_push_outbox_message import (
+    build_browser_push_message_payload,
+)
 from .browser_push_service import (
     BROWSER_PUSH_MAX_ATTEMPTS,
     decrypt_browser_push_private_key,
@@ -37,27 +38,11 @@ from .dbmodels import (
     DbNetsessionTourneyBrowserPushConfig,
     DbNetsessionTourneyBrowserPushOutbox,
     DbNetsessionTourneyBrowserPushSubscription,
-    DbNetsessionTourneyMatch,
     DbNetsessionTourneyNotification,
-    DbNetsessionTourneyStage,
     DbNetsessionTourneyTournament,
 )
-from .flatout2_races import (
-    build_flatout2_first_race_summary,
-)
-from .models import (
-    BrowserPushOutboxStatus,
-    MatchID,
-    StageType,
-)
-from .notification_labels import (
-    build_double_elimination_notification_match_label,
-)
-from .notification_urls import (
-    build_browser_push_badge_url,
-    build_browser_push_logo_urls,
-    find_browser_push_site_server_name,
-)
+from .models import BrowserPushOutboxStatus
+from .notification_urls import find_browser_push_site_server_name
 from .outbox_processing import process_outbox_rows
 
 
@@ -106,51 +91,23 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
     """Push one notification to all browsers of its user, or schedule a
     retry, or give up. Nothing to send (push off, no subscription) counts
     as sent."""
-    db_notification = db.session.get(
-        DbNetsessionTourneyNotification, db_row.notification_id
+    db_notification_and_tournament = _get_browser_push_row_notification(
+        db_row, now
     )
-    if db_notification is None:
-        _mark_browser_push_outbox_dead_letter(
-            db_row, 'Unknown notification.', now
-        )
+    if db_notification_and_tournament is None:
         return
 
-    db_tournament = db.session.get(
-        DbNetsessionTourneyTournament, db_notification.tournament_id
-    )
-    if db_tournament is None:
-        _mark_browser_push_outbox_dead_letter(
-            db_row, 'Unbekanntes Turnier.', now
-        )
-        return
+    db_notification, db_tournament = db_notification_and_tournament
 
-    db_config = db.session.get(
-        DbNetsessionTourneyBrowserPushConfig, db_tournament.party_id
-    )
-    if (
-        db_config is None
-        or not db_config.enabled
-        or not db_config.vapid_private_key_encrypted
-    ):
-        _mark_browser_push_sent(db_row)
-        return
-
-    private_key_pem = decrypt_browser_push_private_key(
-        db_config.vapid_private_key_encrypted
+    private_key_pem = _get_browser_push_private_key_pem(
+        db_row, db_tournament, now
     )
     if private_key_pem is None:
-        _schedule_browser_push_outbox_retry(
-            db_row, 'No valid browser push private key configured.', now
-        )
         return
 
-    db_subscriptions = db.session.scalars(
-        select(DbNetsessionTourneyBrowserPushSubscription).filter_by(
-            party_id=db_tournament.party_id,
-            user_id=db_notification.user_id,
-            enabled=True,
-        )
-    ).all()
+    db_subscriptions = _get_enabled_browser_push_subscriptions(
+        db_tournament, db_notification
+    )
     if not db_subscriptions:
         _mark_browser_push_sent(db_row)
         return
@@ -173,6 +130,75 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
     _schedule_browser_push_outbox_retry(
         db_row, f'Browser push delivery failed: {transient_error}', now
     )
+
+
+def _get_browser_push_row_notification(
+    db_row, now: datetime
+) -> (
+    tuple[DbNetsessionTourneyNotification, DbNetsessionTourneyTournament] | None
+):
+    """Return the row's notification and tournament, or dead-letter the
+    row and return `None` if one of them is gone."""
+    db_notification = db.session.get(
+        DbNetsessionTourneyNotification, db_row.notification_id
+    )
+    if db_notification is None:
+        _mark_browser_push_outbox_dead_letter(
+            db_row, 'Unknown notification.', now
+        )
+        return None
+
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, db_notification.tournament_id
+    )
+    if db_tournament is None:
+        _mark_browser_push_outbox_dead_letter(
+            db_row, 'Unbekanntes Turnier.', now
+        )
+        return None
+
+    return db_notification, db_tournament
+
+
+def _get_browser_push_private_key_pem(
+    db_row, db_tournament: DbNetsessionTourneyTournament, now: datetime
+) -> str | None:
+    """Return the party's VAPID private key, or settle the row (sent if
+    push is off, retry if the key is unusable) and return `None`."""
+    db_config = db.session.get(
+        DbNetsessionTourneyBrowserPushConfig, db_tournament.party_id
+    )
+    if (
+        db_config is None
+        or not db_config.enabled
+        or not db_config.vapid_private_key_encrypted
+    ):
+        _mark_browser_push_sent(db_row)
+        return None
+
+    private_key_pem = decrypt_browser_push_private_key(
+        db_config.vapid_private_key_encrypted
+    )
+    if private_key_pem is None:
+        _schedule_browser_push_outbox_retry(
+            db_row, 'No valid browser push private key configured.', now
+        )
+        return None
+
+    return private_key_pem
+
+
+def _get_enabled_browser_push_subscriptions(
+    db_tournament: DbNetsessionTourneyTournament,
+    db_notification: DbNetsessionTourneyNotification,
+):
+    return db.session.scalars(
+        select(DbNetsessionTourneyBrowserPushSubscription).filter_by(
+            party_id=db_tournament.party_id,
+            user_id=db_notification.user_id,
+            enabled=True,
+        )
+    ).all()
 
 
 def _push_to_subscriptions(
@@ -259,123 +285,6 @@ def _schedule_browser_push_outbox_retry(
     db_row.updated_at = now
 
 
-def build_browser_push_message_payload(
-    db_tournament: DbNetsessionTourneyTournament,
-    db_notification: DbNetsessionTourneyNotification,
-) -> dict[str, Any]:
-    payload = dict(db_notification.payload_json or {})
-    kind = db_notification.kind
-    match_label = build_browser_push_match_label(payload)
-    title = str(payload.get('title') or '').strip() or db_tournament.title
-
-    body = _build_browser_push_body(kind, payload, match_label)
-
-    url = payload.get('url')
-    if not isinstance(url, str) or not url:
-        url = f'/ns-tourneys/{db_tournament.slug}'
-
-    if kind == 'manual_announcement':
-        tag_suffix = db_notification.id
-        renotify = True
-    else:
-        tag_suffix = (
-            payload.get('match_id') or payload.get('slug') or db_tournament.id
-        )
-        renotify = False
-
-    icon_url, image_url = build_browser_push_logo_urls(db_tournament)
-    return {
-        'title': title,
-        'body': body[:180],
-        'url': url,
-        'tag': f'netsession-tourney-{kind}-{tag_suffix}',
-        'renotify': renotify,
-        'icon': icon_url,
-        'badge': build_browser_push_badge_url(),
-        'image': image_url,
-    }
-
-
-def _build_browser_push_body(
-    kind: str, payload: dict[str, Any], match_label: str | None
-) -> str:
-    if kind == 'tournament_live':
-        body = 'Turnier ist jetzt live.'
-    elif kind == 'tournament_closed':
-        body = 'Turnier wurde beendet.'
-    elif kind == 'tournament_canceled':
-        body = 'Turnier wurde abgesagt.'
-    elif kind == 'checkin_open':
-        body = (
-            'Der Check-in ist offen – jetzt einchecken (bei Teams der Captain).'
-        )
-    elif kind == 'manual_announcement':
-        body = (
-            str(payload.get('body') or '').strip()
-            or 'Es gibt ein neues Turnier-Update.'
-        )
-    elif kind == 'match_ready':
-        body = (
-            f'{match_label} ist spielbereit.'
-            if match_label
-            else 'Dein Match ist spielbereit.'
-        )
-    elif kind == 'flatout2_host_assigned':
-        first_race_summary = build_flatout2_first_race_summary(payload)
-        base_body = (
-            f'Du wurdest als Host für {match_label} ausgewählt.'
-            if match_label
-            else 'Du wurdest als Host für ein Match ausgewählt.'
-        )
-        body = (
-            f'{base_body} {first_race_summary}'
-            if first_race_summary
-            else base_body
-        )
-    elif kind == 'result_submitted':
-        body = (
-            f'{match_label}: Ergebnis wurde übermittelt.'
-            if match_label
-            else 'Für dein Match wurde ein Ergebnis übermittelt.'
-        )
-    elif kind == 'schedule_changed':
-        body = (
-            f'{match_label}: Matchzeit wurde geändert.'
-            if match_label
-            else 'Die Matchzeit wurde geändert.'
-        )
-    elif kind == 'dispute_opened':
-        body = (
-            f'{match_label}: Streitfall wurde geöffnet.'
-            if match_label
-            else 'Für dein Match wurde ein Streitfall geöffnet.'
-        )
-    elif kind == 'chat_message_posted':
-        body = _build_browser_push_chat_body(payload, match_label)
-    else:
-        body = 'Es gibt ein neues Update.'
-    return body
-
-
-def _build_browser_push_chat_body(
-    payload: dict[str, Any], match_label: str | None
-) -> str:
-    body_preview = str(payload.get('body_preview') or '').strip()
-    return (
-        (
-            f'{match_label}: Neue Nachricht - {body_preview}'
-            if match_label
-            else f'Neue Match-Nachricht: {body_preview}'
-        )
-        if body_preview
-        else (
-            f'{match_label}: Neue Match-Nachricht.'
-            if match_label
-            else 'Neue Match-Nachricht.'
-        )
-    )
-
-
 def _build_browser_push_private_key_for_pywebpush(private_key: str) -> str:
     """Return a pywebpush-compatible VAPID private key string.
 
@@ -426,48 +335,6 @@ def _get_browser_push_endpoint_host(endpoint: str | None) -> str | None:
         return httpx.URL(endpoint).host
     except Exception:  # pragma: no cover - defensive fallback
         return None
-
-
-def build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
-    match_id = payload.get('match_id')
-    if not isinstance(match_id, str) or not match_id:
-        return None
-
-    try:
-        parsed_match_id = MatchID(UUID(match_id))
-    except ValueError:
-        return None
-
-    db_match = db.session.get(DbNetsessionTourneyMatch, parsed_match_id)
-    if db_match is None:
-        return None
-
-    db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
-    if db_stage is None:
-        return f'M #{db_match.match_no}'
-
-    if db_stage.type in {
-        StageType.double_elimination,
-        StageType.double_elimination_double_grand_final,
-    }:
-        return build_double_elimination_notification_match_label(
-            db_match, db_stage.id
-        )
-
-    generic_stage_names = {'match', 'matches'}
-    stage_settings = db_stage.settings_json or {}
-    builder_display_title = str(
-        stage_settings.get('builder_display_title') or ''
-    ).strip()
-    if builder_display_title:
-        return f'{builder_display_title} • M #{db_match.match_no}'
-
-    if db_stage.name:
-        stage_name = db_stage.name.strip()
-        if stage_name.lower() not in generic_stage_names:
-            return f'{stage_name} • M #{db_match.match_no}'
-
-    return f'M #{db_match.match_no}'
 
 
 def _format_browser_push_delivery_error(exc: Exception) -> str:

@@ -64,47 +64,9 @@ def delete_match_result_by_admin(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    db_match = db.session.scalar(
-        select(DbNetsessionTourneyMatch)
-        .filter_by(id=match_id, tournament_id=tournament_id)
-        .with_for_update()
-    )
-    if db_match is None:
-        return Err('Unbekanntes Match.')
-
-    db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
-    if db_stage is None:
-        return Err('Unbekannte Phase.')
-
-    stage = db_stage_to_model(db_stage)
-    if stage.type == StageType.swiss:
-        return Err(
-            'Bei Swiss lassen sich gespeicherte Ergebnisse noch nicht löschen.'
-        )
-
-    db_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult)
-        .filter_by(match_id=match_id)
-        .with_for_update()
-    )
-    if db_result is None:
-        return Err('Für dieses Match ist kein Ergebnis gespeichert.')
-
-    blocking_match_id = find_match_result_delete_blocker(match_id)
-    if blocking_match_id is not None:
-        db_blocking_match = db.session.get(
-            DbNetsessionTourneyMatch, blocking_match_id
-        )
-        if db_blocking_match is None:
-            return Err(
-                'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match schon ein gemeldetes Ergebnis hat.'
-            )
-
-        return Err(
-            'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match '
-            f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '
-            'schon ein gemeldetes Ergebnis hat.'
-        )
+    error = _get_match_result_delete_error(tournament_id, match_id)
+    if error is not None:
+        return Err(error)
 
     deleted_match_ids: set[MatchID] = set()
     _delete_match_result_branch(match_id, deleted_match_ids=deleted_match_ids)
@@ -128,6 +90,68 @@ def delete_match_result_by_admin(
     return Ok(None)
 
 
+def _get_match_result_delete_error(
+    tournament_id: TournamentID, match_id: MatchID
+) -> str | None:
+    """Lock match and result; return why the result must not be deleted,
+    or `None` if it may be."""
+    error = _get_match_stage_delete_error(tournament_id, match_id)
+    if error is not None:
+        return error
+
+    db_result = db.session.scalar(
+        select(DbNetsessionTourneyMatchResult)
+        .filter_by(match_id=match_id)
+        .with_for_update()
+    )
+    if db_result is None:
+        return 'Für dieses Match ist kein Ergebnis gespeichert.'
+
+    return _get_delete_blocker_error(match_id)
+
+
+def _get_match_stage_delete_error(
+    tournament_id: TournamentID, match_id: MatchID
+) -> str | None:
+    db_match = db.session.scalar(
+        select(DbNetsessionTourneyMatch)
+        .filter_by(id=match_id, tournament_id=tournament_id)
+        .with_for_update()
+    )
+    if db_match is None:
+        return 'Unbekanntes Match.'
+
+    db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
+    if db_stage is None:
+        return 'Unbekannte Phase.'
+
+    stage = db_stage_to_model(db_stage)
+    if stage.type == StageType.swiss:
+        return (
+            'Bei Swiss lassen sich gespeicherte Ergebnisse noch nicht löschen.'
+        )
+
+    return None
+
+
+def _get_delete_blocker_error(match_id: MatchID) -> str | None:
+    blocking_match_id = find_match_result_delete_blocker(match_id)
+    if blocking_match_id is None:
+        return None
+
+    db_blocking_match = db.session.get(
+        DbNetsessionTourneyMatch, blocking_match_id
+    )
+    if db_blocking_match is None:
+        return 'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match schon ein gemeldetes Ergebnis hat.'
+
+    return (
+        'Das Ergebnis lässt sich nicht löschen, weil ein Folge-Match '
+        f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '
+        'schon ein gemeldetes Ergebnis hat.'
+    )
+
+
 def find_match_result_delete_blocker(
     match_id: MatchID, *, visited: set[MatchID] | None = None
 ) -> MatchID | None:
@@ -142,7 +166,22 @@ def find_match_result_delete_blocker(
     if source_slot is None:
         return None
 
-    downstream_match_ids = {
+    downstream_match_ids = _get_downstream_match_ids(source_slot)
+
+    for downstream_match_id in sorted(downstream_match_ids):
+        blocking_match_id = _find_delete_blocker_from_downstream_match(
+            downstream_match_id, visited
+        )
+        if blocking_match_id is not None:
+            return blocking_match_id
+
+    return None
+
+
+def _get_downstream_match_ids(
+    source_slot: DbNetsessionTourneyMatchSlot,
+) -> set[MatchID]:
+    return {
         downstream_match_id
         for downstream_match_id in db.session.scalars(
             select(DbNetsessionTourneyMatchSlot.match_id).filter_by(
@@ -151,29 +190,30 @@ def find_match_result_delete_blocker(
         ).all()
     }
 
-    for downstream_match_id in sorted(downstream_match_ids):
-        if downstream_match_id in visited:
-            continue
 
-        visited.add(downstream_match_id)
-        db_result = db.session.scalar(
-            select(DbNetsessionTourneyMatchResult).filter_by(
-                match_id=downstream_match_id
-            )
+def _find_delete_blocker_from_downstream_match(
+    downstream_match_id: MatchID, visited: set[MatchID]
+) -> MatchID | None:
+    """Return the downstream match itself if a user reported its result,
+    else search further downstream (unless already visited)."""
+    if downstream_match_id in visited:
+        return None
+
+    visited.add(downstream_match_id)
+    db_result = db.session.scalar(
+        select(DbNetsessionTourneyMatchResult).filter_by(
+            match_id=downstream_match_id
         )
-        if db_result is None:
-            continue
+    )
+    if db_result is None:
+        return None
 
-        if db_result.submitted_by_user_id is not None:
-            return downstream_match_id
+    if db_result.submitted_by_user_id is not None:
+        return downstream_match_id
 
-        blocking_match_id = find_match_result_delete_blocker(
-            downstream_match_id, visited=visited
-        )
-        if blocking_match_id is not None:
-            return blocking_match_id
-
-    return None
+    return find_match_result_delete_blocker(
+        downstream_match_id, visited=visited
+    )
 
 
 def _delete_match_result_branch(
@@ -211,6 +251,31 @@ def _delete_match_result_branch(
         {db_slot.match_id for db_slot in downstream_slots}
     )
 
+    _delete_downstream_result_branches(
+        downstream_match_ids,
+        deleted_match_ids=deleted_match_ids,
+        visited=visited,
+    )
+
+    db.session.execute(
+        delete(DbNetsessionTourneyResultReportReceipt).filter_by(
+            match_id=match_id
+        )
+    )
+    db.session.delete(db_result)
+    _reset_match_after_result_delete(db_match)
+
+    _clear_downstream_slots(downstream_slots)
+
+    deleted_match_ids.add(match_id)
+
+
+def _delete_downstream_result_branches(
+    downstream_match_ids: list[MatchID],
+    *,
+    deleted_match_ids: set[MatchID],
+    visited: set[MatchID],
+) -> None:
     for downstream_match_id in downstream_match_ids:
         db_downstream_result = db.session.scalar(
             select(DbNetsessionTourneyMatchResult)
@@ -225,18 +290,6 @@ def _delete_match_result_branch(
             deleted_match_ids=deleted_match_ids,
             visited=visited,
         )
-
-    db.session.execute(
-        delete(DbNetsessionTourneyResultReportReceipt).filter_by(
-            match_id=match_id
-        )
-    )
-    db.session.delete(db_result)
-    _reset_match_after_result_delete(db_match)
-
-    _clear_downstream_slots(downstream_slots)
-
-    deleted_match_ids.add(match_id)
 
 
 def _get_downstream_slots(

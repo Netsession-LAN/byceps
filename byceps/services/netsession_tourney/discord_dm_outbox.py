@@ -20,7 +20,7 @@ from byceps.services.party.models import PartyID
 from byceps.services.user.models import UserID
 from byceps.util.result import Err, Ok, Result
 
-from .browser_push_outbox import (
+from .browser_push_outbox_message import (
     build_browser_push_match_label,
     build_browser_push_message_payload,
 )
@@ -140,6 +140,19 @@ def _deliver_discord_dm_outbox_row(
 
     payload = _build_discord_dm_message_payload(db_tournament, db_notification)
 
+    _send_discord_dm_for_outbox_row(
+        db_row, db_config, bot_token, discord_user_id, payload, now
+    )
+
+
+def _send_discord_dm_for_outbox_row(
+    db_row: DbNetsessionTourneyDiscordDmOutbox,
+    db_config: DbNetsessionTourneyDiscordDmConfig,
+    bot_token: str,
+    discord_user_id: str,
+    payload: dict[str, Any],
+    now: datetime,
+) -> None:
     try:
         _send_discord_dm(
             application_id=db_config.application_id,
@@ -194,12 +207,15 @@ def send_test_discord_dm(
     if not db_config.application_id or not db_config.bot_token_encrypted:
         return Err('Discord-DM-Konfiguration ist unvollständig.')
 
-    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
-        user_id, 'discord'
-    )
-    discord_user_id = (
-        connected_account.external_id if connected_account is not None else None
-    )
+    return _send_test_discord_dm_with_config(party_id, user_id, db_config)
+
+
+def _send_test_discord_dm_with_config(
+    party_id: PartyID,
+    user_id: UserID,
+    db_config: DbNetsessionTourneyDiscordDmConfig,
+) -> Result[None, str]:
+    discord_user_id = _find_discord_user_id(user_id)
     if not discord_user_id:
         return Err('Dein Benutzerkonto hat keinen verbundenen Discord-Account.')
 
@@ -265,10 +281,7 @@ def _build_discord_dm_message_payload(
     payload = dict(db_notification.payload_json or {})
     kind = db_notification.kind
     match_label = build_browser_push_match_label(payload)
-    body = (
-        str(browser_payload.get('body') or '').strip()
-        or 'Es gibt ein neues Update.'
-    )
+    body = _extract_discord_dm_body(browser_payload)
     url = build_absolute_notification_url(
         db_tournament.party_id,
         str(browser_payload.get('url') or f'/ns-tourneys/{db_tournament.slug}'),
@@ -302,6 +315,27 @@ def _build_discord_dm_message_payload(
         + 'Z',
     }
 
+    _apply_discord_dm_embed_links(embed, url, brand_icon_url, thumbnail_url)
+
+    return {
+        'allowed_mentions': {'parse': []},
+        'embeds': [embed],
+    }
+
+
+def _extract_discord_dm_body(browser_payload: dict[str, Any]) -> str:
+    return (
+        str(browser_payload.get('body') or '').strip()
+        or 'Es gibt ein neues Update.'
+    )
+
+
+def _apply_discord_dm_embed_links(
+    embed: dict[str, Any],
+    url: str | None,
+    brand_icon_url: str | None,
+    thumbnail_url: str | None,
+) -> None:
     if url:
         embed['url'] = url
 
@@ -310,11 +344,6 @@ def _build_discord_dm_message_payload(
 
     if thumbnail_url:
         embed['thumbnail'] = {'url': thumbnail_url}
-
-    return {
-        'allowed_mentions': {'parse': []},
-        'embeds': [embed],
-    }
 
 
 def _build_test_discord_dm_message_payload(

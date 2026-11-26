@@ -45,19 +45,45 @@ def prepare_logo_image(
         return Ok((image_type, stream))
 
     try:
-        dimensions = determine_dimensions(stream)
-        too_large = (
-            dimensions.width > max_dimensions.width
-            or dimensions.height > max_dimensions.height
+        stream = _fit_logo_image(
+            stream, image_type, max_dimensions, force_square=force_square
         )
-        if too_large or (force_square and not dimensions.is_square):
-            stream = create_thumbnail(
-                stream,
-                image_type.name,
-                max_dimensions,
-                force_square=force_square,
-            )
     except OSError, ValueError, Image.DecompressionBombError:
         return Err(UNREADABLE_IMAGE_MESSAGE)
 
     return Ok((image_type, stream))
+
+
+def _fit_logo_image(
+    stream: BinaryIO,
+    image_type: ImageType,
+    max_dimensions: Dimensions,
+    *,
+    force_square: bool,
+) -> BinaryIO:
+    """Return the image, scaled down (or squared) if necessary."""
+    dimensions = determine_dimensions(stream)
+    if not _needs_logo_image_thumbnail(
+        dimensions, max_dimensions, force_square=force_square
+    ):
+        return stream
+
+    return create_thumbnail(
+        stream,
+        image_type.name,
+        max_dimensions,
+        force_square=force_square,
+    )
+
+
+def _needs_logo_image_thumbnail(
+    dimensions: Dimensions,
+    max_dimensions: Dimensions,
+    *,
+    force_square: bool,
+) -> bool:
+    too_large = (
+        dimensions.width > max_dimensions.width
+        or dimensions.height > max_dimensions.height
+    )
+    return too_large or (force_square and not dimensions.is_square)

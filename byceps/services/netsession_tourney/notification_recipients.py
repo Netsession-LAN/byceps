@@ -7,6 +7,8 @@ Users to notify about a match or a tournament.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import select
 
 from byceps.database import db
@@ -44,16 +46,7 @@ def get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
         )
     ).all()
     participant_ids = [participant.id for participant in db_participants]
-    user_ids = {
-        participant.user_id
-        for participant in db_participants
-        if participant.user_id is not None
-    }
-    user_ids.update(
-        participant.manager_user_id
-        for participant in db_participants
-        if participant.manager_user_id is not None
-    )
+    user_ids = _collect_participant_user_ids(db_participants)
     user_ids.update(
         db.session.scalars(
             select(DbNetsessionTourneyTeamMember.user_id).filter(
@@ -79,16 +72,7 @@ def get_active_user_ids_for_tournament(
         )
     ).all()
     participant_ids = [participant.id for participant in db_participants]
-    user_ids = {
-        participant.user_id
-        for participant in db_participants
-        if participant.user_id is not None
-    }
-    user_ids.update(
-        participant.manager_user_id
-        for participant in db_participants
-        if participant.manager_user_id is not None
-    )
+    user_ids = _collect_participant_user_ids(db_participants)
     if participant_ids:
         user_ids.update(
             db.session.scalars(
@@ -99,4 +83,21 @@ def get_active_user_ids_for_tournament(
                 )
             ).all()
         )
+    return user_ids
+
+
+def _collect_participant_user_ids(
+    db_participants: Sequence[DbNetsessionTourneyParticipant],
+) -> set[UserID]:
+    """Return the participants' users and managers."""
+    user_ids = {
+        participant.user_id
+        for participant in db_participants
+        if participant.user_id is not None
+    }
+    user_ids.update(
+        participant.manager_user_id
+        for participant in db_participants
+        if participant.manager_user_id is not None
+    )
     return user_ids

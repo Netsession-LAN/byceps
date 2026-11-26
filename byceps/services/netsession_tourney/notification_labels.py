@@ -92,33 +92,19 @@ def _build_double_elimination_notification_match_labels(
     }
 
     gf_matches = sorted(
-        [
-            match
-            for match in sorted_matches
-            if bracket_by_match_id.get(match.id) == 'GF'
-        ],
+        _select_notification_bracket_matches(
+            sorted_matches, bracket_by_match_id, 'GF'
+        ),
         key=lambda match: (match.round_no, match.match_no),
     )
-    if gf_matches:
-        if len(gf_matches) == 1:
-            labels_by_match_id[gf_matches[0].id] = 'Grand Final'
-        elif len(gf_matches) == 2:
-            labels_by_match_id[gf_matches[0].id] = 'Grand Final'
-            labels_by_match_id[gf_matches[1].id] = 'Double Grand Final'
-        else:
-            for index, match in enumerate(gf_matches, start=1):
-                labels_by_match_id[match.id] = f'Grand Final #{index}'
+    _label_notification_grand_final_matches(gf_matches, labels_by_match_id)
 
-    wb_matches = [
-        match
-        for match in sorted_matches
-        if bracket_by_match_id.get(match.id) == 'WB'
-    ]
-    lb_matches = [
-        match
-        for match in sorted_matches
-        if bracket_by_match_id.get(match.id) == 'LB'
-    ]
+    wb_matches = _select_notification_bracket_matches(
+        sorted_matches, bracket_by_match_id, 'WB'
+    )
+    lb_matches = _select_notification_bracket_matches(
+        sorted_matches, bracket_by_match_id, 'LB'
+    )
 
     labels_by_match_id.update(
         _label_notification_bracket_matches(
@@ -140,6 +126,35 @@ def _build_double_elimination_notification_match_labels(
     return labels_by_match_id
 
 
+def _select_notification_bracket_matches(
+    sorted_matches: list[DbNetsessionTourneyMatch],
+    bracket_by_match_id: dict[MatchID, str],
+    bracket: str,
+) -> list[DbNetsessionTourneyMatch]:
+    return [
+        match
+        for match in sorted_matches
+        if bracket_by_match_id.get(match.id) == bracket
+    ]
+
+
+def _label_notification_grand_final_matches(
+    gf_matches: list[DbNetsessionTourneyMatch],
+    labels_by_match_id: dict[MatchID, str],
+) -> None:
+    if not gf_matches:
+        return
+
+    if len(gf_matches) == 1:
+        labels_by_match_id[gf_matches[0].id] = 'Grand Final'
+    elif len(gf_matches) == 2:
+        labels_by_match_id[gf_matches[0].id] = 'Grand Final'
+        labels_by_match_id[gf_matches[1].id] = 'Double Grand Final'
+    else:
+        for index, match in enumerate(gf_matches, start=1):
+            labels_by_match_id[match.id] = f'Grand Final #{index}'
+
+
 def _assign_double_elimination_notification_brackets(
     sorted_matches: list[DbNetsessionTourneyMatch],
     stage_match_ids: set[MatchID],
@@ -152,29 +167,53 @@ def _assign_double_elimination_notification_brackets(
     while changed:
         changed = False
         for match in sorted_matches:
-            incoming = [
-                (source_match_id, outcome)
-                for source_match_id, outcome in incoming_by_match_id.get(
-                    match.id, []
-                )
-                if source_match_id in stage_match_ids
-            ]
-            bracket = bracket_by_match_id.get(match.id)
-            next_bracket = (
-                _determine_next_notification_bracket(
-                    incoming, bracket_by_match_id
-                )
-                if incoming
-                else 'WB'
+            incoming = _get_stage_incoming_notification_matches(
+                match.id, incoming_by_match_id, stage_match_ids
             )
-            if next_bracket is None:
-                next_bracket = bracket
+            bracket = bracket_by_match_id.get(match.id)
+            next_bracket = _resolve_next_notification_bracket(
+                incoming, bracket_by_match_id, bracket
+            )
 
             if next_bracket != bracket:
                 bracket_by_match_id[match.id] = next_bracket
                 changed = True
 
     return bracket_by_match_id
+
+
+def _get_stage_incoming_notification_matches(
+    match_id: MatchID,
+    incoming_by_match_id: dict[MatchID, list[tuple[MatchID, Any]]],
+    stage_match_ids: set[MatchID],
+) -> list[tuple[MatchID, Any]]:
+    return [
+        (source_match_id, outcome)
+        for source_match_id, outcome in incoming_by_match_id.get(match_id, [])
+        if source_match_id in stage_match_ids
+    ]
+
+
+def _resolve_next_notification_bracket(
+    incoming: list[tuple[MatchID, Any]],
+    bracket_by_match_id: dict[MatchID, str],
+    bracket: str | None,
+) -> str | None:
+    next_bracket = (
+        _determine_next_notification_bracket(incoming, bracket_by_match_id)
+        if incoming
+        else 'WB'
+    )
+    if next_bracket is None:
+        next_bracket = bracket
+    return next_bracket
+
+
+_NOTIFICATION_BRACKET_BY_SOURCE_BRACKETS = {
+    frozenset({'WB'}): 'WB',
+    frozenset({'LB'}): 'LB',
+    frozenset({'WB', 'LB'}): 'GF',
+}
 
 
 def _determine_next_notification_bracket(
@@ -191,17 +230,11 @@ def _determine_next_notification_bracket(
 
     if 'GF' in source_brackets:
         return 'GF'
-    elif any(
-        _is_loser_notification_outcome(outcome) for _, outcome in incoming
-    ):
+    if any(_is_loser_notification_outcome(outcome) for _, outcome in incoming):
         return 'LB'
-    elif source_brackets == {'WB'}:
-        return 'WB'
-    elif source_brackets == {'LB'}:
-        return 'LB'
-    elif source_brackets == {'WB', 'LB'}:
-        return 'GF'
-    return None
+    return _NOTIFICATION_BRACKET_BY_SOURCE_BRACKETS.get(
+        frozenset(source_brackets)
+    )
 
 
 def _is_loser_notification_outcome(outcome: Any) -> bool:
@@ -220,16 +253,45 @@ def _label_notification_bracket_matches(
         return {}
 
     labels_by_match_id: dict[MatchID, str] = {}
+    matches_by_round_no = _group_notification_matches_by_round_no(matches)
+
+    sorted_round_nos = sorted(matches_by_round_no.keys())
+    final_round_no = sorted_round_nos[-1]
+    _label_notification_final_round_matches(
+        matches_by_round_no[final_round_no], final_label, labels_by_match_id
+    )
+
+    semi_round_no = sorted_round_nos[-2] if len(sorted_round_nos) >= 2 else None
+    if semi_round_no is not None:
+        _label_notification_semi_round_matches(
+            matches_by_round_no[semi_round_no], semi_prefix, labels_by_match_id
+        )
+
+    _label_remaining_notification_bracket_matches(
+        matches_by_round_no, sorted_round_nos, prefix, labels_by_match_id
+    )
+
+    return labels_by_match_id
+
+
+def _group_notification_matches_by_round_no(
+    matches: list[DbNetsessionTourneyMatch],
+) -> dict[int, list[DbNetsessionTourneyMatch]]:
     matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = (
         defaultdict(list)
     )
     for match in matches:
         matches_by_round_no[match.round_no].append(match)
+    return matches_by_round_no
 
-    sorted_round_nos = sorted(matches_by_round_no.keys())
-    final_round_no = sorted_round_nos[-1]
+
+def _label_notification_final_round_matches(
+    round_matches: list[DbNetsessionTourneyMatch],
+    final_label: str,
+    labels_by_match_id: dict[MatchID, str],
+) -> None:
     final_round_matches = sorted(
-        matches_by_round_no[final_round_no],
+        round_matches,
         key=lambda match: match.match_no,
     )
     for index, match in enumerate(final_round_matches, start=1):
@@ -239,15 +301,26 @@ def _label_notification_bracket_matches(
             else f'{final_label} #{index}'
         )
 
-    semi_round_no = sorted_round_nos[-2] if len(sorted_round_nos) >= 2 else None
-    if semi_round_no is not None:
-        semi_matches = sorted(
-            matches_by_round_no[semi_round_no],
-            key=lambda match: match.match_no,
-        )
-        for index, match in enumerate(semi_matches, start=1):
-            labels_by_match_id[match.id] = f'{semi_prefix} #{index}'
 
+def _label_notification_semi_round_matches(
+    round_matches: list[DbNetsessionTourneyMatch],
+    semi_prefix: str,
+    labels_by_match_id: dict[MatchID, str],
+) -> None:
+    semi_matches = sorted(
+        round_matches,
+        key=lambda match: match.match_no,
+    )
+    for index, match in enumerate(semi_matches, start=1):
+        labels_by_match_id[match.id] = f'{semi_prefix} #{index}'
+
+
+def _label_remaining_notification_bracket_matches(
+    matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]],
+    sorted_round_nos: list[int],
+    prefix: str,
+    labels_by_match_id: dict[MatchID, str],
+) -> None:
     running_no = 1
     for round_no in sorted_round_nos:
         for match in sorted(
@@ -258,5 +331,3 @@ def _label_notification_bracket_matches(
                 continue
             labels_by_match_id[match.id] = f'{prefix} #{running_no}'
             running_no += 1
-
-    return labels_by_match_id

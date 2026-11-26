@@ -7,6 +7,7 @@ Seeds of participants for match generation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import select
@@ -72,33 +73,19 @@ def set_participant_seed(
     if db_participant is None:
         return Err('Unbekannter Teilnehmer.')
 
-    active_participant_count = len(db_participants)
-    if seed > active_participant_count:
-        return Err(
-            'Der Setzplatz darf nicht größer sein als die Zahl der aktiven Teilnehmer.'
-        )
-
-    seeded_participants = sorted(
-        (
-            item
-            for item in db_participants
-            if item.id != participant_id and item.seed is not None
-        ),
-        key=lambda item: (item.seed, item.created_at),
+    seeded_participants = _get_other_seeded_participants(
+        db_participants, participant_id
     )
 
-    max_assignable_seed = len(seeded_participants) + 1
-    if seed > max_assignable_seed:
-        return Err(
-            'Setzplätze müssen lückenlos vergeben werden. '
-            f'Der nächste freie manuelle Setzplatz ist {max_assignable_seed}.'
-        )
+    seed_error = _check_seed_assignable(
+        seed, len(db_participants), len(seeded_participants) + 1
+    )
+    if seed_error is not None:
+        return Err(seed_error)
 
     insertion_index = seed - 1
     seeded_participants.insert(insertion_index, db_participant)
-
-    for index, item in enumerate(seeded_participants, start=1):
-        item.seed = index
+    _renumber_participant_seeds(seeded_participants)
 
     append_audit_log(
         actor_user_id=initiator.id,
@@ -113,6 +100,42 @@ def set_participant_seed(
     return Ok(db_participant_to_model(db_participant))
 
 
+def _get_other_seeded_participants(
+    db_participants: Sequence[DbNetsessionTourneyParticipant],
+    participant_id: ParticipantID,
+) -> list[DbNetsessionTourneyParticipant]:
+    return sorted(
+        (
+            item
+            for item in db_participants
+            if item.id != participant_id and item.seed is not None
+        ),
+        key=lambda item: (item.seed, item.created_at),
+    )
+
+
+def _check_seed_assignable(
+    seed: int, active_participant_count: int, max_assignable_seed: int
+) -> str | None:
+    if seed > active_participant_count:
+        return 'Der Setzplatz darf nicht größer sein als die Zahl der aktiven Teilnehmer.'
+
+    if seed > max_assignable_seed:
+        return (
+            'Setzplätze müssen lückenlos vergeben werden. '
+            f'Der nächste freie manuelle Setzplatz ist {max_assignable_seed}.'
+        )
+
+    return None
+
+
+def _renumber_participant_seeds(
+    seeded_participants: list[DbNetsessionTourneyParticipant],
+) -> None:
+    for index, item in enumerate(seeded_participants, start=1):
+        item.seed = index
+
+
 def set_stage_generation_seeds(
     party_id: PartyID,
     tournament_id: TournamentID,
@@ -121,24 +144,12 @@ def set_stage_generation_seeds(
     manual_seed_by_participant_id: dict[ParticipantID, int],
     initiator: User,
 ) -> Result[list[Participant], str]:
-    db_stage = db.session.scalar(
-        select(DbNetsessionTourneyStage).filter_by(
-            id=stage_id, tournament_id=tournament_id
-        )
-    )
-    if db_stage is None:
-        return Err('Unbekannte Phase.')
-
-    stage = db_stage_to_model(db_stage)
-    selected_participants_result = get_stage_generation_participants(
+    selection_result = _load_stage_generation_seed_selection(
         party_id, tournament_id, stage_id
     )
-    if selected_participants_result.is_err():
-        return Err(selected_participants_result.unwrap_err())
-
-    selected_participants = selected_participants_result.unwrap()
-    if len(selected_participants) < 2:
-        return Err('Zu wenige Teilnehmer für die Vergabe der Setzplätze.')
+    if selection_result.is_err():
+        return Err(selection_result.unwrap_err())
+    stage, selected_participants = selection_result.unwrap()
 
     selected_participants_by_id = {
         participant.id: participant for participant in selected_participants
@@ -159,23 +170,16 @@ def set_stage_generation_seeds(
         manual_seed_by_participant_id, selected_participant_ids
     )
 
-    db_participants = db.session.scalars(
-        select(DbNetsessionTourneyParticipant)
-        .filter_by(tournament_id=tournament_id)
-        .filter(DbNetsessionTourneyParticipant.id.in_(final_participant_ids))
-    ).all()
-    db_participants_by_id = {
-        participant.id: participant for participant in db_participants
-    }
+    db_participants_by_id = _load_db_participants_by_id(
+        tournament_id, final_participant_ids
+    )
 
     now = datetime.utcnow()
-    for seed, participant_id in enumerate(final_participant_ids, start=1):
-        db_participant = db_participants_by_id.get(participant_id)
-        if db_participant is None:
-            return Err(
-                'Ein Teilnehmer für die Vergabe der Setzplätze wurde nicht gefunden.'
-            )
-        db_participant.seed = seed
+    seed_error = _assign_final_seeds(
+        db_participants_by_id, final_participant_ids
+    )
+    if seed_error is not None:
+        return Err(seed_error)
 
     _append_stage_generation_seeds_audit_log(
         initiator,
@@ -193,6 +197,55 @@ def set_stage_generation_seeds(
             for participant_id in final_participant_ids
         ]
     )
+
+
+def _load_stage_generation_seed_selection(
+    party_id: PartyID, tournament_id: TournamentID, stage_id: StageID
+) -> Result[tuple[Stage, list[Participant]], str]:
+    db_stage = db.session.scalar(
+        select(DbNetsessionTourneyStage).filter_by(
+            id=stage_id, tournament_id=tournament_id
+        )
+    )
+    if db_stage is None:
+        return Err('Unbekannte Phase.')
+
+    stage = db_stage_to_model(db_stage)
+    selected_participants_result = get_stage_generation_participants(
+        party_id, tournament_id, stage_id
+    )
+    if selected_participants_result.is_err():
+        return Err(selected_participants_result.unwrap_err())
+
+    selected_participants = selected_participants_result.unwrap()
+    if len(selected_participants) < 2:
+        return Err('Zu wenige Teilnehmer für die Vergabe der Setzplätze.')
+
+    return Ok((stage, selected_participants))
+
+
+def _load_db_participants_by_id(
+    tournament_id: TournamentID, participant_ids: list[ParticipantID]
+) -> dict[ParticipantID, DbNetsessionTourneyParticipant]:
+    db_participants = db.session.scalars(
+        select(DbNetsessionTourneyParticipant)
+        .filter_by(tournament_id=tournament_id)
+        .filter(DbNetsessionTourneyParticipant.id.in_(participant_ids))
+    ).all()
+    return {participant.id: participant for participant in db_participants}
+
+
+def _assign_final_seeds(
+    db_participants_by_id: dict[ParticipantID, DbNetsessionTourneyParticipant],
+    final_participant_ids: list[ParticipantID],
+) -> str | None:
+    for seed, participant_id in enumerate(final_participant_ids, start=1):
+        db_participant = db_participants_by_id.get(participant_id)
+        if db_participant is None:
+            return 'Ein Teilnehmer für die Vergabe der Setzplätze wurde nicht gefunden.'
+        db_participant.seed = seed
+
+    return None
 
 
 def _append_stage_generation_seeds_audit_log(
@@ -240,27 +293,55 @@ def _resolve_final_seed_participant_ids(
         )
 
     if is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(stage):
-        if manual_seed_by_participant_id:
-            return Err(
-                'Die Setzliste für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
-            )
-
-        return Ok([participant.id for participant in selected_participants])
+        return _resolve_locked_qualifier_seed_participant_ids(
+            selected_participants, manual_seed_by_participant_id
+        )
 
     normalized_manual_seed_by_participant_id = _normalize_manual_seeds(
         manual_seed_by_participant_id, selected_participant_ids
     )
+    if not _are_manual_seeds_contiguous(
+        normalized_manual_seed_by_participant_id
+    ):
+        return Err(
+            'Manuelle Setzplätze müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
+        )
+
+    return Ok(
+        _order_participant_ids_by_manual_seeds(
+            normalized_manual_seed_by_participant_id, auto_seed_participant_ids
+        )
+    )
+
+
+def _resolve_locked_qualifier_seed_participant_ids(
+    selected_participants: list[Participant],
+    manual_seed_by_participant_id: dict[ParticipantID, int],
+) -> Result[list[ParticipantID], str]:
+    if manual_seed_by_participant_id:
+        return Err(
+            'Die Setzliste für dieses Hauptturnier wird automatisch aus den abgeschlossenen Vorrunden übernommen und kann nicht manuell angepasst werden.'
+        )
+
+    return Ok([participant.id for participant in selected_participants])
+
+
+def _are_manual_seeds_contiguous(
+    normalized_manual_seed_by_participant_id: dict[ParticipantID, int],
+) -> bool:
     manual_seed_values = sorted(
         normalized_manual_seed_by_participant_id.values()
     )
     expected_manual_seed_values = list(
         range(1, len(normalized_manual_seed_by_participant_id) + 1)
     )
-    if manual_seed_values != expected_manual_seed_values:
-        return Err(
-            'Manuelle Setzplätze müssen lückenlos bei 1 beginnen und dürfen keine Duplikate enthalten.'
-        )
+    return manual_seed_values == expected_manual_seed_values
 
+
+def _order_participant_ids_by_manual_seeds(
+    normalized_manual_seed_by_participant_id: dict[ParticipantID, int],
+    auto_seed_participant_ids: list[ParticipantID],
+) -> list[ParticipantID]:
     manual_prefix_participant_ids = [
         participant_id
         for participant_id, _seed in sorted(
@@ -273,6 +354,4 @@ def _resolve_final_seed_participant_ids(
         for participant_id in auto_seed_participant_ids
         if participant_id not in normalized_manual_seed_by_participant_id
     ]
-    return Ok(
-        manual_prefix_participant_ids + remaining_auto_seed_participant_ids
-    )
+    return manual_prefix_participant_ids + remaining_auto_seed_participant_ids

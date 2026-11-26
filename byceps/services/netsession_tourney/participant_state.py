@@ -81,34 +81,55 @@ def refresh_match_states_for_participant_readiness(
             DbNetsessionTourneyMatchSlot.slot_no.asc(),
         )
     ).all()
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
-        defaultdict(list)
-    )
-    for db_slot in db_slots:
-        slots_by_match_id[db_slot.match_id].append(db_slot)
+    slots_by_match_id = _group_slots_by_match_id(db_slots)
 
     participant_status_value_by_participant_id = (
         get_participant_status_value_by_participant_id_for_slots(db_slots)
     )
     now = datetime.utcnow()
     for db_match in affected_matches:
-        previous_state = MatchState(db_match.state)
-        next_state = calculate_match_state_for_slots(
+        _refresh_match_state_for_readiness(
+            db_match,
             tournament_status=db_tournament.status,
             db_match_slots=slots_by_match_id.get(db_match.id, []),
             participant_status_value_by_participant_id=participant_status_value_by_participant_id,
+            now=now,
         )
-        if next_state == previous_state:
-            continue
 
-        db_match.state = next_state.value
-        db_match.updated_at = now
 
-        if (
-            previous_state != MatchState.ready
-            and next_state == MatchState.ready
-        ):
-            enqueue_match_ready_notifications(db_match)
+def _group_slots_by_match_id(
+    db_slots: list[DbNetsessionTourneyMatchSlot],
+) -> dict[MatchID, list[DbNetsessionTourneyMatchSlot]]:
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
+        defaultdict(list)
+    )
+    for db_slot in db_slots:
+        slots_by_match_id[db_slot.match_id].append(db_slot)
+    return slots_by_match_id
+
+
+def _refresh_match_state_for_readiness(
+    db_match: DbNetsessionTourneyMatch,
+    *,
+    tournament_status: str,
+    db_match_slots: list[DbNetsessionTourneyMatchSlot],
+    participant_status_value_by_participant_id: dict[ParticipantID, str],
+    now: datetime,
+) -> None:
+    previous_state = MatchState(db_match.state)
+    next_state = calculate_match_state_for_slots(
+        tournament_status=tournament_status,
+        db_match_slots=db_match_slots,
+        participant_status_value_by_participant_id=participant_status_value_by_participant_id,
+    )
+    if next_state == previous_state:
+        return
+
+    db_match.state = next_state.value
+    db_match.updated_at = now
+
+    if previous_state != MatchState.ready and next_state == MatchState.ready:
+        enqueue_match_ready_notifications(db_match)
 
 
 def count_active_participants_for_tournament(
@@ -150,11 +171,7 @@ def calculate_match_state_for_slots(
     if not db_match_slots:
         return MatchState.pending
 
-    participant_ids = [
-        db_slot.participant_id
-        for db_slot in db_match_slots
-        if db_slot.participant_id is not None
-    ]
+    participant_ids = _get_assigned_participant_ids(db_match_slots)
     if len(participant_ids) != len(db_match_slots):
         return MatchState.pending
 
@@ -174,6 +191,16 @@ def calculate_match_state_for_slots(
         return MatchState.ready
 
     return MatchState.pending
+
+
+def _get_assigned_participant_ids(
+    db_match_slots: list[DbNetsessionTourneyMatchSlot],
+) -> list[ParticipantID]:
+    return [
+        db_slot.participant_id
+        for db_slot in db_match_slots
+        if db_slot.participant_id is not None
+    ]
 
 
 def get_participant_status_value_by_participant_id_for_slots(

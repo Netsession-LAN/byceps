@@ -33,24 +33,9 @@ def build_match_extras(ranking) -> MatchExtras:
     """`ranking` is a `TournamentRanking` (it holds all tournament data)."""
     stages_by_id = {stage.id: stage for stage in ranking.stages}
     slots_by_match_id = ranking.slots_by_match_id
-    match_id_by_slot_id = {
-        slot.id: slot.match_id
-        for slots in slots_by_match_id.values()
-        for slot in slots
-    }
-    next_by_match_id = {}
-    loser_next_by_match_id = {}
-    source_match_id_by_slot_id = {}
-    for match_id, slots in slots_by_match_id.items():
-        for slot in slots:
-            source_match_id = match_id_by_slot_id.get(slot.source_match_slot_id)
-            if source_match_id is None:
-                continue
-            source_match_id_by_slot_id[slot.id] = source_match_id
-            if slot.source_outcome == SourceOutcome.loser:
-                loser_next_by_match_id[source_match_id] = match_id
-            else:
-                next_by_match_id[source_match_id] = match_id
+    next_by_match_id, loser_next_by_match_id, source_match_id_by_slot_id = (
+        _build_slot_links(slots_by_match_id)
+    )
 
     return MatchExtras(
         round_label_by_match_id=build_match_labels(
@@ -67,6 +52,34 @@ def build_match_extras(ranking) -> MatchExtras:
         source_match_id_by_slot_id=source_match_id_by_slot_id,
         matches_by_id={match.id: match for match in ranking.matches},
     )
+
+
+def _build_slot_links(slots_by_match_id) -> tuple[dict, dict, dict]:
+    """Where winners and losers go next, and the source match per slot."""
+    match_id_by_slot_id = _build_match_id_by_slot_id(slots_by_match_id)
+    next_by_match_id = {}
+    loser_next_by_match_id = {}
+    source_match_id_by_slot_id = {}
+    for match_id, slots in slots_by_match_id.items():
+        for slot in slots:
+            source_match_id = match_id_by_slot_id.get(slot.source_match_slot_id)
+            if source_match_id is None:
+                continue
+            source_match_id_by_slot_id[slot.id] = source_match_id
+            if slot.source_outcome == SourceOutcome.loser:
+                loser_next_by_match_id[source_match_id] = match_id
+            else:
+                next_by_match_id[source_match_id] = match_id
+
+    return next_by_match_id, loser_next_by_match_id, source_match_id_by_slot_id
+
+
+def _build_match_id_by_slot_id(slots_by_match_id) -> dict:
+    return {
+        slot.id: slot.match_id
+        for slots in slots_by_match_id.values()
+        for slot in slots
+    }
 
 
 def describe_match(match, extras: MatchExtras) -> dict:
@@ -90,28 +103,33 @@ def describe_match(match, extras: MatchExtras) -> dict:
 
 def bye_slot_ids(slots, extras: MatchExtras) -> set:
     """Empty slots that will never get a participant (website rule)."""
-    has_explicit_bye = any(
+    has_explicit_bye = _has_explicit_bye(slots, extras)
+
+    bye_ids = set()
+    for slot in slots:
+        if _is_bye_slot(slot, extras, has_explicit_bye):
+            bye_ids.add(slot.id)
+    return bye_ids
+
+
+def _has_explicit_bye(slots, extras: MatchExtras) -> bool:
+    return any(
         slot.participant_id is None
         and slot.id not in extras.source_match_id_by_slot_id
         for slot in slots
     ) and any(slot.participant_id is not None for slot in slots)
 
-    bye_ids = set()
-    for slot in slots:
-        if slot.participant_id is not None:
-            continue
-        source_match_id = extras.source_match_id_by_slot_id.get(slot.id)
-        if source_match_id is None:
-            if has_explicit_bye:
-                bye_ids.add(slot.id)
-            continue
-        source_match = extras.matches_by_id.get(source_match_id)
-        if (
-            source_match is not None
-            and source_match.state == MatchState.completed
-        ):
-            bye_ids.add(slot.id)
-    return bye_ids
+
+def _is_bye_slot(slot, extras: MatchExtras, has_explicit_bye: bool) -> bool:
+    if slot.participant_id is not None:
+        return False
+    source_match_id = extras.source_match_id_by_slot_id.get(slot.id)
+    if source_match_id is None:
+        return has_explicit_bye
+    source_match = extras.matches_by_id.get(source_match_id)
+    return (
+        source_match is not None and source_match.state == MatchState.completed
+    )
 
 
 def _bracket_for_label(label: str | None) -> str | None:
@@ -147,28 +165,41 @@ def build_advancing_ids_by_match_id(ranking) -> dict:
         if stage.type.value.startswith('ffa')
     }
 
-    def position(match) -> tuple:
-        return (order_by_stage_id.get(match.stage_id, 0), match.round_no)
-
-    def participant_ids(match) -> set:
-        return {
-            slot.participant_id
-            for slot in ranking.slots_by_match_id.get(match.id, [])
-            if slot.participant_id is not None
-        }
-
     advancing = {}
     for match in ranking.matches:
-        if match.stage_id not in ffa_stage_ids:
+        if not _is_completed_match_in(match, ffa_stage_ids):
             continue
-        if match.state != MatchState.completed:
-            continue
-        later_ids = set().union(
-            *(
-                participant_ids(other)
-                for other in ranking.matches
-                if position(other) > position(match)
-            )
+        later_ids = _get_later_participant_ids(
+            ranking, match, order_by_stage_id
         )
-        advancing[match.id] = participant_ids(match) & later_ids
+        advancing[match.id] = _get_participant_ids(ranking, match) & later_ids
     return advancing
+
+
+def _is_completed_match_in(match, stage_ids: set) -> bool:
+    if match.stage_id not in stage_ids:
+        return False
+    return match.state == MatchState.completed
+
+
+def _get_later_participant_ids(ranking, match, order_by_stage_id) -> set:
+    match_position = _get_position(match, order_by_stage_id)
+    return set().union(
+        *(
+            _get_participant_ids(ranking, other)
+            for other in ranking.matches
+            if _get_position(other, order_by_stage_id) > match_position
+        )
+    )
+
+
+def _get_position(match, order_by_stage_id) -> tuple:
+    return (order_by_stage_id.get(match.stage_id, 0), match.round_no)
+
+
+def _get_participant_ids(ranking, match) -> set:
+    return {
+        slot.participant_id
+        for slot in ranking.slots_by_match_id.get(match.id, [])
+        if slot.participant_id is not None
+    }

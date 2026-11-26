@@ -7,6 +7,7 @@ Payloads of Discord forum posts and events.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -131,6 +132,10 @@ def build_discord_message_payload(
     }
 
 
+_DISCORD_DEFAULT_COLOR = 0xFF2B00
+_DISCORD_DEFAULT_DESCRIPTION = 'Es gibt ein neues Turnier-Update.'
+
+
 def _build_discord_event_presentation(
     db_tournament: DbNetsessionTourneyTournament,
     event_name: str,
@@ -138,59 +143,150 @@ def _build_discord_event_presentation(
     url: str | None,
 ) -> _DiscordEventPresentation:
     """Return embed title, description, link and color for the event."""
-    title = db_tournament.title
-    color = 0xFF2B00
-    description = 'Es gibt ein neues Turnier-Update.'
-
-    if event_name == 'manual_announcement':
-        embed_title = 'Turnier-Update'
-        description = str(payload_data.get('body') or '').strip() or description
-        title = str(payload_data.get('title') or '').strip() or title
-        custom_url = str(payload_data.get('url') or '').strip()
-        if custom_url:
-            url = build_absolute_notification_url(
-                db_tournament.party_id, custom_url
-            )
-    elif event_name == 'match_completed':
-        embed_title = 'Match beendet'
-        description = build_discord_match_completed_description(
-            title, payload_data
-        )
-        custom_url = str(payload_data.get('url') or '').strip()
-        if custom_url:
-            url = build_absolute_notification_url(
-                db_tournament.party_id, custom_url
-            )
-        color = 0x3B82F6
-    elif event_name == 'stage_started':
-        stage_name = str(payload_data.get('stage_name') or '').strip()
-        embed_title = 'Phase gestartet'
-        description = (
-            f'**{title}**\n{stage_name} ist gestartet.'
-            if stage_name
-            else f'**{title}**\nEine neue Phase ist gestartet.'
-        )
-        color = 0xF97316
-    elif event_name == 'tournament_finished':
-        embed_title = 'Turnier beendet'
-        description = build_discord_tournament_finished_description(
-            title, payload_data
-        )
-        color = 0x10B981
-    elif event_name == 'tournament_canceled':
-        embed_title = 'Turnier abgesagt'
-        description = f'**{title}**\nDas Turnier wurde abgesagt.'
-        color = 0xEF4444
-    elif event_name == 'tournament_live':
-        embed_title = 'Turnier live'
-        description = f'**{title}**\nDas Turnier ist jetzt live.'
-    else:
-        embed_title = 'Turnier-Update'
-        description = f'**{title}**\n{description}'
-
-    return _DiscordEventPresentation(
-        embed_title=embed_title, description=description, url=url, color=color
+    build_presentation = _DISCORD_EVENT_PRESENTATION_BUILDERS.get(
+        event_name, _build_discord_generic_update_presentation
     )
+    return build_presentation(db_tournament, payload_data, url)
+
+
+def _build_discord_manual_announcement_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    description = (
+        str(payload_data.get('body') or '').strip()
+        or _DISCORD_DEFAULT_DESCRIPTION
+    )
+    return _DiscordEventPresentation(
+        embed_title='Turnier-Update',
+        description=description,
+        url=_get_discord_custom_url(db_tournament, payload_data, url),
+        color=_DISCORD_DEFAULT_COLOR,
+    )
+
+
+def _build_discord_match_completed_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    description = build_discord_match_completed_description(
+        db_tournament.title, payload_data
+    )
+    return _DiscordEventPresentation(
+        embed_title='Match beendet',
+        description=description,
+        url=_get_discord_custom_url(db_tournament, payload_data, url),
+        color=0x3B82F6,
+    )
+
+
+def _get_discord_custom_url(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> str | None:
+    """Return the payload's own link (made absolute), if any, else `url`."""
+    custom_url = str(payload_data.get('url') or '').strip()
+    if custom_url:
+        return build_absolute_notification_url(
+            db_tournament.party_id, custom_url
+        )
+    return url
+
+
+def _build_discord_stage_started_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    title = db_tournament.title
+    stage_name = str(payload_data.get('stage_name') or '').strip()
+    description = (
+        f'**{title}**\n{stage_name} ist gestartet.'
+        if stage_name
+        else f'**{title}**\nEine neue Phase ist gestartet.'
+    )
+    return _DiscordEventPresentation(
+        embed_title='Phase gestartet',
+        description=description,
+        url=url,
+        color=0xF97316,
+    )
+
+
+def _build_discord_tournament_finished_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    description = build_discord_tournament_finished_description(
+        db_tournament.title, payload_data
+    )
+    return _DiscordEventPresentation(
+        embed_title='Turnier beendet',
+        description=description,
+        url=url,
+        color=0x10B981,
+    )
+
+
+def _build_discord_tournament_canceled_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    return _DiscordEventPresentation(
+        embed_title='Turnier abgesagt',
+        description=f'**{db_tournament.title}**\nDas Turnier wurde abgesagt.',
+        url=url,
+        color=0xEF4444,
+    )
+
+
+def _build_discord_tournament_live_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    return _DiscordEventPresentation(
+        embed_title='Turnier live',
+        description=f'**{db_tournament.title}**\nDas Turnier ist jetzt live.',
+        url=url,
+        color=_DISCORD_DEFAULT_COLOR,
+    )
+
+
+def _build_discord_generic_update_presentation(
+    db_tournament: DbNetsessionTourneyTournament,
+    payload_data: dict[str, Any],
+    url: str | None,
+) -> _DiscordEventPresentation:
+    return _DiscordEventPresentation(
+        embed_title='Turnier-Update',
+        description=(
+            f'**{db_tournament.title}**\n{_DISCORD_DEFAULT_DESCRIPTION}'
+        ),
+        url=url,
+        color=_DISCORD_DEFAULT_COLOR,
+    )
+
+
+_DISCORD_EVENT_PRESENTATION_BUILDERS: dict[
+    str,
+    Callable[
+        [DbNetsessionTourneyTournament, dict[str, Any], str | None],
+        _DiscordEventPresentation,
+    ],
+] = {
+    'manual_announcement': _build_discord_manual_announcement_presentation,
+    'match_completed': _build_discord_match_completed_presentation,
+    'stage_started': _build_discord_stage_started_presentation,
+    'tournament_finished': _build_discord_tournament_finished_presentation,
+    'tournament_canceled': _build_discord_tournament_canceled_presentation,
+    'tournament_live': _build_discord_tournament_live_presentation,
+}
 
 
 def _build_discord_message_fields(
@@ -233,20 +329,66 @@ def build_discord_forum_thread_payload(
     brand_icon_url = build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
     )
-    image_url = (
-        build_absolute_notification_url(
-            db_tournament.party_id, db_tournament.discord_forum_image_url
-        )
-        if db_tournament.discord_forum_image_url
-        else None
+    image_url = _build_discord_forum_thread_image_url(db_tournament)
+    description_lines = _build_discord_forum_thread_description_lines(
+        db_tournament
     )
+
+    fields = _build_discord_forum_thread_fields(db_tournament, url)
+
+    embed: dict[str, Any] = {
+        'author': {'name': 'Netsession Turniere'},
+        'title': db_tournament.title[:256],
+        'description': '\n'.join(description_lines)[:4096],
+        'color': 0xFF2B00,
+        'fields': fields,
+        'footer': {'text': 'Netsession Turniere'},
+        'timestamp': datetime.utcnow().replace(microsecond=0).isoformat() + 'Z',
+    }
+    _add_discord_forum_thread_embed_links(
+        embed, url=url, brand_icon_url=brand_icon_url, image_url=image_url
+    )
+
+    payload: dict[str, Any] = {
+        'name': db_tournament.title[:100],
+        'auto_archive_duration': 10080,
+        'message': {
+            'allowed_mentions': {'parse': []},
+            'embeds': [embed],
+        },
+    }
+    if db_tournament.discord_applied_tag_ids:
+        payload['applied_tags'] = db_tournament.discord_applied_tag_ids
+
+    return payload
+
+
+def _build_discord_forum_thread_image_url(
+    db_tournament: DbNetsessionTourneyTournament,
+) -> str | None:
+    if not db_tournament.discord_forum_image_url:
+        return None
+
+    return build_absolute_notification_url(
+        db_tournament.party_id, db_tournament.discord_forum_image_url
+    )
+
+
+def _build_discord_forum_thread_description_lines(
+    db_tournament: DbNetsessionTourneyTournament,
+) -> list[str]:
     description_lines = [f'**{db_tournament.title}**']
     if db_tournament.subtitle:
         description_lines.append(db_tournament.subtitle)
     description_lines.append(
         'Der Discord-Thread für dieses Turnier wurde eingerichtet.'
     )
+    return description_lines
 
+
+def _build_discord_forum_thread_fields(
+    db_tournament: DbNetsessionTourneyTournament, url: str | None
+) -> list[dict[str, Any]]:
     fields = [
         {
             'name': 'Turnier',
@@ -280,32 +422,19 @@ def build_discord_forum_thread_payload(
                 'inline': False,
             }
         )
+    return fields
 
-    embed: dict[str, Any] = {
-        'author': {'name': 'Netsession Turniere'},
-        'title': db_tournament.title[:256],
-        'description': '\n'.join(description_lines)[:4096],
-        'color': 0xFF2B00,
-        'fields': fields,
-        'footer': {'text': 'Netsession Turniere'},
-        'timestamp': datetime.utcnow().replace(microsecond=0).isoformat() + 'Z',
-    }
+
+def _add_discord_forum_thread_embed_links(
+    embed: dict[str, Any],
+    *,
+    url: str | None,
+    brand_icon_url: str | None,
+    image_url: str | None,
+) -> None:
     if url:
         embed['url'] = url
     if brand_icon_url:
         embed['author']['icon_url'] = brand_icon_url
     if image_url:
         embed['image'] = {'url': image_url}
-
-    payload: dict[str, Any] = {
-        'name': db_tournament.title[:100],
-        'auto_archive_duration': 10080,
-        'message': {
-            'allowed_mentions': {'parse': []},
-            'embeds': [embed],
-        },
-    }
-    if db_tournament.discord_applied_tag_ids:
-        payload['applied_tags'] = db_tournament.discord_applied_tag_ids
-
-    return payload
