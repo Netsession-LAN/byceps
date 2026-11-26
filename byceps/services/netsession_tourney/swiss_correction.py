@@ -53,13 +53,31 @@ def prepare_swiss_winner_change(
             DbNetsessionTourneyMatchSlot.match_id.in_(later_match_ids)
         )
     ).all()
+    filled_count_by_match_id = _count_filled_slots_by_match_id(slots)
+
+    played_error = _find_played_later_swiss_match(
+        later_matches, filled_count_by_match_id
+    )
+    if played_error is not None:
+        return played_error
+
+    _empty_matches(later_matches, later_match_ids, slots)
+    return None
+
+
+def _count_filled_slots_by_match_id(slots) -> dict:
     filled_count_by_match_id: dict = {}
     for slot in slots:
         if slot.participant_id is not None:
             filled_count_by_match_id[slot.match_id] = (
                 filled_count_by_match_id.get(slot.match_id, 0) + 1
             )
+    return filled_count_by_match_id
 
+
+def _find_played_later_swiss_match(
+    later_matches, filled_count_by_match_id: dict
+) -> str | None:
     for match in later_matches:
         is_real_match = filled_count_by_match_id.get(match.id, 0) == 2
         if is_real_match and match.state not in _UNPLAYED_STATES:
@@ -67,8 +85,6 @@ def prepare_swiss_winner_change(
                 'Der Sieger lässt sich nicht mehr ändern, weil in Runde '
                 f'{match.round_no} schon gespielt wurde.'
             )
-
-    _empty_matches(later_matches, later_match_ids, slots)
     return None
 
 

@@ -24,6 +24,7 @@ from .dbmodels import (
     DbNetsessionTourneyMatchResult,
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyStage,
+    DbNetsessionTourneyTournament,
 )
 from .engines.registry import (
     get_stage_type_spec,
@@ -166,23 +167,11 @@ def update_stage(
     if db_stage is None:
         return Err('Unbekannte Phase.')
 
-    spec = get_stage_type_spec(type_)
-    tournament_mode = TournamentMode(db_tournament.mode)
-    if not _is_stage_type_compatible_with_tournament_mode(
-        spec.family, tournament_mode
-    ):
-        return Err('Dieser Phasentyp passt nicht zum Turniermodus.')
-
-    tournament_registration_mode = RegistrationMode(
-        db_tournament.registration_mode
+    stage_type_error = _check_stage_type_allowed_for_tournament(
+        db_tournament, type_
     )
-    if not _is_stage_type_compatible_with_registration_mode(
-        type_, tournament_registration_mode
-    ):
-        return Err('Dieser Phasentyp passt nicht zum Anmeldemodus.')
-
-    if not spec.enabled:
-        return Err('Dieser Phasentyp ist zurzeit deaktiviert.')
+    if stage_type_error is not None:
+        return Err(stage_type_error)
 
     type_changed = db_stage.type != type_.value
     merged = merge_stage_settings(
@@ -213,6 +202,30 @@ def update_stage(
 
     db.session.commit()
     return Ok(db_stage_to_model(db_stage))
+
+
+def _check_stage_type_allowed_for_tournament(
+    db_tournament: DbNetsessionTourneyTournament, type_: StageType
+) -> str | None:
+    spec = get_stage_type_spec(type_)
+    tournament_mode = TournamentMode(db_tournament.mode)
+    if not _is_stage_type_compatible_with_tournament_mode(
+        spec.family, tournament_mode
+    ):
+        return 'Dieser Phasentyp passt nicht zum Turniermodus.'
+
+    tournament_registration_mode = RegistrationMode(
+        db_tournament.registration_mode
+    )
+    if not _is_stage_type_compatible_with_registration_mode(
+        type_, tournament_registration_mode
+    ):
+        return 'Dieser Phasentyp passt nicht zum Anmeldemodus.'
+
+    if not spec.enabled:
+        return 'Dieser Phasentyp ist zurzeit deaktiviert.'
+
+    return None
 
 
 def delete_stage(

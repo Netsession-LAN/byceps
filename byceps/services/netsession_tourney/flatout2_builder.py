@@ -65,23 +65,17 @@ def summarize_flatout2_builder_rounds(
         if match_count < 1:
             break
 
-        heat_sizes = distribute_evenly(current_participant_count, match_count)
-        max_heat_size = max(heat_sizes) if heat_sizes else 0
         round_summaries.append(
-            {
-                'round_no': round_no,
-                'match_count': match_count,
-                'max_heat_size': max_heat_size,
-            }
+            _build_flatout2_builder_round_summary(
+                round_no, current_participant_count, match_count
+            )
         )
 
-        if match_count == 1:
-            break
-
         qualified_participant_count = match_count * qualifier_count_per_match
-        if (
-            stop_when_participants_at_most is not None
-            and qualified_participant_count <= stop_when_participants_at_most
+        if _is_last_flatout2_builder_round(
+            match_count,
+            qualified_participant_count,
+            stop_when_participants_at_most,
         ):
             break
 
@@ -89,6 +83,32 @@ def summarize_flatout2_builder_rounds(
         round_no += 1
 
     return round_summaries
+
+
+def _build_flatout2_builder_round_summary(
+    round_no: int, participant_count: int, match_count: int
+) -> dict[str, int]:
+    heat_sizes = distribute_evenly(participant_count, match_count)
+    max_heat_size = max(heat_sizes) if heat_sizes else 0
+    return {
+        'round_no': round_no,
+        'match_count': match_count,
+        'max_heat_size': max_heat_size,
+    }
+
+
+def _is_last_flatout2_builder_round(
+    match_count: int,
+    qualified_participant_count: int,
+    stop_when_participants_at_most: int | None,
+) -> bool:
+    if match_count == 1:
+        return True
+
+    return (
+        stop_when_participants_at_most is not None
+        and qualified_participant_count <= stop_when_participants_at_most
+    )
 
 
 def _build_flatout2_round_stage_display_title(
@@ -202,26 +222,17 @@ def build_manual_flatout2_stage_generation_payload(
         return Err(max_players_per_match_result.unwrap_err())
     max_players_per_match = max_players_per_match_result.unwrap()
 
-    raw_match_blueprints = settings.get('flatout2_match_blueprints')
-    if not isinstance(raw_match_blueprints, dict):
-        raw_match_blueprints = {}
+    raw_match_blueprints = _get_flatout2_match_blueprints(settings)
 
     match_specs: list[MatchSpec] = []
-    seen_match_nos: set[int] = set()
-
-    for raw_round in raw_rounds:
-        if not isinstance(raw_round, dict):
-            continue
-
-        round_error = append_manual_flatout2_round_match_specs(
-            raw_round,
-            raw_match_blueprints=raw_match_blueprints,
-            max_players_per_match=max_players_per_match,
-            match_specs=match_specs,
-            seen_match_nos=seen_match_nos,
-        )
-        if round_error is not None:
-            return Err(round_error)
+    round_error = _append_manual_flatout2_match_specs(
+        raw_rounds,
+        raw_match_blueprints=raw_match_blueprints,
+        max_players_per_match=max_players_per_match,
+        match_specs=match_specs,
+    )
+    if round_error is not None:
+        return Err(round_error)
 
     if not match_specs:
         return Err('Bitte mindestens ein FlatOut-2-Match konfigurieren.')
@@ -236,6 +247,39 @@ def build_manual_flatout2_stage_generation_payload(
             replace_existing_matches=True,
         )
     )
+
+
+def _get_flatout2_match_blueprints(settings: dict[str, Any]) -> dict[str, Any]:
+    raw_match_blueprints = settings.get('flatout2_match_blueprints')
+    if not isinstance(raw_match_blueprints, dict):
+        raw_match_blueprints = {}
+    return raw_match_blueprints
+
+
+def _append_manual_flatout2_match_specs(
+    raw_rounds: list[Any],
+    *,
+    raw_match_blueprints: dict[str, Any],
+    max_players_per_match: int,
+    match_specs: list[MatchSpec],
+) -> str | None:
+    seen_match_nos: set[int] = set()
+
+    for raw_round in raw_rounds:
+        if not isinstance(raw_round, dict):
+            continue
+
+        round_error = append_manual_flatout2_round_match_specs(
+            raw_round,
+            raw_match_blueprints=raw_match_blueprints,
+            max_players_per_match=max_players_per_match,
+            match_specs=match_specs,
+            seen_match_nos=seen_match_nos,
+        )
+        if round_error is not None:
+            return round_error
+
+    return None
 
 
 def build_flatout2_stage_generation_payload(

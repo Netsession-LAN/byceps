@@ -39,18 +39,27 @@ def get_flatout2_round_races(
 
     normalized_races = []
     for race in raw_round_races:
-        if not isinstance(race, dict):
+        normalized_race = _normalize_flatout2_race(race)
+        if normalized_race is None:
             continue
-        mode = str(race.get('mode') or '').strip() or 'single_race'
-        track = str(race.get('track') or '').strip()
-        vehicle = str(race.get('vehicle') or '').strip()
-        if not track or not vehicle:
-            continue
-        normalized_races.append(
-            {'mode': mode, 'track': track, 'vehicle': vehicle}
-        )
+        normalized_races.append(normalized_race)
 
     return normalized_races
+
+
+def _normalize_flatout2_race(race: Any) -> dict[str, str] | None:
+    if not isinstance(race, dict):
+        return None
+    mode = _clean_flatout2_race_text(race.get('mode')) or 'single_race'
+    track = _clean_flatout2_race_text(race.get('track'))
+    vehicle = _clean_flatout2_race_text(race.get('vehicle'))
+    if not track or not vehicle:
+        return None
+    return {'mode': mode, 'track': track, 'vehicle': vehicle}
+
+
+def _clean_flatout2_race_text(value: Any) -> str:
+    return str(value or '').strip()
 
 
 def get_match_host_participant_id(
@@ -103,13 +112,12 @@ def build_flatout2_round_race_lines(payload: dict[str, Any]) -> list[str]:
 
     lines = []
     for index, race in enumerate(raw_races, start=1):
-        if not isinstance(race, dict):
+        normalized_race = _normalize_flatout2_race(race)
+        if normalized_race is None:
             continue
-        mode = str(race.get('mode') or '').strip() or 'single_race'
-        track = str(race.get('track') or '').strip()
-        vehicle = str(race.get('vehicle') or '').strip()
-        if not track or not vehicle:
-            continue
+        mode = normalized_race['mode']
+        track = normalized_race['track']
+        vehicle = normalized_race['vehicle']
         lines.append(
             f'{index}. {get_flatout2_mode_label(mode)} / {track} / {vehicle}'
         )

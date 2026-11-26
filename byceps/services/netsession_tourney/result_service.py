@@ -87,12 +87,12 @@ def report_result(
     reason_code: str | None = None,
     correlation_id: str | None = None,
 ) -> Result[MatchResult, str]:
-    report = ResultReport(
+    report = _build_result_report(
         actor_user_id=actor_user_id,
         idempotency_key=idempotency_key,
         winner_slot=winner_slot,
-        score_data=score or {},
-        ranking_data=ranking or {},
+        score=score,
+        ranking=ranking,
         by_admin=actor_is_admin_or_referee,
         admin_comment=admin_comment,
         reason_code=reason_code,
@@ -121,12 +121,55 @@ def report_result(
     stage = db_stage_to_model(db_stage)
     tournament = db_tournament_to_model(db_tournament)
 
+    check_result = _check_report_permitted(
+        tournament, db_match, stage, match_id, report
+    )
+    if check_result.is_err():
+        return Err(check_result.unwrap_err())
+    sides, report_mode = check_result.unwrap()
+
+    return _apply_report(
+        db_tournament, tournament, db_match, stage, sides, report, report_mode
+    )
+
+
+def _build_result_report(
+    *,
+    actor_user_id: UserID,
+    idempotency_key: str,
+    winner_slot: int | None,
+    score: dict[str, Any] | None,
+    ranking: dict[str, Any] | None,
+    by_admin: bool,
+    admin_comment: str | None,
+    reason_code: str | None,
+    correlation_id: str | None,
+) -> ResultReport:
+    return ResultReport(
+        actor_user_id=actor_user_id,
+        idempotency_key=idempotency_key,
+        winner_slot=winner_slot,
+        score_data=score or {},
+        ranking_data=ranking or {},
+        by_admin=by_admin,
+        admin_comment=admin_comment,
+        reason_code=reason_code,
+        correlation_id=correlation_id,
+    )
+
+
+def _check_report_permitted(
+    tournament, db_match, stage, match_id: MatchID, report: ResultReport
+) -> Result[tuple[MatchSides, Any], str]:
+    """Check that the actor may report this result now; return the match
+    sides and the stage's report mode."""
     not_allowed = validate_report_allowed(
         tournament, db_match, stage, actor_is_admin_or_referee=report.by_admin
     )
     if not_allowed:
         return Err(not_allowed)
 
+    actor_user_id = report.actor_user_id
     sides = load_match_sides(match_id)
     empty_slot_error = _check_duel_slots_occupied(tournament, sides, report)
     if empty_slot_error is not None:
@@ -144,14 +187,12 @@ def report_result(
         report_mode,
         actor_is_admin_or_referee=report.by_admin,
         actor_slot_no=sides.slot_no_managed_by(actor_user_id),
-        winner_slot=winner_slot,
+        winner_slot=report.winner_slot,
     )
     if report_mode_error is not None:
         return Err(report_mode_error)
 
-    return _apply_report(
-        db_tournament, tournament, db_match, stage, sides, report, report_mode
-    )
+    return Ok((sides, report_mode))
 
 
 def _check_duel_slots_occupied(

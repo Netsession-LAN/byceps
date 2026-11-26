@@ -25,6 +25,7 @@ from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyParticipant,
     DbNetsessionTourneyTeamMember,
+    DbNetsessionTourneyTournament,
 )
 from .models import (
     Participant,
@@ -33,6 +34,7 @@ from .models import (
     ParticipantType,
     RegistrationMode,
     TeamMemberRole,
+    Tournament,
     TournamentID,
     TournamentStatus,
 )
@@ -138,54 +140,79 @@ def update_managed_team_for_captain(
     team_logo_url: str | None = None,
     replace_logo: bool = False,
 ) -> Result[Participant, str]:
-    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
-    if db_tournament is None:
-        return Err('Unbekanntes Turnier.')
-
-    tournament = db_tournament_to_model(db_tournament)
-    if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
-        return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
-
-    db_participant = find_db_managed_team_participant(
+    managed_team_result = _load_managed_team_for_captain(
         party_id, tournament_id, participant_id, initiator.id
     )
-    if db_participant is None:
-        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
+    if managed_team_result.is_err():
+        return Err(managed_team_result.unwrap_err())
+    db_tournament, tournament, db_participant = managed_team_result.unwrap()
 
     if tournament.status == TournamentStatus.live:
-        if not replace_logo:
-            return Err(
-                'Während das Turnier läuft, lässt sich nur das Team-Logo ändern.'
-            )
-
-        db_participant.logo_url = (
-            team_logo_url.strip() if team_logo_url else None
+        return _update_live_team_logo_for_captain(
+            db_participant,
+            participant_id,
+            initiator,
+            team_logo_url=team_logo_url,
+            replace_logo=replace_logo,
         )
 
-        append_audit_log(
-            actor_user_id=initiator.id,
-            object_type='participant',
-            object_id=participant_id,
-            action='team_logo_updated_by_captain_while_live',
-            payload={
-                'logo_url': db_participant.logo_url,
-                'replace_logo': replace_logo,
-            },
-            created_at=datetime.utcnow(),
+    return _update_team_for_captain(
+        db_participant,
+        participant_id,
+        initiator,
+        team_name,
+        team_logo_url=team_logo_url,
+        replace_logo=replace_logo,
+    )
+
+
+def _update_live_team_logo_for_captain(
+    db_participant: DbNetsessionTourneyParticipant,
+    participant_id: ParticipantID,
+    initiator: User,
+    *,
+    team_logo_url: str | None,
+    replace_logo: bool,
+) -> Result[Participant, str]:
+    if not replace_logo:
+        return Err(
+            'Während das Turnier läuft, lässt sich nur das Team-Logo ändern.'
         )
-        db.session.commit()
 
-        return Ok(db_participant_to_model(db_participant))
+    db_participant.logo_url = _normalize_team_logo_url(team_logo_url)
 
+    append_audit_log(
+        actor_user_id=initiator.id,
+        object_type='participant',
+        object_id=participant_id,
+        action='team_logo_updated_by_captain_while_live',
+        payload={
+            'logo_url': db_participant.logo_url,
+            'replace_logo': replace_logo,
+        },
+        created_at=datetime.utcnow(),
+    )
+    db.session.commit()
+
+    return Ok(db_participant_to_model(db_participant))
+
+
+def _update_team_for_captain(
+    db_participant: DbNetsessionTourneyParticipant,
+    participant_id: ParticipantID,
+    initiator: User,
+    team_name: str,
+    *,
+    team_logo_url: str | None,
+    replace_logo: bool,
+) -> Result[Participant, str]:
     team_name_clean = team_name.strip()
     if not team_name_clean:
         return Err('Ein Teamname ist erforderlich.')
 
     db_participant.name = team_name_clean
     if replace_logo:
-        db_participant.logo_url = (
-            team_logo_url.strip() if team_logo_url else None
-        )
+        db_participant.logo_url = _normalize_team_logo_url(team_logo_url)
 
     append_audit_log(
         actor_user_id=initiator.id,
@@ -202,6 +229,40 @@ def update_managed_team_for_captain(
     db.session.commit()
 
     return Ok(db_participant_to_model(db_participant))
+
+
+def _normalize_team_logo_url(team_logo_url: str | None) -> str | None:
+    return team_logo_url.strip() if team_logo_url else None
+
+
+def _load_managed_team_for_captain(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    participant_id: ParticipantID,
+    captain_user_id: UserID,
+) -> Result[
+    tuple[
+        DbNetsessionTourneyTournament,
+        Tournament,
+        DbNetsessionTourneyParticipant,
+    ],
+    str,
+]:
+    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
+    if db_tournament is None:
+        return Err('Unbekanntes Turnier.')
+
+    tournament = db_tournament_to_model(db_tournament)
+    if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
+        return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
+
+    db_participant = find_db_managed_team_participant(
+        party_id, tournament_id, participant_id, captain_user_id
+    )
+    if db_participant is None:
+        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
+
+    return Ok((db_tournament, tournament, db_participant))
 
 
 def find_managed_team_for_user(
@@ -237,39 +298,18 @@ def set_managed_team_ready_state(
     *,
     ready: bool,
 ) -> Result[Participant, str]:
-    db_tournament = find_db_tournament_for_party(party_id, tournament_id)
-    if db_tournament is None:
-        return Err('Unbekanntes Turnier.')
-
-    tournament = db_tournament_to_model(db_tournament)
-    if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
-        return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
-
-    db_participant = find_db_managed_team_participant(
+    managed_team_result = _load_managed_team_for_captain(
         party_id, tournament_id, participant_id, initiator.id
     )
-    if db_participant is None:
-        return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
+    if managed_team_result.is_err():
+        return Err(managed_team_result.unwrap_err())
+    db_tournament, tournament, db_participant = managed_team_result.unwrap()
 
-    if not ready and _is_in_bracket(participant_id):
-        return Err(
-            'Das Team steht schon im Turnierbaum und kann nicht mehr auf '
-            '„nicht bereit“ gesetzt werden. Wende dich an einen Admin.'
-        )
-
-    if ready and tournament.team_size is not None:
-        member_count = count_team_members(participant_id)
-        if not domain_service.is_team_member_count_complete(
-            int(member_count or 0),
-            tournament.team_size,
-            tournament.substitute_count,
-        ):
-            return Err(
-                'Das Team ist nicht vollständig. '
-                + domain_service.describe_required_team_size(
-                    tournament.team_size, tournament.substitute_count
-                )
-            )
+    ready_state_error = _check_team_ready_state_change(
+        tournament, participant_id, ready=ready
+    )
+    if ready_state_error is not None:
+        return Err(ready_state_error)
 
     db_participant.status = (
         ParticipantStatus.ready.value
@@ -292,6 +332,40 @@ def set_managed_team_ready_state(
     db.session.commit()
 
     return Ok(db_participant_to_model(db_participant))
+
+
+def _check_team_ready_state_change(
+    tournament: Tournament, participant_id: ParticipantID, *, ready: bool
+) -> str | None:
+    if not ready and _is_in_bracket(participant_id):
+        return (
+            'Das Team steht schon im Turnierbaum und kann nicht mehr auf '
+            '„nicht bereit“ gesetzt werden. Wende dich an einen Admin.'
+        )
+
+    if ready and tournament.team_size is not None:
+        return _describe_incomplete_team(tournament, participant_id)
+
+    return None
+
+
+def _describe_incomplete_team(
+    tournament: Tournament, participant_id: ParticipantID
+) -> str | None:
+    member_count = count_team_members(participant_id)
+    if not domain_service.is_team_member_count_complete(
+        int(member_count or 0),
+        tournament.team_size,
+        tournament.substitute_count,
+    ):
+        return (
+            'Das Team ist nicht vollständig. '
+            + domain_service.describe_required_team_size(
+                tournament.team_size, tournament.substitute_count
+            )
+        )
+
+    return None
 
 
 def _is_in_bracket(participant_id: ParticipantID) -> bool:

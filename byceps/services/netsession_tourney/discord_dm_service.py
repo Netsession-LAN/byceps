@@ -8,6 +8,7 @@ Discord direct messages: bot configuration, token encryption, subscriptions.
 from __future__ import annotations
 
 from base64 import urlsafe_b64encode
+from collections.abc import Sequence
 from datetime import datetime
 from hashlib import sha256
 
@@ -106,32 +107,42 @@ def configure_discord_dm(
             return Err('Discord-DM-Tabellen sind noch nicht installiert.')
         raise
 
-    normalized_application_id = (application_id or '').strip() or None
-    normalized_bot_token = (bot_token or '').strip() or None
-    normalized_event_mask = sorted(
-        {
-            item
-            for item in default_event_mask
-            if item in DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
-        }
+    return _store_discord_dm_config(
+        party_id,
+        db_config,
+        enabled=enabled,
+        application_id=application_id,
+        bot_token=bot_token,
+        default_event_mask=default_event_mask,
     )
 
-    if enabled and not normalized_application_id:
-        return Err('Eine Application ID ist erforderlich.')
-    if normalized_application_id and not is_discord_id(
-        normalized_application_id
-    ):
-        return Err('Die Application ID muss aus 17 bis 20 Ziffern bestehen.')
+
+def _store_discord_dm_config(
+    party_id: PartyID,
+    db_config: DbNetsessionTourneyDiscordDmConfig | None,
+    *,
+    enabled: bool,
+    application_id: str | None,
+    bot_token: str | None,
+    default_event_mask: list[str],
+) -> Result[DiscordDmConfig, str]:
+    normalized_application_id = _normalize_discord_dm_text(application_id)
+    normalized_bot_token = _normalize_discord_dm_text(bot_token)
+    normalized_event_mask = _normalize_discord_dm_event_mask(default_event_mask)
+
+    error = _validate_discord_dm_application_id(
+        enabled, normalized_application_id
+    )
+    if error is not None:
+        return Err(error)
 
     now = datetime.utcnow()
     if db_config is None:
         db_config = DbNetsessionTourneyDiscordDmConfig(party_id, now)
         db.session.add(db_config)
 
-    if (
-        enabled
-        and not normalized_bot_token
-        and not db_config.bot_token_encrypted
+    if _is_discord_dm_bot_token_missing(
+        enabled, normalized_bot_token, db_config
     ):
         return Err('Ein Bot-Token ist erforderlich.')
 
@@ -146,6 +157,46 @@ def configure_discord_dm(
     db.session.commit()
 
     return Ok(db_discord_dm_config_to_model(db_config))
+
+
+def _normalize_discord_dm_text(value: str | None) -> str | None:
+    return (value or '').strip() or None
+
+
+def _normalize_discord_dm_event_mask(
+    default_event_mask: list[str],
+) -> list[str]:
+    return sorted(
+        {
+            item
+            for item in default_event_mask
+            if item in DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
+        }
+    )
+
+
+def _validate_discord_dm_application_id(
+    enabled: bool, normalized_application_id: str | None
+) -> str | None:
+    if enabled and not normalized_application_id:
+        return 'Eine Application ID ist erforderlich.'
+    if normalized_application_id and not is_discord_id(
+        normalized_application_id
+    ):
+        return 'Die Application ID muss aus 17 bis 20 Ziffern bestehen.'
+    return None
+
+
+def _is_discord_dm_bot_token_missing(
+    enabled: bool,
+    normalized_bot_token: str | None,
+    db_config: DbNetsessionTourneyDiscordDmConfig,
+) -> bool:
+    return bool(
+        enabled
+        and not normalized_bot_token
+        and not db_config.bot_token_encrypted
+    )
 
 
 def get_masked_discord_dm_bot_token(party_id: PartyID) -> str:
@@ -178,16 +229,7 @@ def get_configured_discord_bot_credentials() -> Result[
             return Ok(None)
         raise
 
-    credentials: set[tuple[str, str]] = set()
-    for db_config in db_configs:
-        if not db_config.application_id or not db_config.bot_token_encrypted:
-            continue
-
-        bot_token = decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
-        if not bot_token:
-            continue
-
-        credentials.add((db_config.application_id, bot_token))
+    credentials = _collect_discord_bot_credentials(db_configs)
 
     if not credentials:
         return Ok(None)
@@ -211,6 +253,12 @@ def get_enabled_discord_dm_bot_credentials() -> Result[
         case Ok(credentials):
             pass
 
+    return _confirm_enabled_discord_bot_credentials(credentials)
+
+
+def _confirm_enabled_discord_bot_credentials(
+    credentials: tuple[str, str],
+) -> Result[tuple[str, str] | None, str]:
     try:
         db_configs = db.session.scalars(
             select(DbNetsessionTourneyDiscordDmConfig).filter_by(enabled=True)
@@ -221,7 +269,18 @@ def get_enabled_discord_dm_bot_credentials() -> Result[
             return Ok(None)
         raise
 
-    enabled_credentials: set[tuple[str, str]] = set()
+    enabled_credentials = _collect_discord_bot_credentials(db_configs)
+
+    if not enabled_credentials:
+        return Ok(None)
+
+    return Ok(credentials)
+
+
+def _collect_discord_bot_credentials(
+    db_configs: Sequence[DbNetsessionTourneyDiscordDmConfig],
+) -> set[tuple[str, str]]:
+    credentials: set[tuple[str, str]] = set()
     for db_config in db_configs:
         if not db_config.application_id or not db_config.bot_token_encrypted:
             continue
@@ -230,12 +289,9 @@ def get_enabled_discord_dm_bot_credentials() -> Result[
         if not bot_token:
             continue
 
-        enabled_credentials.add((db_config.application_id, bot_token))
+        credentials.add((db_config.application_id, bot_token))
 
-    if not enabled_credentials:
-        return Ok(None)
-
-    return Ok(credentials)
+    return credentials
 
 
 def upsert_discord_dm_subscription(
