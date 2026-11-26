@@ -92,7 +92,7 @@ def send_manual_tournament_notification(
 
     title = title.strip()
     body = body.strip()
-    target_url = (target_url or '').strip() or None
+    target_url = _normalize_manual_notification_target_url(target_url)
 
     error = _validate_manual_notification_input(title, body, target_url)
     if error is not None:
@@ -110,8 +110,7 @@ def send_manual_tournament_notification(
         recipients,
         title=title,
         body=body,
-        url=target_url
-        or build_site_tournament_overview_path(db_tournament.slug),
+        url=_resolve_manual_notification_url(target_url, db_tournament.slug),
         created_at=now,
     )
 
@@ -137,8 +136,9 @@ def send_manual_tournament_notification(
         payload={
             'title': title,
             'body': body,
-            'url': target_url
-            or build_site_tournament_overview_path(db_tournament.slug),
+            'url': _resolve_manual_notification_url(
+                target_url, db_tournament.slug
+            ),
         },
     )
 
@@ -365,14 +365,10 @@ def append_notification(
     db.session.add(db_notification)
 
     db_tournament = db.session.get(DbNetsessionTourneyTournament, tournament_id)
-    if (
-        db_tournament is not None
-        and kind in BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS
-        and is_browser_push_enabled_for_party(db_tournament.party_id)
-        and has_active_browser_push_subscription_for_user(
-            db_tournament.party_id, user_id
-        )
-    ):
+    if db_tournament is None:
+        return
+
+    if _should_queue_browser_push_notification(db_tournament, kind, user_id):
         db.session.add(
             DbNetsessionTourneyBrowserPushOutbox(
                 BrowserPushOutboxID(generate_uuid7()),
@@ -381,24 +377,61 @@ def append_notification(
             )
         )
 
-    if (
-        db_tournament is not None
-        and kind in DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
+    if _should_queue_discord_dm_notification(db_tournament, kind, user_id):
+        _queue_discord_dm_notification_for_connected_account(
+            user_id, db_notification.id, created_at
+        )
+
+
+def _should_queue_browser_push_notification(
+    db_tournament: DbNetsessionTourneyTournament, kind: str, user_id: UserID
+) -> bool:
+    return (
+        kind in BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS
+        and is_browser_push_enabled_for_party(db_tournament.party_id)
+        and has_active_browser_push_subscription_for_user(
+            db_tournament.party_id, user_id
+        )
+    )
+
+
+def _should_queue_discord_dm_notification(
+    db_tournament: DbNetsessionTourneyTournament, kind: str, user_id: UserID
+) -> bool:
+    return bool(
+        kind in DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
         and is_discord_dm_enabled_for_party(db_tournament.party_id)
         and db_tournament.discord_dm_enabled
         and kind in (db_tournament.discord_dm_event_mask or [])
         and has_active_discord_dm_subscription_for_user(
             db_tournament.party_id, user_id
         )
-    ):
-        connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
-            user_id, 'discord'
-        )
-        if connected_account is not None and connected_account.external_id:
-            db.session.add(
-                DbNetsessionTourneyDiscordDmOutbox(
-                    DiscordDmOutboxID(generate_uuid7()),
-                    db_notification.id,
-                    created_at,
-                )
+    )
+
+
+def _queue_discord_dm_notification_for_connected_account(
+    user_id: UserID, notification_id: Any, created_at: datetime
+) -> None:
+    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        user_id, 'discord'
+    )
+    if connected_account is not None and connected_account.external_id:
+        db.session.add(
+            DbNetsessionTourneyDiscordDmOutbox(
+                DiscordDmOutboxID(generate_uuid7()),
+                notification_id,
+                created_at,
             )
+        )
+
+
+def _normalize_manual_notification_target_url(
+    target_url: str | None,
+) -> str | None:
+    return (target_url or '').strip() or None
+
+
+def _resolve_manual_notification_url(
+    target_url: str | None, tournament_slug: str
+) -> str:
+    return target_url or build_site_tournament_overview_path(tournament_slug)
