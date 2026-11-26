@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from byceps.database import db
 from byceps.services.user import user_service
@@ -64,7 +65,12 @@ def connect_external_account(
         connected_external_account.external_name,
     )
     db.session.add(db_connected_external_account)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return Err('External account is already connected')
 
     return Ok((connected_external_account, event))
 
