@@ -52,11 +52,13 @@ from .stage_activation import (
     delete_stage_matches,
 )
 from .stage_builder_settings import (
+    is_builder_container_db_stage,
+    is_builder_round_robin_summary_db_stage,
+)
+from .stage_builder_settings_db import (
     delete_builder_generated_child_stages,
     delete_builder_generated_group_stages,
     detach_builder_main_stage_from_preliminary_stage,
-    is_builder_container_db_stage,
-    is_builder_round_robin_summary_db_stage,
 )
 from .stage_settings_merge import is_structural_change, merge_stage_settings
 from .tournament_queries import (

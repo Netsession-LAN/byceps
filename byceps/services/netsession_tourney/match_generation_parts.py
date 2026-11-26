@@ -37,7 +37,7 @@ from .round_robin_builder import (
 from .round_robin_group_stages import (
     read_group_plan,
 )
-from .stage_builder_settings import (
+from .stage_builder_settings_db import (
     find_builder_main_stage_for_preliminary_stage,
 )
 from .stage_generation_base import (
