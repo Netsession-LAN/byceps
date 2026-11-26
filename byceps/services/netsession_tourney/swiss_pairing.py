@@ -43,7 +43,9 @@ def build_initial_swiss_round_specs(
 
     specs: list[MatchSpec] = []
     match_no = 1
-    for participant_a, participant_b in zip(top_half, bottom_half, strict=False):
+    for participant_a, participant_b in zip(
+        top_half, bottom_half, strict=False
+    ):
         specs.append(
             MatchSpec(
                 round_no=1,
@@ -153,7 +155,9 @@ class _SwissRecords:
         for db_match in db_matches:
             db_slots = slots_by_match_id.get(db_match.id, [])
             participant_ids = [
-                s.participant_id for s in db_slots if s.participant_id in participant_by_id
+                s.participant_id
+                for s in db_slots
+                if s.participant_id in participant_by_id
             ]
             if not participant_ids:
                 continue
@@ -168,7 +172,11 @@ class _SwissRecords:
             if db_result is None or db_result.winner_slot is None:
                 continue
             winner_participant_id = next(
-                (s.participant_id for s in db_slots if s.slot_no == db_result.winner_slot),
+                (
+                    s.participant_id
+                    for s in db_slots
+                    if s.slot_no == db_result.winner_slot
+                ),
                 None,
             )
             if winner_participant_id not in participant_by_id:
@@ -216,7 +224,9 @@ def _pair_by_record(
 
     pairs: list[tuple[Participant, Participant]] = []
     carry_over: list[Participant] = []
-    for record in sorted(grouped_participants, key=lambda item: (-item[0], item[1])):
+    for record in sorted(
+        grouped_participants, key=lambda item: (-item[0], item[1])
+    ):
         current_group = carry_over + grouped_participants[record]
         carry_over = []
 
@@ -224,7 +234,9 @@ def _pair_by_record(
             if len(current_group) % 2 == 1:
                 carry_over = [current_group.pop()]
 
-            pairing = _find_swiss_pairing_for_group(current_group, records.opponents)
+            pairing = _find_swiss_pairing_for_group(
+                current_group, records.opponents
+            )
             if pairing is not None:
                 pairs.extend(pairing)
                 current_group = []
@@ -268,7 +280,9 @@ def _round_specs(
                         participant_id=bye_participant.id,
                         source_match_no=None,
                     ),
-                    SlotSpec(slot_no=2, participant_id=None, source_match_no=None),
+                    SlotSpec(
+                        slot_no=2, participant_id=None, source_match_no=None
+                    ),
                 ],
             )
         )

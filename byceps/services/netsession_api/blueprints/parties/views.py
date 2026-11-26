@@ -10,13 +10,12 @@ from datetime import datetime, UTC
 
 from flask import request
 
+from byceps.services.netsession_api.token_auth import read_token_required
 from byceps.services.party import party_service
 from byceps.services.site import site_service
 from byceps.services.site.models import SiteID
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
-
-from ...token_auth import read_token_required
 
 
 CURRENT_PARTY_SITE_ID = 'netsession'

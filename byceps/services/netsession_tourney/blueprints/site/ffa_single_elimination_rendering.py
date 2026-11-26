@@ -12,11 +12,13 @@ from collections import defaultdict
 
 from flask_babel import gettext
 
-from ...models import StageType
+from byceps.services.netsession_tourney.models import StageType
 
 
 def build_ffa_single_elimination_match_labels(stage_matches, stage) -> dict:
-    labels_by_match_id = {match.id: f'M #{match.match_no}' for match in stage_matches}
+    labels_by_match_id = {
+        match.id: f'M #{match.match_no}' for match in stage_matches
+    }
     if not stage_matches:
         return labels_by_match_id
 
@@ -32,7 +34,7 @@ def build_ffa_single_elimination_match_labels(stage_matches, stage) -> dict:
     ).strip()
     try:
         total_round_count = int((stage.settings or {}).get('round_count') or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         total_round_count = 0
 
     if is_flatout2:
@@ -83,7 +85,9 @@ def build_ffa_single_elimination_match_labels(stage_matches, stage) -> dict:
         qualifier_prefix = (
             'Match'
             if is_flatout2
-            else 'Quali' if round_count <= 3 else f'Quali {round_index + 1}'
+            else 'Quali'
+            if round_count <= 3
+            else f'Quali {round_index + 1}'
         )
         for index, match in enumerate(round_matches, start=1):
             labels_by_match_id[match.id] = (
@@ -111,7 +115,9 @@ def get_ffa_single_elimination_round_title(
         ):
             return gettext('Finale')
 
-        return gettext('Runde %(round_no)s', round_no=round_no or round_index + 1)
+        return gettext(
+            'Runde %(round_no)s', round_no=round_no or round_index + 1
+        )
 
     if round_count <= 0:
         return gettext('Round')

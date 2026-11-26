@@ -20,7 +20,9 @@ from byceps.database import db
 log = structlog.get_logger()
 
 
-def repeat_every(seconds: int, task: Callable[[], object], *, name: str) -> None:
+def repeat_every(
+    seconds: int, task: Callable[[], object], *, name: str
+) -> None:
     """Run `task` in the current app context every `seconds`.
 
     With `seconds` <= 0 run it once (errors propagate). In the loop, a

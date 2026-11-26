@@ -19,6 +19,7 @@ from byceps.services.party.models import PartyID
 from byceps.services.user.models import User
 from byceps.util.result import Err, Ok, Result
 
+from . import checkin_service
 from .dbmodels import (
     DbNetsessionTourneyMatch,
     DbNetsessionTourneyStage,
@@ -26,7 +27,6 @@ from .dbmodels import (
 from .discord_service import (
     enqueue_discord_event,
 )
-from . import checkin_service
 from .generation_guard import check_generation_allowed
 from .match_advancement import (
     auto_advance_byes,
@@ -190,9 +190,7 @@ def _generate_stage_matches(
         party_id, tournament_id, stage_id, payload, matches, stage_started_now
     )
 
-    auto_advance_byes(
-        tournament_id, payload.stage, engine=payload.engine
-    )
+    auto_advance_byes(tournament_id, payload.stage, engine=payload.engine)
 
     _log_matches_generated(
         tournament_id, stage_id, initiator, correlation_id, matches
@@ -354,7 +352,9 @@ def _materialize_round_robin_builder_group_stages(
         tournament_id, db_stage.id
     )
     if db_main_stage is None:
-        return Err('Das Hauptturnier des Turnierplaners zur Vorrunde konnte nicht gefunden werden.')
+        return Err(
+            'Das Hauptturnier des Turnierplaners zur Vorrunde konnte nicht gefunden werden.'
+        )
 
     shift_following_stages(tournament_id, db_stage, len(group_stage_specs))
 
@@ -374,7 +374,9 @@ def _materialize_round_robin_builder_group_stages(
     mark_preliminary_split(
         db_stage, settings, group_stage_ids, qualifiers_per_group, now
     )
-    point_main_stage_at_groups(db_main_stage, group_stage_ids, qualifiers_per_group)
+    point_main_stage_at_groups(
+        db_main_stage, group_stage_ids, qualifiers_per_group
+    )
     db.session.flush()
 
     created_matches: list[Match] = []

@@ -46,7 +46,7 @@ def select_match_qualifiers(
         top_n_per_match = int(
             (stage.settings or {}).get('qualifier_top_n_per_match') or 0
         )
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         top_n_per_match = 0
     if top_n_per_match < 1 or top_n_per_match > 16:
         return Err('Ungültige Top-Anzahl pro Match für die Qualifikation.')
@@ -63,7 +63,9 @@ def select_match_qualifiers(
             db_source_stage.id, tournament_id, top_n_per_match=top_n_per_match
         )
         if ranked_result.is_err():
-            return _source_stage_error(db_source_stage, ranked_result.unwrap_err())
+            return _source_stage_error(
+                db_source_stage, ranked_result.unwrap_err()
+            )
         selected_participant_ids.extend(ranked_result.unwrap())
 
     participants = domain_service.select_ready_participants(
@@ -202,7 +204,9 @@ def _load_source_stages(
         .order_by(DbNetsessionTourneyStage.order_no.asc())
     ).all()
     if len(db_source_stages) != len(unique_source_stage_ids):
-        return Err('Mindestens eine der eingestellten Quellphasen existiert nicht.')
+        return Err(
+            'Mindestens eine der eingestellten Quellphasen existiert nicht.'
+        )
     return Ok(list(db_source_stages))
 
 

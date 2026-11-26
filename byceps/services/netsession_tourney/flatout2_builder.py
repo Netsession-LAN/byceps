@@ -59,7 +59,9 @@ def summarize_flatout2_builder_rounds(
     round_no = 1
 
     while current_participant_count > 1:
-        match_count = math.ceil(current_participant_count / max_players_per_match)
+        match_count = math.ceil(
+            current_participant_count / max_players_per_match
+        )
         if match_count < 1:
             break
 

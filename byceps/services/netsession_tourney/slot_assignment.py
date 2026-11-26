@@ -48,8 +48,8 @@ from .service_helpers import (
     db_tournament_to_model,
 )
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 
 

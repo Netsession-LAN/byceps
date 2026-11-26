@@ -89,7 +89,9 @@ def configure_coin_settings(
 
     for amount in ticket_category_coin_amounts.values():
         if amount < 0:
-            return Err('Die Coins pro Ticketkategorie dürfen nicht negativ sein.')
+            return Err(
+                'Die Coins pro Ticketkategorie dürfen nicht negativ sein.'
+            )
 
     now = datetime.utcnow()
     db_settings = db.session.get(DbNetsessionTourneyCoinSettings, party_id)
@@ -141,7 +143,9 @@ def configure_coin_settings(
     return Ok(get_coin_settings(party_id))
 
 
-def get_user_coin_balance(party_id: PartyID, user_id: UserID) -> UserCoinBalance:
+def get_user_coin_balance(
+    party_id: PartyID, user_id: UserID
+) -> UserCoinBalance:
     ticket_coin_amount = _get_ticket_coin_amount_for_user(party_id, user_id)
     manual_adjustment_amount = _get_manual_coin_adjustment_amount_for_user(
         party_id, user_id
@@ -195,7 +199,10 @@ def adjust_user_coins(
 ) -> Result[UserCoinBalance, str]:
     if amount_delta == 0:
         return Err('Der Betrag darf nicht 0 sein.')
-    if get_user_coin_balance(party_id, user_id).available_coins + amount_delta < 0:
+    if (
+        get_user_coin_balance(party_id, user_id).available_coins + amount_delta
+        < 0
+    ):
         return Err('Das Coin-Guthaben darf nicht negativ werden.')
 
     note_clean = note.strip() or None
@@ -238,10 +245,7 @@ def is_tournament_coin_refund_available(tournament: Tournament) -> bool:
     }:
         return False
 
-    if (
-        tournament.coin_refund_policy
-        == CoinRefundPolicy.until_tournament_end
-    ):
+    if tournament.coin_refund_policy == CoinRefundPolicy.until_tournament_end:
         return True
 
     first_stage_id = db.session.scalar(
@@ -307,7 +311,9 @@ def _get_ticket_coin_amount_for_user(party_id: PartyID, user_id: UserID) -> int:
     }
 
     return max(
-        amount_by_category_id.get(ticket.category_id, coin_settings.default_coin_amount)
+        amount_by_category_id.get(
+            ticket.category_id, coin_settings.default_coin_amount
+        )
         for ticket in tickets
     )
 
@@ -316,8 +322,11 @@ def _get_manual_coin_adjustment_amount_for_user(
     party_id: PartyID, user_id: UserID
 ) -> int:
     amount = db.session.scalar(
-        select(db.func.coalesce(db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0))
-        .filter_by(
+        select(
+            db.func.coalesce(
+                db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0
+            )
+        ).filter_by(
             party_id=party_id,
             user_id=user_id,
             kind=CoinLedgerEntryKind.admin_adjustment.value,
@@ -330,7 +339,11 @@ def _get_registration_coin_delta_amount_for_user(
     party_id: PartyID, user_id: UserID
 ) -> int:
     amount = db.session.scalar(
-        select(db.func.coalesce(db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0))
+        select(
+            db.func.coalesce(
+                db.func.sum(DbNetsessionTourneyCoinLedgerEntry.amount_delta), 0
+            )
+        )
         .filter_by(party_id=party_id, user_id=user_id)
         .filter(
             DbNetsessionTourneyCoinLedgerEntry.kind.in_(

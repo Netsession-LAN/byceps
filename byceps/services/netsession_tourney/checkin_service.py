@@ -79,7 +79,9 @@ def select_checked_in_participants(
     checked-in participants."""
     if not has_checkin(tournament):
         return participants
-    return [p for p in participants if p.checkin_state == CheckinState.checked_in]
+    return [
+        p for p in participants if p.checkin_state == CheckinState.checked_in
+    ]
 
 
 def check_generation_allowed(tournament: Tournament) -> str | None:
@@ -106,7 +108,9 @@ def count_checkins(tournament: Tournament) -> tuple[int, int] | None:
     states = db.session.scalars(
         select(DbNetsessionTourneyParticipant.checkin_state).where(
             DbNetsessionTourneyParticipant.tournament_id == tournament.id,
-            DbNetsessionTourneyParticipant.status.in_(_CHECKIN_ALLOWED_STATUSES),
+            DbNetsessionTourneyParticipant.status.in_(
+                _CHECKIN_ALLOWED_STATUSES
+            ),
         )
     ).all()
     return states.count(CheckinState.checked_in.value), len(states)
@@ -175,11 +179,17 @@ def _find_db_participant_to_check_in(
         .filter_by(tournament_id=tournament_id)
         .filter(
             (
-                (DbNetsessionTourneyParticipant.type == ParticipantType.user.value)
+                (
+                    DbNetsessionTourneyParticipant.type
+                    == ParticipantType.user.value
+                )
                 & (DbNetsessionTourneyParticipant.user_id == user.id)
             )
             | (
-                (DbNetsessionTourneyParticipant.type == ParticipantType.team.value)
+                (
+                    DbNetsessionTourneyParticipant.type
+                    == ParticipantType.team.value
+                )
                 & (DbNetsessionTourneyParticipant.manager_user_id == user.id)
             )
         )
@@ -198,7 +208,9 @@ def set_checkin_by_admin(
     if find_db_tournament_for_party(party_id, tournament_id) is None:
         return Err('Unbekanntes Turnier.')
 
-    db_participant = db.session.get(DbNetsessionTourneyParticipant, participant_id)
+    db_participant = db.session.get(
+        DbNetsessionTourneyParticipant, participant_id
+    )
     if db_participant is None or db_participant.tournament_id != tournament_id:
         return Err('Unbekannter Teilnehmer.')
 

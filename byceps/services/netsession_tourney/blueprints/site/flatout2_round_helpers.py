@@ -36,7 +36,7 @@ def get_flatout2_expected_round_summaries(
                 round_no = int(raw_round.get('round_no') or index)
                 match_count = int(raw_round.get('match_count') or 0)
                 max_heat_size = int(settings.get('max_players_per_match') or 0)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
 
             if round_no < 1 or match_count < 1 or max_heat_size < 1:
@@ -45,7 +45,11 @@ def get_flatout2_expected_round_summaries(
             display_title = str(
                 raw_round.get('display_title')
                 or raw_round.get('title')
-                or ('Finale' if index == total_round_count else f'Runde {round_no}')
+                or (
+                    'Finale'
+                    if index == total_round_count
+                    else f'Runde {round_no}'
+                )
             ).strip()
             parsed_rounds.append(
                 {
@@ -68,7 +72,7 @@ def get_flatout2_expected_round_summaries(
                 or settings.get('max_players_per_match')
                 or 0
             )
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return []
 
         if match_count < 1:
@@ -104,7 +108,7 @@ def get_flatout2_expected_round_summaries(
                 or settings.get('max_players_per_match')
                 or 0
             )
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         if match_count < 1:
@@ -166,7 +170,9 @@ def build_flatout2_placeholder_match_round(stage, round_summary: dict) -> dict:
     }
 
 
-def build_flatout2_placeholder_bracket_round(stage, round_summary: dict) -> dict:
+def build_flatout2_placeholder_bracket_round(
+    stage, round_summary: dict
+) -> dict:
     match_count = int(round_summary['match_count'])
     items = []
     for index in range(1, match_count + 1):
@@ -200,7 +206,9 @@ def build_flatout2_placeholder_bracket_round(stage, round_summary: dict) -> dict
     }
 
 
-def merge_flatout2_missing_match_rounds(stage, rounds: list[dict]) -> list[dict]:
+def merge_flatout2_missing_match_rounds(
+    stage, rounds: list[dict]
+) -> list[dict]:
     expected_round_summaries = get_flatout2_expected_round_summaries(stage)
     if not expected_round_summaries:
         return rounds

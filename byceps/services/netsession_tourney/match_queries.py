@@ -116,7 +116,9 @@ def get_open_matches_for_party(party_id: PartyID) -> list[Match]:
             == DbNetsessionTourneyTournament.id,
         )
         .filter(DbNetsessionTourneyTournament.party_id == party_id)
-        .filter(DbNetsessionTourneyTournament.status == TournamentStatus.live.value)
+        .filter(
+            DbNetsessionTourneyTournament.status == TournamentStatus.live.value
+        )
         .filter(
             DbNetsessionTourneyMatch.state.in_(
                 [
@@ -240,7 +242,10 @@ def get_match_timeline_entries(
                 (
                     (DbNetsessionTourneyAuditLog.object_type == 'tournament')
                     & (DbNetsessionTourneyAuditLog.object_id == tournament_id)
-                    & (DbNetsessionTourneyAuditLog.created_at >= db_match.created_at)
+                    & (
+                        DbNetsessionTourneyAuditLog.created_at
+                        >= db_match.created_at
+                    )
                     & DbNetsessionTourneyAuditLog.action.in_(
                         [
                             'tournament_published',
@@ -281,7 +286,9 @@ def get_match_slots(match_ids: set[MatchID]) -> dict[MatchID, list[MatchSlot]]:
     ).all()
     slots_by_match_id: dict[MatchID, list[MatchSlot]] = defaultdict(list)
     for db_slot in db_slots:
-        slots_by_match_id[db_slot.match_id].append(db_match_slot_to_model(db_slot))
+        slots_by_match_id[db_slot.match_id].append(
+            db_match_slot_to_model(db_slot)
+        )
     return dict(slots_by_match_id)
 
 

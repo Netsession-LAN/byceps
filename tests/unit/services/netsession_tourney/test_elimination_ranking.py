@@ -43,9 +43,13 @@ class Bracket:
         for slot, participant in zip(slots, (winner, loser), strict=False):
             if slot.participant_id is None:
                 slot.participant_id = participant
-        winner_slot = next(s.slot_no for s in slots if s.participant_id == winner)
+        winner_slot = next(
+            s.slot_no for s in slots if s.participant_id == winner
+        )
         score = {'grand_final_reset_skipped': True} if skipped else {}
-        self.results[match_id] = NS(winner_slot=None if skipped else winner_slot, score=score)
+        self.results[match_id] = NS(
+            winner_slot=None if skipped else winner_slot, score=score
+        )
         for other_slots in self.slots.values():
             for slot in other_slots:
                 if slot.source_match_slot_id == f'{match_id}-1':

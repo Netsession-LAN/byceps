@@ -5,9 +5,10 @@ byceps.services.netsession_tourney.blueprints.site.blueprint
 The blueprint of the public tournament pages.
 """
 
+from byceps.services.netsession_tourney.blueprints.assets import (
+    create_assets_blueprint,
+)
 from byceps.util.framework.blueprint import create_blueprint
-
-from ..assets import create_assets_blueprint
 
 
 blueprint = create_blueprint('netsession_tourney', __name__)

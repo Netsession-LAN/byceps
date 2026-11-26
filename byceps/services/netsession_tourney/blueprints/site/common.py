@@ -19,25 +19,27 @@ from flask import (
 from flask_babel import get_locale, gettext
 from markupsafe import Markup
 
+from byceps.services.netsession_tourney.enum_labels import (
+    stage_type_display_name,
+)
+from byceps.services.netsession_tourney.models import (
+    TournamentRuleTemplate,
+    TournamentStatus,
+)
+from byceps.services.netsession_tourney.participant_admin_service import (
+    get_participants_by_ids,
+)
+from byceps.services.netsession_tourney.tournament_rule_template_service import (
+    find_tournament_rule_template_by_slug_for_party,
+)
+from byceps.services.netsession_tourney.tournament_service import (
+    find_tournament_by_slug_for_party,
+)
 from byceps.services.party.models import PartyID
 from byceps.services.site_navigation import site_navigation_service
 from byceps.services.site_navigation.models import NavItem, NavItemTargetType
 from byceps.util.l10n import get_default_locale
 
-from ...enum_labels import stage_type_display_name
-from ...models import (
-    TournamentRuleTemplate,
-    TournamentStatus,
-)
-from ...participant_admin_service import (
-    get_participants_by_ids,
-)
-from ...tournament_rule_template_service import (
-    find_tournament_rule_template_by_slug_for_party,
-)
-from ...tournament_service import (
-    find_tournament_by_slug_for_party,
-)
 from .body_rendering import (
     render_formatted_body_html as _render_formatted_body_html,
 )
@@ -130,9 +132,7 @@ def find_netsession_tourney_subnav_menu_id(*view_names: str) -> UUID | None:
 def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
     ns_tourney_index_url = url_for('netsession_tourney.index')
     ns_tourney_prefix = (
-        ns_tourney_index_url.rstrip('/')
-        if ns_tourney_index_url != '/'
-        else '/'
+        ns_tourney_index_url.rstrip('/') if ns_tourney_index_url != '/' else '/'
     )
 
     for item in items:
@@ -163,16 +163,22 @@ def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
 
 
 def get_categories_with_tournaments(categories, tournaments):
-    categories_sorted = sorted(categories, key=lambda category: category.position)
+    categories_sorted = sorted(
+        categories, key=lambda category: category.position
+    )
     tournaments_by_category_id = defaultdict(list)
     for tournament in tournaments:
         tournaments_by_category_id[tournament.category_id].append(tournament)
 
     categories_with_tournaments = []
     for category in categories_sorted:
-        tournaments_in_category = tournaments_by_category_id.pop(category.id, [])
+        tournaments_in_category = tournaments_by_category_id.pop(
+            category.id, []
+        )
         if tournaments_in_category:
-            categories_with_tournaments.append((category, tournaments_in_category))
+            categories_with_tournaments.append(
+                (category, tournaments_in_category)
+            )
 
     uncategorized_tournaments = [
         tournament

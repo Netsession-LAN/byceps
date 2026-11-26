@@ -80,7 +80,7 @@ def build_swiss_stage_generation_payload(
             participants=participants,
             match_specs=match_specs,
         )
-        )
+    )
 
 
 def build_swiss_round_layout(
@@ -201,7 +201,9 @@ def seed_swiss_follow_up_rounds(
         stage, participant_count=len(participants)
     )
     layout = build_swiss_round_layout(len(participants), round_count)
-    matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(list)
+    matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = (
+        defaultdict(list)
+    )
     for db_match in db_matches:
         matches_by_round_no[db_match.round_no].append(db_match)
 
@@ -242,7 +244,12 @@ def seed_swiss_follow_up_rounds(
 
         target_matches = reconcile_round_placeholders(
             target_matches,
-            [m for r, ms in matches_by_round_no.items() if r > round_no for m in ms],
+            [
+                m
+                for r, ms in matches_by_round_no.items()
+                if r > round_no
+                for m in ms
+            ],
             seeded_specs,
             slots_by_match_id,
         )
@@ -333,10 +340,7 @@ def _apply_seeded_swiss_specs(
     """Write the seeded participants into the target matches' slots and
     collect matches that became ready in `newly_ready_match_ids`.
     """
-    specs_by_match_no = {
-        spec.match_no: spec
-        for spec in seeded_specs
-    }
+    specs_by_match_no = {spec.match_no: spec for spec in seeded_specs}
     for db_match in target_matches:
         spec = specs_by_match_no.get(db_match.match_no)
         if spec is None:

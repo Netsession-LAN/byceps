@@ -210,7 +210,9 @@ def store_reported_result(
     ):
         return Err('Korrekturen durch Admins brauchen einen Kommentar.')
 
-    winner_change_error = _check_winner_change_allowed(match_id, db_result, report)
+    winner_change_error = _check_winner_change_allowed(
+        match_id, db_result, report
+    )
     if winner_change_error is not None:
         return Err(winner_change_error)
 
@@ -333,7 +335,10 @@ def _check_winner_change_allowed(
     matches; that is refused once one of them has a reported result (the
     same rule as for deleting a result). Score-only corrections stay
     possible."""
-    if db_result.winner_slot is None or db_result.winner_slot == report.winner_slot:
+    if (
+        db_result.winner_slot is None
+        or db_result.winner_slot == report.winner_slot
+    ):
         return None
 
     # Swiss has no follow-up slots; its later rounds are re-paired instead.
@@ -347,7 +352,9 @@ def _check_winner_change_allowed(
     if blocking_match_id is None:
         return None
 
-    db_blocking_match = db.session.get(DbNetsessionTourneyMatch, blocking_match_id)
+    db_blocking_match = db.session.get(
+        DbNetsessionTourneyMatch, blocking_match_id
+    )
     return (
         'Der Sieger lässt sich nicht mehr ändern, weil ein Folge-Match '
         f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '

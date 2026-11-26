@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from ...models import MatchState
+from byceps.services.netsession_tourney.models import MatchState
+
 from .double_elimination_rendering import (
     build_double_elimination_bracket_sections,
     is_double_elimination_bracket,

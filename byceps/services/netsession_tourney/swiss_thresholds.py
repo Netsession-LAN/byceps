@@ -31,7 +31,7 @@ def get_round_count_for_swiss_stage(
 
     try:
         parsed = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return max_rounds
 
     if parsed < 1:
@@ -48,14 +48,16 @@ def get_swiss_round_count_for_threshold(threshold: int) -> int:
     return (threshold * 2) - 1
 
 
-def get_configured_swiss_threshold(settings: dict[str, Any] | None) -> int | None:
+def get_configured_swiss_threshold(
+    settings: dict[str, Any] | None,
+) -> int | None:
     if not isinstance(settings, dict):
         return None
 
     raw_value = settings.get('swiss_threshold')
     try:
         threshold = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return threshold if threshold in SWISS_THRESHOLDS else None

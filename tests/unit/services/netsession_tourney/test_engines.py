@@ -14,7 +14,9 @@ from byceps.services.netsession_tourney.models import (
 )
 
 
-def _create_stage(stage_type: StageType, *, round_count: int | None = None) -> Stage:
+def _create_stage(
+    stage_type: StageType, *, round_count: int | None = None
+) -> Stage:
     settings = {}
     if round_count is not None:
         settings['round_count'] = round_count
@@ -181,9 +183,7 @@ def test_double_elimination_generates_loser_bracket_feeds():
     specs = result.unwrap()
     assert len(specs) > 7
     assert any(
-        slot.source_outcome == 'loser'
-        for spec in specs
-        for slot in spec.slots
+        slot.source_outcome == 'loser' for spec in specs for slot in spec.slots
     )
 
 
@@ -199,7 +199,9 @@ def test_double_elimination_generates_grand_final():
     specs = result.unwrap()
 
     max_round_no = max(spec.round_no for spec in specs)
-    last_round_matches = [spec for spec in specs if spec.round_no == max_round_no]
+    last_round_matches = [
+        spec for spec in specs if spec.round_no == max_round_no
+    ]
     assert len(last_round_matches) == 1
     final_match = last_round_matches[0]
     assert len(final_match.slots) == 2
@@ -269,7 +271,8 @@ def test_all_stage_types_can_generate_matches():
                     **stage.settings,
                     'max_players_per_match': (
                         6
-                        if stage_type == StageType.ffa_flatout2_single_elimination
+                        if stage_type
+                        == StageType.ffa_flatout2_single_elimination
                         else 4
                     ),
                 },
@@ -289,9 +292,15 @@ def test_double_elimination_with_two_participants_has_grand_final():
 
     specs = engine.generate(stage, _create_participant_ids(2)).unwrap()
 
-    assert [(spec.round_no, spec.match_no) for spec in specs] == [(1, 1), (2, 2)]
+    assert [(spec.round_no, spec.match_no) for spec in specs] == [
+        (1, 1),
+        (2, 2),
+    ]
     grand_final = specs[1]
-    assert {(slot.source_match_no, slot.source_outcome) for slot in grand_final.slots} == {
+    assert {
+        (slot.source_match_no, slot.source_outcome)
+        for slot in grand_final.slots
+    } == {
         (1, 'winner'),
         (1, 'loser'),
     }
@@ -304,7 +313,9 @@ def test_double_grand_final_with_two_participants_has_reset_match():
     specs = engine.generate(stage, _create_participant_ids(2)).unwrap()
 
     assert len(specs) == 3
-    assert {(slot.source_match_no, slot.source_outcome) for slot in specs[2].slots} == {
+    assert {
+        (slot.source_match_no, slot.source_outcome) for slot in specs[2].slots
+    } == {
         (2, 'winner'),
         (2, 'loser'),
     }

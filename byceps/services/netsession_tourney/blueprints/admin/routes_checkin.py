@@ -13,14 +13,17 @@ from uuid import UUID
 from flask import g, request
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.checkin_service import (
+    count_checkins,
+    set_checkin_by_admin,
+)
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required
 
-from ...checkin_service import count_checkins, set_checkin_by_admin
 from .result_helpers import (
-    get_party_or_404,
     _get_tournament_or_404,
+    get_party_or_404,
     redirect_to_related_tournament_view,
 )
 
@@ -39,7 +42,11 @@ def register(blueprint) -> None:
         checked_in = request.form.get('checked_in') == '1'
 
         match set_checkin_by_admin(
-            party.id, tournament.id, participant_id, checked_in, g.user.as_user()
+            party.id,
+            tournament.id,
+            participant_id,
+            checked_in,
+            g.user.as_user(),
         ):
             case Ok(participant):
                 flash_success(

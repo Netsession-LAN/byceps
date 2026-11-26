@@ -64,12 +64,16 @@ def delete_stage_matches(stage_id: StageID) -> None:
             DbNetsessionTourneyMatchSlot.match_id.in_(db_match_ids)
         )
     )
-    db.session.execute(delete(DbNetsessionTourneyMatch).filter_by(stage_id=stage_id))
+    db.session.execute(
+        delete(DbNetsessionTourneyMatch).filter_by(stage_id=stage_id)
+    )
 
 
 def delete_all_stages_for_tournament(tournament_id: TournamentID) -> int:
     stage_ids = db.session.scalars(
-        select(DbNetsessionTourneyStage.id).filter_by(tournament_id=tournament_id)
+        select(DbNetsessionTourneyStage.id).filter_by(
+            tournament_id=tournament_id
+        )
     ).all()
     for stage_id in stage_ids:
         delete_stage_matches(stage_id)

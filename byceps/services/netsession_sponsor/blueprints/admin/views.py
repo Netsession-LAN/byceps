@@ -10,6 +10,7 @@ from __future__ import annotations
 from flask import abort, request
 from flask_babel import gettext
 
+from byceps.services.netsession_sponsor import logo_storage, sponsor_service
 from byceps.services.party import party_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_error, flash_success
@@ -17,7 +18,6 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
-from ... import logo_storage, sponsor_service
 from .forms import CreateForm, UpdateForm
 
 

@@ -32,10 +32,10 @@ from .models import (
     CoinChargeMode,
     CoinLedgerEntryID,
     CoinRefundPolicy,
-    DiscordForumImageAssetID,
     DiscordDmOutboxID,
     DiscordDmOutboxStatus,
     DiscordDmSubscriptionID,
+    DiscordForumImageAssetID,
     DiscordOutboxID,
     DiscordOutboxStatus,
     LogoAssetID,
@@ -49,22 +49,22 @@ from .models import (
     RegistrationID,
     RegistrationMode,
     RegistrationState,
+    RuleTemplateBodyFormat,
+    SourceOutcome,
+    SponsorLogoAssetID,
     StageID,
     StageStatus,
     StageType,
-    SourceOutcome,
-    SponsorLogoAssetID,
     TeamMemberID,
     TeamMemberRole,
     TournamentAdminID,
     TournamentCategoryID,
+    TournamentID,
     TournamentLogoAssetID,
+    TournamentMode,
     TournamentPrizeID,
     TournamentRuleTemplateID,
-    TournamentID,
-    TournamentMode,
     TournamentStatus,
-    RuleTemplateBodyFormat,
 )
 
 
@@ -104,9 +104,7 @@ class DbNetsessionTourneyTournamentLogoAsset(db.Model):
     __tablename__ = 'netsession_tourney_tournament_logo_assets'
     __table_args__ = (db.UniqueConstraint('party_id', 'filename'),)
 
-    id: Mapped[TournamentLogoAssetID] = mapped_column(
-        db.Uuid, primary_key=True
-    )
+    id: Mapped[TournamentLogoAssetID] = mapped_column(db.Uuid, primary_key=True)
     party_id: Mapped[PartyID] = mapped_column(
         db.UnicodeText, db.ForeignKey('parties.id'), index=True
     )
@@ -1085,9 +1083,7 @@ class DbNetsessionTourneyBrowserPushConfig(db.Model):
 
 class DbNetsessionTourneyBrowserPushSubscription(db.Model):
     __tablename__ = 'netsession_tourney_browser_push_subscriptions'
-    __table_args__ = (
-        db.UniqueConstraint('party_id', 'endpoint'),
-    )
+    __table_args__ = (db.UniqueConstraint('party_id', 'endpoint'),)
 
     id: Mapped[BrowserPushSubscriptionID] = mapped_column(
         db.Uuid, primary_key=True
@@ -1171,14 +1167,14 @@ class DbNetsessionTourneyDiscordDmSubscription(db.Model):
 
 class DbNetsessionTourneyBrowserPushOutbox(db.Model):
     __tablename__ = 'netsession_tourney_browser_push_outbox'
-    __table_args__ = (
-        db.UniqueConstraint('notification_id'),
-    )
+    __table_args__ = (db.UniqueConstraint('notification_id'),)
 
     id: Mapped[BrowserPushOutboxID] = mapped_column(db.Uuid, primary_key=True)
     notification_id: Mapped[UUID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_notifications.id', ondelete='CASCADE'),
+        db.ForeignKey(
+            'netsession_tourney_notifications.id', ondelete='CASCADE'
+        ),
         index=True,
     )
     status: Mapped[str] = mapped_column(db.UnicodeText, index=True)
@@ -1211,7 +1207,9 @@ class DbNetsessionTourneyDiscordDmOutbox(db.Model):
     id: Mapped[DiscordDmOutboxID] = mapped_column(db.Uuid, primary_key=True)
     notification_id: Mapped[UUID] = mapped_column(
         db.Uuid,
-        db.ForeignKey('netsession_tourney_notifications.id', ondelete='CASCADE'),
+        db.ForeignKey(
+            'netsession_tourney_notifications.id', ondelete='CASCADE'
+        ),
         index=True,
     )
     status: Mapped[str] = mapped_column(db.UnicodeText, index=True)

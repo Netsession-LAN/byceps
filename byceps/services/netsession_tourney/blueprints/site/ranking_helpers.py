@@ -10,13 +10,16 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from ...models import MatchState, StageType
-from .match_helpers import (
-    is_skipped_double_grand_final_result,
-    _parse_slot_scores,
+from byceps.services.netsession_tourney.models import MatchState, StageType
+from byceps.services.netsession_tourney.score_parsing import (
+    get_ffa_points_per_kill,
+    parse_numeric_score_value,
 )
-from ...score_parsing import parse_numeric_score_value
-from ...score_parsing import get_ffa_points_per_kill
+
+from .match_helpers import (
+    _parse_slot_scores,
+    is_skipped_double_grand_final_result,
+)
 
 
 def build_ffa_ranking_rows(
@@ -60,7 +63,7 @@ def build_ffa_ranking_rows(
                         raw_value = raw_placements.get(slot.slot_no)
                     try:
                         placement_by_slot_no[slot.slot_no] = int(raw_value)
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         continue
             raw_points = result.ranking.get('points')
             if isinstance(raw_points, dict):
@@ -70,7 +73,7 @@ def build_ffa_ranking_rows(
                         raw_value = raw_points.get(slot.slot_no)
                     try:
                         points_by_slot_no[slot.slot_no] = int(raw_value)
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         continue
 
         slot_scores = _parse_slot_scores(slots, result)
@@ -187,7 +190,9 @@ def build_flatout2_ranking_rows(
         rows_by_participant_id.values(),
         key=lambda row: (
             -row['wins'],
-            row['best_placement'] if row['best_placement'] is not None else 999999,
+            row['best_placement']
+            if row['best_placement'] is not None
+            else 999999,
             row['participant'].seed or 999999,
             row['participant'].name.lower(),
         ),
@@ -199,7 +204,9 @@ def build_flatout2_ranking_rows(
     for index, row in enumerate(rows, start=1):
         sort_value = (
             row['wins'],
-            row['best_placement'] if row['best_placement'] is not None else 999999,
+            row['best_placement']
+            if row['best_placement'] is not None
+            else 999999,
         )
         if sort_value != last_sort_value:
             rank = index
@@ -244,7 +251,9 @@ def build_ranking_rows(
         slot_by_no = {slot.slot_no: slot for slot in slots}
         slot_scores = _parse_slot_scores(slots, result)
         participant_ids = [
-            slot.participant_id for slot in slots if slot.participant_id is not None
+            slot.participant_id
+            for slot in slots
+            if slot.participant_id is not None
         ]
         if len(participant_ids) < 2:
             continue
@@ -255,8 +264,7 @@ def build_ranking_rows(
         else:
             winner_id = None
         is_walkover_result = (
-            stage_type == StageType.swiss
-            and _is_walkover_result(result)
+            stage_type == StageType.swiss and _is_walkover_result(result)
         )
 
         for participant_id in participant_ids:
@@ -298,9 +306,9 @@ def build_ranking_rows(
             )
 
         if winner_id in participant_ids and not is_walkover_result:
-            head_to_head_winner_id_by_pair[
-                frozenset(participant_ids)
-            ] = winner_id
+            head_to_head_winner_id_by_pair[frozenset(participant_ids)] = (
+                winner_id
+            )
 
         if is_walkover_result:
             continue
@@ -310,7 +318,9 @@ def build_ranking_rows(
             if participant_id is None:
                 continue
 
-            rounds_won = parse_numeric_score_value(slot_scores.get(slot.slot_no))
+            rounds_won = parse_numeric_score_value(
+                slot_scores.get(slot.slot_no)
+            )
             rounds_lost = sum(
                 parse_numeric_score_value(slot_scores.get(other_slot.slot_no))
                 for other_slot in ordered_slots
@@ -447,9 +457,7 @@ def _is_walkover_result(result) -> bool:
 
 
 def _build_swiss_head_to_head_scores(rows, head_to_head_winner_id_by_pair):
-    scores_by_participant_id = {
-        row['participant'].id: 0 for row in rows
-    }
+    scores_by_participant_id = {row['participant'].id: 0 for row in rows}
     participant_ids_by_base_tie_values = defaultdict(list)
     for row in rows:
         participant_ids_by_base_tie_values[
@@ -533,4 +541,6 @@ def are_all_rankable_matches_completed(
     if not relevant_matches:
         return False
 
-    return all(match.state == MatchState.completed for match in relevant_matches)
+    return all(
+        match.state == MatchState.completed for match in relevant_matches
+    )

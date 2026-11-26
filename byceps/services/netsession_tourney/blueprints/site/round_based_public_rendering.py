@@ -11,8 +11,8 @@ from __future__ import annotations
 from flask_babel import gettext
 
 from .presentation_helpers import (
-    build_match_overview_slot_data,
     _build_round_time_range_label,
+    build_match_overview_slot_data,
     get_stage_duration_minutes,
 )
 
@@ -59,7 +59,10 @@ def build_match_overview_sections(
                 slot_scores = slot_scores_by_match_id.get(match.id, {})
 
                 score_display = _get_match_overview_score_display(
-                    slots, slot_scores, result, get_score_display=_get_score_display
+                    slots,
+                    slot_scores,
+                    result,
+                    get_score_display=_get_score_display,
                 )
 
                 rows.append(

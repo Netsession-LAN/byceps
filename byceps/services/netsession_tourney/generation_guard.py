@@ -19,10 +19,15 @@ from .service_helpers import db_tournament_to_model
 from .stage_service import stage_has_reported_results
 
 
-def check_generation_allowed(tournament: Tournament, stage_id: StageID) -> str | None:
+def check_generation_allowed(
+    tournament: Tournament, stage_id: StageID
+) -> str | None:
     """Return why the matches of the phase must not be (re)generated, or
     None."""
-    if tournament.status in {TournamentStatus.closed, TournamentStatus.canceled}:
+    if tournament.status in {
+        TournamentStatus.closed,
+        TournamentStatus.canceled,
+    }:
         return (
             'Abgeschlossene oder abgesagte Turniere lassen sich nicht neu '
             'erzeugen.'
@@ -37,7 +42,11 @@ def check_generation_allowed(tournament: Tournament, stage_id: StageID) -> str |
 
 def check_generation_allowed_for_stage(stage: Stage) -> str | None:
     """Like `check_generation_allowed`, loading the stage's tournament."""
-    db_tournament = db.session.get(DbNetsessionTourneyTournament, stage.tournament_id)
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, stage.tournament_id
+    )
     if db_tournament is None:
         return None
-    return check_generation_allowed(db_tournament_to_model(db_tournament), stage.id)
+    return check_generation_allowed(
+        db_tournament_to_model(db_tournament), stage.id
+    )

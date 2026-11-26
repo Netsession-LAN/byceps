@@ -66,10 +66,14 @@ def get_match_results(match_ids: set[MatchID]) -> dict[MatchID, MatchResult]:
             DbNetsessionTourneyMatchResult.match_id.in_(match_ids)
         )
     ).all()
-    return {item.match_id: db_match_result_to_model(item) for item in db_results}
+    return {
+        item.match_id: db_match_result_to_model(item) for item in db_results
+    }
 
 
-def _is_grand_final_reset_skipped_score(score_json: dict[str, Any] | None) -> bool:
+def _is_grand_final_reset_skipped_score(
+    score_json: dict[str, Any] | None,
+) -> bool:
     if not isinstance(score_json, dict):
         return False
 
@@ -102,7 +106,9 @@ def update_optional_double_grand_final_state(
         return
 
     db_source_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult).filter_by(match_id=source_match_id)
+        select(DbNetsessionTourneyMatchResult).filter_by(
+            match_id=source_match_id
+        )
     )
     if db_source_result is None or db_source_result.winner_slot is None:
         return
@@ -112,7 +118,9 @@ def update_optional_double_grand_final_state(
         return
 
     db_reset_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult).filter_by(match_id=reset_match_id)
+        select(DbNetsessionTourneyMatchResult).filter_by(
+            match_id=reset_match_id
+        )
     )
     now = datetime.utcnow()
 
@@ -165,9 +173,8 @@ def _mark_reset_match_as_skipped(
     reset_match_id: MatchID,
     now: datetime,
 ) -> None:
-    if (
-        db_reset_result is not None
-        and not _is_grand_final_reset_skipped_score(db_reset_result.score_json)
+    if db_reset_result is not None and not _is_grand_final_reset_skipped_score(
+        db_reset_result.score_json
     ):
         return
 
@@ -214,7 +221,9 @@ def _reopen_reset_match(
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
     db_reset_match.state = calculate_match_state_for_slots(
-        tournament_status=get_tournament_status_value(db_reset_match.tournament_id),
+        tournament_status=get_tournament_status_value(
+            db_reset_match.tournament_id
+        ),
         db_match_slots=db_reset_slots,
     ).value
     db_reset_match.updated_at = now

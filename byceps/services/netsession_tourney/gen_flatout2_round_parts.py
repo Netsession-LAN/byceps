@@ -60,7 +60,7 @@ def build_flatout2_materialized_round_context(
             (stage.settings or {}).get('builder_display_round_no')
             or first_round_no
         )
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         display_round_no = first_round_no
 
     return Flatout2CurrentRoundGenerationContext(
@@ -142,7 +142,7 @@ def get_flatout2_round_host_participant_ids(
     for raw_host_id in raw_host_ids:
         try:
             host_participant_ids.append(ParticipantID(UUID(str(raw_host_id))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return Err(
                 'Die Host-Auswahl für die aktuelle FlatOut-2-Runde ist ungültig.'
             )

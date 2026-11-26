@@ -13,18 +13,21 @@ from uuid import UUID
 from flask import abort, request
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.match_queries import (
+    get_matches_for_tournament,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_participants_for_tournament,
+    get_stages_for_tournament,
+)
+from byceps.services.netsession_tourney.tournament_service import (
+    find_tournament_for_party,
+)
 from byceps.services.party import party_service
 from byceps.services.party.models import Party
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 from byceps.util.views import redirect_to
-
-from ...match_queries import get_matches_for_tournament
-from ...tournament_queries import (
-    get_participants_for_tournament,
-    get_stages_for_tournament,
-)
-from ...tournament_service import find_tournament_for_party
 
 
 def get_party_or_404(party_id) -> Party:
@@ -78,7 +81,8 @@ def get_round_neighbours(party_id, tournament_id, match):
         (
             item
             for item in get_matches_for_tournament(party_id, tournament_id)
-            if item.stage_id == match.stage_id and item.round_no == match.round_no
+            if item.stage_id == match.stage_id
+            and item.round_no == match.round_no
         ),
         key=lambda item: item.match_no,
     )
@@ -100,9 +104,7 @@ def get_match_or_404(party_id, tournament_id, match_id):
     abort(404)
 
 
-def redirect_to_related_tournament_view(
-    party_id: str, tournament_id: UUID
-):
+def redirect_to_related_tournament_view(party_id: str, tournament_id: UUID):
     path = request.path
     tab = 'overview'
     if '/stages' in path:
@@ -154,10 +156,14 @@ def redirect_to_match_or_tournament_view(
             'match_id': match_id,
         }
         parent_return_to = (
-            request.form.get('parent_return_to')
-            or request.args.get('parent_return_to')
-            or ''
-        ).strip().lower()
+            (
+                request.form.get('parent_return_to')
+                or request.args.get('parent_return_to')
+                or ''
+            )
+            .strip()
+            .lower()
+        )
         if parent_return_to in {'stages', 'matches'}:
             redirect_kwargs['return_to'] = parent_return_to
 
@@ -228,12 +234,12 @@ def parse_admin_ffa_result_form(
             )
         if placement < 1 or placement > 999:
             return Err(
-                gettext(
-                    'Ingame-Plätze müssen zwischen 1 und 999 liegen.'
-                )
+                gettext('Ingame-Plätze müssen zwischen 1 und 999 liegen.')
             )
 
-        raw_kills = (request_form.get(f'kills_slot_{slot.slot_no}') or '').strip()
+        raw_kills = (
+            request_form.get(f'kills_slot_{slot.slot_no}') or ''
+        ).strip()
         if not raw_kills:
             return Err(
                 gettext(
@@ -266,9 +272,7 @@ def parse_admin_ffa_result_form(
     ]
     if len(winner_slots) != 1:
         return Err(
-            gettext(
-                'Genau ein belegter Slot muss den Ingame-Platz 1 erhalten.'
-            )
+            gettext('Genau ein belegter Slot muss den Ingame-Platz 1 erhalten.')
         )
 
     winner_slot = winner_slots[0]
@@ -321,11 +325,15 @@ def parse_admin_flatout2_result_form(
             request_form.get(f'points_slot_{slot.slot_no}') or ''
         ).strip()
         if not raw_points:
-            return Err(gettext('Bitte für jeden belegten Slot Punkte eintragen.'))
+            return Err(
+                gettext('Bitte für jeden belegten Slot Punkte eintragen.')
+            )
         try:
             points = int(raw_points)
         except ValueError:
-            return Err(gettext('Punkte müssen als ganze Zahl eingetragen werden.'))
+            return Err(
+                gettext('Punkte müssen als ganze Zahl eingetragen werden.')
+            )
         if points < 0 or points > 9999:
             return Err(gettext('Punkte müssen zwischen 0 und 9999 liegen.'))
 
@@ -346,7 +354,8 @@ def parse_admin_flatout2_result_form(
         key=lambda slot_no: (-points_by_slot_no[slot_no], slot_no),
     )
     placements_by_slot_no = {
-        slot_no: index for index, slot_no in enumerate(ordered_slot_nos, start=1)
+        slot_no: index
+        for index, slot_no in enumerate(ordered_slot_nos, start=1)
     }
 
     score = {
@@ -372,6 +381,7 @@ def parse_admin_flatout2_result_form(
 
     return Ok((winner_slot, score, ranking, comment))
 
+
 def _get_ffa_points_for_placement(
     placement_points_rules, placement: int | None
 ) -> int:
@@ -386,7 +396,7 @@ def _get_ffa_points_for_placement(
             from_place = int(rule.get('from_place'))
             to_place = int(rule.get('to_place'))
             points = int(rule.get('points'))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         if from_place <= placement <= to_place:
@@ -408,6 +418,3 @@ def parse_csv(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(',') if part.strip()]
-
-
-

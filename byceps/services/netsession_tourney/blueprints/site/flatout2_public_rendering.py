@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from flask_babel import gettext
 
-from ...flatout2 import get_flatout2_mode_label
+from byceps.services.netsession_tourney.flatout2 import get_flatout2_mode_label
+
 from .flatout2_round_helpers import (
     get_flatout2_expected_round_summaries,
     merge_flatout2_missing_bracket_rounds,
@@ -50,7 +51,9 @@ def build_flatout2_match_section(
         )
         rows = []
         for match in matches_in_round:
-            current_host_participant_id = get_flatout2_host_participant_id(match)
+            current_host_participant_id = get_flatout2_host_participant_id(
+                match
+            )
             slots = sorted(
                 slots_by_match_id.get(match.id, []),
                 key=lambda slot: slot.slot_no,
@@ -68,7 +71,8 @@ def build_flatout2_match_section(
                     placement_by_slot_no.get(slot.slot_no),
                     is_host=(
                         bool(current_host_participant_id)
-                        and str(slot.participant_id) == current_host_participant_id
+                        and str(slot.participant_id)
+                        == current_host_participant_id
                     ),
                 )
                 for slot in slots
@@ -93,7 +97,8 @@ def build_flatout2_match_section(
                     ),
                     'participants': participants,
                     'score_display': get_score_display(result),
-                    'has_result': result is not None and result.winner_slot is not None,
+                    'has_result': result is not None
+                    and result.winner_slot is not None,
                     'is_struck': match.id in skipped_match_ids,
                     'show_kills': False,
                     'host_participant_id': current_host_participant_id,
@@ -163,7 +168,9 @@ def build_flatout2_bracket_section(
                 key=lambda slot: slot.slot_no,
             )
             result = results_by_match_id.get(match.id)
-            current_host_participant_id = get_flatout2_host_participant_id(match)
+            current_host_participant_id = get_flatout2_host_participant_id(
+                match
+            )
             source_match_ids = []
             for slot in slots:
                 if slot.source_match_slot_id is None:
@@ -194,8 +201,7 @@ def build_flatout2_bracket_section(
                     'slot_capacity': len(slots),
                     'source_match_ids': source_match_ids,
                     'has_result': (
-                        result is not None
-                        and result.winner_slot is not None
+                        result is not None and result.winner_slot is not None
                     ),
                     'score_display': get_score_display(result),
                     'round_match_index': index,
@@ -237,12 +243,16 @@ def get_flatout2_host_participant_id(match) -> str:
     return str((match.settings or {}).get('host_participant_id') or '').strip()
 
 
-def get_flatout2_round_races_for_stage_round(stage, round_no: int) -> list[dict]:
+def get_flatout2_round_races_for_stage_round(
+    stage, round_no: int
+) -> list[dict]:
     raw_round_races = (
-        (stage.settings or {}).get('flatout2_round_races', {}).get(str(round_no))
-        or (stage.settings or {}).get('flatout2_round_races', {}).get(
-            round_no, []
-        )
+        (stage.settings or {})
+        .get('flatout2_round_races', {})
+        .get(str(round_no))
+        or (stage.settings or {})
+        .get('flatout2_round_races', {})
+        .get(round_no, [])
         or []
     )
 

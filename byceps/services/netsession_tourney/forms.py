@@ -20,12 +20,22 @@ from wtforms import (
     StringField,
     TextAreaField,
 )
-from wtforms.validators import InputRequired, Length, NumberRange, Optional, Regexp
+from wtforms.validators import (
+    InputRequired,
+    Length,
+    NumberRange,
+    Optional,
+    Regexp,
+)
 
 from byceps.util.l10n import LocalizedForm
 
 from .domain_service import ADMIN_SETTABLE_PARTICIPANT_STATUSES
-from .enum_labels import RESULT_REPORT_MODE_LABELS, lazy_enum_label, stage_type_display_name
+from .enum_labels import (
+    lazy_enum_label,
+    RESULT_REPORT_MODE_LABELS,
+    stage_type_display_name,
+)
 from .models import (
     CoinChargeMode,
     CoinRefundPolicy,
@@ -35,10 +45,10 @@ from .models import (
     StageType,
     TournamentMode,
 )
-from .stage_service import get_available_stage_type_specs
 from .registration_validation import (
     is_stage_type_compatible_with_registration_mode,
 )
+from .stage_service import get_available_stage_type_specs
 
 
 SLUG_REGEX = re.compile(r'^[a-z0-9-]+$')
@@ -71,9 +81,7 @@ FFA_MAX_PLAYERS_PER_MATCH_CHOICES = [
     ]
 ]
 
-SUBSTITUTE_COUNT_CHOICES = [
-    (str(count), str(count)) for count in range(0, 21)
-]
+SUBSTITUTE_COUNT_CHOICES = [(str(count), str(count)) for count in range(0, 21)]
 
 PARTICIPANT_DISQUALIFY_REASON_CODE_CHOICES = [
     ('admin_disqualification', lazy_gettext('Administrative Disqualifikation')),
@@ -160,12 +168,20 @@ class TournamentForm(LocalizedForm):
         validators=[InputRequired()],
         choices=[
             ('solo', lazy_enum_label(RegistrationMode.solo)),
-            ('team_captain_managed', lazy_enum_label(RegistrationMode.team_captain_managed)),
-            ('team_preformed_only', lazy_enum_label(RegistrationMode.team_preformed_only)),
+            (
+                'team_captain_managed',
+                lazy_enum_label(RegistrationMode.team_captain_managed),
+            ),
+            (
+                'team_preformed_only',
+                lazy_enum_label(RegistrationMode.team_preformed_only),
+            ),
             ('mixed', lazy_enum_label(RegistrationMode.mixed)),
         ],
     )
-    starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
+    starts_at = DateTimeLocalField(
+        lazy_gettext('Start'), validators=[Optional()]
+    )
     visible_on_site = BooleanField(
         lazy_gettext('Auf der Website sichtbar'), default=True
     )
@@ -377,8 +393,14 @@ class TournamentWizardFormatForm(LocalizedForm):
         validators=[InputRequired()],
         choices=[
             ('solo', lazy_enum_label(RegistrationMode.solo)),
-            ('team_captain_managed', lazy_enum_label(RegistrationMode.team_captain_managed)),
-            ('team_preformed_only', lazy_enum_label(RegistrationMode.team_preformed_only)),
+            (
+                'team_captain_managed',
+                lazy_enum_label(RegistrationMode.team_captain_managed),
+            ),
+            (
+                'team_preformed_only',
+                lazy_enum_label(RegistrationMode.team_preformed_only),
+            ),
             ('mixed', lazy_enum_label(RegistrationMode.mixed)),
         ],
     )
@@ -540,7 +562,9 @@ class TournamentWizardDetailsForm(LocalizedForm):
 
 
 class TournamentWizardScheduleForm(LocalizedForm):
-    starts_at = DateTimeLocalField(lazy_gettext('Start'), validators=[Optional()])
+    starts_at = DateTimeLocalField(
+        lazy_gettext('Start'), validators=[Optional()]
+    )
     visible_on_site = BooleanField(
         lazy_gettext('Auf der Website sichtbar'), default=True
     )
@@ -1014,9 +1038,7 @@ class DiscordConfigForm(LocalizedForm):
         choices=[],
         coerce=str,
     )
-    discord_dm_enabled = BooleanField(
-        lazy_gettext('Discord-DMs aktiviert')
-    )
+    discord_dm_enabled = BooleanField(lazy_gettext('Discord-DMs aktiviert'))
     discord_dm_event_mask = SelectMultipleField(
         lazy_gettext('Discord-DM-Events'),
         choices=[],
@@ -1025,9 +1047,7 @@ class DiscordConfigForm(LocalizedForm):
 
 
 class BrowserPushConfigForm(LocalizedForm):
-    enabled = BooleanField(
-        lazy_gettext('Browser-Benachrichtigungen aktiviert')
-    )
+    enabled = BooleanField(lazy_gettext('Browser-Benachrichtigungen aktiviert'))
 
 
 class DiscordDmConfigForm(LocalizedForm):

@@ -42,8 +42,8 @@ from .models import (
     TournamentStatus,
 )
 from .participant_state import (
-    is_user_already_active_participant,
     count_active_participants_for_tournament,
+    is_user_already_active_participant,
 )
 from .registration_service import (
     ensure_registration_is_registered,
@@ -65,8 +65,8 @@ from .team_coins_and_readiness import (
     reset_ready_if_incomplete,
 )
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 
 
@@ -85,12 +85,14 @@ def create_team_by_admin(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teilnehmer lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
-    if (ticket_check := _validate_user_uses_ticket_for_party(captain_user.id, party_id)).is_err():
+    if (
+        ticket_check := _validate_user_uses_ticket_for_party(
+            captain_user.id, party_id
+        )
+    ).is_err():
         return ticket_check
     if is_user_already_active_participant(tournament_id, captain_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
@@ -162,9 +164,7 @@ def add_team_member_by_admin(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teilnehmer lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
 
@@ -184,7 +184,11 @@ def add_team_member_by_admin(
     if db_participant is None:
         return Err('Unbekanntes Team.')
 
-    if (ticket_check := _validate_user_uses_ticket_for_party(member_user.id, party_id)).is_err():
+    if (
+        ticket_check := _validate_user_uses_ticket_for_party(
+            member_user.id, party_id
+        )
+    ).is_err():
         return ticket_check
     if is_user_already_active_participant(tournament_id, member_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
@@ -242,9 +246,7 @@ def remove_team_member_by_admin(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teilnehmer lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
 
     db_participant = db.session.scalar(
         select(DbNetsessionTourneyParticipant)
@@ -309,9 +311,7 @@ def assign_team_captain_by_admin(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teilnehmer lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
     if tournament.registration_mode == RegistrationMode.solo:
         return Err('Bei Einzelanmeldung gibt es keine Teamverwaltung.')
 

@@ -57,9 +57,14 @@ def build_elimination_placements(
             _outcome(match, slots_by_match_id, results) is None
         ):
             return None
-    if _outcome(
-        next(m for m in played if m.id == final_id), slots_by_match_id, results
-    ) is None:
+    if (
+        _outcome(
+            next(m for m in played if m.id == final_id),
+            slots_by_match_id,
+            results,
+        )
+        is None
+    ):
         return None
 
     distance = _distances_to_final(played, targets, final_id)
@@ -151,7 +156,8 @@ def _incoming_outcomes(match, slots_by_match_id) -> set[str]:
 def _find_final_and_third_place(matches, targets, slots_by_match_id):
     terminal = [m for m in matches if not targets[m.id]]
     third_place = [
-        m for m in terminal
+        m
+        for m in terminal
         if _incoming_outcomes(m, slots_by_match_id) == {'loser'}
     ]
     finals = [m for m in terminal if m not in third_place]

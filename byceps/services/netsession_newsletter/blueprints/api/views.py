@@ -17,14 +17,17 @@ from werkzeug.datastructures import WWWAuthenticate
 
 from byceps.services.authn.api import authn_api_service
 from byceps.services.authz.models import PermissionID
+from byceps.services.netsession_newsletter import (
+    subscriber_queries,
+    unsubscribe_service,
+    unsubscribe_token,
+)
+from byceps.services.netsession_newsletter.settings import find_current_party_id
 from byceps.services.newsletter import newsletter_service
 from byceps.services.user import user_service
 from byceps.services.user.models import UserID
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
-
-from ... import subscriber_queries, unsubscribe_service, unsubscribe_token
-from ...settings import find_current_party_id
 
 
 blueprint = create_blueprint('netsession_newsletter_api', __name__)

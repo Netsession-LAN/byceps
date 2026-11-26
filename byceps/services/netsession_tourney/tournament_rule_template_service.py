@@ -161,8 +161,7 @@ def get_tournament_rule_templates_for_party(
     ).all()
 
     return [
-        db_tournament_rule_template_to_model(item)
-        for item in db_rule_templates
+        db_tournament_rule_template_to_model(item) for item in db_rule_templates
     ]
 
 

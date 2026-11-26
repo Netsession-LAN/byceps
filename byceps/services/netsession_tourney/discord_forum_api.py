@@ -51,7 +51,9 @@ def create_discord_forum_thread(
         response_data = response.json()
         thread_id = str(response_data.get('id') or '').strip()
         if not thread_id:
-            raise ValueError('Discord-Forum-Thread konnte nicht erstellt werden.')
+            raise ValueError(
+                'Discord-Forum-Thread konnte nicht erstellt werden.'
+            )
         return thread_id
 
 

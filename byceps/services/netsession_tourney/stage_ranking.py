@@ -35,10 +35,10 @@ from .models import (
 from .ranking_order import (
     sort_ranked_participant_ids,
 )
-from .stage_ranking_rows import RankingTally, new_ranking_row
 from .score_parsing import (
     get_ffa_points_per_kill,
 )
+from .stage_ranking_rows import new_ranking_row, RankingTally
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -47,7 +47,9 @@ class StageRankingData:
     db_matches: list[DbNetsessionTourneyMatch]
     slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]]
     rows_by_participant_id: dict[ParticipantID, dict[str, Any]]
-    head_to_head_winner_id_by_pair: dict[frozenset[ParticipantID], ParticipantID]
+    head_to_head_winner_id_by_pair: dict[
+        frozenset[ParticipantID], ParticipantID
+    ]
     opponent_ids_by_participant_id: dict[ParticipantID, list[ParticipantID]]
     is_ffa_scoring_stage: bool
 
@@ -114,7 +116,9 @@ def build_stage_ranking_data(
         rows_by_participant_id=_new_rows(tournament_id, participant_ids),
         is_ffa_scoring_stage=db_stage.type in FFA_SCORING_STAGE_TYPES,
         is_swiss_stage=db_stage.type == StageType.swiss.value,
-        points_per_kill=get_ffa_points_per_kill(dict(db_stage.settings_json or {})),
+        points_per_kill=get_ffa_points_per_kill(
+            dict(db_stage.settings_json or {})
+        ),
     )
     db_results = db.session.scalars(
         select(DbNetsessionTourneyMatchResult).filter(
@@ -122,7 +126,9 @@ def build_stage_ranking_data(
         )
     ).all()
     for db_result in db_results:
-        tally.add_result(db_result, slots_by_match_id.get(db_result.match_id, []))
+        tally.add_result(
+            db_result, slots_by_match_id.get(db_result.match_id, [])
+        )
     tally.add_strength_of_schedule()
 
     return Ok(
@@ -156,7 +162,9 @@ def _load_slots(match_ids):
     return slots_by_match_id, participant_ids
 
 
-def _new_rows(tournament_id, participant_ids) -> dict[ParticipantID, dict[str, Any]]:
+def _new_rows(
+    tournament_id, participant_ids
+) -> dict[ParticipantID, dict[str, Any]]:
     db_participants = db.session.scalars(
         select(DbNetsessionTourneyParticipant)
         .filter_by(tournament_id=tournament_id)

@@ -13,13 +13,7 @@ from uuid import UUID
 from flask import g, request, url_for
 from flask_babel import gettext, to_utc
 
-from byceps.services.user import user_service
-from byceps.util.framework.flash import flash_error, flash_success
-from byceps.util.framework.templating import templated
-from byceps.util.result import Err, Ok
-from byceps.util.views import permission_required, redirect_to
-
-from ... import (
+from byceps.services.netsession_tourney import (
     browser_push_service,
     discord_dm_service,
     double_grand_final,
@@ -36,8 +30,23 @@ from ... import (
     tournament_rule_template_service,
     tournament_service,
 )
-from ...flatout2 import get_flatout2_mode_label
-from ...forms import (
+from byceps.services.netsession_tourney.blueprints.site.bracket_helpers import (
+    build_bracket_data,
+    build_bracket_sections,
+)
+from byceps.services.netsession_tourney.blueprints.site.match_helpers import (
+    build_match_labels,
+    build_skipped_double_grand_final_match_ids,
+    build_slot_scores_by_match_id,
+)
+from byceps.services.netsession_tourney.blueprints.site.round_based_public_rendering import (
+    build_match_overview_sections,
+)
+from byceps.services.netsession_tourney.blueprints.site.swiss_public_rendering import (
+    build_swiss_bracket_sections,
+)
+from byceps.services.netsession_tourney.flatout2 import get_flatout2_mode_label
+from byceps.services.netsession_tourney.forms import (
     AdminTeamMemberAddForm,
     DiscordConfigForm,
     MatchDisputeForm,
@@ -46,31 +55,32 @@ from ...forms import (
     TournamentForm,
     TournamentNotificationSendForm,
 )
-from ...logo_service import (
+from byceps.services.netsession_tourney.logo_service import (
     get_discord_forum_image_choices,
     is_known_sponsor_logo_url,
     is_known_tournament_logo_url,
 )
-from ...models import (
+from byceps.services.netsession_tourney.models import (
     CoinChargeMode,
     CoinRefundPolicy,
     RegistrationMode,
     StageType,
     TournamentMode,
 )
-from ..site.bracket_helpers import build_bracket_sections, build_bracket_data
-from ..site.match_helpers import (
-    build_match_labels,
-    build_skipped_double_grand_final_match_ids,
-    build_slot_scores_by_match_id,
+from byceps.services.netsession_tourney.screen_name_suggestions import (
+    get_suggested_screen_names_for_party,
 )
-from ..site.round_based_public_rendering import build_match_overview_sections
-from ..site.swiss_public_rendering import build_swiss_bracket_sections
+from byceps.services.user import user_service
+from byceps.util.framework.flash import flash_error, flash_success
+from byceps.util.framework.templating import templated
+from byceps.util.result import Err, Ok
+from byceps.util.views import permission_required, redirect_to
+
 from .result_helpers import (
+    _get_tournament_or_404,
     get_match_or_404,
     get_participant_or_404,
     get_party_or_404,
-    _get_tournament_or_404,
     redirect_to_related_tournament_view,
 )
 from .route_config import (
@@ -96,7 +106,6 @@ from .wizard_helpers import (
     set_rules_template_choices_for_form,
     update_form_with_categories,
 )
-from ...screen_name_suggestions import get_suggested_screen_names_for_party
 
 
 def register(blueprint):
@@ -108,32 +117,54 @@ def register(blueprint):
         tournament = _get_tournament_or_404(party.id, tournament_id)
         requested_tab = (request.args.get('tab') or 'overview').strip().lower()
         current_subtab = (
-            requested_tab if requested_tab in TOURNAMENT_DETAIL_TABS else 'overview'
+            requested_tab
+            if requested_tab in TOURNAMENT_DETAIL_TABS
+            else 'overview'
         )
         categories_by_id = {
             category.id: category
-            for category in tournament_category_service.get_tournament_categories_for_party(party.id)
+            for category in tournament_category_service.get_tournament_categories_for_party(
+                party.id
+            )
         }
         category = categories_by_id.get(tournament.category_id)
         rule_templates_by_slug = {
             template.slug: template
-            for template in tournament_rule_template_service.get_tournament_rule_templates_for_party(party.id)
+            for template in tournament_rule_template_service.get_tournament_rule_templates_for_party(
+                party.id
+            )
         }
         selected_rules_template = (
             rule_templates_by_slug.get(tournament.rules_page_slug)
             if tournament.rules_page_slug
             else None
         )
-        prizes = tournament_prize_service.get_tournament_prizes_for_tournament(tournament.id)
-        stages = tournament_queries.get_stages_for_tournament(party.id, tournament.id)
-        participants = tournament_queries.get_participants_for_tournament(party.id, tournament.id)
-        participants_by_id = {participant.id: participant for participant in participants}
-        members_by_participant_id = registration_validation.get_team_members_for_participants(
-            {participant.id for participant in participants}
+        prizes = tournament_prize_service.get_tournament_prizes_for_tournament(
+            tournament.id
         )
-        matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
-        slots_by_match_id = match_queries.get_match_slots({match.id for match in matches})
-        results_by_match_id = double_grand_final.get_match_results({match.id for match in matches})
+        stages = tournament_queries.get_stages_for_tournament(
+            party.id, tournament.id
+        )
+        participants = tournament_queries.get_participants_for_tournament(
+            party.id, tournament.id
+        )
+        participants_by_id = {
+            participant.id: participant for participant in participants
+        }
+        members_by_participant_id = (
+            registration_validation.get_team_members_for_participants(
+                {participant.id for participant in participants}
+            )
+        )
+        matches = match_queries.get_matches_for_tournament(
+            party.id, tournament.id
+        )
+        slots_by_match_id = match_queries.get_match_slots(
+            {match.id for match in matches}
+        )
+        results_by_match_id = double_grand_final.get_match_results(
+            {match.id for match in matches}
+        )
         stages_by_id = {stage.id: stage for stage in stages}
         sorted_matches = sorted(
             matches,
@@ -177,31 +208,33 @@ def register(blueprint):
             slots_by_match_id,
             stages_by_id,
         )
-        browser_push_config = browser_push_service.get_browser_push_config(party.id)
+        browser_push_config = browser_push_service.get_browser_push_config(
+            party.id
+        )
         discord_dm_config = discord_dm_service.get_discord_dm_config(party.id)
-        browser_push_subscribed_participant_count = (
-            browser_push_service.count_browser_push_subscribed_participants_for_tournament(
-                party.id, tournament.id
-            )
+        browser_push_subscribed_participant_count = browser_push_service.count_browser_push_subscribed_participants_for_tournament(
+            party.id, tournament.id
         )
-        browser_push_subscribed_user_ids = (
-            browser_push_service.get_browser_push_subscribed_user_ids_for_tournament(
-                party.id, tournament.id
-            )
+        browser_push_subscribed_user_ids = browser_push_service.get_browser_push_subscribed_user_ids_for_tournament(
+            party.id, tournament.id
         )
-        browser_push_outbox_entries = (
-            browser_push_service.get_recent_browser_push_outbox_entries_for_tournament(tournament.id)
+        browser_push_outbox_entries = browser_push_service.get_recent_browser_push_outbox_entries_for_tournament(
+            tournament.id
         )
         browser_push_outbox_user_ids = {
             entry['user_id']
             for entry in browser_push_outbox_entries
             if entry.get('user_id') is not None
         }
-        active_participant_count = participant_state.count_active_participants_for_tournament(
-            party.id, tournament.id
+        active_participant_count = (
+            participant_state.count_active_participants_for_tournament(
+                party.id, tournament.id
+            )
         )
         admin_users_by_id = user_service.get_users_indexed_by_id(
-            tournament_admin_service.get_tournament_admin_user_ids(tournament.id)
+            tournament_admin_service.get_tournament_admin_user_ids(
+                tournament.id
+            )
         )
         tournament_admin_users = sorted(
             admin_users_by_id.values(),
@@ -222,8 +255,10 @@ def register(blueprint):
             for members in members_by_participant_id.values()
             for member in members
         )
-        browser_push_recipient_users_by_id = user_service.get_users_indexed_by_id(
-            browser_push_recipient_user_ids
+        browser_push_recipient_users_by_id = (
+            user_service.get_users_indexed_by_id(
+                browser_push_recipient_user_ids
+            )
         )
         browser_push_recipient_rows = sorted(
             [
@@ -246,7 +281,9 @@ def register(blueprint):
         stage_display_rows = build_stage_display_rows(stages)
 
         requested_stage_id = request.args.get('stage_id')
-        selected_stage = stage_tabs[0] if stage_tabs else (stages[0] if stages else None)
+        selected_stage = (
+            stage_tabs[0] if stage_tabs else (stages[0] if stages else None)
+        )
         if stages and requested_stage_id:
             try:
                 requested_stage_uuid = UUID(requested_stage_id)
@@ -276,9 +313,13 @@ def register(blueprint):
         selected_stage_state_counts = {}
         if selected_stage is not None:
             selected_stage_matches = [
-                match for match in matches if match.stage_id == selected_stage.id
+                match
+                for match in matches
+                if match.stage_id == selected_stage.id
             ]
-            selected_stage_match_ids = {match.id for match in selected_stage_matches}
+            selected_stage_match_ids = {
+                match.id for match in selected_stage_matches
+            }
             selected_stage_slots_by_match_id = {
                 match_id: slots_by_match_id.get(match_id, [])
                 for match_id in selected_stage_match_ids
@@ -302,10 +343,12 @@ def register(blueprint):
                     stages_by_id,
                 )
             )
-            selected_stage_slot_scores_by_match_id = build_slot_scores_by_match_id(
-                selected_stage_matches,
-                selected_stage_slots_by_match_id,
-                selected_stage_results_by_match_id,
+            selected_stage_slot_scores_by_match_id = (
+                build_slot_scores_by_match_id(
+                    selected_stage_matches,
+                    selected_stage_slots_by_match_id,
+                    selected_stage_results_by_match_id,
+                )
             )
 
             selected_stage_participant_ids = {
@@ -315,17 +358,21 @@ def register(blueprint):
                 if slot.participant_id is not None
             }
             if selected_stage_participant_ids:
-                selected_stage_participants_by_id = participant_admin_service.get_participants_by_ids(
-                    party.id, selected_stage_participant_ids
+                selected_stage_participants_by_id = (
+                    participant_admin_service.get_participants_by_ids(
+                        party.id, selected_stage_participant_ids
+                    )
                 )
                 selected_stage_user_ids = {
                     participant.user_id
                     for participant in selected_stage_participants_by_id.values()
                     if participant.user_id is not None
                 }
-                selected_stage_users_by_id = user_service.get_users_indexed_by_id(
-                    selected_stage_user_ids,
-                    include_avatars=True,
+                selected_stage_users_by_id = (
+                    user_service.get_users_indexed_by_id(
+                        selected_stage_user_ids,
+                        include_avatars=True,
+                    )
                 )
 
             selected_stage_bracket = build_bracket_data(
@@ -356,14 +403,16 @@ def register(blueprint):
                         )
                     )
                 else:
-                    selected_stage_round_based_sections = build_match_overview_sections(
-                        selected_stage_bracket_sections,
-                        {selected_stage.id: selected_stage},
-                        selected_stage_results_by_match_id,
-                        selected_stage_slot_scores_by_match_id,
-                        selected_stage_match_labels_by_id,
-                        selected_stage_users_by_id,
-                        selected_stage_skipped_double_grand_final_match_ids,
+                    selected_stage_round_based_sections = (
+                        build_match_overview_sections(
+                            selected_stage_bracket_sections,
+                            {selected_stage.id: selected_stage},
+                            selected_stage_results_by_match_id,
+                            selected_stage_slot_scores_by_match_id,
+                            selected_stage_match_labels_by_id,
+                            selected_stage_users_by_id,
+                            selected_stage_skipped_double_grand_final_match_ids,
+                        )
                     )
 
             selected_stage_state_counts = {
@@ -406,7 +455,8 @@ def register(blueprint):
             data={
                 'discord_enabled': tournament.discord_enabled,
                 'forum_channel_id': tournament.discord_forum_channel_id,
-                'discord_forum_image_url': tournament.discord_forum_image_url or '',
+                'discord_forum_image_url': tournament.discord_forum_image_url
+                or '',
                 'applied_tag_ids': ', '.join(
                     tournament.discord_applied_tag_ids
                 ),
@@ -434,7 +484,9 @@ def register(blueprint):
             'participants': participants,
             'participants_by_id': participants_by_id,
             'active_participant_count': active_participant_count,
-            'suggested_screen_names': get_suggested_screen_names_for_party(party.id),
+            'suggested_screen_names': get_suggested_screen_names_for_party(
+                party.id
+            ),
             'tournament_admin_users': tournament_admin_users,
             'members_by_participant_id': members_by_participant_id,
             'matches': matches,
@@ -481,7 +533,6 @@ def register(blueprint):
             'browser_push_outbox_users_by_id': browser_push_outbox_users_by_id,
         }
 
-
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/notifications/send'
     )
@@ -491,7 +542,9 @@ def register(blueprint):
         tournament = _get_tournament_or_404(party.id, tournament_id)
         form = TournamentNotificationSendForm(request.form)
         if not form.validate():
-            flash_error(gettext('Benachrichtigung konnte nicht gesendet werden.'))
+            flash_error(
+                gettext('Benachrichtigung konnte nicht gesendet werden.')
+            )
             return redirect_to(
                 '.view',
                 party_id=party.id,
@@ -525,7 +578,6 @@ def register(blueprint):
             tab='notifications',
         )
 
-
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/participants/<uuid:participant_id>'
     )
@@ -534,9 +586,15 @@ def register(blueprint):
     def participant_view(party_id, tournament_id, participant_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
-        participant = get_participant_or_404(party.id, tournament.id, participant_id)
+        participant = get_participant_or_404(
+            party.id, tournament.id, participant_id
+        )
 
-        members_by_participant_id = registration_validation.get_team_members_for_participants({participant.id})
+        members_by_participant_id = (
+            registration_validation.get_team_members_for_participants(
+                {participant.id}
+            )
+        )
         members = members_by_participant_id.get(participant.id, [])
         member_user_ids = {member.user_id for member in members}
         user_ids = set(member_user_ids)
@@ -550,7 +608,9 @@ def register(blueprint):
             'participant': participant,
             'members': members,
             'users_by_id': users_by_id,
-            'suggested_screen_names': get_suggested_screen_names_for_party(party.id),
+            'suggested_screen_names': get_suggested_screen_names_for_party(
+                party.id
+            ),
             'participant_disqualify_form': ParticipantDisqualifyForm(
                 data={'reason_code': 'admin_disqualification'}
             ),
@@ -560,7 +620,6 @@ def register(blueprint):
                 party.id, tournament.id
             ),
         }
-
 
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/matches/<uuid:match_id>'
@@ -572,17 +631,29 @@ def register(blueprint):
         tournament = _get_tournament_or_404(party.id, tournament_id)
         match = get_match_or_404(party.id, tournament.id, match_id)
 
-        participants = tournament_queries.get_participants_for_tournament(party.id, tournament.id)
-        participants_by_id = {participant.id: participant for participant in participants}
-        all_matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
-        all_slots_by_match_id = match_queries.get_match_slots({item.id for item in all_matches})
+        participants = tournament_queries.get_participants_for_tournament(
+            party.id, tournament.id
+        )
+        participants_by_id = {
+            participant.id: participant for participant in participants
+        }
+        all_matches = match_queries.get_matches_for_tournament(
+            party.id, tournament.id
+        )
+        all_slots_by_match_id = match_queries.get_match_slots(
+            {item.id for item in all_matches}
+        )
         slots = all_slots_by_match_id.get(match.id, [])
         results_by_match_id = double_grand_final.get_match_results({match.id})
         result = results_by_match_id.get(match.id)
-        stages = tournament_queries.get_stages_for_tournament(party.id, tournament.id)
+        stages = tournament_queries.get_stages_for_tournament(
+            party.id, tournament.id
+        )
         stages_by_id = {stage.id: stage for stage in stages}
         stage = stages_by_id.get(match.stage_id)
-        is_flatout2_stage = stage is not None and is_flatout2_stage_type(stage.type)
+        is_flatout2_stage = stage is not None and is_flatout2_stage_type(
+            stage.type
+        )
         current_host_participant_id = (
             str((match.settings or {}).get('host_participant_id') or '').strip()
             if is_flatout2_stage
@@ -654,8 +725,9 @@ def register(blueprint):
             ),
         }
 
-
-    @blueprint.get('/for_party/<party_id>/tournaments/<uuid:tournament_id>/update')
+    @blueprint.get(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/update'
+    )
     @permission_required('netsession_tourney.manage')
     @templated
     def update_form(party_id, tournament_id, erroneous_form=None):
@@ -666,7 +738,11 @@ def register(blueprint):
 
         tournament = _get_tournament_or_404(party.id, tournament_id)
         available_admin_users = get_available_tournament_admin_users()
-        assigned_admin_user_ids = tournament_admin_service.get_tournament_admin_user_ids(tournament.id)
+        assigned_admin_user_ids = (
+            tournament_admin_service.get_tournament_admin_user_ids(
+                tournament.id
+            )
+        )
 
         if erroneous_form:
             form = update_form_with_categories(
@@ -701,7 +777,8 @@ def register(blueprint):
                 'coin_refund_policy': tournament.coin_refund_policy.value,
                 'coin_charge_mode': tournament.coin_charge_mode.value,
                 'admin_user_ids': [
-                    str(user_id) for user_id in sorted(assigned_admin_user_ids, key=str)
+                    str(user_id)
+                    for user_id in sorted(assigned_admin_user_ids, key=str)
                 ],
             }
             form = update_form_with_categories(
@@ -730,10 +807,11 @@ def register(blueprint):
         return {
             'party': party,
             'tournament': tournament,
-            'stages': tournament_queries.get_stages_for_tournament(party.id, tournament.id),
+            'stages': tournament_queries.get_stages_for_tournament(
+                party.id, tournament.id
+            ),
             'form': form,
         }
-
 
     @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>')
     @permission_required('netsession_tourney.manage')
@@ -748,7 +826,9 @@ def register(blueprint):
         form = TournamentForm(request.form)
         set_category_choices_for_form(form, party.id)
         available_admin_users = get_available_tournament_admin_users()
-        available_admin_user_ids = {str(user.id) for user in available_admin_users}
+        available_admin_user_ids = {
+            str(user.id) for user in available_admin_users
+        }
         form.set_admin_user_choices(
             [(str(user.id), user.screen_name) for user in available_admin_users]
         )
@@ -771,9 +851,8 @@ def register(blueprint):
             if form.tournament_logo_url.data
             else None
         )
-        if (
-            tournament_logo_url
-            and not is_known_tournament_logo_url(party.id, tournament_logo_url)
+        if tournament_logo_url and not is_known_tournament_logo_url(
+            party.id, tournament_logo_url
         ):
             flash_error(gettext('Ungültiges Turnierlogo ausgewählt.'))
             return update_form(party.id, tournament.id, form)
@@ -821,7 +900,8 @@ def register(blueprint):
             registration_open=bool(form.registration_open.data),
             registration_deadline=form.registration_deadline.data
             and to_utc(form.registration_deadline.data),
-            roster_lock_at=form.roster_lock_at.data and to_utc(form.roster_lock_at.data),
+            roster_lock_at=form.roster_lock_at.data
+            and to_utc(form.roster_lock_at.data),
             checkin_open_at=form.checkin_open_at.data
             and to_utc(form.checkin_open_at.data),
             checkin_close_at=form.checkin_close_at.data
@@ -847,11 +927,13 @@ def register(blueprint):
                 selected_admin_user_ids = parse_admin_user_ids(
                     form.admin_user_ids.data, available_admin_user_ids
                 )
-                set_admin_result = tournament_admin_service.set_tournament_admin_user_ids(
-                    party.id,
-                    tournament.id,
-                    selected_admin_user_ids,
-                    g.user.as_user(),
+                set_admin_result = (
+                    tournament_admin_service.set_tournament_admin_user_ids(
+                        party.id,
+                        tournament.id,
+                        selected_admin_user_ids,
+                        g.user.as_user(),
+                    )
                 )
                 if set_admin_result.is_err():
                     flash_error(set_admin_result.unwrap_err())
@@ -869,14 +951,17 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/publish')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/publish'
+    )
     @permission_required('netsession_tourney.manage')
     def publish(party_id, tournament_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        match tournament_lifecycle_service.publish_tournament(party.id, tournament.id, g.user.as_user()):
+        match tournament_lifecycle_service.publish_tournament(
+            party.id, tournament.id, g.user.as_user()
+        ):
             case Ok(_):
                 flash_success(gettext('Turnier wurde veröffentlicht.'))
             case Err(message):
@@ -884,14 +969,17 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/unpublish')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/unpublish'
+    )
     @permission_required('netsession_tourney.manage')
     def unpublish(party_id, tournament_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        match tournament_lifecycle_service.unpublish_tournament(party.id, tournament.id, g.user.as_user()):
+        match tournament_lifecycle_service.unpublish_tournament(
+            party.id, tournament.id, g.user.as_user()
+        ):
             case Ok(_):
                 flash_success(gettext('Turnier ist wieder ein Entwurf.'))
             case Err(message):
@@ -899,14 +987,17 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/close')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/close'
+    )
     @permission_required('netsession_tourney.manage')
     def close(party_id, tournament_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        match tournament_lifecycle_service.close_tournament(party.id, tournament.id, g.user.as_user()):
+        match tournament_lifecycle_service.close_tournament(
+            party.id, tournament.id, g.user.as_user()
+        ):
             case Ok(_):
                 flash_success(gettext('Turnier wurde abgeschlossen.'))
             case Err(message):
@@ -914,14 +1005,17 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/cancel')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/cancel'
+    )
     @permission_required('netsession_tourney.manage')
     def cancel(party_id, tournament_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        match tournament_lifecycle_service.cancel_tournament(party.id, tournament.id, g.user.as_user()):
+        match tournament_lifecycle_service.cancel_tournament(
+            party.id, tournament.id, g.user.as_user()
+        ):
             case Ok(_):
                 flash_success(gettext('Turnier wurde abgesagt.'))
             case Err(message):
@@ -929,17 +1023,22 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/delete')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/delete'
+    )
     @permission_required('netsession_tourney.manage')
     def delete(party_id, tournament_id):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
 
-        match tournament_lifecycle_service.delete_tournament(party.id, tournament.id, g.user.as_user()):
+        match tournament_lifecycle_service.delete_tournament(
+            party.id, tournament.id, g.user.as_user()
+        ):
             case Ok(_):
                 flash_success(gettext('Turnier wurde gelöscht.'))
                 return redirect_to('.index', party_id=party.id)
             case Err(message):
                 flash_error(message)
-                return redirect_to_related_tournament_view(party.id, tournament.id)
+                return redirect_to_related_tournament_view(
+                    party.id, tournament.id
+                )

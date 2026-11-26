@@ -8,28 +8,22 @@ byceps.services.netsession_tourney.blueprints.admin.wizard_helpers
 
 from __future__ import annotations
 
+from datetime import datetime
 import re
 import unicodedata
-from datetime import datetime
 from uuid import UUID
 
 from flask import abort, session
 from flask_babel import gettext
 
 from byceps.services.authz import authz_service
-from byceps.services.party.models import Party
-from byceps.services.user import user_service
-from byceps.services.user.models import UserID
-from byceps.util.framework.flash import flash_error
-from byceps.util.views import redirect_to
-
-from ...forms import (
+from byceps.services.netsession_tourney.forms import (
     TournamentForm,
     TournamentWizardDetailsForm,
     TournamentWizardFormatForm,
     TournamentWizardScheduleForm,
 )
-from ...logo_service import (
+from byceps.services.netsession_tourney.logo_service import (
     find_discord_forum_image_asset,
     find_sponsor_logo_asset,
     find_tournament_logo_asset,
@@ -37,7 +31,7 @@ from ...logo_service import (
     get_sponsor_logo_choices,
     get_tournament_logo_choices,
 )
-from ...models import (
+from byceps.services.netsession_tourney.models import (
     CoinChargeMode,
     CoinRefundPolicy,
     DiscordForumImageAssetID,
@@ -45,19 +39,27 @@ from ...models import (
     SponsorLogoAssetID,
     TournamentCategoryID,
     TournamentLogoAssetID,
-    TournamentPrizeID,
     TournamentMode,
+    TournamentPrizeID,
     TournamentRuleTemplateID,
 )
-from ...tournament_category_service import (
+from byceps.services.netsession_tourney.tournament_category_service import (
     find_tournament_category,
     get_tournament_categories_for_party,
 )
-from ...tournament_prize_service import find_tournament_prize
-from ...tournament_rule_template_service import (
+from byceps.services.netsession_tourney.tournament_prize_service import (
+    find_tournament_prize,
+)
+from byceps.services.netsession_tourney.tournament_rule_template_service import (
     find_tournament_rule_template,
     get_tournament_rule_templates_for_party,
 )
+from byceps.services.party.models import Party
+from byceps.services.user import user_service
+from byceps.services.user.models import UserID
+from byceps.util.framework.flash import flash_error
+from byceps.util.views import redirect_to
+
 from .route_config import (
     CREATE_WIZARD_SESSION_KEY,
     DISCORD_FORUM_EVENT_CHOICES,
@@ -83,10 +85,7 @@ def set_rules_template_choices_for_form(
     rule_templates = get_tournament_rule_templates_for_party(party_id)
     choices = [(template.slug, template.title) for template in rule_templates]
 
-    if (
-        selected_slug
-        and selected_slug not in {slug for slug, _ in choices}
-    ):
+    if selected_slug and selected_slug not in {slug for slug, _ in choices}:
         choices.insert(0, (selected_slug, f'{selected_slug} (nicht gefunden)'))
 
     form.set_rules_template_choices(choices)
@@ -100,11 +99,9 @@ def set_logo_choices_for_form(
     selected_sponsor_logo_url: str | None = None,
 ) -> None:
     tournament_logo_choices = get_tournament_logo_choices(party_id)
-    if (
-        selected_tournament_logo_url
-        and selected_tournament_logo_url
-        not in {url for url, _ in tournament_logo_choices}
-    ):
+    if selected_tournament_logo_url and selected_tournament_logo_url not in {
+        url for url, _ in tournament_logo_choices
+    }:
         tournament_logo_choices.insert(
             0,
             (
@@ -115,10 +112,9 @@ def set_logo_choices_for_form(
     form.set_tournament_logo_choices(tournament_logo_choices)
 
     sponsor_logo_choices = get_sponsor_logo_choices(party_id)
-    if (
-        selected_sponsor_logo_url
-        and selected_sponsor_logo_url not in {url for url, _ in sponsor_logo_choices}
-    ):
+    if selected_sponsor_logo_url and selected_sponsor_logo_url not in {
+        url for url, _ in sponsor_logo_choices
+    }:
         sponsor_logo_choices.insert(
             0,
             (
@@ -137,7 +133,9 @@ def _get_default_category_id_for_party(party_id: str) -> str | None:
     return str(categories[0].id)
 
 
-def parse_category_id(raw_category_id: str | None) -> TournamentCategoryID | None:
+def parse_category_id(
+    raw_category_id: str | None,
+) -> TournamentCategoryID | None:
     if not raw_category_id:
         return None
 
@@ -174,7 +172,9 @@ def get_tournament_prize_or_404(prize_id):
 
 
 def get_tournament_logo_asset_or_404(logo_asset_id):
-    logo_asset = find_tournament_logo_asset(TournamentLogoAssetID(logo_asset_id))
+    logo_asset = find_tournament_logo_asset(
+        TournamentLogoAssetID(logo_asset_id)
+    )
     if logo_asset is None:
         abort(404)
 
@@ -280,9 +280,11 @@ def clear_stage_builder_wizard_state(party_id: str, tournament_id: str) -> None:
 
 
 def slugify_tournament_title(value: str) -> str:
-    normalized = unicodedata.normalize('NFKD', value).encode(
-        'ascii', 'ignore'
-    ).decode('ascii')
+    normalized = (
+        unicodedata.normalize('NFKD', value)
+        .encode('ascii', 'ignore')
+        .decode('ascii')
+    )
     slug = re.sub(r'[^a-z0-9]+', '-', normalized.lower()).strip('-')
     return slug[:60]
 
@@ -396,9 +398,7 @@ def build_wizard_details_form(
                 'rules_template_slug': state.get('rules_page_slug'),
                 'discord_enabled': state.get('discord_enabled', False),
                 'forum_channel_id': state.get('discord_forum_channel_id'),
-                'discord_forum_image_url': state.get(
-                    'discord_forum_image_url'
-                ),
+                'discord_forum_image_url': state.get('discord_forum_image_url'),
                 'applied_tag_ids': ', '.join(
                     state.get('discord_applied_tag_ids') or []
                 ),
@@ -487,5 +487,3 @@ def parse_admin_user_ids(
             continue
 
     return selected_user_ids
-
-

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import math
 
-from ..models import ParticipantID
+from byceps.services.netsession_tourney.models import ParticipantID
+
 from .base import MatchSpec, SlotSpec
 from .bracket_helpers import chunked_evenly
 

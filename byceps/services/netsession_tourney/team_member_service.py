@@ -74,9 +74,7 @@ def add_team_member_by_captain(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teams lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teams lassen sich nur im Entwurf verwalten.')
 
     db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
@@ -140,9 +138,7 @@ def assign_team_captain_by_captain(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teams lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teams lassen sich nur im Entwurf verwalten.')
 
     db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
@@ -204,9 +200,7 @@ def remove_team_member_by_captain(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teams lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teams lassen sich nur im Entwurf verwalten.')
 
     db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id
@@ -223,7 +217,9 @@ def remove_team_member_by_captain(
     if db_member is None:
         return Err('Unbekanntes Teammitglied.')
     if db_member.role == TeamMemberRole.captain.value:
-        return Err('Du kannst dich als Captain nicht selbst aus dem Team entfernen.')
+        return Err(
+            'Du kannst dich als Captain nicht selbst aus dem Team entfernen.'
+        )
 
     db.session.delete(db_member)
     set_registration_state_for_user(

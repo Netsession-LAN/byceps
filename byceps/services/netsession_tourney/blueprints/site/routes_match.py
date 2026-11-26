@@ -17,45 +17,59 @@ from flask import (
 )
 from flask_babel import gettext
 
-from byceps.services.user import user_service
-from byceps.util.framework.flash import flash_error, flash_success
-from byceps.util.framework.templating import templated
-from byceps.util.views import login_required, redirect_to
-
-from ...double_grand_final import get_match_results
-from ...flatout2 import get_flatout2_mode_label
-from ...forms import (
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.flatout2 import get_flatout2_mode_label
+from byceps.services.netsession_tourney.forms import (
     MatchChatMessageForm,
     MatchScoreReportForm,
 )
-from ...match_chat_service import (
+from byceps.services.netsession_tourney.match_chat_service import (
     can_user_access_match_chat,
     get_match_chat_messages,
     post_match_chat_message,
 )
-from ...match_queries import (
+from byceps.services.netsession_tourney.match_queries import (
     find_match_for_tournament,
     get_match_slots,
     get_match_slots_for_match,
     get_match_timeline_entries,
     get_matches_for_tournament,
 )
-from ...models import (
+from byceps.services.netsession_tourney.models import (
     MatchState,
     ParticipantType,
 )
-from ...registration_validation import get_team_members_for_participants
-from ...result_report_mode import is_stage_result_reporting_admin_only
-from ...result_service import report_result
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.registration_validation import (
+    get_team_members_for_participants,
+)
+from byceps.services.netsession_tourney.result_report_mode import (
+    is_stage_result_reporting_admin_only,
+)
+from byceps.services.netsession_tourney.result_service import report_result
+from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
 )
+from byceps.services.user import user_service
+from byceps.util.framework.flash import flash_error, flash_success
+from byceps.util.framework.templating import templated
+from byceps.util.views import login_required, redirect_to
+
+from .blueprint import blueprint
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _get_tournament_or_404,
+    build_slot_score_payload,
+    format_timeline_action,
+    get_main_nav_current_page_id,
+    get_participants_for_tournament_indexed_by_id,
+)
 from .match_helpers import (
+    _parse_slot_scores,
     build_match_labels,
     build_skipped_double_grand_final_match_ids,
     get_or_create_idempotency_key,
-    _parse_slot_scores,
 )
 from .presentation_helpers import (
     get_stage_duration_minutes,
@@ -71,15 +85,6 @@ from .stage_render_helpers import (
 )
 from .user_state_helpers import (
     can_user_report_match_result,
-)
-
-from .blueprint import blueprint
-from .common import (
-    get_main_nav_current_page_id,
-    _get_tournament_or_404,
-    build_slot_score_payload,
-    get_participants_for_tournament_indexed_by_id,
-    format_timeline_action,
 )
 
 
@@ -101,11 +106,13 @@ def view_match(slug, match_id):
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        stages_by_id,
+    skipped_double_grand_final_match_ids = (
+        build_skipped_double_grand_final_match_ids(
+            matches,
+            slots_by_match_id,
+            results_by_match_id,
+            stages_by_id,
+        )
     )
     slots = sorted(
         get_match_slots_for_match(match.id), key=lambda slot: slot.slot_no
@@ -132,7 +139,9 @@ def view_match(slug, match_id):
         g.party.id, tournament.id, match.id
     )
     timeline_actor_ids = {
-        entry['actor_user_id'] for entry in timeline_entries if entry['actor_user_id']
+        entry['actor_user_id']
+        for entry in timeline_entries
+        if entry['actor_user_id']
     }
     chat_messages = get_match_chat_messages(g.party.id, tournament.id, match.id)
     chat_actor_ids = {message.actor_user_id for message in chat_messages}
@@ -198,7 +207,9 @@ def view_match(slug, match_id):
             is_admin_or_referee=is_admin_or_referee,
         )
 
-    is_skipped_double_grand_final = match.id in skipped_double_grand_final_match_ids
+    is_skipped_double_grand_final = (
+        match.id in skipped_double_grand_final_match_ids
+    )
     if is_skipped_double_grand_final:
         can_report = False
 
@@ -290,7 +301,8 @@ def view_match(slug, match_id):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'matches',
     }
@@ -313,14 +325,13 @@ def report_match_result(slug, match_id):
         flash_error(gettext('Unbekanntes Match.'))
         return redirect_to('.view_match', slug=slug, match_id=match_id)
     stages_by_id = {
-        stage.id: stage for stage in get_stages_for_tournament(g.party.id, tournament.id)
+        stage.id: stage
+        for stage in get_stages_for_tournament(g.party.id, tournament.id)
     }
     stage = stages_by_id.get(match.stage_id)
     if _is_ffa_scoring_stage(stage):
         flash_error(
-            gettext(
-                'FFA-Ergebnisse werden nur im Admin-Bereich eingetragen.'
-            )
+            gettext('FFA-Ergebnisse werden nur im Admin-Bereich eingetragen.')
         )
         return redirect_to('.view_match', slug=slug, match_id=match_id)
 
@@ -383,7 +394,11 @@ def report_match_result(slug, match_id):
         flash_error(result.unwrap_err())
 
     next_target = request.form.get('next')
-    if next_target and next_target.startswith('/') and not next_target.startswith('//'):
+    if (
+        next_target
+        and next_target.startswith('/')
+        and not next_target.startswith('//')
+    ):
         return redirect(next_target)
 
     return redirect_to('.view_match', slug=slug, match_id=match_id)

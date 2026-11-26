@@ -149,9 +149,7 @@ def test_ffa_match_lists_all_players(
         4,
         {'max_players_per_match': 8},
     )
-    (match,) = match_queries.get_matches_for_tournament(
-        party.id, tournament.id
-    )
+    (match,) = match_queries.get_matches_for_tournament(party.id, tournament.id)
     result_service.report_result(
         party.id,
         tournament.id,

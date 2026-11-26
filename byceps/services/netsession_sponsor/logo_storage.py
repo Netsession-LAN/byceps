@@ -15,7 +15,7 @@ from typing import BinaryIO
 from byceps.byceps_app import get_current_byceps_app
 from byceps.services.party.models import PartyID
 from byceps.util import upload
-from byceps.util.image.image_type import ImageType, determine_image_type
+from byceps.util.image.image_type import determine_image_type, ImageType
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 

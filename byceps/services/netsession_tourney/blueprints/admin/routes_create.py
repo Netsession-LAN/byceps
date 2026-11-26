@@ -13,6 +13,35 @@ from uuid import UUID
 from flask import g, request
 from flask_babel import gettext, to_utc
 
+from byceps.services.netsession_tourney.discord_service import configure_discord
+from byceps.services.netsession_tourney.forms import (
+    TournamentWizardDetailsForm,
+    TournamentWizardFormatForm,
+    TournamentWizardScheduleForm,
+)
+from byceps.services.netsession_tourney.logo_service import (
+    is_known_discord_forum_image_url,
+    is_known_sponsor_logo_url,
+    is_known_tournament_logo_url,
+)
+from byceps.services.netsession_tourney.models import (
+    CoinChargeMode,
+    CoinRefundPolicy,
+    RegistrationMode,
+    TournamentMode,
+)
+from byceps.services.netsession_tourney.tournament_admin_service import (
+    set_tournament_admin_user_ids,
+)
+from byceps.services.netsession_tourney.tournament_category_service import (
+    get_tournament_categories_for_party,
+)
+from byceps.services.netsession_tourney.tournament_rule_template_service import (
+    get_tournament_rule_templates_for_party,
+)
+from byceps.services.netsession_tourney.tournament_service import (
+    create_tournament,
+)
 from byceps.services.user import user_service
 from byceps.services.user.models import UserID
 from byceps.util.framework.flash import flash_error, flash_success
@@ -20,29 +49,6 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
-from ...forms import (
-    TournamentWizardDetailsForm,
-    TournamentWizardFormatForm,
-    TournamentWizardScheduleForm,
-)
-from ...logo_service import (
-    is_known_discord_forum_image_url,
-    is_known_sponsor_logo_url,
-    is_known_tournament_logo_url,
-)
-from ...models import (
-    CoinChargeMode,
-    CoinRefundPolicy,
-    RegistrationMode,
-    TournamentMode,
-)
-from ...discord_service import configure_discord
-from ...tournament_admin_service import set_tournament_admin_user_ids
-from ...tournament_category_service import get_tournament_categories_for_party
-from ...tournament_rule_template_service import (
-    get_tournament_rule_templates_for_party,
-)
-from ...tournament_service import create_tournament
 from .result_helpers import get_party_or_404, parse_csv
 from .wizard_helpers import (
     assert_party_has_categories_or_redirect,
@@ -70,12 +76,10 @@ def register(blueprint):
     def create_form(party_id):
         return redirect_to('.create_wizard_format', party_id=party_id)
 
-
     @blueprint.post('/for_party/<party_id>')
     @permission_required('netsession_tourney.manage')
     def create(party_id):
         return redirect_to('.create_wizard_format', party_id=party_id)
-
 
     @blueprint.get('/for_party/<party_id>/create/format')
     @permission_required('netsession_tourney.manage')
@@ -98,7 +102,6 @@ def register(blueprint):
             'form': form,
             'wizard_step': 'format',
         }
-
 
     @blueprint.post('/for_party/<party_id>/create/format')
     @permission_required('netsession_tourney.manage')
@@ -139,13 +142,14 @@ def register(blueprint):
                 'coin_charge_mode': CoinChargeMode.all_members.value
                 if registration_mode == RegistrationMode.solo
                 else form.coin_charge_mode.data,
-                'admin_user_ids': [str(user_id) for user_id in selected_admin_user_ids],
+                'admin_user_ids': [
+                    str(user_id) for user_id in selected_admin_user_ids
+                ],
             }
         )
         set_create_wizard_state(party.id, state)
 
         return redirect_to('.create_wizard_details', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/create/details')
     @permission_required('netsession_tourney.manage')
@@ -172,7 +176,6 @@ def register(blueprint):
             'wizard_step': 'details',
         }
 
-
     @blueprint.post('/for_party/<party_id>/create/details')
     @permission_required('netsession_tourney.manage')
     def create_wizard_details_submit(party_id):
@@ -198,9 +201,8 @@ def register(blueprint):
             if form.tournament_logo_url.data
             else None
         )
-        if (
-            tournament_logo_url
-            and not is_known_tournament_logo_url(party.id, tournament_logo_url)
+        if tournament_logo_url and not is_known_tournament_logo_url(
+            party.id, tournament_logo_url
         ):
             flash_error(gettext('Ungültiges Turnierlogo ausgewählt.'))
             return create_wizard_details(party.id, form)
@@ -226,13 +228,12 @@ def register(blueprint):
             if form.discord_forum_image_url.data
             else None
         )
-        if (
-            discord_forum_image_url
-            and not is_known_discord_forum_image_url(
-                party.id, discord_forum_image_url
-            )
+        if discord_forum_image_url and not is_known_discord_forum_image_url(
+            party.id, discord_forum_image_url
         ):
-            flash_error(gettext('Das ausgewählte Discord-Forum-Bild ist ungültig.'))
+            flash_error(
+                gettext('Das ausgewählte Discord-Forum-Bild ist ungültig.')
+            )
             return create_wizard_details(party.id, form)
 
         discord_event_mask = list(form.event_mask.data or [])
@@ -253,7 +254,9 @@ def register(blueprint):
             {
                 'slug': slug,
                 'title': form.title.data.strip(),
-                'subtitle': form.subtitle.data.strip() if form.subtitle.data else None,
+                'subtitle': form.subtitle.data.strip()
+                if form.subtitle.data
+                else None,
                 'logo_url': tournament_logo_url,
                 'is_sponsored': is_sponsored,
                 'sponsor_logo_url': sponsor_logo_url if is_sponsored else None,
@@ -273,7 +276,6 @@ def register(blueprint):
         set_create_wizard_state(party.id, state)
 
         return redirect_to('.create_wizard_schedule', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/create/schedule')
     @permission_required('netsession_tourney.manage')
@@ -302,7 +304,6 @@ def register(blueprint):
             'wizard_step': 'schedule',
         }
 
-
     @blueprint.post('/for_party/<party_id>/create/schedule')
     @permission_required('netsession_tourney.manage')
     def create_wizard_schedule_submit(party_id):
@@ -329,8 +330,12 @@ def register(blueprint):
                 'registration_deadline': serialize_datetime_local(
                     form.registration_deadline.data
                 ),
-                'roster_lock_at': serialize_datetime_local(form.roster_lock_at.data),
-                'checkin_open_at': serialize_datetime_local(form.checkin_open_at.data),
+                'roster_lock_at': serialize_datetime_local(
+                    form.roster_lock_at.data
+                ),
+                'checkin_open_at': serialize_datetime_local(
+                    form.checkin_open_at.data
+                ),
                 'checkin_close_at': serialize_datetime_local(
                     form.checkin_close_at.data
                 ),
@@ -339,7 +344,6 @@ def register(blueprint):
         set_create_wizard_state(party.id, state)
 
         return redirect_to('.create_wizard_review', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/create/review')
     @permission_required('netsession_tourney.manage')
@@ -392,7 +396,6 @@ def register(blueprint):
             'wizard_step': 'review',
         }
 
-
     @blueprint.post('/for_party/<party_id>/create/review')
     @permission_required('netsession_tourney.manage')
     def create_wizard_review_submit(party_id):
@@ -421,8 +424,12 @@ def register(blueprint):
             state.get('registration_deadline')
         )
         roster_lock_at = deserialize_datetime_local(state.get('roster_lock_at'))
-        checkin_open_at = deserialize_datetime_local(state.get('checkin_open_at'))
-        checkin_close_at = deserialize_datetime_local(state.get('checkin_close_at'))
+        checkin_open_at = deserialize_datetime_local(
+            state.get('checkin_open_at')
+        )
+        checkin_close_at = deserialize_datetime_local(
+            state.get('checkin_close_at')
+        )
 
         result = create_tournament(
             party.id,
@@ -464,7 +471,10 @@ def register(blueprint):
             case Ok(tournament):
                 selected_admin_ids = parse_admin_user_ids(
                     state.get('admin_user_ids') or [],
-                    {str(user.id) for user in get_available_tournament_admin_users()},
+                    {
+                        str(user.id)
+                        for user in get_available_tournament_admin_users()
+                    },
                 )
                 set_admin_result = set_tournament_admin_user_ids(
                     party.id,
@@ -485,7 +495,8 @@ def register(blueprint):
                         discord_forum_image_url=state.get(
                             'discord_forum_image_url'
                         ),
-                        applied_tag_ids=state.get('discord_applied_tag_ids') or [],
+                        applied_tag_ids=state.get('discord_applied_tag_ids')
+                        or [],
                         event_mask=state.get('discord_event_mask') or [],
                         discord_dm_enabled=False,
                         discord_dm_event_mask=[],

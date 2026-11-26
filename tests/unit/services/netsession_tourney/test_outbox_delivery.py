@@ -6,7 +6,10 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from byceps.services.netsession_tourney import browser_push_outbox, discord_service
+from byceps.services.netsession_tourney import (
+    browser_push_outbox,
+    discord_service,
+)
 
 
 NOW = datetime(2026, 11, 5, 12, 0)
@@ -15,7 +18,9 @@ NOW = datetime(2026, 11, 5, 12, 0)
 def _http_status_error(status=404):
     request = httpx.Request('POST', 'https://discord.test')
     return httpx.HTTPStatusError(
-        'boom', request=request, response=httpx.Response(status, request=request)
+        'boom',
+        request=request,
+        response=httpx.Response(status, request=request),
     )
 
 
@@ -29,10 +34,14 @@ def discord(monkeypatch):
         discord_thread_id='thread-1',
     )
     monkeypatch.setattr(
-        discord_service.db, 'session', SimpleNamespace(get=lambda *_: tournament)
+        discord_service.db,
+        'session',
+        SimpleNamespace(get=lambda *_: tournament),
     )
     monkeypatch.setattr(
-        discord_service, 'build_discord_message_payload', lambda *_: {'content': 'x'}
+        discord_service,
+        'build_discord_message_payload',
+        lambda *_: {'content': 'x'},
     )
     monkeypatch.setattr(
         discord_service,
@@ -45,7 +54,9 @@ def discord(monkeypatch):
         lambda row, message, now: calls.dead.append(message),
     )
     monkeypatch.setattr(
-        discord_service.log, 'warning', lambda *a, **kw: calls.warnings.append(kw)
+        discord_service.log,
+        'warning',
+        lambda *a, **kw: calls.warnings.append(kw),
     )
     calls.tournament = tournament
     return calls
@@ -53,8 +64,12 @@ def discord(monkeypatch):
 
 def _row():
     return SimpleNamespace(
-        id='row', tournament_id='t', event_name='match_completed', status='pending',
-        next_attempt_at=NOW, last_error='old',
+        id='row',
+        tournament_id='t',
+        event_name='match_completed',
+        status='pending',
+        next_attempt_at=NOW,
+        last_error='old',
     )
 
 
@@ -75,13 +90,21 @@ def test_discord_post_marks_row_sent(monkeypatch, discord):
     _set_post(monkeypatch, discord, None)
     row = _row()
 
-    discord_service._deliver_discord_outbox_row(row, ('app', 'token'), None, NOW)
+    discord_service._deliver_discord_outbox_row(
+        row, ('app', 'token'), None, NOW
+    )
 
     assert discord.posted == ['thread-1']
-    assert (row.status, row.next_attempt_at, row.last_error) == ('sent', None, None)
+    assert (row.status, row.next_attempt_at, row.last_error) == (
+        'sent',
+        None,
+        None,
+    )
 
 
-def test_discord_deleted_thread_is_recreated_and_post_repeated(monkeypatch, discord):
+def test_discord_deleted_thread_is_recreated_and_post_repeated(
+    monkeypatch, discord
+):
     _set_post(monkeypatch, discord, _http_status_error(404), None)
     monkeypatch.setattr(
         discord_service,
@@ -90,7 +113,9 @@ def test_discord_deleted_thread_is_recreated_and_post_repeated(monkeypatch, disc
     )
     row = _row()
 
-    discord_service._deliver_discord_outbox_row(row, ('app', 'token'), None, NOW)
+    discord_service._deliver_discord_outbox_row(
+        row, ('app', 'token'), None, NOW
+    )
 
     assert discord.posted == ['thread-1', 'thread-2']
     assert row.status == 'sent'
@@ -100,22 +125,34 @@ def test_discord_http_error_schedules_retry(monkeypatch, discord):
     _set_post(monkeypatch, discord, httpx.ConnectError('down'))
     row = _row()
 
-    discord_service._deliver_discord_outbox_row(row, ('app', 'token'), None, NOW)
+    discord_service._deliver_discord_outbox_row(
+        row, ('app', 'token'), None, NOW
+    )
 
-    assert discord.retries == ['Discord-Forum-Anfrage fehlgeschlagen: ConnectError']
+    assert discord.retries == [
+        'Discord-Forum-Anfrage fehlgeschlagen: ConnectError'
+    ]
     assert discord.warnings[0]['error'] == 'ConnectError'
     assert row.status == 'pending'
 
 
-def test_discord_unrecoverable_status_error_schedules_retry(monkeypatch, discord):
+def test_discord_unrecoverable_status_error_schedules_retry(
+    monkeypatch, discord
+):
     _set_post(monkeypatch, discord, _http_status_error(500))
     monkeypatch.setattr(
-        discord_service, 'recover_deleted_discord_forum_thread', lambda **_: None
+        discord_service,
+        'recover_deleted_discord_forum_thread',
+        lambda **_: None,
     )
 
-    discord_service._deliver_discord_outbox_row(_row(), ('app', 'token'), None, NOW)
+    discord_service._deliver_discord_outbox_row(
+        _row(), ('app', 'token'), None, NOW
+    )
 
-    assert discord.retries == ['Discord-Forum-Anfrage fehlgeschlagen: HTTPStatusError']
+    assert discord.retries == [
+        'Discord-Forum-Anfrage fehlgeschlagen: HTTPStatusError'
+    ]
 
 
 def test_discord_without_bot_waits_and_disabled_forum_gives_up(discord):
@@ -123,14 +160,21 @@ def test_discord_without_bot_waits_and_disabled_forum_gives_up(discord):
     assert discord.retries == ['kein Bot']
 
     discord.tournament.discord_enabled = False
-    discord_service._deliver_discord_outbox_row(_row(), ('app', 'token'), None, NOW)
-    assert discord.dead == ['Discord-Forum ist für dieses Turnier nicht aktiviert.']
+    discord_service._deliver_discord_outbox_row(
+        _row(), ('app', 'token'), None, NOW
+    )
+    assert discord.dead == [
+        'Discord-Forum ist für dieses Turnier nicht aktiviert.'
+    ]
 
 
 def _subscription(endpoint):
     return SimpleNamespace(
-        endpoint=endpoint, endpoint_p256dh='k', endpoint_auth='a',
-        enabled=True, updated_at=None,
+        endpoint=endpoint,
+        endpoint_p256dh='k',
+        endpoint_auth='a',
+        enabled=True,
+        updated_at=None,
     )
 
 
@@ -146,9 +190,13 @@ def _push(monkeypatch, outcome_by_endpoint):
             raise FakeWebPushException(outcome)
 
     monkeypatch.setattr(browser_push_outbox, 'webpush', webpush)
-    monkeypatch.setattr(browser_push_outbox, 'WebPushException', FakeWebPushException)
     monkeypatch.setattr(
-        browser_push_outbox, '_build_browser_push_vapid_subject', lambda *_: 'mailto:x'
+        browser_push_outbox, 'WebPushException', FakeWebPushException
+    )
+    monkeypatch.setattr(
+        browser_push_outbox,
+        '_build_browser_push_vapid_subject',
+        lambda *_: 'mailto:x',
     )
 
 
@@ -183,4 +231,7 @@ def test_expired_subscription_is_disabled_without_retry(monkeypatch):
 def test_temporary_push_error_is_reported(monkeypatch):
     _push(monkeypatch, {'down': 503})
 
-    assert _send([_subscription('down')]) == (False, 'FakeWebPushException: status 503')
+    assert _send([_subscription('down')]) == (
+        False,
+        'FakeWebPushException: status 503',
+    )

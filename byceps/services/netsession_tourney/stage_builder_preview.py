@@ -157,13 +157,15 @@ def _validate_duel_stage_builder_options(
         return 'Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.'
 
     if preliminary_type == StageType.round_robin_groups:
-        if round_robin_builder_mode not in {None, 'standard', 'manual_group_count'}:
+        if round_robin_builder_mode not in {
+            None,
+            'standard',
+            'manual_group_count',
+        }:
             return 'Ungültige Round-Robin-Strategie.'
         if round_robin_builder_mode == 'manual_group_count':
             if round_robin_group_count is None or round_robin_group_count < 2:
-                return (
-                    'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
-                )
+                return 'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
 
     if preliminary_type == StageType.swiss:
         if swiss_threshold not in SWISS_THRESHOLDS:
@@ -199,13 +201,10 @@ def _add_round_robin_preliminary_to_preview(
             'max_group_size': plan.max_group_size,
             'group_sizes': group_sizes,
             'round_robin_builder_mode': plan.mode,
-            'match_count': sum(
-                size * (size - 1) // 2 for size in group_sizes
-            ),
+            'match_count': sum(size * (size - 1) // 2 for size in group_sizes),
         }
     )
     return Ok(preview)
-
 
 
 def _add_swiss_preliminary_to_preview(
@@ -223,6 +222,7 @@ def _add_swiss_preliminary_to_preview(
         }
     )
     return Ok(preview)
+
 
 def resolve_stage_builder_stage_for_generation(
     stage: Stage,

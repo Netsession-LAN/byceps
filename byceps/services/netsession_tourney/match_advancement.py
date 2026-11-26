@@ -296,10 +296,13 @@ def _enqueue_notifications_for_still_ready_matches(
 
 
 def _advance_swiss_stage(tournament_id: TournamentID, stage: Stage) -> None:
-    ready_match_ids = seed_swiss_follow_up_rounds(
-        tournament_id=tournament_id,
-        stage=stage,
-    ) or []
+    ready_match_ids = (
+        seed_swiss_follow_up_rounds(
+            tournament_id=tournament_id,
+            stage=stage,
+        )
+        or []
+    )
     for match_id in ready_match_ids:
         db_match = db.session.get(DbNetsessionTourneyMatch, match_id)
         if db_match is None:
@@ -380,6 +383,9 @@ def _apply_downstream_slot_updates(
         )
         db_match.state = next_state.value
         db_match.updated_at = datetime.utcnow()
-        if previous_state != MatchState.ready and next_state == MatchState.ready:
+        if (
+            previous_state != MatchState.ready
+            and next_state == MatchState.ready
+        ):
             ready_match_ids.add(match_id)
     return ready_match_ids

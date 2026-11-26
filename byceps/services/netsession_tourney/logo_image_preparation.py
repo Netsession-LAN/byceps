@@ -12,8 +12,8 @@ from typing import BinaryIO
 
 from PIL import Image
 
-from byceps.util.image.dimensions import Dimensions, determine_dimensions
-from byceps.util.image.image_type import ImageType, determine_image_type
+from byceps.util.image.dimensions import determine_dimensions, Dimensions
+from byceps.util.image.image_type import determine_image_type, ImageType
 from byceps.util.image.thumbnail import create_thumbnail
 from byceps.util.result import Err, Ok, Result
 

@@ -35,5 +35,5 @@ def parse(token: str) -> tuple[UserID, ListID] | None:
     try:
         data = _serializer().loads(token)
         return UserID(UUID(data['u'])), ListID(data['l'])
-    except (BadSignature, KeyError, TypeError, ValueError):
+    except BadSignature, KeyError, TypeError, ValueError:
         return None

@@ -13,27 +13,31 @@ from datetime import datetime
 from flask import g, url_for
 from flask_babel import format_datetime, gettext
 
-from byceps.services.party.models import PartyID
-from byceps.services.ticketing import ticket_service
-
-from ...coin_service import (
+from byceps.services.netsession_tourney.coin_service import (
     get_coin_settings,
     get_user_coin_balance,
     is_tournament_coin_refund_available,
 )
-from ...enum_labels import enum_label
-from ...models import (
+from byceps.services.netsession_tourney.enum_labels import enum_label
+from byceps.services.netsession_tourney.models import (
     MatchState,
     ParticipantType,
     TeamMemberRole,
     TournamentMode,
     TournamentStatus,
 )
-from ...participant_admin_service import (
+from byceps.services.netsession_tourney.participant_admin_service import (
     get_active_participant_counts_for_tournaments,
 )
-from ...team_captain_service import find_managed_team_for_user
-from ...tournament_queries import get_user_active_participation_tournament_ids
+from byceps.services.netsession_tourney.team_captain_service import (
+    find_managed_team_for_user,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_user_active_participation_tournament_ids,
+)
+from byceps.services.party.models import PartyID
+from byceps.services.ticketing import ticket_service
+
 from .flatout2_public_rendering import get_flatout2_host_participant_id
 from .stage_filters import _is_flatout2_stage
 
@@ -42,8 +46,8 @@ def get_registration_state_for_tournament(tournament) -> dict:
     active_participant_count = get_active_participant_counts_for_tournaments(
         g.party.id, {tournament.id}
     ).get(tournament.id, 0)
-    is_user_registered = (
-        tournament.id in get_user_registered_tournament_ids(g.party.id, {tournament.id})
+    is_user_registered = tournament.id in get_user_registered_tournament_ids(
+        g.party.id, {tournament.id}
     )
     return build_registration_state(
         tournament, active_participant_count, is_user_registered
@@ -245,7 +249,10 @@ def is_match_involving_user(
         if participant is None:
             continue
 
-        if participant.user_id == user_id or participant.manager_user_id == user_id:
+        if (
+            participant.user_id == user_id
+            or participant.manager_user_id == user_id
+        ):
             return True
 
         if any(
@@ -283,7 +290,9 @@ def build_current_user_overview_match_rows(
 
     for match in matches:
         slots = slots_by_match_id.get(match.id, [])
-        if not any(slot.participant_id == current_participant_id for slot in slots):
+        if not any(
+            slot.participant_id == current_participant_id for slot in slots
+        ):
             continue
 
         is_flatout2_match = _is_flatout2_stage(stages_by_id.get(match.stage_id))
@@ -361,9 +370,7 @@ def build_current_user_overview_match_rows(
     )
 
 
-def get_seat_data_by_user_id(
-    party_id: PartyID, user_ids: set
-) -> dict:
+def get_seat_data_by_user_id(party_id: PartyID, user_ids: set) -> dict:
     seat_data_by_user_id = {}
 
     for user_id in user_ids:
@@ -390,4 +397,3 @@ def get_seat_data_by_user_id(
             break
 
     return seat_data_by_user_id
-
