@@ -18,11 +18,13 @@ from byceps.services.netsession_tourney.blueprints.admin.stage_builder_flatout2_
 from byceps.services.netsession_tourney.blueprints.admin.stage_builder_flatout2_form import (
     build_flatout2_participant_choices,
     build_flatout2_round_defaults_by_no,
-    build_flatout2_round_state,
     FLATOUT2_MAX_MATCH_COUNT_PER_ROUND,
     get_dict_setting,
     get_flatout2_max_players_per_match,
     get_list_setting,
+)
+from byceps.services.netsession_tourney.blueprints.admin.stage_builder_flatout2_round_state import (
+    build_flatout2_round_state,
 )
 from byceps.services.netsession_tourney.blueprints.admin.stage_builder_placement_points import (
     get_first_positive_int,
