@@ -18,7 +18,7 @@ from byceps.services.netsession_tourney.score_parsing import (
 
 from .round_based_public_rendering import _get_score_display
 from .stage_filters import _is_ffa_scoring_stage, _is_flatout2_stage
-from .stage_render_ffa_matches import (
+from .stage_render_ffa_match_details import (
     _get_ffa_placement_by_slot_no,
     get_ffa_points_by_slot_no,
     get_slot_keyed_value,

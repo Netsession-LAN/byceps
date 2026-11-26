@@ -36,11 +36,11 @@ from .stage_filters import (
 from .stage_render_ffa_bracket import (
     build_ffa_single_elimination_bracket_sections,
 )
-from .stage_render_ffa_matches import (
+from .stage_render_ffa_match_details import (
     _get_ffa_placement_by_slot_no as _get_ffa_placement_by_slot_no,
     build_ffa_match_detail_rows as build_ffa_match_detail_rows,
-    build_ffa_match_sections,
 )
+from .stage_render_ffa_matches import build_ffa_match_sections
 from .stage_render_grouping import group_matches_by_stage_id
 from .stage_render_team_history import (
     build_team_history_rows as build_team_history_rows,
