@@ -33,160 +33,29 @@ def build_party_timetable(
         party, party_days, selected_day_iso
     )
 
-    if selected_day is None:
-        view_mode = 'global'
-        axis_start = party.starts_at
-        axis_end = party.ends_at
-    else:
-        view_mode = 'day'
-        day_start = datetime.combine(selected_day, time.min)
-        next_day_start = day_start + timedelta(days=1)
-        axis_start = max(party.starts_at, day_start)
-        axis_end = min(party.ends_at, next_day_start)
-        if axis_end <= axis_start:
-            view_mode = 'global'
-            selected_day = None
-            axis_start = party.starts_at
-            axis_end = party.ends_at
-
-    if axis_end <= axis_start:
-        axis_end = axis_start + timedelta(hours=1)
-
-    tournaments = sorted(
-        get_tournaments_for_party(party.id, visible_on_site=True),
-        key=lambda tournament: (
-            tournament.starts_at or datetime.max,
-            tournament.title.lower(),
-        ),
+    view_mode, selected_day, axis_start, axis_end = _resolve_timetable_axis(
+        party, selected_day
     )
+
+    tournaments = _get_sorted_party_tournaments(party)
 
     agenda_items_by_day: dict[date, list[dict[str, Any]]] = defaultdict(list)
     unscheduled_tournaments: list[dict[str, Any]] = []
     for tournament in tournaments:
-        stages = get_stages_for_tournament(party.id, tournament.id)
-        stages_by_id = {stage.id: stage for stage in stages}
-        matches = get_matches_for_tournament(party.id, tournament.id)
-
-        matches_by_stage_and_round: dict[tuple, list] = defaultdict(list)
-        unscheduled_match_count = 0
-        for match in matches:
-            if match.scheduled_at is None:
-                unscheduled_match_count += 1
-                continue
-            matches_by_stage_and_round[(match.stage_id, match.round_no)].append(
-                match
-            )
-
-        sorted_stage_round_keys = sorted(
-            matches_by_stage_and_round.keys(),
-            key=lambda item: (
-                stages_by_id[item[0]].order_no
-                if item[0] in stages_by_id
-                else 9999,
-                item[1],
-            ),
+        _collect_tournament_agenda(
+            party,
+            tournament,
+            axis_start,
+            axis_end,
+            agenda_items_by_day,
+            unscheduled_tournaments,
         )
-        for stage_id, round_no in sorted_stage_round_keys:
-            stage = stages_by_id.get(stage_id)
-            if stage is None:
-                continue
 
-            round_matches = matches_by_stage_and_round[(stage_id, round_no)]
-            round_start = min(match.scheduled_at for match in round_matches)
-            if round_start is None:
-                continue
+    available_days = _build_available_days(party_days)
 
-            round_duration_minutes = _estimate_round_duration_minutes(
-                stage, len(round_matches)
-            )
-            round_end = round_start + timedelta(minutes=round_duration_minutes)
-
-            clipped_segment = _clip_segment_to_axis(
-                round_start, round_end, axis_start, axis_end
-            )
-            if clipped_segment is None:
-                continue
-            item_day = round_start.date()
-            agenda_items_by_day[item_day].append(
-                {
-                    'tournament': tournament,
-                    'stage_id': stage.id,
-                    'stage_name': stage.name,
-                    'round_no': round_no,
-                    'match_count': len(round_matches),
-                    'starts_at': round_start,
-                    'ends_at': round_end,
-                    'start_label': format_datetime(round_start, 'HH:mm'),
-                    'end_label': format_datetime(round_end, 'HH:mm'),
-                    'time_label': (
-                        f'{format_datetime(round_start, "HH:mm")} - '
-                        f'{format_datetime(round_end, "HH:mm")}'
-                    ),
-                    'duration_minutes': round_duration_minutes,
-                    'duration_label': gettext(
-                        '%(minutes)s Min.',
-                        minutes=round_duration_minutes,
-                    ),
-                }
-            )
-
-        if unscheduled_match_count > 0:
-            unscheduled_tournaments.append(
-                {
-                    'tournament': tournament,
-                    'unscheduled_match_count': unscheduled_match_count,
-                    'scheduled_round_count': len(matches_by_stage_and_round),
-                }
-            )
-
-    available_days = [
-        {
-            'date': day,
-            'iso': day.isoformat(),
-            'label': format_datetime(
-                datetime.combine(day, time.min), 'EEE d.M'
-            ),
-        }
-        for day in party_days
-    ]
-
-    agenda_days: list[dict[str, Any]] = []
-    days_for_agenda = [selected_day] if selected_day is not None else party_days
-    today = datetime.utcnow().date()
-    for day in days_for_agenda:
-        items = sorted(
-            agenda_items_by_day.get(day, []),
-            key=lambda item: (
-                item['starts_at'],
-                item['tournament'].title.lower(),
-                item['stage_name'].lower(),
-                item['round_no'],
-            ),
-        )
-        if selected_day is None and not items:
-            continue
-
-        slots = _build_agenda_slots(items)
-
-        agenda_days.append(
-            {
-                'date': day,
-                'label': format_datetime(
-                    datetime.combine(day, time.min), 'EEEE d.M'
-                ),
-                'is_today': day == today,
-                'items': items,
-                'item_count': len(items),
-                'slots': slots,
-                'slot_count': len(slots),
-                'tournament_count': len(
-                    {item['tournament'].id for item in items}
-                ),
-                'parallel_slot_count': sum(
-                    1 for slot in slots if slot['is_parallel']
-                ),
-            }
-        )
+    agenda_days = _build_agenda_days(
+        party_days, selected_day, agenda_items_by_day
+    )
 
     return {
         'view_mode': view_mode,
@@ -203,6 +72,214 @@ def build_party_timetable(
         ),
         'item_count': sum(len(day['items']) for day in agenda_days),
         'tournament_count': len(tournaments),
+    }
+
+
+def _resolve_timetable_axis(
+    party, selected_day: date | None
+) -> tuple[str, date | None, datetime, datetime]:
+    view_mode, selected_day, axis_start, axis_end = _resolve_timetable_window(
+        party, selected_day
+    )
+    if axis_end <= axis_start:
+        axis_end = axis_start + timedelta(hours=1)
+    return view_mode, selected_day, axis_start, axis_end
+
+
+def _resolve_timetable_window(
+    party, selected_day: date | None
+) -> tuple[str, date | None, datetime, datetime]:
+    if selected_day is None:
+        return 'global', None, party.starts_at, party.ends_at
+
+    day_start = datetime.combine(selected_day, time.min)
+    next_day_start = day_start + timedelta(days=1)
+    axis_start = max(party.starts_at, day_start)
+    axis_end = min(party.ends_at, next_day_start)
+    if axis_end <= axis_start:
+        return 'global', None, party.starts_at, party.ends_at
+
+    return 'day', selected_day, axis_start, axis_end
+
+
+def _get_sorted_party_tournaments(party) -> list:
+    return sorted(
+        get_tournaments_for_party(party.id, visible_on_site=True),
+        key=lambda tournament: (
+            tournament.starts_at or datetime.max,
+            tournament.title.lower(),
+        ),
+    )
+
+
+def _collect_tournament_agenda(
+    party,
+    tournament,
+    axis_start: datetime,
+    axis_end: datetime,
+    agenda_items_by_day: dict[date, list[dict[str, Any]]],
+    unscheduled_tournaments: list[dict[str, Any]],
+) -> None:
+    stages = get_stages_for_tournament(party.id, tournament.id)
+    stages_by_id = {stage.id: stage for stage in stages}
+    matches = get_matches_for_tournament(party.id, tournament.id)
+
+    matches_by_stage_and_round, unscheduled_match_count = (
+        _group_scheduled_matches(matches)
+    )
+
+    for stage_id, round_no in _sort_stage_round_keys(
+        matches_by_stage_and_round, stages_by_id
+    ):
+        item = _build_round_agenda_item(
+            tournament,
+            stages_by_id.get(stage_id),
+            round_no,
+            matches_by_stage_and_round[(stage_id, round_no)],
+            axis_start,
+            axis_end,
+        )
+        if item is not None:
+            agenda_items_by_day[item['starts_at'].date()].append(item)
+
+    if unscheduled_match_count > 0:
+        unscheduled_tournaments.append(
+            {
+                'tournament': tournament,
+                'unscheduled_match_count': unscheduled_match_count,
+                'scheduled_round_count': len(matches_by_stage_and_round),
+            }
+        )
+
+
+def _group_scheduled_matches(matches) -> tuple[dict[tuple, list], int]:
+    matches_by_stage_and_round: dict[tuple, list] = defaultdict(list)
+    unscheduled_match_count = 0
+    for match in matches:
+        if match.scheduled_at is None:
+            unscheduled_match_count += 1
+            continue
+        matches_by_stage_and_round[(match.stage_id, match.round_no)].append(
+            match
+        )
+    return matches_by_stage_and_round, unscheduled_match_count
+
+
+def _sort_stage_round_keys(matches_by_stage_and_round, stages_by_id) -> list:
+    return sorted(
+        matches_by_stage_and_round.keys(),
+        key=lambda item: (
+            stages_by_id[item[0]].order_no if item[0] in stages_by_id else 9999,
+            item[1],
+        ),
+    )
+
+
+def _build_round_agenda_item(
+    tournament,
+    stage,
+    round_no,
+    round_matches,
+    axis_start: datetime,
+    axis_end: datetime,
+) -> dict[str, Any] | None:
+    if stage is None:
+        return None
+
+    round_start = min(match.scheduled_at for match in round_matches)
+    if round_start is None:
+        return None
+
+    round_duration_minutes = _estimate_round_duration_minutes(
+        stage, len(round_matches)
+    )
+    round_end = round_start + timedelta(minutes=round_duration_minutes)
+
+    clipped_segment = _clip_segment_to_axis(
+        round_start, round_end, axis_start, axis_end
+    )
+    if clipped_segment is None:
+        return None
+
+    return {
+        'tournament': tournament,
+        'stage_id': stage.id,
+        'stage_name': stage.name,
+        'round_no': round_no,
+        'match_count': len(round_matches),
+        'starts_at': round_start,
+        'ends_at': round_end,
+        'start_label': format_datetime(round_start, 'HH:mm'),
+        'end_label': format_datetime(round_end, 'HH:mm'),
+        'time_label': (
+            f'{format_datetime(round_start, "HH:mm")} - '
+            f'{format_datetime(round_end, "HH:mm")}'
+        ),
+        'duration_minutes': round_duration_minutes,
+        'duration_label': gettext(
+            '%(minutes)s Min.',
+            minutes=round_duration_minutes,
+        ),
+    }
+
+
+def _build_available_days(party_days: list[date]) -> list[dict[str, Any]]:
+    return [
+        {
+            'date': day,
+            'iso': day.isoformat(),
+            'label': format_datetime(
+                datetime.combine(day, time.min), 'EEE d.M'
+            ),
+        }
+        for day in party_days
+    ]
+
+
+def _build_agenda_days(
+    party_days: list[date],
+    selected_day: date | None,
+    agenda_items_by_day: dict[date, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    agenda_days: list[dict[str, Any]] = []
+    days_for_agenda = [selected_day] if selected_day is not None else party_days
+    today = datetime.utcnow().date()
+    for day in days_for_agenda:
+        items = _sort_agenda_items(agenda_items_by_day.get(day, []))
+        if selected_day is None and not items:
+            continue
+
+        agenda_days.append(_build_agenda_day(day, items, today))
+    return agenda_days
+
+
+def _sort_agenda_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        items,
+        key=lambda item: (
+            item['starts_at'],
+            item['tournament'].title.lower(),
+            item['stage_name'].lower(),
+            item['round_no'],
+        ),
+    )
+
+
+def _build_agenda_day(
+    day: date, items: list[dict[str, Any]], today: date
+) -> dict[str, Any]:
+    slots = _build_agenda_slots(items)
+
+    return {
+        'date': day,
+        'label': format_datetime(datetime.combine(day, time.min), 'EEEE d.M'),
+        'is_today': day == today,
+        'items': items,
+        'item_count': len(items),
+        'slots': slots,
+        'slot_count': len(slots),
+        'tournament_count': len({item['tournament'].id for item in items}),
+        'parallel_slot_count': sum(1 for slot in slots if slot['is_parallel']),
     }
 
 
@@ -308,16 +385,7 @@ def _build_timetable_axis_ticks(
     axis_start: datetime, axis_end: datetime, *, day_view: bool
 ) -> list[datetime]:
     duration_hours = max(1.0, (axis_end - axis_start).total_seconds() / 3600.0)
-    if day_view:
-        step_hours = 2
-    elif duration_hours <= 30:
-        step_hours = 2
-    elif duration_hours <= 72:
-        step_hours = 4
-    elif duration_hours <= 120:
-        step_hours = 6
-    else:
-        step_hours = 12
+    step_hours = _get_axis_tick_step_hours(duration_hours, day_view=day_view)
 
     first_tick = axis_start.replace(minute=0, second=0, microsecond=0)
     first_tick_midnight = datetime.combine(first_tick.date(), time.min)
@@ -334,11 +402,28 @@ def _build_timetable_axis_ticks(
         ticks.append(tick)
         tick += timedelta(hours=step_hours)
 
-    if not ticks:
-        ticks = [axis_start, axis_end]
-    elif ticks[-1] < axis_end:
-        ticks.append(axis_end)
+    return _complete_axis_ticks(ticks, axis_start, axis_end)
 
+
+def _get_axis_tick_step_hours(duration_hours: float, *, day_view: bool) -> int:
+    if day_view:
+        return 2
+    if duration_hours <= 30:
+        return 2
+    if duration_hours <= 72:
+        return 4
+    if duration_hours <= 120:
+        return 6
+    return 12
+
+
+def _complete_axis_ticks(
+    ticks: list[datetime], axis_start: datetime, axis_end: datetime
+) -> list[datetime]:
+    if not ticks:
+        return [axis_start, axis_end]
+    if ticks[-1] < axis_end:
+        ticks.append(axis_end)
     return ticks
 
 
