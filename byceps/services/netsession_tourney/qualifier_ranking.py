@@ -64,14 +64,36 @@ def get_ranked_participant_ids_by_match_for_stage(
             DbNetsessionTourneyMatch.match_no.asc(),
         )
     ).all()
+    matches_error = _get_stage_matches_not_rankable_error(db_matches)
+    if matches_error is not None:
+        return Err(matches_error)
+
+    ranked_participant_ids = _collect_qualifier_ids_by_match(
+        db_matches, top_n_per_match
+    )
+    if not ranked_participant_ids:
+        return Err('contains no rankable participants.')
+
+    return Ok(ranked_participant_ids)
+
+
+def _get_stage_matches_not_rankable_error(
+    db_matches: list[DbNetsessionTourneyMatch],
+) -> str | None:
     if not db_matches:
-        return Err('contains no generated matches yet.')
+        return 'contains no generated matches yet.'
 
     if any(
         db_match.state != MatchState.completed.value for db_match in db_matches
     ):
-        return Err('is not fully completed yet.')
+        return 'is not fully completed yet.'
 
+    return None
+
+
+def _collect_qualifier_ids_by_match(
+    db_matches: list[DbNetsessionTourneyMatch], top_n_per_match: int
+) -> list[ParticipantID]:
     db_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot).filter(
             DbNetsessionTourneyMatchSlot.match_id.in_(
@@ -98,10 +120,7 @@ def get_ranked_participant_ids_by_match_for_stage(
             )
         )
 
-    if not ranked_participant_ids:
-        return Err('contains no rankable participants.')
-
-    return Ok(ranked_participant_ids)
+    return ranked_participant_ids
 
 
 def get_effective_qualifier_top_n_for_source_stage(
@@ -112,16 +131,7 @@ def get_effective_qualifier_top_n_for_source_stage(
     selection_mode: str,
 ) -> Result[int, str]:
     if not (stage.settings or {}).get('builder_auto_qualifier_count'):
-        raw_top_n = (stage.settings or {}).get('qualifier_top_n', 1)
-        try:
-            top_n = int(raw_top_n)
-        except TypeError, ValueError:
-            return Err('Ungültige Top-Anzahl für die Qualifikation.')
-        if top_n < 1 or top_n > 128:
-            return Err(
-                'Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.'
-            )
-        return Ok(top_n)
+        return _get_configured_qualifier_top_n(stage)
 
     main_stage_size = get_stage_builder_main_stage_size(stage)
     if main_stage_size is None:
@@ -130,6 +140,29 @@ def get_effective_qualifier_top_n_for_source_stage(
     if selection_mode == 'per_stage':
         return Ok(main_stage_size)
 
+    return _get_auto_qualifier_top_n_per_group(
+        main_stage_size, db_source_stage, tournament_id
+    )
+
+
+def _get_configured_qualifier_top_n(stage: Stage) -> Result[int, str]:
+    raw_top_n = (stage.settings or {}).get('qualifier_top_n', 1)
+    try:
+        top_n = int(raw_top_n)
+    except TypeError, ValueError:
+        return Err('Ungültige Top-Anzahl für die Qualifikation.')
+    if top_n < 1 or top_n > 128:
+        return Err(
+            'Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.'
+        )
+    return Ok(top_n)
+
+
+def _get_auto_qualifier_top_n_per_group(
+    main_stage_size: int,
+    db_source_stage: DbNetsessionTourneyStage,
+    tournament_id: TournamentID,
+) -> Result[int, str]:
     if db_source_stage.type != StageType.round_robin_groups.value:
         return Err(
             'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppenphase als Quelle.'
@@ -145,7 +178,14 @@ def get_effective_qualifier_top_n_for_source_stage(
         return Err(ranked_group_participant_ids_result.unwrap_err())
 
     ranked_groups = ranked_group_participant_ids_result.unwrap()
-    group_count = len(ranked_groups)
+    return _divide_main_stage_size_among_groups(
+        main_stage_size, len(ranked_groups)
+    )
+
+
+def _divide_main_stage_size_among_groups(
+    main_stage_size: int, group_count: int
+) -> Result[int, str]:
     if group_count < 1:
         return Err('enthält keine gewerteten Gruppen.')
     if main_stage_size % group_count != 0:
@@ -191,27 +231,12 @@ def get_ranked_participant_ids_by_group_for_stage(
             connected_participant_ids_by_participant_id,
             visited_participant_ids,
         )
-
-        group_rows_by_participant_id = {
-            group_participant_id: ranking_data.rows_by_participant_id[
-                group_participant_id
-            ]
-            for group_participant_id in group_participant_ids
-        }
-        sorted_group_participant_ids = sort_ranked_participant_ids(
-            group_rows_by_participant_id,
-            stage_type=ranking_data.db_stage.type,
-            head_to_head_winner_id_by_pair=(
-                ranking_data.head_to_head_winner_id_by_pair
-            ),
-            is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
-        )
-        first_match_no = min(
-            first_match_no_by_participant_id.get(group_participant_id, 999_999)
-            for group_participant_id in group_participant_ids
-        )
         ranked_group_participant_ids.append(
-            (first_match_no, sorted_group_participant_ids)
+            _rank_group(
+                ranking_data,
+                group_participant_ids,
+                first_match_no_by_participant_id,
+            )
         )
 
     ranked_group_participant_ids.sort(key=lambda item: item[0])
@@ -222,6 +247,33 @@ def get_ranked_participant_ids_by_group_for_stage(
             for _, sorted_group_participant_ids in ranked_group_participant_ids
         ]
     )
+
+
+def _rank_group(
+    ranking_data: StageRankingData,
+    group_participant_ids: set[ParticipantID],
+    first_match_no_by_participant_id: dict[ParticipantID, int],
+) -> tuple[int, list[ParticipantID]]:
+    """Return the group's first match number and its ranked participants."""
+    group_rows_by_participant_id = {
+        group_participant_id: ranking_data.rows_by_participant_id[
+            group_participant_id
+        ]
+        for group_participant_id in group_participant_ids
+    }
+    sorted_group_participant_ids = sort_ranked_participant_ids(
+        group_rows_by_participant_id,
+        stage_type=ranking_data.db_stage.type,
+        head_to_head_winner_id_by_pair=(
+            ranking_data.head_to_head_winner_id_by_pair
+        ),
+        is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
+    )
+    first_match_no = min(
+        first_match_no_by_participant_id.get(group_participant_id, 999_999)
+        for group_participant_id in group_participant_ids
+    )
+    return first_match_no, sorted_group_participant_ids
 
 
 def _build_group_participant_connections(
@@ -236,44 +288,68 @@ def _build_group_participant_connections(
     first_match_no_by_participant_id: dict[ParticipantID, int] = {}
 
     for db_match in ranking_data.db_matches:
-        match_participant_ids = [
-            participant_id
-            for participant_id in {
-                db_slot.participant_id
-                for db_slot in ranking_data.slots_by_match_id.get(
-                    db_match.id, []
-                )
-                if db_slot.participant_id is not None
-            }
-        ]
+        match_participant_ids = _get_match_participant_ids(
+            ranking_data, db_match
+        )
         if not match_participant_ids:
             continue
 
-        for participant_id in match_participant_ids:
-            current_first_match_no = first_match_no_by_participant_id.get(
-                participant_id
-            )
-            if (
-                current_first_match_no is None
-                or db_match.match_no < current_first_match_no
-            ):
-                first_match_no_by_participant_id[participant_id] = (
-                    db_match.match_no
-                )
-
-        for index, participant_id in enumerate(match_participant_ids):
-            for other_participant_id in match_participant_ids[index + 1 :]:
-                connected_participant_ids_by_participant_id[participant_id].add(
-                    other_participant_id
-                )
-                connected_participant_ids_by_participant_id[
-                    other_participant_id
-                ].add(participant_id)
+        _record_first_match_no(
+            first_match_no_by_participant_id,
+            match_participant_ids,
+            db_match.match_no,
+        )
+        _connect_participants(
+            connected_participant_ids_by_participant_id, match_participant_ids
+        )
 
     return (
         connected_participant_ids_by_participant_id,
         first_match_no_by_participant_id,
     )
+
+
+def _get_match_participant_ids(
+    ranking_data: StageRankingData, db_match: DbNetsessionTourneyMatch
+) -> list[ParticipantID]:
+    return [
+        participant_id
+        for participant_id in {
+            db_slot.participant_id
+            for db_slot in ranking_data.slots_by_match_id.get(db_match.id, [])
+            if db_slot.participant_id is not None
+        }
+    ]
+
+
+def _record_first_match_no(
+    first_match_no_by_participant_id: dict[ParticipantID, int],
+    participant_ids: list[ParticipantID],
+    match_no: int,
+) -> None:
+    for participant_id in participant_ids:
+        current_first_match_no = first_match_no_by_participant_id.get(
+            participant_id
+        )
+        if current_first_match_no is None or match_no < current_first_match_no:
+            first_match_no_by_participant_id[participant_id] = match_no
+
+
+def _connect_participants(
+    connected_participant_ids_by_participant_id: dict[
+        ParticipantID, set[ParticipantID]
+    ],
+    participant_ids: list[ParticipantID],
+) -> None:
+    """Connect each of the participants with each other one."""
+    for index, participant_id in enumerate(participant_ids):
+        for other_participant_id in participant_ids[index + 1 :]:
+            connected_participant_ids_by_participant_id[participant_id].add(
+                other_participant_id
+            )
+            connected_participant_ids_by_participant_id[
+                other_participant_id
+            ].add(participant_id)
 
 
 def _collect_connected_participant_ids(
