@@ -71,6 +71,44 @@ def set_match_slot_participant_by_admin(
     if tournament.status != TournamentStatus.draft:
         return Err('Matches lassen sich nur im Entwurf zuweisen.')
 
+    match_and_slot_result = _lock_manually_assignable_slot(
+        tournament_id, match_id, slot_no
+    )
+    if match_and_slot_result.is_err():
+        return Err(match_and_slot_result.unwrap_err())
+    db_match, db_slot = match_and_slot_result.unwrap()
+
+    participant_error = _check_optional_participant_assignable(
+        tournament_id, db_match, match_id, slot_no, participant_id
+    )
+    if participant_error is not None:
+        return Err(participant_error)
+
+    db_slot.participant_id = participant_id
+
+    previous_state = MatchState(db_match.state)
+    next_state = _recalculate_match_state(
+        db_tournament.status, db_match, match_id
+    )
+
+    _auto_advance_byes_of_match_stage(tournament_id, db_match)
+
+    _enqueue_notifications_if_match_became_ready(
+        db_match, previous_state, next_state
+    )
+
+    _append_slot_assignment_audit_log(
+        initiator, match_id, slot_no, participant_id, comment
+    )
+
+    db.session.commit()
+    return Ok(None)
+
+
+def _lock_manually_assignable_slot(
+    tournament_id: TournamentID, match_id: MatchID, slot_no: int
+) -> Result[tuple[DbNetsessionTourneyMatch, DbNetsessionTourneyMatchSlot], str]:
+    """Lock match and slot; fail if the slot must not be set by hand."""
     db_match = db.session.scalar(
         select(DbNetsessionTourneyMatch)
         .filter_by(id=match_id, tournament_id=tournament_id)
@@ -97,31 +135,31 @@ def set_match_slot_participant_by_admin(
             'Dieser Platz hängt an einem vorherigen Match und lässt sich nicht von Hand ändern.'
         )
 
-    if participant_id is not None:
-        participant_error = _check_participant_assignable(
-            tournament_id, db_match, match_id, slot_no, participant_id
-        )
-        if participant_error is not None:
-            return Err(participant_error)
+    return Ok((db_match, db_slot))
 
-    db_slot.participant_id = participant_id
 
-    previous_state = MatchState(db_match.state)
-    next_state = _recalculate_match_state(
-        db_tournament.status, db_match, match_id
+def _check_optional_participant_assignable(
+    tournament_id: TournamentID,
+    db_match: DbNetsessionTourneyMatch,
+    match_id: MatchID,
+    slot_no: int,
+    participant_id: ParticipantID | None,
+) -> str | None:
+    if participant_id is None:
+        return None
+
+    return _check_participant_assignable(
+        tournament_id, db_match, match_id, slot_no, participant_id
     )
 
-    _auto_advance_byes_of_match_stage(tournament_id, db_match)
 
+def _enqueue_notifications_if_match_became_ready(
+    db_match: DbNetsessionTourneyMatch,
+    previous_state: MatchState,
+    next_state: MatchState,
+) -> None:
     if previous_state != MatchState.ready and next_state == MatchState.ready:
         enqueue_match_ready_notifications(db_match)
-
-    _append_slot_assignment_audit_log(
-        initiator, match_id, slot_no, participant_id, comment
-    )
-
-    db.session.commit()
-    return Ok(None)
 
 
 def _append_slot_assignment_audit_log(

@@ -106,21 +106,35 @@ def activate_prepared_stages_for_live_tournament(
 
     first_live_stage_id = None
     for stage in stages:
-        if stage.id not in stage_ids_with_matches:
-            continue
-
-        db_stage = db_stage_by_id.get(stage.id)
+        db_stage = _find_db_stage_with_matches(
+            stage, stage_ids_with_matches, db_stage_by_id
+        )
         if db_stage is None:
             continue
 
-        if db_stage.status == StageStatus.draft.value:
-            db_stage.status = StageStatus.live.value
-            db_stage.updated_at = datetime.utcnow()
+        _set_draft_stage_live(db_stage)
 
         if first_live_stage_id is None:
             first_live_stage_id = stage.id
 
     return first_live_stage_id
+
+
+def _find_db_stage_with_matches(
+    stage: Stage,
+    stage_ids_with_matches: set[StageID],
+    db_stage_by_id: dict[StageID, DbNetsessionTourneyStage],
+) -> DbNetsessionTourneyStage | None:
+    if stage.id not in stage_ids_with_matches:
+        return None
+
+    return db_stage_by_id.get(stage.id)
+
+
+def _set_draft_stage_live(db_stage: DbNetsessionTourneyStage) -> None:
+    if db_stage.status == StageStatus.draft.value:
+        db_stage.status = StageStatus.live.value
+        db_stage.updated_at = datetime.utcnow()
 
 
 def activate_prepared_matches_for_live_tournament(

@@ -64,64 +64,35 @@ class RankingTally:
         db_result: DbNetsessionTourneyMatchResult,
         db_match_slots: list[DbNetsessionTourneyMatchSlot],
     ) -> None:
-        real_match_slots = [
-            s for s in db_match_slots if s.participant_id is not None
-        ]
-        real_participant_ids = [s.participant_id for s in real_match_slots]
-        winner_participant_id = _winner_participant_id(
-            db_result, db_match_slots
-        )
-        score_slots = parse_match_result_slot_scores(
-            real_match_slots,
-            db_result.score_json,
-            winner_slot=db_result.winner_slot,
-        )
-        skip_rounds = self.is_swiss_stage and is_walkover_score_json(
-            db_result.score_json
+        outcome = _read_match_outcome(
+            db_result, db_match_slots, is_swiss_stage=self.is_swiss_stage
         )
 
-        if (
-            len(real_participant_ids) == 2
-            and winner_participant_id in real_participant_ids
-            and not skip_rounds
-        ):
-            self._record_pairing(real_participant_ids, winner_participant_id)
-
-        ranking = db_result.ranking_json or {}
-        placement_by_slot_no = _read_slot_numbers(
-            ranking.get('placements'), db_match_slots
-        )
-        points_by_slot_no = _read_slot_numbers(
-            ranking.get('points'), db_match_slots
-        )
+        if outcome.is_rankable_duel():
+            self._record_pairing(
+                outcome.real_participant_ids, outcome.winner_participant_id
+            )
 
         for db_slot in db_match_slots:
-            row = self.rows_by_participant_id.get(db_slot.participant_id)
-            if db_slot.participant_id is None or row is None:
-                continue
+            self._add_slot_result(db_slot, outcome)
 
-            if self.is_ffa_scoring_stage:
-                self._add_ffa_scores(
-                    row,
-                    db_slot.slot_no,
-                    score_slots,
-                    points_by_slot_no,
-                    placement_by_slot_no,
-                )
+    def _add_slot_result(
+        self, db_slot: DbNetsessionTourneyMatchSlot, outcome: _MatchOutcome
+    ) -> None:
+        row = self.rows_by_participant_id.get(db_slot.participant_id)
+        if db_slot.participant_id is None or row is None:
+            return
 
-            if winner_participant_id is None or len(real_participant_ids) < 2:
-                continue
+        if self.is_ffa_scoring_stage:
+            self._add_ffa_scores(
+                row,
+                db_slot.slot_no,
+                outcome.score_slots,
+                outcome.points_by_slot_no,
+                outcome.placement_by_slot_no,
+            )
 
-            if db_slot.participant_id == winner_participant_id:
-                row['wins'] += 1
-                row['match_points'] += 3
-            else:
-                row['losses'] += 1
-
-            if len(real_participant_ids) != 2 or skip_rounds:
-                continue
-
-            _add_rounds(row, db_slot.slot_no, real_match_slots, score_slots)
+        _add_duel_result(row, db_slot, outcome)
 
     def add_strength_of_schedule(self) -> None:
         """Buchholz, opponents' win/loss sum and its second order."""
@@ -166,6 +137,87 @@ class RankingTally:
             row['placement'] is None or placement < row['placement']
         ):
             row['placement'] = placement
+
+
+@dataclass(frozen=True, kw_only=True)
+class _MatchOutcome:
+    """What a match result means for the ranking rows."""
+
+    real_match_slots: list[DbNetsessionTourneyMatchSlot]
+    real_participant_ids: list[ParticipantID]
+    winner_participant_id: ParticipantID | None
+    score_slots: dict[int, str]
+    skip_rounds: bool
+    placement_by_slot_no: dict[int, int]
+    points_by_slot_no: dict[int, int]
+
+    def is_rankable_duel(self) -> bool:
+        """Tell whether the result counts as a head-to-head pairing."""
+        return (
+            len(self.real_participant_ids) == 2
+            and self.winner_participant_id in self.real_participant_ids
+            and not self.skip_rounds
+        )
+
+
+def _read_match_outcome(
+    db_result: DbNetsessionTourneyMatchResult,
+    db_match_slots: list[DbNetsessionTourneyMatchSlot],
+    *,
+    is_swiss_stage: bool,
+) -> _MatchOutcome:
+    real_match_slots = [
+        s for s in db_match_slots if s.participant_id is not None
+    ]
+    real_participant_ids = [s.participant_id for s in real_match_slots]
+    winner_participant_id = _winner_participant_id(db_result, db_match_slots)
+    score_slots = parse_match_result_slot_scores(
+        real_match_slots,
+        db_result.score_json,
+        winner_slot=db_result.winner_slot,
+    )
+    skip_rounds = is_swiss_stage and is_walkover_score_json(
+        db_result.score_json
+    )
+
+    ranking = db_result.ranking_json or {}
+    return _MatchOutcome(
+        real_match_slots=real_match_slots,
+        real_participant_ids=real_participant_ids,
+        winner_participant_id=winner_participant_id,
+        score_slots=score_slots,
+        skip_rounds=skip_rounds,
+        placement_by_slot_no=_read_slot_numbers(
+            ranking.get('placements'), db_match_slots
+        ),
+        points_by_slot_no=_read_slot_numbers(
+            ranking.get('points'), db_match_slots
+        ),
+    )
+
+
+def _add_duel_result(
+    row: dict[str, Any],
+    db_slot: DbNetsessionTourneyMatchSlot,
+    outcome: _MatchOutcome,
+) -> None:
+    """Count win or loss, and (for two participants) the rounds."""
+    real_participant_ids = outcome.real_participant_ids
+    if outcome.winner_participant_id is None or len(real_participant_ids) < 2:
+        return
+
+    if db_slot.participant_id == outcome.winner_participant_id:
+        row['wins'] += 1
+        row['match_points'] += 3
+    else:
+        row['losses'] += 1
+
+    if len(real_participant_ids) != 2 or outcome.skip_rounds:
+        return
+
+    _add_rounds(
+        row, db_slot.slot_no, outcome.real_match_slots, outcome.score_slots
+    )
 
 
 def _winner_participant_id(db_result, db_match_slots):

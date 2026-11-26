@@ -8,6 +8,7 @@ Members of a captain-managed team: add, remove, hand over the captaincy.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 
@@ -31,6 +32,7 @@ from .models import (
     ParticipantID,
     RegistrationState,
     TeamMemberRole,
+    Tournament,
     TournamentID,
     TournamentStatus,
 )
@@ -82,30 +84,17 @@ def add_team_member_by_captain(
     if db_participant is None:
         return Err('Team nicht gefunden, oder du darfst es nicht verwalten.')
 
-    ticket_validation_result = _validate_user_uses_ticket_for_party(
-        member_user.id, party_id
+    member_error = _check_user_can_join_team(
+        party_id, tournament_id, tournament, participant_id, member_user.id
     )
-    if ticket_validation_result.is_err():
-        return Err(ticket_validation_result.unwrap_err())
+    if member_error is not None:
+        return Err(member_error)
 
-    if is_user_already_active_participant(tournament_id, member_user.id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
-
-    max_team_member_count = get_max_team_member_count(tournament)
-    if max_team_member_count is not None:
-        member_count = count_team_members(participant_id)
-        if int(member_count or 0) >= max_team_member_count:
-            return Err('Dieses Team ist bereits voll.')
-
-    if tournament.coin_charge_mode == CoinChargeMode.all_members:
-        charge_result = charge_coins_for_tournament_registration(
-            party_id,
-            tournament,
-            member_user.id,
-            created_by_user_id=initiator.id,
-        )
-        if charge_result.is_err():
-            return Err(charge_result.unwrap_err())
+    charge_result = _charge_coins_for_added_team_member(
+        party_id, tournament, member_user.id, initiator
+    )
+    if charge_result.is_err():
+        return Err(charge_result.unwrap_err())
 
     ensure_registration_is_registered(tournament_id, member_user.id)
     add_team_member(
@@ -123,6 +112,55 @@ def add_team_member_by_captain(
     db.session.commit()
 
     return Ok(None)
+
+
+def _check_user_can_join_team(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    tournament: Tournament,
+    participant_id: ParticipantID,
+    member_user_id: UserID,
+) -> str | None:
+    """Return why the user cannot join the team, or `None` if they can."""
+    ticket_validation_result = _validate_user_uses_ticket_for_party(
+        member_user_id, party_id
+    )
+    if ticket_validation_result.is_err():
+        return ticket_validation_result.unwrap_err()
+
+    if is_user_already_active_participant(tournament_id, member_user_id):
+        return 'Du bist in diesem Turnier bereits aktiv angemeldet.'
+
+    return _check_team_not_full(tournament, participant_id)
+
+
+def _check_team_not_full(
+    tournament: Tournament, participant_id: ParticipantID
+) -> str | None:
+    max_team_member_count = get_max_team_member_count(tournament)
+    if max_team_member_count is not None:
+        member_count = count_team_members(participant_id)
+        if int(member_count or 0) >= max_team_member_count:
+            return 'Dieses Team ist bereits voll.'
+
+    return None
+
+
+def _charge_coins_for_added_team_member(
+    party_id: PartyID,
+    tournament: Tournament,
+    member_user_id: UserID,
+    initiator: User,
+) -> Result[Any, str]:
+    if tournament.coin_charge_mode != CoinChargeMode.all_members:
+        return Ok(None)
+
+    return charge_coins_for_tournament_registration(
+        party_id,
+        tournament,
+        member_user_id,
+        created_by_user_id=initiator.id,
+    )
 
 
 def assign_team_captain_by_captain(
