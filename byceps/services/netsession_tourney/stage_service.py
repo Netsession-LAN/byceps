@@ -20,9 +20,6 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .dbmodels import (
-    DbNetsessionTourneyMatch,
-    DbNetsessionTourneyMatchResult,
-    DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyStage,
     DbNetsessionTourneyTournament,
 )
@@ -31,7 +28,6 @@ from .engines.registry import (
     get_stage_type_specs,
 )
 from .models import (
-    MatchState,
     RegistrationMode,
     Stage,
     StageFamily,
@@ -52,11 +48,19 @@ from .stage_activation import (
     delete_stage_matches,
 )
 from .stage_builder_settings import (
+    is_builder_container_db_stage,
+    is_builder_round_robin_summary_db_stage,
+)
+from .stage_builder_settings_db import (
     delete_builder_generated_child_stages,
     delete_builder_generated_group_stages,
     detach_builder_main_stage_from_preliminary_stage,
-    is_builder_container_db_stage,
-    is_builder_round_robin_summary_db_stage,
+)
+from .stage_service_queries import (
+    get_stage_setting_int as get_stage_setting_int,
+    is_stage_fully_completed as is_stage_fully_completed,
+    stage_has_assigned_participants as stage_has_assigned_participants,
+    stage_has_reported_results as stage_has_reported_results,
 )
 from .stage_settings_merge import is_structural_change, merge_stage_settings
 from .tournament_queries import (
@@ -286,66 +290,6 @@ def delete_stage(
     return Ok(None)
 
 
-def is_stage_fully_completed(
-    tournament_id: TournamentID, stage_id: StageID
-) -> bool:
-    total_match_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatch.id)).filter_by(
-            tournament_id=tournament_id,
-            stage_id=stage_id,
-        )
-    )
-    if not total_match_count:
-        return False
-
-    incomplete_match_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatch.id))
-        .filter_by(
-            tournament_id=tournament_id,
-            stage_id=stage_id,
-        )
-        .filter(DbNetsessionTourneyMatch.state != MatchState.completed.value)
-    )
-    return int(incomplete_match_count or 0) == 0
-
-
-def stage_has_assigned_participants(
-    tournament_id: TournamentID, stage_id: StageID
-) -> bool:
-    assigned_participant_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatchSlot.id))
-        .join(
-            DbNetsessionTourneyMatch,
-            DbNetsessionTourneyMatch.id
-            == DbNetsessionTourneyMatchSlot.match_id,
-        )
-        .filter(
-            DbNetsessionTourneyMatch.tournament_id == tournament_id,
-            DbNetsessionTourneyMatch.stage_id == stage_id,
-            DbNetsessionTourneyMatchSlot.participant_id.is_not(None),
-        )
-    )
-    return bool(assigned_participant_count)
-
-
-def stage_has_reported_results(
-    tournament_id: TournamentID, stage_id: StageID
-) -> bool:
-    result_count = db.session.scalar(
-        select(db.func.count(DbNetsessionTourneyMatchResult.id))
-        .join(
-            DbNetsessionTourneyMatch,
-            DbNetsessionTourneyMatch.id
-            == DbNetsessionTourneyMatchResult.match_id,
-        )
-        .filter(
-            DbNetsessionTourneyMatch.tournament_id == tournament_id,
-            DbNetsessionTourneyMatch.stage_id == stage_id,
-        )
-    )
-    return bool(result_count)
-
-
 def _renumber_stages_for_tournament(tournament_id: TournamentID) -> None:
     db_stages = db.session.scalars(
         select(DbNetsessionTourneyStage)
@@ -382,25 +326,3 @@ def _is_stage_type_compatible_with_tournament_mode(
         return stage_family == StageFamily.ffa
 
     return False
-
-
-def get_stage_setting_int(
-    settings: dict[str, Any],
-    key: str,
-    *,
-    minimum: int,
-    fallback: int | None = None,
-) -> int | None:
-    raw_value = settings.get(key, fallback)
-    if raw_value is None:
-        return None
-
-    try:
-        value = int(raw_value)
-    except TypeError, ValueError:
-        return fallback
-
-    if value < minimum:
-        return fallback
-
-    return value

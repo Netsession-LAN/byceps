@@ -9,7 +9,6 @@ where winner and loser go next, and which empty slots are byes.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from byceps.services.netsession_tourney.blueprints.site.match_helpers import (
@@ -17,6 +16,12 @@ from byceps.services.netsession_tourney.blueprints.site.match_helpers import (
     build_skipped_double_grand_final_match_ids,
 )
 from byceps.services.netsession_tourney.models import MatchState, SourceOutcome
+
+from .match_extras_advancing import (
+    _get_later_participant_ids as _get_later_participant_ids,
+    build_advancing_ids_by_match_id as build_advancing_ids_by_match_id,
+    group_by_stage as group_by_stage,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -146,60 +151,3 @@ def _bracket_for_label(label: str | None) -> str | None:
 
 def _str(value) -> str | None:
     return str(value) if value is not None else None
-
-
-def group_by_stage(matches) -> dict:
-    by_stage = defaultdict(list)
-    for match in matches:
-        by_stage[match.stage_id].append(match)
-    return by_stage
-
-
-def build_advancing_ids_by_match_id(ranking) -> dict:
-    """For completed matches of FFA stages: the participants that play in a
-    later round or stage. Other matches are left out (no such notion)."""
-    order_by_stage_id = {stage.id: stage.order_no for stage in ranking.stages}
-    ffa_stage_ids = {
-        stage.id
-        for stage in ranking.stages
-        if stage.type.value.startswith('ffa')
-    }
-
-    advancing = {}
-    for match in ranking.matches:
-        if not _is_completed_match_in(match, ffa_stage_ids):
-            continue
-        later_ids = _get_later_participant_ids(
-            ranking, match, order_by_stage_id
-        )
-        advancing[match.id] = _get_participant_ids(ranking, match) & later_ids
-    return advancing
-
-
-def _is_completed_match_in(match, stage_ids: set) -> bool:
-    if match.stage_id not in stage_ids:
-        return False
-    return match.state == MatchState.completed
-
-
-def _get_later_participant_ids(ranking, match, order_by_stage_id) -> set:
-    match_position = _get_position(match, order_by_stage_id)
-    return set().union(
-        *(
-            _get_participant_ids(ranking, other)
-            for other in ranking.matches
-            if _get_position(other, order_by_stage_id) > match_position
-        )
-    )
-
-
-def _get_position(match, order_by_stage_id) -> tuple:
-    return (order_by_stage_id.get(match.stage_id, 0), match.round_no)
-
-
-def _get_participant_ids(ranking, match) -> set:
-    return {
-        slot.participant_id
-        for slot in ranking.slots_by_match_id.get(match.id, [])
-        if slot.participant_id is not None
-    }

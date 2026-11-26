@@ -17,14 +17,11 @@ from byceps.services.user.models import User, UserID
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
-from . import domain_service
 from .coin_service import (
     charge_coins_for_tournament_registration,
 )
 from .dbmodels import (
-    DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyParticipant,
-    DbNetsessionTourneyTeamMember,
     DbNetsessionTourneyTournament,
 )
 from .models import (
@@ -50,23 +47,16 @@ from .service_helpers import (
     db_participant_to_model,
     db_tournament_to_model,
 )
+from .team_captain_service_ready import (
+    _check_team_ready_state_change,
+    count_team_members as count_team_members,
+)
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
     ACTIVE_PARTICIPANT_STATUS_VALUES,
     find_db_tournament_for_party,
 )
 from .tourney_registration_checks import validate_user_can_enter_tournament
-
-
-def count_team_members(participant_id: ParticipantID) -> int:
-    return int(
-        db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyTeamMember.id)).filter_by(
-                participant_id=participant_id
-            )
-        )
-        or 0
-    )
 
 
 def create_team_for_captain(
@@ -332,51 +322,6 @@ def set_managed_team_ready_state(
     db.session.commit()
 
     return Ok(db_participant_to_model(db_participant))
-
-
-def _check_team_ready_state_change(
-    tournament: Tournament, participant_id: ParticipantID, *, ready: bool
-) -> str | None:
-    if not ready and _is_in_bracket(participant_id):
-        return (
-            'Das Team steht schon im Turnierbaum und kann nicht mehr auf '
-            '„nicht bereit“ gesetzt werden. Wende dich an einen Admin.'
-        )
-
-    if ready and tournament.team_size is not None:
-        return _describe_incomplete_team(tournament, participant_id)
-
-    return None
-
-
-def _describe_incomplete_team(
-    tournament: Tournament, participant_id: ParticipantID
-) -> str | None:
-    member_count = count_team_members(participant_id)
-    if not domain_service.is_team_member_count_complete(
-        int(member_count or 0),
-        tournament.team_size,
-        tournament.substitute_count,
-    ):
-        return (
-            'Das Team ist nicht vollständig. '
-            + domain_service.describe_required_team_size(
-                tournament.team_size, tournament.substitute_count
-            )
-        )
-
-    return None
-
-
-def _is_in_bracket(participant_id: ParticipantID) -> bool:
-    return (
-        db.session.scalar(
-            select(DbNetsessionTourneyMatchSlot.id)
-            .filter_by(participant_id=participant_id)
-            .limit(1)
-        )
-        is not None
-    )
 
 
 def find_db_managed_team_participant(
