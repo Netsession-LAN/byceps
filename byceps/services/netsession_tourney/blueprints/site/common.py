@@ -129,34 +129,45 @@ def find_netsession_tourney_subnav_menu_id(*view_names: str) -> UUID | None:
     return None
 
 
-def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
-    ns_tourney_index_url = url_for('netsession_tourney.index')
-    ns_tourney_prefix = (
-        ns_tourney_index_url.rstrip('/') if ns_tourney_index_url != '/' else '/'
+def _strip_trailing_slash(path: str) -> str:
+    return path.rstrip('/') if path != '/' else '/'
+
+
+def _get_nav_target_path(target: str) -> str:
+    target_path = urlsplit(target).path if '://' in target else target
+    if target_path and not target_path.startswith('/'):
+        target_path = '/' + target_path
+    return target_path
+
+
+def _is_ns_tourney_endpoint_nav_item(item: NavItem) -> bool:
+    return (
+        item.target_type == NavItemTargetType.endpoint
+        and item.target == 'netsession_tourney.index'
     )
 
+
+def _is_ns_tourney_url_nav_item(item: NavItem, ns_tourney_prefix: str) -> bool:
+    if item.target_type != NavItemTargetType.url:
+        return False
+
+    target = item.target.strip()
+    if not target:
+        return False
+
+    target_path = _get_nav_target_path(target)
+    return _strip_trailing_slash(target_path) == ns_tourney_prefix
+
+
+def _find_main_nav_item_current_page_id(items: list[NavItem]) -> str | None:
+    ns_tourney_index_url = url_for('netsession_tourney.index')
+    ns_tourney_prefix = _strip_trailing_slash(ns_tourney_index_url)
+
     for item in items:
-        if (
-            item.target_type == NavItemTargetType.endpoint
-            and item.target == 'netsession_tourney.index'
-        ):
+        if _is_ns_tourney_endpoint_nav_item(item):
             return item.current_page_id
 
-        if item.target_type != NavItemTargetType.url:
-            continue
-
-        target = item.target.strip()
-        if not target:
-            continue
-
-        target_path = urlsplit(target).path if '://' in target else target
-        if target_path and not target_path.startswith('/'):
-            target_path = '/' + target_path
-
-        target_normalized = (
-            target_path.rstrip('/') if target_path != '/' else '/'
-        )
-        if target_normalized == ns_tourney_prefix:
+        if _is_ns_tourney_url_nav_item(item, ns_tourney_prefix):
             return item.current_page_id
 
     return None
@@ -242,21 +253,36 @@ def build_slot_score_payload(slots, points_by_slot_no: dict[int, int]) -> dict:
     }
 
 
-def build_overview_stage_type_label(stages) -> str:
-    builder_main_stage = next(
+def _is_builder_main_stage(stage) -> bool:
+    settings = stage.settings or {}
+    return (
+        settings.get('builder_kind') == 'stage_builder_v1'
+        and settings.get('builder_role') == 'main'
+    )
+
+
+def _find_builder_main_stage(stages):
+    return next(
         (
             stage
             for stage in sorted(stages, key=lambda item: item.order_no)
-            if (stage.settings or {}).get('builder_kind') == 'stage_builder_v1'
-            and (stage.settings or {}).get('builder_role') == 'main'
+            if _is_builder_main_stage(stage)
         ),
         None,
     )
+
+
+def _build_primary_stage_type_label(stages) -> str:
+    primary_stage = stages[0] if stages else None
+    return stage_type_display_name(
+        primary_stage.type if primary_stage else None
+    )
+
+
+def build_overview_stage_type_label(stages) -> str:
+    builder_main_stage = _find_builder_main_stage(stages)
     if builder_main_stage is None:
-        primary_stage = stages[0] if stages else None
-        return stage_type_display_name(
-            primary_stage.type if primary_stage else None
-        )
+        return _build_primary_stage_type_label(stages)
 
     main_stage_label = stage_type_display_name(builder_main_stage.type)
     if (builder_main_stage.settings or {}).get('builder_preliminary_stage_id'):
@@ -274,29 +300,30 @@ def get_participants_for_tournament_indexed_by_id(
     return get_participants_by_ids(party_id, participant_ids)
 
 
+_TIMELINE_ACTION_LABEL_FACTORIES = {
+    'tournament_published': lambda: gettext('Turnier ist jetzt live.'),
+    'tournament_closed': lambda: gettext('Turnier wurde beendet.'),
+    'tournament_canceled': lambda: gettext('Turnier wurde abgesagt.'),
+    'match_ready': lambda: gettext('Match ist spielbereit.'),
+    'flatout2_host_assigned': lambda: gettext(
+        'Du wurdest als FlatOut-2-Host ausgewählt.'
+    ),
+    'result_reported': lambda: gettext('Ergebnis übermittelt.'),
+    'match_rescheduled': lambda: gettext('Match-Zeit wurde geändert.'),
+    'match_disputed': lambda: gettext('Ein Konflikt wurde gemeldet.'),
+    'match_needs_admin_review': lambda: gettext(
+        'Match wartet auf Admin-Prüfung.'
+    ),
+    'result_confirmation_timed_out': lambda: gettext(
+        'Bestätigungsfrist abgelaufen, Match wartet auf Admin-Prüfung.'
+    ),
+}
+
+
 def format_timeline_action(entry):
     action = entry['action']
-    if action == 'tournament_published':
-        return gettext('Turnier ist jetzt live.')
-    if action == 'tournament_closed':
-        return gettext('Turnier wurde beendet.')
-    if action == 'tournament_canceled':
-        return gettext('Turnier wurde abgesagt.')
-    if action == 'match_ready':
-        return gettext('Match ist spielbereit.')
-    if action == 'flatout2_host_assigned':
-        return gettext('Du wurdest als FlatOut-2-Host ausgewählt.')
-    if action == 'result_reported':
-        return gettext('Ergebnis übermittelt.')
-    if action == 'match_rescheduled':
-        return gettext('Match-Zeit wurde geändert.')
-    if action == 'match_disputed':
-        return gettext('Ein Konflikt wurde gemeldet.')
-    if action == 'match_needs_admin_review':
-        return gettext('Match wartet auf Admin-Prüfung.')
-    if action == 'result_confirmation_timed_out':
-        return gettext(
-            'Bestätigungsfrist abgelaufen, Match wartet auf Admin-Prüfung.'
-        )
+    label_factory = _TIMELINE_ACTION_LABEL_FACTORIES.get(action)
+    if label_factory is not None:
+        return label_factory()
 
     return action.replace('_', ' ')
