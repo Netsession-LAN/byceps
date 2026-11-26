@@ -1,6 +1,7 @@
 """Netsession: readable answers to unusable or too large avatar uploads."""
 
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image
 import pytest
@@ -10,6 +11,12 @@ from byceps.services.site.models import SiteID
 
 from tests.helpers import create_site, http_client, log_in_user
 
+
+# The Netsession site templates are not part of every checkout (the public
+# GitHub export leaves them out).
+NETSESSION_SITE_TEMPLATES = (
+    Path(__file__).parents[5] / 'sites' / 'netsession' / 'template_overrides'
+)
 
 BASE = 'http://www.acmecon.test'
 FORM_PATH = '/users/me/avatar/update'
@@ -50,6 +57,10 @@ def netsession_site_app(make_site_app, brand):
     return make_site_app('ns-avatar.test', site_id)
 
 
+@pytest.mark.skipif(
+    not NETSESSION_SITE_TEMPLATES.is_dir(),
+    reason='Netsession site templates are not part of this checkout',
+)
 def test_form_shows_the_real_size_limit(netsession_site_app, user):
     log_in_user(user.id)
     with http_client(netsession_site_app, user_id=user.id) as client:
