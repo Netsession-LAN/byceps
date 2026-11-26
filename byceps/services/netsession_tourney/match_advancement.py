@@ -124,6 +124,21 @@ def _auto_advance_bye_match(
         .filter_by(match_id=db_match.id)
         .order_by(DbNetsessionTourneyMatchSlot.slot_no.asc())
     ).all()
+
+    bye = _find_bye(db_slots)
+    if bye is None:
+        return False
+
+    _complete_bye_match(tournament_id, stage, db_match, bye, engine=engine)
+    return True
+
+
+# winner slot number, winner participant ID, whether the match is empty
+_Bye = tuple[int | None, ParticipantID | None, bool]
+
+
+def _find_bye(db_slots: list[DbNetsessionTourneyMatchSlot]) -> _Bye | None:
+    """Return the outcome of the match if it is a bye, else `None`."""
     filled_slots = [slot for slot in db_slots if slot.participant_id]
     has_any_source_slots = any(
         slot.source_match_slot_id is not None for slot in db_slots
@@ -132,28 +147,46 @@ def _auto_advance_bye_match(
     # A feeder slot with no participant is considered resolved if the
     # source match is already completed and produced no winner/loser
     # for that outcome path (e.g. loser path from a bye match).
+    if _has_unresolved_source_slots(db_slots):
+        return None
+
+    return _pick_bye_winner(filled_slots, has_any_source_slots)
+
+
+def _has_unresolved_source_slots(
+    db_slots: list[DbNetsessionTourneyMatchSlot],
+) -> bool:
     unresolved_source_slots = [
         slot for slot in db_slots if _is_unresolved_source_slot(slot)
     ]
-    if unresolved_source_slots:
-        return False
+    return bool(unresolved_source_slots)
 
-    winner_slot_no: int | None = None
-    winner_participant_id: ParticipantID | None = None
 
+def _pick_bye_winner(
+    filled_slots: list[DbNetsessionTourneyMatchSlot],
+    has_any_source_slots: bool,
+) -> _Bye | None:
     if len(filled_slots) == 1:
-        winner_slot_no = filled_slots[0].slot_no
-        winner_participant_id = filled_slots[0].participant_id
-    elif len(filled_slots) == 0:
-        # Propagate an explicitly empty feeder path (e.g. LB branch fed
-        # only by bye matches), but never consume pre-created placeholder
-        # matches that do not have resolved feeder sources yet.
-        if not has_any_source_slots:
-            return False
-        winner_slot_no = None
-        winner_participant_id = None
-    else:
-        return False
+        return filled_slots[0].slot_no, filled_slots[0].participant_id, False
+
+    # Propagate an explicitly empty feeder path (e.g. LB branch fed
+    # only by bye matches), but never consume pre-created placeholder
+    # matches that do not have resolved feeder sources yet.
+    if len(filled_slots) == 0 and has_any_source_slots:
+        return None, None, True
+
+    return None
+
+
+def _complete_bye_match(
+    tournament_id: TournamentID,
+    stage: Stage,
+    db_match: DbNetsessionTourneyMatch,
+    bye: _Bye,
+    *,
+    engine: StageEngine,
+) -> None:
+    winner_slot_no, winner_participant_id, is_empty_match = bye
 
     db_result = DbNetsessionTourneyMatchResult(
         MatchResultID(generate_uuid7()),
@@ -162,7 +195,7 @@ def _auto_advance_bye_match(
         winner_slot=winner_slot_no,
         score_json={
             'walkover': True,
-            'empty_match': len(filled_slots) == 0,
+            'empty_match': is_empty_match,
         },
         ranking_json={},
         submitted_by_user_id=None,
@@ -181,7 +214,6 @@ def _auto_advance_bye_match(
     update_optional_double_grand_final_state(
         stage=stage, source_match_id=db_match.id
     )
-    return True
 
 
 def _is_unresolved_source_slot(slot: DbNetsessionTourneyMatchSlot) -> bool:
@@ -234,6 +266,25 @@ def advance_stage_from_match(
     if source_slot is None:
         return
 
+    _advance_from_source_slot(
+        tournament_id=tournament_id,
+        stage=stage,
+        source_match_id=source_match_id,
+        source_slot=source_slot,
+        winner_participant_id=winner_participant_id,
+        engine=engine,
+    )
+
+
+def _advance_from_source_slot(
+    *,
+    tournament_id: TournamentID,
+    stage: Stage,
+    source_match_id: MatchID,
+    source_slot: DbNetsessionTourneyMatchSlot,
+    winner_participant_id: ParticipantID | None,
+    engine: StageEngine,
+) -> None:
     source_match_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot)
         .filter_by(match_id=source_match_id)
@@ -248,28 +299,18 @@ def advance_stage_from_match(
             source_match_slot_id=source_slot.id
         )
     ).all()
-    downstream_winner_slots = [
-        (db_slot.match_id, db_slot.slot_no)
-        for db_slot in downstream_db_slots
-        if db_slot.source_outcome != SourceOutcome.loser.value
-    ]
-    downstream_loser_slots = [
-        (db_slot.match_id, db_slot.slot_no)
-        for db_slot in downstream_db_slots
-        if db_slot.source_outcome == SourceOutcome.loser.value
-    ]
+    downstream_winner_slots, downstream_loser_slots = _split_downstream_slots(
+        downstream_db_slots
+    )
 
-    if stage.type in {
-        StageType.ffa_single_elimination,
-        StageType.ffa_flatout2_single_elimination,
-    }:
-        updates = _build_ffa_qualifier_updates(
-            source_match_id, source_match_slots, downstream_winner_slots
-        )
-    else:
-        updates = engine.advance(
-            stage, winner_participant_id, downstream_winner_slots
-        )
+    updates = _build_winner_slot_updates(
+        stage,
+        engine,
+        source_match_id=source_match_id,
+        source_match_slots=source_match_slots,
+        winner_participant_id=winner_participant_id,
+        downstream_winner_slots=downstream_winner_slots,
+    )
     updates.extend(
         (
             match_id,
@@ -282,6 +323,44 @@ def advance_stage_from_match(
     db.session.flush()
 
     _enqueue_notifications_for_still_ready_matches(ready_match_ids)
+
+
+def _split_downstream_slots(
+    downstream_db_slots: list[DbNetsessionTourneyMatchSlot],
+) -> tuple[list[tuple[MatchID, int]], list[tuple[MatchID, int]]]:
+    """Return (match ID, slot number) of the slots fed by the winner and of
+    those fed by the loser."""
+    downstream_winner_slots = [
+        (db_slot.match_id, db_slot.slot_no)
+        for db_slot in downstream_db_slots
+        if db_slot.source_outcome != SourceOutcome.loser.value
+    ]
+    downstream_loser_slots = [
+        (db_slot.match_id, db_slot.slot_no)
+        for db_slot in downstream_db_slots
+        if db_slot.source_outcome == SourceOutcome.loser.value
+    ]
+    return downstream_winner_slots, downstream_loser_slots
+
+
+def _build_winner_slot_updates(
+    stage: Stage,
+    engine: StageEngine,
+    *,
+    source_match_id: MatchID,
+    source_match_slots: list[DbNetsessionTourneyMatchSlot],
+    winner_participant_id: ParticipantID | None,
+    downstream_winner_slots: list[tuple[MatchID, int]],
+) -> list[tuple[MatchID, int, ParticipantID | None]]:
+    if stage.type in {
+        StageType.ffa_single_elimination,
+        StageType.ffa_flatout2_single_elimination,
+    }:
+        return _build_ffa_qualifier_updates(
+            source_match_id, source_match_slots, downstream_winner_slots
+        )
+
+    return engine.advance(stage, winner_participant_id, downstream_winner_slots)
 
 
 def _enqueue_notifications_for_still_ready_matches(
