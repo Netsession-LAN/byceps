@@ -11,7 +11,10 @@ Routes to show and submit the tournament update form (see
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+
+from flask_babel import to_user_timezone
 
 from byceps.services.netsession_tourney import (
     tournament_admin_service,
@@ -41,6 +44,19 @@ from byceps.util.framework.templating import templated
 from byceps.util.views import permission_required
 
 
+def _local_or_none(value: datetime | None) -> datetime | None:
+    """Show a stored UTC time in the user's time zone.
+
+    The `datetime-local` fields are read as local time when submitted
+    (`to_utc`), so they must show local time, too. Showing the UTC value
+    shifted every time by the UTC offset on each save.
+    """
+    if value is None:
+        return None
+
+    return to_user_timezone(value).replace(tzinfo=None)
+
+
 def build_update_form_data(
     tournament: Any, assigned_admin_user_ids: Any
 ) -> dict[str, Any]:
@@ -56,14 +72,16 @@ def build_update_form_data(
         'category_id': str(tournament.category_id),
         'mode': tournament.mode.value,
         'registration_mode': tournament.registration_mode.value,
-        'starts_at': tournament.starts_at,
+        'starts_at': _local_or_none(tournament.starts_at),
         'visible_on_site': tournament.visible_on_site,
         'rules_template_slug': tournament.rules_page_slug,
         'registration_open': tournament.registration_open,
-        'registration_deadline': tournament.registration_deadline,
-        'roster_lock_at': tournament.roster_lock_at,
-        'checkin_open_at': tournament.checkin_open_at,
-        'checkin_close_at': tournament.checkin_close_at,
+        'registration_deadline': _local_or_none(
+            tournament.registration_deadline
+        ),
+        'roster_lock_at': _local_or_none(tournament.roster_lock_at),
+        'checkin_open_at': _local_or_none(tournament.checkin_open_at),
+        'checkin_close_at': _local_or_none(tournament.checkin_close_at),
         'team_size': tournament.team_size or 1,
         'substitute_count': tournament.substitute_count or 0,
         'participant_limit': tournament.participant_limit,
