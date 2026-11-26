@@ -17,6 +17,10 @@ onDomReady(() => {
         .then(response => {
           if (!response.ok) {
             loginFailedNotice.classList.remove('hidden');
+            // A Turnstile token is valid only once, so get a fresh one.
+            if (window.turnstile) {
+              window.turnstile.reset();
+            }
             return;
           }
 
