@@ -13,10 +13,6 @@ from .dbmodels import (
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyParticipant,
 )
-from .discord_result_summaries_completed import (
-    build_discord_match_completed_description as build_discord_match_completed_description,
-    build_discord_match_completed_fields as build_discord_match_completed_fields,
-)
 from .models import (
     ParticipantID,
     Stage,

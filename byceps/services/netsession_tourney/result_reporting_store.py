@@ -28,11 +28,6 @@ from .models import (
     MatchResultID,
 )
 from .result_deletion_blockers import find_match_result_delete_blocker
-from .result_reporting_sides import (
-    advance_after_completion as advance_after_completion,
-    load_match_sides as load_match_sides,
-    MatchSides as MatchSides,
-)
 from .swiss_correction import prepare_swiss_winner_change
 
 
