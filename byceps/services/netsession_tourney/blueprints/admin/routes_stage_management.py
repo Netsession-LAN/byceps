@@ -8,13 +8,8 @@ byceps.services.netsession_tourney.blueprints.admin.routes_stage_management
 
 from __future__ import annotations
 
-from collections import defaultdict
-from datetime import datetime
-import random
-from uuid import UUID
-
 from flask import g, request
-from flask_babel import gettext, to_utc
+from flask_babel import gettext
 
 from byceps.services.netsession_tourney.blueprints.admin.routes_stage_actions import (
     register_stage_builder_review_routes,
@@ -22,29 +17,17 @@ from byceps.services.netsession_tourney.blueprints.admin.routes_stage_actions im
     register_stage_delete_routes,
     register_stage_participant_source_routes,
 )
+from byceps.services.netsession_tourney.blueprints.admin.routes_stage_generation import (
+    register_stage_generation_routes,
+)
 from byceps.services.netsession_tourney.forms import (
     StageBuilderMainForm,
     StageBuilderPreliminaryForm,
     StageBuilderTimingForm,
     StageForm,
 )
-from byceps.services.netsession_tourney.generation_participants import (
-    get_stage_generation_participants,
-)
-from byceps.services.netsession_tourney.match_generation import (
-    generate_stage_matches,
-)
-from byceps.services.netsession_tourney.match_queries import (
-    get_matches_for_tournament,
-)
 from byceps.services.netsession_tourney.models import (
-    Match,
-    ParticipantID,
-    StageID,
     StageType,
-)
-from byceps.services.netsession_tourney.seed_service import (
-    set_stage_generation_seeds,
 )
 from byceps.services.netsession_tourney.stage_builder_service import (
     build_stage_builder_plan,
@@ -64,7 +47,6 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
-from .datetime_fields import serialize_utc_as_local
 from .result_helpers import (
     _get_tournament_or_404,
     get_party_or_404,
@@ -73,33 +55,14 @@ from .result_helpers import (
 from .result_redirects import (
     redirect_to_related_tournament_view,
 )
-from .stage_builder_flatout2_generation import (
-    build_flatout2_generation_state,
-    is_flatout2_stage_type,
-    parse_flatout2_generation_configuration,
-)
-from .stage_builder_generation_seeds import (
-    build_stage_generation_seed_rows,
-    parse_stage_generation_auto_seed_participant_ids,
-    parse_stage_generation_manual_seed_values_by_participant_id,
-)
-from .stage_builder_helpers import (
-    build_current_manual_seed_values_by_participant_id,
-    get_stage_generation_block_reason,
-)
 from .stage_builder_participant_source import (
     participant_source_settings_from_form,
-)
-from .stage_builder_stage_display import (
-    is_builder_main_stage_with_preliminary_source,
-    is_builder_round_robin_summary_stage,
 )
 from .stage_builder_stage_form_data import (
     get_ffa_placement_points_row_count,
     stage_to_form_data,
 )
 from .stage_builder_stage_meta import (
-    build_round_robin_generation_intro,
     build_stage_builder_generation_summary,
     build_stage_builder_meta,
 )
@@ -122,7 +85,6 @@ from .stage_builder_wizard_state import (
 )
 from .wizard_helpers import (
     clear_stage_builder_wizard_state,
-    deserialize_datetime_local,
     get_stage_builder_wizard_state,
     set_stage_builder_wizard_state,
 )
@@ -761,509 +723,7 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-    @blueprint.post(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/generate'
-    )
-    @permission_required('netsession_tourney.manage')
-    def stage_generate(party_id, tournament_id, stage_id):
-        party = get_party_or_404(party_id)
-        tournament = _get_tournament_or_404(party.id, tournament_id)
-        stage = get_stage_or_404(party.id, tournament.id, stage_id)
-        erroneous_flatout2_generation_form = (
-            request.form if is_flatout2_stage_type(stage.type) else None
-        )
-        stages = get_stages_for_tournament(party.id, tournament.id)
-        stages_by_id = {stage_item.id: stage_item for stage_item in stages}
-        matches_by_stage: dict[StageID, list[Match]] = defaultdict(list)
-        for match in get_matches_for_tournament(party.id, tournament.id):
-            matches_by_stage[match.stage_id].append(match)
-        generation_block_reason = get_stage_generation_block_reason(
-            stage,
-            stages_by_id,
-            matches_by_stage,
-        )
-        if generation_block_reason:
-            flash_error(generation_block_reason)
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-
-        is_locked_auto_seeding = is_builder_main_stage_with_preliminary_source(
-            stage
-        )
-        existing_stage_match_count = sum(
-            1
-            for match in get_matches_for_tournament(party.id, tournament.id)
-            if match.stage_id == stage.id
-        )
-        is_incremental_swiss_generation = False
-
-        if is_flatout2_stage_type(stage.type):
-            participants_result = get_stage_generation_participants(
-                party.id, tournament.id, stage.id
-            )
-            if participants_result.is_err():
-                flash_error(participants_result.unwrap_err())
-                return stage_generate_form(
-                    party.id,
-                    tournament.id,
-                    stage.id,
-                    erroneous_flatout2_generation_form=request.form,
-                )
-
-            flatout2_config_result = parse_flatout2_generation_configuration(
-                stage,
-                participants_result.unwrap(),
-                request.form,
-            )
-            if flatout2_config_result.is_err():
-                flash_error(flatout2_config_result.unwrap_err())
-                return stage_generate_form(
-                    party.id,
-                    tournament.id,
-                    stage.id,
-                    erroneous_flatout2_generation_form=request.form,
-                )
-
-            (
-                stage_settings_patch,
-                match_settings_by_round_and_match_no,
-            ) = flatout2_config_result.unwrap()
-            round_starts_at_by_round_no: dict[int, datetime] = {}
-            for round_config in stage_settings_patch.get('flatout2_rounds', []):
-                round_no = int(round_config.get('round_no') or 0)
-                if round_no < 1:
-                    continue
-                raw_value = (
-                    request.form.get(f'round_starts_at_round_{round_no}') or ''
-                ).strip()
-                if not raw_value:
-                    continue
-                starts_at_local = deserialize_datetime_local(raw_value)
-                if starts_at_local is None:
-                    flash_error(
-                        gettext(
-                            'Ungültiger Startzeitpunkt für Runde %(round_no)s.',
-                            round_no=round_no,
-                        )
-                    )
-                    return stage_generate_form(
-                        party.id,
-                        tournament.id,
-                        stage.id,
-                        erroneous_flatout2_generation_form=request.form,
-                        erroneous_round_start_values_by_round_no={
-                            round_no: raw_value
-                        },
-                    )
-                round_starts_at_by_round_no[round_no] = to_utc(starts_at_local)
-            correlation_id = request.headers.get('X-Correlation-ID')
-
-            match generate_stage_matches(
-                party.id,
-                tournament.id,
-                stage_id,
-                g.user.as_user(),
-                correlation_id=correlation_id,
-                round_starts_at_by_round_no=round_starts_at_by_round_no or None,
-                stage_settings_patch=stage_settings_patch,
-                match_settings_by_round_and_match_no=match_settings_by_round_and_match_no,
-            ):
-                case Ok(matches):
-                    flash_success(
-                        gettext(
-                            '%(count)s Matches wurden erzeugt.',
-                            count=len(matches),
-                        )
-                    )
-                case Err(message):
-                    flash_error(message)
-
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-
-        participants_result = get_stage_generation_participants(
-            party.id, tournament.id, stage.id
-        )
-        if participants_result.is_err():
-            flash_error(participants_result.unwrap_err())
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-
-        participants = participants_result.unwrap()
-        allowed_participant_ids = {
-            participant.id for participant in participants
-        }
-        auto_seed_participant_ids_result = (
-            parse_stage_generation_auto_seed_participant_ids(
-                request.form, allowed_participant_ids
-            )
-        )
-        if auto_seed_participant_ids_result.is_err():
-            flash_error(auto_seed_participant_ids_result.unwrap_err())
-            return stage_generate_form(
-                party.id,
-                tournament.id,
-                stage.id,
-                erroneous_auto_seed_participant_ids=request.form.getlist(
-                    'auto_seed_participant_ids'
-                ),
-                erroneous_manual_seed_values_by_participant_id=request.form,
-                erroneous_flatout2_generation_form=erroneous_flatout2_generation_form,
-            )
-        auto_seed_participant_ids = auto_seed_participant_ids_result.unwrap()
-
-        if is_locked_auto_seeding:
-            manual_seed_values_by_participant_id = {}
-        else:
-            manual_seed_values_result = (
-                parse_stage_generation_manual_seed_values_by_participant_id(
-                    request.form, allowed_participant_ids
-                )
-            )
-            if manual_seed_values_result.is_err():
-                flash_error(manual_seed_values_result.unwrap_err())
-                return stage_generate_form(
-                    party.id,
-                    tournament.id,
-                    stage.id,
-                    erroneous_auto_seed_participant_ids=[
-                        str(participant_id)
-                        for participant_id in auto_seed_participant_ids
-                    ],
-                    erroneous_manual_seed_values_by_participant_id=request.form,
-                    erroneous_flatout2_generation_form=erroneous_flatout2_generation_form,
-                )
-            manual_seed_values_by_participant_id = (
-                manual_seed_values_result.unwrap()
-            )
-
-        round_starts_at_by_round_no: dict[int, datetime] = {}
-        round_start_values_by_round_no: dict[int, str] = {}
-        for key, raw_value in request.form.items():
-            if not key.startswith('round_starts_at_round_'):
-                continue
-            try:
-                round_no = int(key.removeprefix('round_starts_at_round_'))
-            except ValueError:
-                continue
-            if round_no < 1:
-                continue
-
-            normalized_raw_value = (raw_value or '').strip()
-            round_start_values_by_round_no[round_no] = normalized_raw_value
-            if not normalized_raw_value:
-                continue
-
-            starts_at_local = deserialize_datetime_local(normalized_raw_value)
-            if starts_at_local is None:
-                flash_error(
-                    gettext(
-                        'Ungültiger Startzeitpunkt für Runde %(round_no)s.',
-                        round_no=round_no,
-                    )
-                )
-                return stage_generate_form(
-                    party.id,
-                    tournament.id,
-                    stage_id,
-                    erroneous_auto_seed_participant_ids=[
-                        str(participant_id)
-                        for participant_id in auto_seed_participant_ids
-                    ],
-                    erroneous_manual_seed_values_by_participant_id=request.form,
-                    erroneous_round_start_values_by_round_no=round_start_values_by_round_no,
-                    erroneous_flatout2_generation_form=erroneous_flatout2_generation_form,
-                )
-
-            round_starts_at_by_round_no[round_no] = to_utc(starts_at_local)
-
-        seed_assignment_result = set_stage_generation_seeds(
-            party.id,
-            tournament.id,
-            stage.id,
-            auto_seed_participant_ids,
-            manual_seed_values_by_participant_id,
-            g.user.as_user(),
-        )
-        if seed_assignment_result.is_err():
-            flash_error(seed_assignment_result.unwrap_err())
-            return stage_generate_form(
-                party.id,
-                tournament.id,
-                stage.id,
-                erroneous_auto_seed_participant_ids=[
-                    str(participant_id)
-                    for participant_id in auto_seed_participant_ids
-                ],
-                erroneous_manual_seed_values_by_participant_id=request.form,
-                erroneous_round_start_values_by_round_no=round_start_values_by_round_no,
-                erroneous_flatout2_generation_form=erroneous_flatout2_generation_form,
-            )
-
-        correlation_id = request.headers.get('X-Correlation-ID')
-        match generate_stage_matches(
-            party.id,
-            tournament.id,
-            stage_id,
-            g.user.as_user(),
-            correlation_id=correlation_id,
-            round_starts_at_by_round_no=round_starts_at_by_round_no or None,
-        ):
-            case Ok(matches):
-                flash_success(
-                    gettext(
-                        '%(count)s Matches wurden erzeugt.',
-                        count=len(matches),
-                    )
-                )
-            case Err(message):
-                flash_error(message)
-
-        refreshed_stage = next(
-            (
-                candidate_stage
-                for candidate_stage in get_stages_for_tournament(
-                    party.id, tournament.id
-                )
-                if candidate_stage.id == stage_id
-            ),
-            None,
-        )
-        redirect_stage_id = stage_id
-        if refreshed_stage is not None:
-            materialized_group_stage_ids = (refreshed_stage.settings or {}).get(
-                'builder_materialized_group_stage_ids', []
-            )
-            if materialized_group_stage_ids:
-                try:
-                    redirect_stage_id = UUID(
-                        str(materialized_group_stage_ids[0])
-                    )
-                except TypeError, ValueError:
-                    redirect_stage_id = stage_id
-
-        return redirect_to(
-            '.view',
-            party_id=party.id,
-            tournament_id=tournament.id,
-            tab='stages',
-            stage_id=redirect_stage_id,
-        )
-
-    @blueprint.get(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/generate'
-    )
-    @permission_required('netsession_tourney.manage')
-    @templated('admin/netsession_tourney/stage/generate_form')
-    def stage_generate_form(
-        party_id,
-        tournament_id,
-        stage_id,
-        *,
-        erroneous_auto_seed_participant_ids: list[str] | None = None,
-        erroneous_manual_seed_values_by_participant_id=None,
-        erroneous_round_start_values_by_round_no: dict[int, str] | None = None,
-        erroneous_flatout2_generation_form=None,
-    ):
-        party = get_party_or_404(party_id)
-        tournament = _get_tournament_or_404(party.id, tournament_id)
-        stage = get_stage_or_404(party.id, tournament.id, stage_id)
-        stages = get_stages_for_tournament(party.id, tournament.id)
-        stages_by_id = {stage_item.id: stage_item for stage_item in stages}
-        matches_by_stage: dict[StageID, list[Match]] = defaultdict(list)
-        for match in get_matches_for_tournament(party.id, tournament.id):
-            matches_by_stage[match.stage_id].append(match)
-        generation_block_reason = get_stage_generation_block_reason(
-            stage,
-            stages_by_id,
-            matches_by_stage,
-        )
-        if generation_block_reason:
-            flash_error(generation_block_reason)
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-
-        is_locked_auto_seeding = is_builder_main_stage_with_preliminary_source(
-            stage
-        )
-        existing_stage_match_count = sum(
-            1
-            for match in get_matches_for_tournament(party.id, tournament.id)
-            if match.stage_id == stage.id
-        )
-        is_incremental_swiss_generation = False
-        is_incremental_flatout2_generation = False
-
-        participants_result = get_stage_generation_participants(
-            party.id, tournament.id, stage.id
-        )
-        if participants_result.is_err():
-            flash_error(participants_result.unwrap_err())
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-        participants = participants_result.unwrap()
-        participants_by_id = {
-            participant.id: participant for participant in participants
-        }
-
-        if is_flatout2_stage_type(stage.type):
-            flatout2_generation_state = build_flatout2_generation_state(
-                stage,
-                participants=participants,
-                posted_form=erroneous_flatout2_generation_form,
-            )
-            round_start_values_by_round_no = {
-                round_state['round_no']: (
-                    erroneous_round_start_values_by_round_no or {}
-                ).get(round_state['round_no'], '')
-                for round_state in flatout2_generation_state['rounds']
-                if round_state['is_active']
-            }
-            return {
-                'party': party,
-                'tournament': tournament,
-                'stage': stage,
-                'preview': None,
-                'is_builder_round_robin_summary_stage': False,
-                'round_robin_generation_intro': None,
-                'stage_builder_preview_summary': None,
-                'seed_rows': [],
-                'auto_seed_participant_ids': [],
-                'is_locked_auto_seeding': False,
-                'round_start_values_by_round_no': round_start_values_by_round_no,
-                'existing_stage_match_count': existing_stage_match_count,
-                'is_incremental_swiss_generation': False,
-                'is_incremental_flatout2_generation': is_incremental_flatout2_generation,
-                'flatout2_generation_state': flatout2_generation_state,
-                'is_flatout2_manual_stage': True,
-            }
-
-        preview_result = preview_stage_match_generation(
-            party.id, tournament.id, stage.id
-        )
-        if preview_result.is_err():
-            flash_error(preview_result.unwrap_err())
-            return redirect_to(
-                '.view',
-                party_id=party.id,
-                tournament_id=tournament.id,
-                tab='stages',
-                stage_id=stage.id,
-            )
-
-        preview = preview_result.unwrap()
-        if is_locked_auto_seeding:
-            auto_seed_participant_ids = [
-                participant.id for participant in participants
-            ]
-        elif erroneous_auto_seed_participant_ids:
-            auto_seed_participant_ids = []
-            for raw_participant_id in erroneous_auto_seed_participant_ids:
-                try:
-                    participant_id = ParticipantID(
-                        UUID(str(raw_participant_id))
-                    )
-                except ValueError:
-                    continue
-                if participant_id in participants_by_id:
-                    auto_seed_participant_ids.append(participant_id)
-            if set(auto_seed_participant_ids) != set(participants_by_id.keys()):
-                auto_seed_participant_ids = list(participants_by_id.keys())
-                random.shuffle(auto_seed_participant_ids)
-        else:
-            auto_seed_participant_ids = list(participants_by_id.keys())
-            random.shuffle(auto_seed_participant_ids)
-
-        if is_locked_auto_seeding:
-            manual_seed_values_by_participant_id = {}
-        elif erroneous_manual_seed_values_by_participant_id is not None:
-            manual_seed_values_result = (
-                parse_stage_generation_manual_seed_values_by_participant_id(
-                    erroneous_manual_seed_values_by_participant_id,
-                    set(participants_by_id.keys()),
-                )
-            )
-            manual_seed_values_by_participant_id = (
-                manual_seed_values_result.unwrap()
-                if manual_seed_values_result.is_ok()
-                else build_current_manual_seed_values_by_participant_id(
-                    participants
-                )
-            )
-        else:
-            manual_seed_values_by_participant_id = (
-                build_current_manual_seed_values_by_participant_id(participants)
-            )
-
-        seed_rows = build_stage_generation_seed_rows(
-            participants,
-            auto_seed_participant_ids,
-            manual_seed_values_by_participant_id,
-        )
-
-        round_start_values_by_round_no: dict[int, str] = {}
-        for round_preview in preview.rounds:
-            round_start_values_by_round_no[round_preview.round_no] = (
-                erroneous_round_start_values_by_round_no or {}
-            ).get(
-                round_preview.round_no,
-                serialize_utc_as_local(round_preview.suggested_starts_at) or '',
-            )
-
-        return {
-            'party': party,
-            'tournament': tournament,
-            'stage': stage,
-            'preview': preview,
-            'is_builder_round_robin_summary_stage': (
-                is_builder_round_robin_summary_stage(stage)
-            ),
-            'round_robin_generation_intro': build_round_robin_generation_intro(
-                stage,
-                preview.stage,
-                preview.participant_count,
-            ),
-            'stage_builder_preview_summary': build_stage_builder_generation_summary(
-                stage,
-                preview.stage,
-                preview.participant_count,
-                match_count=preview.match_count,
-            ),
-            'seed_rows': seed_rows,
-            'auto_seed_participant_ids': auto_seed_participant_ids,
-            'is_locked_auto_seeding': is_locked_auto_seeding,
-            'round_start_values_by_round_no': round_start_values_by_round_no,
-            'existing_stage_match_count': existing_stage_match_count,
-            'is_incremental_swiss_generation': is_incremental_swiss_generation,
-            'is_incremental_flatout2_generation': is_incremental_flatout2_generation,
-            'flatout2_generation_state': None,
-            'is_flatout2_manual_stage': False,
-        }
+    register_stage_generation_routes(blueprint)
 
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/update'
