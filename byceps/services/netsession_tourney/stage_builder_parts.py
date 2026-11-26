@@ -8,7 +8,6 @@ preliminary and main stage, and the audit log of the created stages.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +21,9 @@ from .stage_builder_settings import (
     STAGE_BUILDER_KIND_V1,
     STAGE_BUILDER_MAIN_STAGE_SIZES,
 )
+from .stage_builder_timing import (
+    StageTiming as StageTiming,
+)
 from .swiss_thresholds import (
     get_swiss_round_count_for_threshold,
     SWISS_THRESHOLDS,
@@ -34,39 +36,6 @@ DUEL_MAIN_STAGE_TYPES = {
     StageType.double_elimination_double_grand_final,
 }
 DUEL_PRELIMINARY_TYPES = {None, StageType.round_robin_groups, StageType.swiss}
-
-
-@dataclass(frozen=True, kw_only=True)
-class StageTiming:
-    match_duration_minutes: int | None
-    max_matches_per_round: int | None
-    break_between_rounds_minutes: int | None
-
-    def validate(self) -> str | None:
-        if self.match_duration_minutes is not None and not (
-            1 <= self.match_duration_minutes <= 240
-        ):
-            return 'Ungültige Matchdauer.'
-        if self.max_matches_per_round is not None and not (
-            1 <= self.max_matches_per_round <= 256
-        ):
-            return 'Ungültige Höchstzahl an Matches pro Runde.'
-        if self.break_between_rounds_minutes is not None and not (
-            0 <= self.break_between_rounds_minutes <= 240
-        ):
-            return 'Ungültige Pause zwischen den Runden.'
-        return None
-
-    def settings(self) -> dict[str, int]:
-        """Only the values that were given."""
-        values = {
-            'match_duration_minutes': self.match_duration_minutes,
-            'max_matches_per_round': self.max_matches_per_round,
-            'break_between_rounds_minutes': self.break_between_rounds_minutes,
-        }
-        return {
-            key: value for key, value in values.items() if value is not None
-        }
 
 
 def validate_duel_builder_input(
