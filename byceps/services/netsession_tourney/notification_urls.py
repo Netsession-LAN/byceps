@@ -10,7 +10,7 @@ from __future__ import annotations
 from byceps.services.party import party_setting_service
 from byceps.services.party.models import PartyID
 from byceps.services.site import site_service
-from byceps.services.site.models import SiteID
+from byceps.services.site.models import Site, SiteID
 
 from .dbmodels import (
     DbNetsessionTourneyTournament,
@@ -24,36 +24,56 @@ def build_absolute_notification_url(
     if not path:
         return None
 
-    if path.startswith('http://') or path.startswith('https://'):
+    if path.startswith(('http://', 'https://')):
         return path
 
     server_name = find_browser_push_site_server_name(party_id)
+    normalized_path = _with_leading_slash(path)
     if not server_name:
-        return path if path.startswith('/') else f'/{path}'
+        return normalized_path
 
-    normalized_path = path if path.startswith('/') else f'/{path}'
     return f'https://{server_name}{normalized_path}'
 
 
+def _with_leading_slash(path: str) -> str:
+    return path if path.startswith('/') else f'/{path}'
+
+
 def find_browser_push_site_server_name(party_id: PartyID) -> str | None:
-    primary_party_site_id = party_setting_service.find_setting_value(
-        party_id, 'primary_party_site_id'
-    )
-    if primary_party_site_id:
-        site = site_service.find_site(SiteID(primary_party_site_id))
-        if site and site.server_name:
-            return site.server_name.strip()
+    primary_server_name = _find_primary_party_site_server_name(party_id)
+    if primary_server_name is not None:
+        return primary_server_name
 
     for site in site_service.get_all_sites():
-        if (
-            site.party_id == party_id
-            and site.enabled
-            and not site.archived
-            and site.server_name
-        ):
+        if _is_active_party_site_with_server_name(site, party_id):
             return site.server_name.strip()
 
     return None
+
+
+def _find_primary_party_site_server_name(party_id: PartyID) -> str | None:
+    primary_party_site_id = party_setting_service.find_setting_value(
+        party_id, 'primary_party_site_id'
+    )
+    if not primary_party_site_id:
+        return None
+
+    site = site_service.find_site(SiteID(primary_party_site_id))
+    if site and site.server_name:
+        return site.server_name.strip()
+
+    return None
+
+
+def _is_active_party_site_with_server_name(
+    site: Site, party_id: PartyID
+) -> bool:
+    return bool(
+        site.party_id == party_id
+        and site.enabled
+        and not site.archived
+        and site.server_name
+    )
 
 
 def build_browser_push_logo_urls(

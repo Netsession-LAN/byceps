@@ -71,30 +71,26 @@ def preview_ffa_stage_builder_plan(
     ready_participants = domain_service.select_ready_participants(participants)
     participant_count = len(ready_participants)
 
-    uses_preliminary = (
-        preliminary_type is not None and participant_count > main_stage_size
+    (
+        uses_preliminary,
+        generation_blocked_without_preliminary,
+        main_stage_participant_count,
+    ) = _get_ffa_stage_builder_participant_split(
+        preliminary_type, participant_count, main_stage_size
     )
-    generation_blocked_without_preliminary = (
-        preliminary_type is None and participant_count > main_stage_size
-    )
-    preliminary_preview: dict[str, Any] | None = None
-    if uses_preliminary:
-        preliminary_preview_result = _preview_ffa_stage_builder_preliminary(
-            tournament_id=tournament_id,
-            preliminary_type=preliminary_type,
-            participant_count=participant_count,
-            main_stage_size=main_stage_size,
-            max_players_per_match=max_players_per_match,
-        )
-        if preliminary_preview_result.is_err():
-            return Err(preliminary_preview_result.unwrap_err())
-        preliminary_preview = preliminary_preview_result.unwrap()
 
-    main_stage_participant_count = (
-        main_stage_size
-        if (uses_preliminary or generation_blocked_without_preliminary)
-        else participant_count
+    preliminary_preview_result = _preview_optional_ffa_preliminary(
+        uses_preliminary=uses_preliminary,
+        tournament_id=tournament_id,
+        preliminary_type=preliminary_type,
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        max_players_per_match=max_players_per_match,
     )
+    if preliminary_preview_result.is_err():
+        return Err(preliminary_preview_result.unwrap_err())
+    preliminary_preview = preliminary_preview_result.unwrap()
+
     main_preview_result = preview_ffa_stage_builder_stage(
         tournament_id=tournament_id,
         stage_type=main_stage_type,
@@ -123,6 +119,53 @@ def preview_ffa_stage_builder_plan(
             preliminary_preview=preliminary_preview,
         )
     )
+
+
+def _get_ffa_stage_builder_participant_split(
+    preliminary_type: StageType | None,
+    participant_count: int,
+    main_stage_size: int,
+) -> tuple[bool, bool, int]:
+    uses_preliminary = (
+        preliminary_type is not None and participant_count > main_stage_size
+    )
+    generation_blocked_without_preliminary = (
+        preliminary_type is None and participant_count > main_stage_size
+    )
+    main_stage_participant_count = (
+        main_stage_size
+        if (uses_preliminary or generation_blocked_without_preliminary)
+        else participant_count
+    )
+    return (
+        uses_preliminary,
+        generation_blocked_without_preliminary,
+        main_stage_participant_count,
+    )
+
+
+def _preview_optional_ffa_preliminary(
+    *,
+    uses_preliminary: bool,
+    tournament_id: TournamentID,
+    preliminary_type: StageType | None,
+    participant_count: int,
+    main_stage_size: int,
+    max_players_per_match: int,
+) -> Result[dict[str, Any] | None, str]:
+    if not uses_preliminary:
+        return Ok(None)
+
+    preliminary_preview_result = _preview_ffa_stage_builder_preliminary(
+        tournament_id=tournament_id,
+        preliminary_type=preliminary_type,
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        max_players_per_match=max_players_per_match,
+    )
+    if preliminary_preview_result.is_err():
+        return Err(preliminary_preview_result.unwrap_err())
+    return Ok(preliminary_preview_result.unwrap())
 
 
 def _preview_ffa_stage_builder_preliminary(
@@ -203,48 +246,85 @@ def validate_ffa_stage_builder_settings(
     preliminary_type: StageType | None,
     generation_basis: str,
 ) -> Result[None, str]:
-    allowed_ffa_stage_types = {
-        StageType.ffa_single_elimination,
-        StageType.ffa_flatout2_single_elimination,
-    }
+    error = _check_ffa_stage_builder_structure(
+        main_stage_type=main_stage_type,
+        main_stage_size=main_stage_size,
+        preliminary_type=preliminary_type,
+        generation_basis=generation_basis,
+    )
+    if error is not None:
+        return Err(error)
+
+    error = _check_ffa_stage_builder_max_players(
+        main_stage_type=main_stage_type,
+        preliminary_type=preliminary_type,
+        max_players_per_match=max_players_per_match,
+    )
+    if error is not None:
+        return Err(error)
+
+    return Ok(None)
+
+
+_ALLOWED_FFA_STAGE_BUILDER_STAGE_TYPES = {
+    StageType.ffa_single_elimination,
+    StageType.ffa_flatout2_single_elimination,
+}
+
+
+def _check_ffa_stage_builder_structure(
+    *,
+    main_stage_type: StageType,
+    main_stage_size: int,
+    preliminary_type: StageType | None,
+    generation_basis: str,
+) -> str | None:
+    allowed_ffa_stage_types = _ALLOWED_FFA_STAGE_BUILDER_STAGE_TYPES
     if main_stage_type not in allowed_ffa_stage_types:
-        return Err(
-            'Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.'
-        )
+        return 'Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.'
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return Err('Ungültige Größe des Hauptturniers.')
+        return 'Ungültige Größe des Hauptturniers.'
 
     if generation_basis != 'ready':
-        return Err('Ungültige Grundlage für die Erzeugung.')
+        return 'Ungültige Grundlage für die Erzeugung.'
 
     if (
         preliminary_type is not None
         and preliminary_type not in allowed_ffa_stage_types
     ):
-        return Err(
-            'Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.'
-        )
+        return 'Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.'
 
+    return None
+
+
+def _check_ffa_stage_builder_max_players(
+    *,
+    main_stage_type: StageType,
+    preliminary_type: StageType | None,
+    max_players_per_match: int | None,
+) -> str | None:
     if max_players_per_match is None:
-        return Err(
-            'Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.'
-        )
+        return 'Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.'
 
     if max_players_per_match < 2 or max_players_per_match > 64:
-        return Err('Ungültige maximale Spielerzahl pro Match.')
+        return 'Ungültige maximale Spielerzahl pro Match.'
 
-    if main_stage_type == StageType.ffa_flatout2_single_elimination and (
+    if _has_invalid_flatout2_heat_size(main_stage_type, max_players_per_match):
+        return 'FlatOut 2 braucht 6 bis 8 Spieler pro Match.'
+
+    if _has_invalid_flatout2_heat_size(preliminary_type, max_players_per_match):
+        return 'FlatOut 2 braucht 6 bis 8 Spieler pro Match.'
+
+    return None
+
+
+def _has_invalid_flatout2_heat_size(
+    stage_type: StageType | None, max_players_per_match: int
+) -> bool:
+    return stage_type == StageType.ffa_flatout2_single_elimination and (
         max_players_per_match < 6 or max_players_per_match > 8
-    ):
-        return Err('FlatOut 2 braucht 6 bis 8 Spieler pro Match.')
-
-    if preliminary_type == StageType.ffa_flatout2_single_elimination and (
-        max_players_per_match < 6 or max_players_per_match > 8
-    ):
-        return Err('FlatOut 2 braucht 6 bis 8 Spieler pro Match.')
-
-    return Ok(None)
+    )
 
 
 def build_ffa_stage_builder_common_settings(
@@ -283,24 +363,12 @@ def preview_ffa_stage_builder_stage(
     stop_when_participants_at_most: int | None = None,
 ) -> Result[dict[str, Any], str]:
     if stage_type == StageType.ffa_flatout2_single_elimination:
-        round_summaries = summarize_flatout2_builder_rounds(
-            participant_count=participant_count,
-            max_players_per_match=max_players_per_match,
-            stop_when_participants_at_most=stop_when_participants_at_most,
-        )
         return Ok(
-            {
-                'round_summaries': round_summaries,
-                'match_count': sum(
-                    round_summary['match_count']
-                    for round_summary in round_summaries
-                ),
-                'expected_final_heat_size': (
-                    round_summaries[-1]['max_heat_size']
-                    if round_summaries
-                    else 0
-                ),
-            }
+            _preview_flatout2_builder_stage(
+                participant_count=participant_count,
+                max_players_per_match=max_players_per_match,
+                stop_when_participants_at_most=stop_when_participants_at_most,
+            )
         )
 
     engine = find_stage_engine(stage_type)
@@ -332,11 +400,37 @@ def preview_ffa_stage_builder_stage(
         {
             'round_summaries': round_summaries,
             'match_count': len(specs),
-            'expected_final_heat_size': (
-                round_summaries[-1]['max_heat_size'] if round_summaries else 0
+            'expected_final_heat_size': _get_expected_final_heat_size(
+                round_summaries
             ),
         }
     )
+
+
+def _preview_flatout2_builder_stage(
+    *,
+    participant_count: int,
+    max_players_per_match: int,
+    stop_when_participants_at_most: int | None,
+) -> dict[str, Any]:
+    round_summaries = summarize_flatout2_builder_rounds(
+        participant_count=participant_count,
+        max_players_per_match=max_players_per_match,
+        stop_when_participants_at_most=stop_when_participants_at_most,
+    )
+    return {
+        'round_summaries': round_summaries,
+        'match_count': sum(
+            round_summary['match_count'] for round_summary in round_summaries
+        ),
+        'expected_final_heat_size': _get_expected_final_heat_size(
+            round_summaries
+        ),
+    }
+
+
+def _get_expected_final_heat_size(round_summaries: list[dict[str, Any]]) -> int:
+    return round_summaries[-1]['max_heat_size'] if round_summaries else 0
 
 
 def _summarize_ffa_builder_match_specs(
@@ -345,17 +439,7 @@ def _summarize_ffa_builder_match_specs(
     round_summaries = []
     for round_no in sorted({spec.round_no for spec in specs}):
         round_specs = [spec for spec in specs if spec.round_no == round_no]
-        heat_sizes = [
-            len(
-                [
-                    slot
-                    for slot in spec.slots
-                    if slot.participant_id is not None
-                    or slot.source_match_no is not None
-                ]
-            )
-            for spec in round_specs
-        ]
+        heat_sizes = [_count_ffa_spec_heat_size(spec) for spec in round_specs]
         round_summaries.append(
             {
                 'round_no': round_no,
@@ -365,3 +449,14 @@ def _summarize_ffa_builder_match_specs(
         )
 
     return round_summaries
+
+
+def _count_ffa_spec_heat_size(spec: MatchSpec) -> int:
+    return len(
+        [
+            slot
+            for slot in spec.slots
+            if slot.participant_id is not None
+            or slot.source_match_no is not None
+        ]
+    )

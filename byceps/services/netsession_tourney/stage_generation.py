@@ -22,7 +22,7 @@ from .checkin_service import check_generation_allowed
 from .dbmodels import (
     DbNetsessionTourneyStage,
 )
-from .engines.base import StageEngine
+from .engines.base import MatchSpec, StageEngine
 from .engines.registry import (
     find_stage_engine,
     get_stage_type_spec,
@@ -111,9 +111,7 @@ def preview_stage_match_generation(
         return Err(payload_result.unwrap_err())
     payload = payload_result.unwrap()
 
-    round_match_counts: dict[int, int] = defaultdict(int)
-    for spec in payload.match_specs:
-        round_match_counts[spec.round_no] += 1
+    round_match_counts = _count_matches_per_round(payload.match_specs)
 
     suggested_round_starts_at = build_round_starts_at_schedule(
         tournament_starts_at=payload.tournament.starts_at,
@@ -126,41 +124,14 @@ def preview_stage_match_generation(
             payload.match_specs,
         )
     )
-    preview_participants_by_id = {
-        participant.id: participant for participant in payload.participants
-    }
-    matches_by_round_no: dict[int, list[StageGeneratedMatchPreview]] = (
-        defaultdict(list)
+    matches_by_round_no = _build_generated_match_previews_by_round_no(
+        payload.match_specs, payload.participants
     )
-    for spec in sorted(
-        payload.match_specs, key=lambda item: (item.round_no, item.match_no)
-    ):
-        matches_by_round_no[spec.round_no].append(
-            StageGeneratedMatchPreview(
-                round_no=spec.round_no,
-                match_no=spec.match_no,
-                participants=[
-                    StageMatchGenerationPreviewParticipant(
-                        participant_id=slot.participant_id,
-                        name=preview_participants_by_id[
-                            slot.participant_id
-                        ].name,
-                    )
-                    for slot in spec.slots
-                    if slot.participant_id is not None
-                    and slot.participant_id in preview_participants_by_id
-                ],
-            )
-        )
-    rounds = [
-        StageRoundGenerationPreview(
-            round_no=round_no,
-            match_count=round_match_counts[round_no],
-            suggested_starts_at=suggested_round_starts_at.get(round_no),
-            display_title=display_titles_by_round_no.get(round_no),
-        )
-        for round_no in sorted(round_match_counts.keys())
-    ]
+    rounds = _build_round_generation_previews(
+        round_match_counts,
+        suggested_round_starts_at,
+        display_titles_by_round_no,
+    )
 
     return Ok(
         StageMatchGenerationPreview(
@@ -171,6 +142,66 @@ def preview_stage_match_generation(
             matches_by_round_no=dict(matches_by_round_no),
         )
     )
+
+
+def _count_matches_per_round(match_specs: list[MatchSpec]) -> dict[int, int]:
+    round_match_counts: dict[int, int] = defaultdict(int)
+    for spec in match_specs:
+        round_match_counts[spec.round_no] += 1
+    return round_match_counts
+
+
+def _build_generated_match_previews_by_round_no(
+    match_specs: list[MatchSpec], participants: list[Participant]
+) -> dict[int, list[StageGeneratedMatchPreview]]:
+    preview_participants_by_id = {
+        participant.id: participant for participant in participants
+    }
+    matches_by_round_no: dict[int, list[StageGeneratedMatchPreview]] = (
+        defaultdict(list)
+    )
+    for spec in sorted(
+        match_specs, key=lambda item: (item.round_no, item.match_no)
+    ):
+        matches_by_round_no[spec.round_no].append(
+            _build_generated_match_preview(spec, preview_participants_by_id)
+        )
+    return matches_by_round_no
+
+
+def _build_generated_match_preview(
+    spec: MatchSpec,
+    preview_participants_by_id: dict[ParticipantID, Participant],
+) -> StageGeneratedMatchPreview:
+    return StageGeneratedMatchPreview(
+        round_no=spec.round_no,
+        match_no=spec.match_no,
+        participants=[
+            StageMatchGenerationPreviewParticipant(
+                participant_id=slot.participant_id,
+                name=preview_participants_by_id[slot.participant_id].name,
+            )
+            for slot in spec.slots
+            if slot.participant_id is not None
+            and slot.participant_id in preview_participants_by_id
+        ],
+    )
+
+
+def _build_round_generation_previews(
+    round_match_counts: dict[int, int],
+    suggested_round_starts_at: dict[int, datetime],
+    display_titles_by_round_no: dict[int, str],
+) -> list[StageRoundGenerationPreview]:
+    return [
+        StageRoundGenerationPreview(
+            round_no=round_no,
+            match_count=round_match_counts[round_no],
+            suggested_starts_at=suggested_round_starts_at.get(round_no),
+            display_title=display_titles_by_round_no.get(round_no),
+        )
+        for round_no in sorted(round_match_counts.keys())
+    ]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -217,10 +248,7 @@ def build_stage_generation_payload(
         return Err(resolved_stage_result.unwrap_err())
     stage = resolved_stage_result.unwrap()
 
-    if stage.type == StageType.ffa_flatout2_single_elimination and (
-        (stage.settings or {}).get('flatout2_manual_stage')
-        or not (stage.settings or {}).get('builder_kind')
-    ):
+    if _is_manual_flatout2_stage(stage):
         return build_manual_flatout2_stage_generation_payload(
             tournament=tournament,
             stage=stage,
@@ -235,6 +263,15 @@ def build_stage_generation_payload(
         participant_ids=participant_ids,
         tournament_id=tournament_id,
         require_flatout2_hosts=require_flatout2_hosts,
+    )
+
+
+def _is_manual_flatout2_stage(stage: Stage) -> bool:
+    """Tell whether the FlatOut 2 stage's matches are set up by hand
+    (manual stage, or not part of the stage builder)."""
+    return stage.type == StageType.ffa_flatout2_single_elimination and (
+        (stage.settings or {}).get('flatout2_manual_stage')
+        or not (stage.settings or {}).get('builder_kind')
     )
 
 

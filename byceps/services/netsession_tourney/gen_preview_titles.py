@@ -9,6 +9,7 @@ Round display titles for the match generation preview of a stage
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 
 from .double_grand_final import (
@@ -25,12 +26,11 @@ def build_generation_preview_round_titles_by_round_no(
     stage: Stage,
     match_specs: list[MatchSpec],
 ) -> dict[int, str]:
-    builder_display_title = str(
-        (stage.settings or {}).get('builder_display_title') or ''
-    ).strip()
+    builder_display_title = _get_builder_display_title(stage)
     if builder_display_title:
-        round_nos = sorted({spec.round_no for spec in match_specs})
-        return {round_no: builder_display_title for round_no in round_nos}
+        return _build_same_title_for_all_rounds(
+            match_specs, builder_display_title
+        )
 
     if stage.type == StageType.ffa_flatout2_single_elimination:
         return _build_flatout2_generation_preview_round_titles(
@@ -48,30 +48,59 @@ def build_generation_preview_round_titles_by_round_no(
     )
 
 
+def _get_builder_display_title(stage: Stage) -> str:
+    return str(
+        (stage.settings or {}).get('builder_display_title') or ''
+    ).strip()
+
+
+def _build_same_title_for_all_rounds(
+    match_specs: list[MatchSpec], title: str
+) -> dict[int, str]:
+    round_nos = sorted({spec.round_no for spec in match_specs})
+    return {round_no: title for round_no in round_nos}
+
+
 def _build_flatout2_generation_preview_round_titles(
     stage: Stage,
     match_specs: list[MatchSpec],
 ) -> dict[int, str]:
-    raw_rounds = (stage.settings or {}).get('flatout2_rounds')
-    if isinstance(raw_rounds, list):
-        titles_by_round_no = _parse_flatout2_round_display_titles(raw_rounds)
-        if titles_by_round_no:
-            return titles_by_round_no
+    titles_by_round_no = _get_configured_flatout2_round_titles(stage)
+    if titles_by_round_no:
+        return titles_by_round_no
 
     round_nos = sorted({spec.round_no for spec in match_specs})
-    try:
-        total_round_count = int((stage.settings or {}).get('round_count') or 0)
-    except TypeError, ValueError:
-        total_round_count = 0
+    total_round_count = _get_flatout2_total_round_count(stage)
 
     return {
-        round_no: (
-            'Finale'
-            if total_round_count > 0 and round_no == total_round_count
-            else f'Runde {round_no}'
+        round_no: _get_flatout2_generation_preview_round_title(
+            round_no, total_round_count
         )
         for round_no in round_nos
     }
+
+
+def _get_configured_flatout2_round_titles(stage: Stage) -> dict[int, str]:
+    raw_rounds = (stage.settings or {}).get('flatout2_rounds')
+    if not isinstance(raw_rounds, list):
+        return {}
+
+    return _parse_flatout2_round_display_titles(raw_rounds)
+
+
+def _get_flatout2_total_round_count(stage: Stage) -> int:
+    try:
+        return int((stage.settings or {}).get('round_count') or 0)
+    except TypeError, ValueError:
+        return 0
+
+
+def _get_flatout2_generation_preview_round_title(
+    round_no: int, total_round_count: int
+) -> str:
+    if total_round_count > 0 and round_no == total_round_count:
+        return 'Finale'
+    return f'Runde {round_no}'
 
 
 def _parse_flatout2_round_display_titles(
@@ -81,18 +110,41 @@ def _parse_flatout2_round_display_titles(
     for raw_round in raw_rounds:
         if not isinstance(raw_round, dict):
             continue
-        try:
-            round_no = int(raw_round.get('round_no') or 0)
-        except TypeError, ValueError:
-            continue
-        if round_no < 1:
-            continue
-        display_title = str(
-            raw_round.get('display_title') or raw_round.get('title') or ''
-        ).strip()
-        if display_title:
+        round_no_and_title = _parse_flatout2_round_display_title(raw_round)
+        if round_no_and_title is not None:
+            round_no, display_title = round_no_and_title
             titles_by_round_no[round_no] = display_title
     return titles_by_round_no
+
+
+def _parse_flatout2_round_display_title(
+    raw_round: dict[str, Any],
+) -> tuple[int, str] | None:
+    """Return round number and display title of a configured round, or
+    `None` if it has no valid round number or no title."""
+    round_no = _parse_flatout2_round_no(raw_round)
+    if round_no is None:
+        return None
+
+    display_title = str(
+        raw_round.get('display_title') or raw_round.get('title') or ''
+    ).strip()
+    if not display_title:
+        return None
+
+    return round_no, display_title
+
+
+def _parse_flatout2_round_no(raw_round: dict[str, Any]) -> int | None:
+    try:
+        round_no = int(raw_round.get('round_no') or 0)
+    except TypeError, ValueError:
+        return None
+
+    if round_no < 1:
+        return None
+
+    return round_no
 
 
 def _build_double_elimination_generation_preview_round_titles(
@@ -106,6 +158,33 @@ def _build_double_elimination_generation_preview_round_titles(
     }
     bracket_by_match_no = _assign_generation_preview_brackets(specs_by_match_no)
 
+    round_nos_by_bracket, brackets_by_round_no = (
+        _group_generation_preview_round_nos(
+            specs_by_match_no, bracket_by_match_no
+        )
+    )
+
+    wb_titles = _build_generation_preview_bracket_round_titles(
+        round_nos_by_bracket['WB'], _get_generation_preview_winner_round_title
+    )
+    lb_titles = _build_generation_preview_bracket_round_titles(
+        round_nos_by_bracket['LB'], _get_generation_preview_loser_round_title
+    )
+    gf_titles = _build_generation_preview_grand_final_titles(
+        round_nos_by_bracket['GF']
+    )
+
+    return _join_generation_preview_round_titles(
+        brackets_by_round_no, [wb_titles, lb_titles, gf_titles]
+    )
+
+
+def _group_generation_preview_round_nos(
+    specs_by_match_no: dict[int, MatchSpec],
+    bracket_by_match_no: dict[int, str],
+) -> tuple[dict[str, list[int]], dict[int, set[str]]]:
+    """Return the round numbers per bracket (in order of appearance) and
+    the brackets per round number."""
     round_nos_by_bracket: dict[str, list[int]] = defaultdict(list)
     brackets_by_round_no: dict[int, set[str]] = defaultdict(set)
     for spec in specs_by_match_no.values():
@@ -116,31 +195,29 @@ def _build_double_elimination_generation_preview_round_titles(
             round_nos_by_bracket[bracket].append(spec.round_no)
         brackets_by_round_no[spec.round_no].add(bracket)
 
-    wb_titles = {
-        round_no: _get_generation_preview_winner_round_title(
-            index, len(round_nos_by_bracket['WB'])
-        )
-        for index, round_no in enumerate(sorted(round_nos_by_bracket['WB']))
-    }
-    lb_titles = {
-        round_no: _get_generation_preview_loser_round_title(
-            index, len(round_nos_by_bracket['LB'])
-        )
-        for index, round_no in enumerate(sorted(round_nos_by_bracket['LB']))
-    }
-    gf_titles = _build_generation_preview_grand_final_titles(
-        round_nos_by_bracket['GF']
-    )
+    return round_nos_by_bracket, brackets_by_round_no
 
+
+def _build_generation_preview_bracket_round_titles(
+    round_nos: list[int], get_round_title: Callable[[int, int], str]
+) -> dict[int, str]:
+    return {
+        round_no: get_round_title(index, len(round_nos))
+        for index, round_no in enumerate(sorted(round_nos))
+    }
+
+
+def _join_generation_preview_round_titles(
+    brackets_by_round_no: dict[int, set[str]],
+    titles_by_bracket: list[dict[int, str]],
+) -> dict[int, str]:
     title_by_round_no: dict[int, str] = {}
     for round_no in sorted(brackets_by_round_no):
-        parts = []
-        if round_no in wb_titles:
-            parts.append(wb_titles[round_no])
-        if round_no in lb_titles:
-            parts.append(lb_titles[round_no])
-        if round_no in gf_titles:
-            parts.append(gf_titles[round_no])
+        parts = [
+            titles[round_no]
+            for titles in titles_by_bracket
+            if round_no in titles
+        ]
         if parts:
             title_by_round_no[round_no] = ' + '.join(parts)
 
@@ -177,6 +254,13 @@ def _assign_generation_preview_brackets(
     return bracket_by_match_no
 
 
+_BRACKET_BY_SOURCE_BRACKETS = {
+    frozenset({'WB'}): 'WB',
+    frozenset({'LB'}): 'LB',
+    frozenset({'WB', 'LB'}): 'GF',
+}
+
+
 def _derive_generation_preview_bracket(
     incoming: list[tuple[int, Any]],
     bracket_by_match_no: dict[int, str],
@@ -190,15 +274,11 @@ def _derive_generation_preview_bracket(
 
     if 'GF' in source_brackets:
         return 'GF'
-    elif any(is_loser_source_outcome(outcome) for _, outcome in incoming):
+    if any(is_loser_source_outcome(outcome) for _, outcome in incoming):
         return 'LB'
-    elif source_brackets == {'WB'}:
-        return 'WB'
-    elif source_brackets == {'LB'}:
-        return 'LB'
-    elif source_brackets == {'WB', 'LB'}:
-        return 'GF'
-    return current_bracket
+    return _BRACKET_BY_SOURCE_BRACKETS.get(
+        frozenset(source_brackets), current_bracket
+    )
 
 
 def _build_generation_preview_grand_final_titles(

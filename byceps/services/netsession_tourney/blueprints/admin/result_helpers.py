@@ -13,6 +13,16 @@ from uuid import UUID
 from flask import abort, request
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.blueprints.admin.result_form_helpers import (
+    build_ffa_score_and_ranking,
+    build_flatout2_score_and_ranking,
+    get_ffa_winner_slot,
+    get_flatout2_winner_slot,
+    get_occupied_slots,
+    parse_ffa_slot_entries,
+    parse_flatout2_slot_points,
+    parse_result_comment,
+)
 from byceps.services.netsession_tourney.match_queries import (
     get_matches_for_tournament,
 )
@@ -77,7 +87,16 @@ def get_dropped_participants(party_id, tournament_id):
 
 def get_round_neighbours(party_id, tournament_id, match):
     """The previous and next match of the same phase and round (or None)."""
-    same_round = sorted(
+    same_round = _get_same_round_matches(party_id, tournament_id, match)
+    ids = [item.id for item in same_round]
+    index = ids.index(match.id) if match.id in ids else -1
+    if index < 0:
+        return None, None
+    return _get_neighbours_at(same_round, index)
+
+
+def _get_same_round_matches(party_id, tournament_id, match) -> list:
+    return sorted(
         (
             item
             for item in get_matches_for_tournament(party_id, tournament_id)
@@ -86,10 +105,9 @@ def get_round_neighbours(party_id, tournament_id, match):
         ),
         key=lambda item: item.match_no,
     )
-    ids = [item.id for item in same_round]
-    index = ids.index(match.id) if match.id in ids else -1
-    if index < 0:
-        return None, None
+
+
+def _get_neighbours_at(same_round: list, index: int) -> tuple:
     previous = same_round[index - 1] if index > 0 else None
     following = same_round[index + 1] if index + 1 < len(same_round) else None
     return previous, following
@@ -150,41 +168,52 @@ def redirect_to_match_or_tournament_view(
         or request.args.get('return_to') == 'match'
     )
     if return_to_match:
-        redirect_kwargs = {
-            'party_id': party_id,
-            'tournament_id': tournament_id,
-            'match_id': match_id,
-        }
-        parent_return_to = (
-            (
-                request.form.get('parent_return_to')
-                or request.args.get('parent_return_to')
-                or ''
-            )
-            .strip()
-            .lower()
+        redirect_kwargs = _build_match_redirect_kwargs(
+            party_id, tournament_id, match_id
         )
-        if parent_return_to in {'stages', 'matches'}:
-            redirect_kwargs['return_to'] = parent_return_to
-
-        if parent_return_to == 'stages':
-            raw_parent_stage_id = (
-                request.form.get('parent_stage_id')
-                or request.args.get('parent_stage_id')
-                or ''
-            ).strip()
-            if raw_parent_stage_id:
-                try:
-                    redirect_kwargs['stage_id'] = UUID(raw_parent_stage_id)
-                except ValueError:
-                    pass
-
         return redirect_to(
             '.match_view',
             **redirect_kwargs,
         )
 
     return redirect_to_related_tournament_view(party_id, tournament_id)
+
+
+def _build_match_redirect_kwargs(
+    party_id: str, tournament_id: UUID, match_id: UUID
+) -> dict:
+    redirect_kwargs = {
+        'party_id': party_id,
+        'tournament_id': tournament_id,
+        'match_id': match_id,
+    }
+    parent_return_to = (
+        _get_form_or_query_value('parent_return_to').strip().lower()
+    )
+    if parent_return_to in {'stages', 'matches'}:
+        redirect_kwargs['return_to'] = parent_return_to
+
+    if parent_return_to == 'stages':
+        parent_stage_id = _get_parent_stage_id()
+        if parent_stage_id is not None:
+            redirect_kwargs['stage_id'] = parent_stage_id
+
+    return redirect_kwargs
+
+
+def _get_form_or_query_value(name: str) -> str:
+    return request.form.get(name) or request.args.get(name) or ''
+
+
+def _get_parent_stage_id() -> UUID | None:
+    raw_parent_stage_id = _get_form_or_query_value('parent_stage_id').strip()
+    if not raw_parent_stage_id:
+        return None
+
+    try:
+        return UUID(raw_parent_stage_id)
+    except ValueError:
+        return None
 
 
 def build_score_payload(raw_score: str | None) -> dict:
@@ -204,7 +233,7 @@ def parse_admin_ffa_result_form(
     *,
     placement_points_rules,
 ) -> Result[tuple[int, dict, dict, str | None], str]:
-    occupied_slots = [slot for slot in slots if slot.participant_id is not None]
+    occupied_slots = get_occupied_slots(slots)
     if len(occupied_slots) < 2:
         return Err(
             gettext(
@@ -212,97 +241,21 @@ def parse_admin_ffa_result_form(
             )
         )
 
-    placements_by_slot_no: dict[int, int] = {}
-    kills_by_slot_no: dict[int, int] = {}
-    for slot in occupied_slots:
-        raw_placement = (
-            request_form.get(f'placement_slot_{slot.slot_no}') or ''
-        ).strip()
-        if not raw_placement:
-            return Err(
-                gettext(
-                    'Bitte für jeden belegten Slot einen Ingame-Platz eintragen.'
-                )
-            )
-        try:
-            placement = int(raw_placement)
-        except ValueError:
-            return Err(
-                gettext(
-                    'Ingame-Plätze müssen als ganze Zahl eingetragen werden.'
-                )
-            )
-        if placement < 1 or placement > 999:
-            return Err(
-                gettext('Ingame-Plätze müssen zwischen 1 und 999 liegen.')
-            )
+    entries_result = parse_ffa_slot_entries(request_form, occupied_slots)
+    if entries_result.is_err():
+        return Err(entries_result.unwrap_err())
 
-        raw_kills = (
-            request_form.get(f'kills_slot_{slot.slot_no}') or ''
-        ).strip()
-        if not raw_kills:
-            return Err(
-                gettext(
-                    'Bitte für jeden belegten Slot eine Kill-Zahl eintragen.'
-                )
-            )
-        try:
-            kills = int(raw_kills)
-        except ValueError:
-            return Err(
-                gettext('Kills müssen als ganze Zahl eingetragen werden.')
-            )
-        if kills < 0 or kills > 999:
-            return Err(gettext('Kills müssen zwischen 0 und 999 liegen.'))
+    placements_by_slot_no, kills_by_slot_no = entries_result.unwrap()
 
-        placements_by_slot_no[slot.slot_no] = placement
-        kills_by_slot_no[slot.slot_no] = kills
+    winner_slot_result = get_ffa_winner_slot(placements_by_slot_no)
+    if winner_slot_result.is_err():
+        return Err(winner_slot_result.unwrap_err())
 
-    if len(set(placements_by_slot_no.values())) != len(placements_by_slot_no):
-        return Err(
-            gettext(
-                'Jeder belegte Slot braucht einen eindeutigen Ingame-Platz.'
-            )
-        )
-
-    winner_slots = [
-        slot_no
-        for slot_no, placement in placements_by_slot_no.items()
-        if placement == 1
-    ]
-    if len(winner_slots) != 1:
-        return Err(
-            gettext('Genau ein belegter Slot muss den Ingame-Platz 1 erhalten.')
-        )
-
-    winner_slot = winner_slots[0]
-    points_by_slot_no = {
-        slot_no: _get_ffa_points_for_placement(
-            placement_points_rules, placement
-        )
-        for slot_no, placement in placements_by_slot_no.items()
-    }
-
-    score = {
-        'display': gettext('Erfasst'),
-        'slots': {
-            str(slot_no): kills
-            for slot_no, kills in sorted(kills_by_slot_no.items())
-        },
-        'metric': 'kills',
-    }
-    ranking = {
-        'metric': 'placement_points',
-        'placements': {
-            str(slot_no): placement
-            for slot_no, placement in sorted(placements_by_slot_no.items())
-        },
-        'points': {
-            str(slot_no): points
-            for slot_no, points in sorted(points_by_slot_no.items())
-        },
-    }
-    comment = (request_form.get('comment') or '').strip() or None
+    winner_slot = winner_slot_result.unwrap()
+    score, ranking = build_ffa_score_and_ranking(
+        placements_by_slot_no, kills_by_slot_no, placement_points_rules
+    )
+    comment = parse_result_comment(request_form)
 
     return Ok((winner_slot, score, ranking, comment))
 
@@ -311,7 +264,7 @@ def parse_admin_flatout2_result_form(
     request_form,
     slots,
 ) -> Result[tuple[int, dict, dict, str | None], str]:
-    occupied_slots = [slot for slot in slots if slot.participant_id is not None]
+    occupied_slots = get_occupied_slots(slots)
     if len(occupied_slots) < 2:
         return Err(
             gettext(
@@ -319,90 +272,21 @@ def parse_admin_flatout2_result_form(
             )
         )
 
-    points_by_slot_no: dict[int, int] = {}
-    for slot in occupied_slots:
-        raw_points = (
-            request_form.get(f'points_slot_{slot.slot_no}') or ''
-        ).strip()
-        if not raw_points:
-            return Err(
-                gettext('Bitte für jeden belegten Slot Punkte eintragen.')
-            )
-        try:
-            points = int(raw_points)
-        except ValueError:
-            return Err(
-                gettext('Punkte müssen als ganze Zahl eingetragen werden.')
-            )
-        if points < 0 or points > 9999:
-            return Err(gettext('Punkte müssen zwischen 0 und 9999 liegen.'))
+    points_result = parse_flatout2_slot_points(request_form, occupied_slots)
+    if points_result.is_err():
+        return Err(points_result.unwrap_err())
 
-        points_by_slot_no[slot.slot_no] = points
+    points_by_slot_no = points_result.unwrap()
 
-    max_points = max(points_by_slot_no.values())
-    winner_slots = [
-        slot_no
-        for slot_no, points in points_by_slot_no.items()
-        if points == max_points
-    ]
-    if len(winner_slots) != 1:
-        return Err(gettext('Der höchste Punktestand muss eindeutig sein.'))
+    winner_slot_result = get_flatout2_winner_slot(points_by_slot_no)
+    if winner_slot_result.is_err():
+        return Err(winner_slot_result.unwrap_err())
 
-    winner_slot = winner_slots[0]
-    ordered_slot_nos = sorted(
-        points_by_slot_no.keys(),
-        key=lambda slot_no: (-points_by_slot_no[slot_no], slot_no),
-    )
-    placements_by_slot_no = {
-        slot_no: index
-        for index, slot_no in enumerate(ordered_slot_nos, start=1)
-    }
-
-    score = {
-        'display': gettext('Erfasst'),
-        'slots': {
-            str(slot_no): points
-            for slot_no, points in sorted(points_by_slot_no.items())
-        },
-        'metric': 'points',
-    }
-    ranking = {
-        'metric': 'points',
-        'placements': {
-            str(slot_no): placement
-            for slot_no, placement in sorted(placements_by_slot_no.items())
-        },
-        'points': {
-            str(slot_no): points
-            for slot_no, points in sorted(points_by_slot_no.items())
-        },
-    }
-    comment = (request_form.get('comment') or '').strip() or None
+    winner_slot = winner_slot_result.unwrap()
+    score, ranking = build_flatout2_score_and_ranking(points_by_slot_no)
+    comment = parse_result_comment(request_form)
 
     return Ok((winner_slot, score, ranking, comment))
-
-
-def _get_ffa_points_for_placement(
-    placement_points_rules, placement: int | None
-) -> int:
-    if placement is None or not isinstance(placement_points_rules, list):
-        return 0
-
-    for rule in placement_points_rules:
-        if not isinstance(rule, dict):
-            continue
-
-        try:
-            from_place = int(rule.get('from_place'))
-            to_place = int(rule.get('to_place'))
-            points = int(rule.get('points'))
-        except TypeError, ValueError:
-            continue
-
-        if from_place <= placement <= to_place:
-            return points
-
-    return 0
 
 
 def get_or_create_idempotency_key(raw_key: str | None) -> str:

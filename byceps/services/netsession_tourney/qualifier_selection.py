@@ -42,6 +42,32 @@ def select_match_qualifiers(
     if source_stage_ids_result.is_err():
         return Err(source_stage_ids_result.unwrap_err())
 
+    top_n_per_match_result = _get_qualifier_top_n_per_match(stage)
+    if top_n_per_match_result.is_err():
+        return Err(top_n_per_match_result.unwrap_err())
+    top_n_per_match = top_n_per_match_result.unwrap()
+
+    source_stages_result = _load_source_stages(
+        tournament_id, source_stage_ids_result.unwrap()
+    )
+    if source_stages_result.is_err():
+        return Err(source_stages_result.unwrap_err())
+
+    selected_participant_ids_result = _select_top_per_match_of_stages(
+        source_stages_result.unwrap(), tournament_id, top_n_per_match
+    )
+    if selected_participant_ids_result.is_err():
+        return Err(selected_participant_ids_result.unwrap_err())
+
+    participants = domain_service.select_ready_participants(
+        _participants_in_order(
+            party_id, selected_participant_ids_result.unwrap()
+        )
+    )
+    return _require_enough_qualified(participants)
+
+
+def _get_qualifier_top_n_per_match(stage: Stage) -> Result[int, str]:
     try:
         top_n_per_match = int(
             (stage.settings or {}).get('qualifier_top_n_per_match') or 0
@@ -50,15 +76,16 @@ def select_match_qualifiers(
         top_n_per_match = 0
     if top_n_per_match < 1 or top_n_per_match > 16:
         return Err('Ungültige Top-Anzahl pro Match für die Qualifikation.')
+    return Ok(top_n_per_match)
 
-    source_stages_result = _load_source_stages(
-        tournament_id, source_stage_ids_result.unwrap()
-    )
-    if source_stages_result.is_err():
-        return Err(source_stages_result.unwrap_err())
 
+def _select_top_per_match_of_stages(
+    db_source_stages: list[DbNetsessionTourneyStage],
+    tournament_id: TournamentID,
+    top_n_per_match: int,
+) -> Result[list[ParticipantID], str]:
     selected_participant_ids: list[ParticipantID] = []
-    for db_source_stage in source_stages_result.unwrap():
+    for db_source_stage in db_source_stages:
         ranked_result = get_ranked_participant_ids_by_match_for_stage(
             db_source_stage.id, tournament_id, top_n_per_match=top_n_per_match
         )
@@ -67,10 +94,12 @@ def select_match_qualifiers(
                 db_source_stage, ranked_result.unwrap_err()
             )
         selected_participant_ids.extend(ranked_result.unwrap())
+    return Ok(selected_participant_ids)
 
-    participants = domain_service.select_ready_participants(
-        _participants_in_order(party_id, selected_participant_ids)
-    )
+
+def _require_enough_qualified(
+    participants: list[Participant],
+) -> Result[list[Participant], str]:
     if len(participants) < 2:
         return Err(TOO_FEW_QUALIFIED)
 
@@ -89,11 +118,10 @@ def select_stage_qualifiers(
     if source_stage_ids_result.is_err():
         return Err(source_stage_ids_result.unwrap_err())
 
-    selection_mode = (stage.settings or {}).get(
-        'qualifier_selection_mode', 'per_stage'
-    )
-    if selection_mode not in {'per_stage', 'per_group'}:
-        return Err('Ungültige Auswahl der Qualifikanten.')
+    selection_mode_result = _get_qualifier_selection_mode(stage)
+    if selection_mode_result.is_err():
+        return Err(selection_mode_result.unwrap_err())
+    selection_mode = selection_mode_result.unwrap()
 
     source_stages_result = _load_source_stages(
         tournament_id, source_stage_ids_result.unwrap()
@@ -101,8 +129,38 @@ def select_stage_qualifiers(
     if source_stages_result.is_err():
         return Err(source_stages_result.unwrap_err())
 
+    selected_participant_ids_result = _select_top_of_stages(
+        stage, source_stages_result.unwrap(), tournament_id, selection_mode
+    )
+    if selected_participant_ids_result.is_err():
+        return Err(selected_participant_ids_result.unwrap_err())
+
+    participants = _participants_in_order(
+        party_id, list(dict.fromkeys(selected_participant_ids_result.unwrap()))
+    )
+    participants = _select_qualified_ready_participants(
+        participants, is_stage_builder_v1_stage=is_stage_builder_v1_stage
+    )
+    return _require_enough_qualified(participants)
+
+
+def _get_qualifier_selection_mode(stage: Stage) -> Result[str, str]:
+    selection_mode = (stage.settings or {}).get(
+        'qualifier_selection_mode', 'per_stage'
+    )
+    if selection_mode not in {'per_stage', 'per_group'}:
+        return Err('Ungültige Auswahl der Qualifikanten.')
+    return Ok(selection_mode)
+
+
+def _select_top_of_stages(
+    stage: Stage,
+    db_source_stages: list[DbNetsessionTourneyStage],
+    tournament_id: TournamentID,
+    selection_mode: str,
+) -> Result[list[ParticipantID], str]:
     selected_participant_ids: list[ParticipantID] = []
-    for db_source_stage in source_stages_result.unwrap():
+    for db_source_stage in db_source_stages:
         top_n_result = get_effective_qualifier_top_n_for_source_stage(
             stage, db_source_stage, tournament_id, selection_mode=selection_mode
         )
@@ -122,19 +180,16 @@ def select_stage_qualifiers(
         if ids_result.is_err():
             return Err(ids_result.unwrap_err())
         selected_participant_ids.extend(ids_result.unwrap())
+    return Ok(selected_participant_ids)
 
-    participants = _participants_in_order(
-        party_id, list(dict.fromkeys(selected_participant_ids))
-    )
-    participants = (
-        domain_service.select_ready_participants(participants)
-        if is_stage_builder_v1_stage
-        else domain_service.select_bracket_ready_participants(participants)
-    )
-    if len(participants) < 2:
-        return Err(TOO_FEW_QUALIFIED)
 
-    return Ok(participants)
+def _select_qualified_ready_participants(
+    participants: list[Participant], *, is_stage_builder_v1_stage: bool
+) -> list[Participant]:
+    if is_stage_builder_v1_stage:
+        return domain_service.select_ready_participants(participants)
+
+    return domain_service.select_bracket_ready_participants(participants)
 
 
 def _select_top_per_group(

@@ -330,6 +330,56 @@ def _materialize_round_robin_builder_group_stages(
     round_starts_at_by_round_no: dict[int, datetime] | None,
 ) -> Result[list[Match], str]:
     settings = dict(db_stage.settings_json or {})
+    split_plan_result = _plan_round_robin_builder_group_split(
+        tournament_id, db_stage, payload, settings
+    )
+    if split_plan_result.is_err():
+        return Err(split_plan_result.unwrap_err())
+    qualifiers_per_group, group_stage_specs, db_main_stage = (
+        split_plan_result.unwrap()
+    )
+
+    shift_following_stages(tournament_id, db_stage, len(group_stage_specs))
+
+    now = datetime.utcnow()
+    group_stage_ids = [
+        create_group_stage(
+            tournament_id,
+            db_stage,
+            index,
+            group_stage_spec,
+            preliminary_settings=settings,
+            initiator=initiator,
+            now=now,
+        ).id
+        for index, group_stage_spec in enumerate(group_stage_specs, start=1)
+    ]
+    mark_preliminary_split(
+        db_stage, settings, group_stage_ids, qualifiers_per_group, now
+    )
+    point_main_stage_at_groups(
+        db_main_stage, group_stage_ids, qualifiers_per_group
+    )
+    db.session.flush()
+
+    return _generate_round_robin_builder_group_stage_matches(
+        party_id=party_id,
+        tournament_id=tournament_id,
+        group_stage_ids=group_stage_ids,
+        initiator=initiator,
+        correlation_id=correlation_id,
+        round_starts_at_by_round_no=round_starts_at_by_round_no,
+    )
+
+
+def _plan_round_robin_builder_group_split(
+    tournament_id: TournamentID,
+    db_stage: DbNetsessionTourneyStage,
+    payload: StageGenerationPayload,
+    settings: dict[str, Any],
+) -> Result[tuple[int, list[Any], DbNetsessionTourneyStage], str]:
+    """Return qualifiers per group, group stage specs and the main stage of
+    a builder preliminary that is to be split into group stages."""
     if settings.get('builder_materialized_group_stage_ids'):
         return Err(
             'Diese Vorrunde des Turnierplaners wurde bereits in echte Gruppenphasen aufgeteilt.'
@@ -356,29 +406,18 @@ def _materialize_round_robin_builder_group_stages(
             'Das Hauptturnier des Turnierplaners zur Vorrunde konnte nicht gefunden werden.'
         )
 
-    shift_following_stages(tournament_id, db_stage, len(group_stage_specs))
+    return Ok((qualifiers_per_group, group_stage_specs, db_main_stage))
 
-    now = datetime.utcnow()
-    group_stage_ids = [
-        create_group_stage(
-            tournament_id,
-            db_stage,
-            index,
-            group_stage_spec,
-            preliminary_settings=settings,
-            initiator=initiator,
-            now=now,
-        ).id
-        for index, group_stage_spec in enumerate(group_stage_specs, start=1)
-    ]
-    mark_preliminary_split(
-        db_stage, settings, group_stage_ids, qualifiers_per_group, now
-    )
-    point_main_stage_at_groups(
-        db_main_stage, group_stage_ids, qualifiers_per_group
-    )
-    db.session.flush()
 
+def _generate_round_robin_builder_group_stage_matches(
+    *,
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    group_stage_ids: list[StageID],
+    initiator: User,
+    correlation_id: str | None,
+    round_starts_at_by_round_no: dict[int, datetime] | None,
+) -> Result[list[Match], str]:
     created_matches: list[Match] = []
     for group_stage_id in group_stage_ids:
         generated_matches_result = _generate_stage_matches(

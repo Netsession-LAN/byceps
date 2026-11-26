@@ -84,16 +84,36 @@ def configure_coin_settings(
 ) -> Result[CoinSettings, str]:
     _ = initiator
 
+    error = _validate_coin_amounts(
+        default_coin_amount, ticket_category_coin_amounts
+    )
+    if error is not None:
+        return Err(error)
+
+    now = datetime.utcnow()
+    _upsert_coin_settings_row(party_id, now, enabled, default_coin_amount)
+    _sync_ticket_category_coin_rows(party_id, ticket_category_coin_amounts, now)
+
+    db.session.commit()
+    return Ok(get_coin_settings(party_id))
+
+
+def _validate_coin_amounts(
+    default_coin_amount: int, ticket_category_coin_amounts: dict[Any, int]
+) -> str | None:
     if default_coin_amount < 0:
-        return Err('Die Standard-Coins dürfen nicht negativ sein.')
+        return 'Die Standard-Coins dürfen nicht negativ sein.'
 
     for amount in ticket_category_coin_amounts.values():
         if amount < 0:
-            return Err(
-                'Die Coins pro Ticketkategorie dürfen nicht negativ sein.'
-            )
+            return 'Die Coins pro Ticketkategorie dürfen nicht negativ sein.'
 
-    now = datetime.utcnow()
+    return None
+
+
+def _upsert_coin_settings_row(
+    party_id: PartyID, now: datetime, enabled: bool, default_coin_amount: int
+) -> None:
     db_settings = db.session.get(DbNetsessionTourneyCoinSettings, party_id)
     if db_settings is None:
         db_settings = DbNetsessionTourneyCoinSettings(
@@ -108,6 +128,12 @@ def configure_coin_settings(
         db_settings.default_coin_amount = default_coin_amount
         db_settings.updated_at = now
 
+
+def _sync_ticket_category_coin_rows(
+    party_id: PartyID,
+    ticket_category_coin_amounts: dict[Any, int],
+    now: datetime,
+) -> None:
     existing_rows = {
         db_row.ticket_category_id: db_row
         for db_row in db.session.scalars(
@@ -138,9 +164,6 @@ def configure_coin_settings(
     for ticket_category_id, db_row in existing_rows.items():
         if ticket_category_id not in normalized_ids:
             db.session.delete(db_row)
-
-    db.session.commit()
-    return Ok(get_coin_settings(party_id))
 
 
 def get_user_coin_balance(

@@ -154,39 +154,73 @@ def append_manual_flatout2_round_match_specs(
     seen_match_nos: set[int],
 ) -> str | None:
     """Append the match specs of one round; return an error message, if any."""
+    round_result = _parse_manual_flatout2_round(raw_round)
+    if round_result.is_err():
+        return round_result.unwrap_err()
+    round_no, match_count = round_result.unwrap()
+
+    for match_index in range(1, match_count + 1):
+        error = _append_manual_flatout2_match_spec(
+            round_no,
+            match_index,
+            raw_match_blueprints=raw_match_blueprints,
+            max_players_per_match=max_players_per_match,
+            match_specs=match_specs,
+            seen_match_nos=seen_match_nos,
+        )
+        if error is not None:
+            return error
+
+    return None
+
+
+def _parse_manual_flatout2_round(
+    raw_round: dict[str, Any],
+) -> Result[tuple[int, int], str]:
+    """Return round number and match count of a round configuration."""
     try:
         round_no = int(raw_round.get('round_no') or 0)
         match_count = int(raw_round.get('match_count') or 0)
     except TypeError, ValueError:
-        return 'Die FlatOut-2-Rundenkonfiguration ist ungültig.'
+        return Err('Die FlatOut-2-Rundenkonfiguration ist ungültig.')
 
     if round_no < 1 or match_count < 1:
-        return 'Jede FlatOut-2-Runde braucht mindestens ein Match.'
+        return Err('Jede FlatOut-2-Runde braucht mindestens ein Match.')
 
-    for match_index in range(1, match_count + 1):
-        match_no = len(match_specs) + 1
-        if match_no in seen_match_nos:
-            return 'Die FlatOut-2-Matchnummern sind nicht eindeutig.'
-        seen_match_nos.add(match_no)
+    return Ok((round_no, match_count))
 
-        match_key = f'{round_no}:{match_index}'
-        blueprint = raw_match_blueprints.get(match_key)
-        if not isinstance(blueprint, dict):
-            blueprint = {}
 
-        participant_ids_result = _parse_manual_flatout2_match_participant_ids(
-            blueprint, max_players_per_match
-        )
-        if participant_ids_result.is_err():
-            return participant_ids_result.unwrap_err()
-        participant_ids = participant_ids_result.unwrap()
+def _append_manual_flatout2_match_spec(
+    round_no: int,
+    match_index: int,
+    *,
+    raw_match_blueprints: dict[str, Any],
+    max_players_per_match: int,
+    match_specs: list[MatchSpec],
+    seen_match_nos: set[int],
+) -> str | None:
+    """Append the spec of the round's n-th match; return an error message,
+    if any."""
+    match_no = len(match_specs) + 1
+    if match_no in seen_match_nos:
+        return 'Die FlatOut-2-Matchnummern sind nicht eindeutig.'
+    seen_match_nos.add(match_no)
 
-        match_specs.append(
-            _build_manual_flatout2_match_spec(
-                round_no, match_no, participant_ids
-            )
-        )
+    match_key = f'{round_no}:{match_index}'
+    blueprint = raw_match_blueprints.get(match_key)
+    if not isinstance(blueprint, dict):
+        blueprint = {}
 
+    participant_ids_result = _parse_manual_flatout2_match_participant_ids(
+        blueprint, max_players_per_match
+    )
+    if participant_ids_result.is_err():
+        return participant_ids_result.unwrap_err()
+    participant_ids = participant_ids_result.unwrap()
+
+    match_specs.append(
+        _build_manual_flatout2_match_spec(round_no, match_no, participant_ids)
+    )
     return None
 
 
@@ -198,8 +232,30 @@ def _parse_manual_flatout2_match_participant_ids(
     if not isinstance(raw_participant_ids, list):
         raw_participant_ids = []
 
+    participant_ids_result = _parse_manual_flatout2_participant_id_list(
+        raw_participant_ids[:max_players_per_match]
+    )
+    if participant_ids_result.is_err():
+        return Err(participant_ids_result.unwrap_err())
+    participant_ids = participant_ids_result.unwrap()
+
+    while len(participant_ids) < max_players_per_match:
+        participant_ids.append(None)
+
+    if _contains_duplicate_participant_ids(participant_ids):
+        return Err(
+            'Ein FlatOut-2-Match darf denselben Teilnehmer nicht mehrfach enthalten.'
+        )
+
+    return Ok(participant_ids)
+
+
+def _parse_manual_flatout2_participant_id_list(
+    raw_participant_ids: list[Any],
+) -> Result[list[ParticipantID | None], str]:
+    """Parse participant IDs; empty values become `None` (free slot)."""
     participant_ids: list[ParticipantID | None] = []
-    for raw_participant_id in raw_participant_ids[:max_players_per_match]:
+    for raw_participant_id in raw_participant_ids:
         if not raw_participant_id:
             participant_ids.append(None)
             continue
@@ -210,20 +266,18 @@ def _parse_manual_flatout2_match_participant_ids(
                 'Die Teilnehmerzuordnung in der FlatOut-2-Phase ist ungültig.'
             )
 
-    while len(participant_ids) < max_players_per_match:
-        participant_ids.append(None)
+    return Ok(participant_ids)
 
+
+def _contains_duplicate_participant_ids(
+    participant_ids: list[ParticipantID | None],
+) -> bool:
     real_participant_ids = [
         participant_id
         for participant_id in participant_ids
         if participant_id is not None
     ]
-    if len(set(real_participant_ids)) != len(real_participant_ids):
-        return Err(
-            'Ein FlatOut-2-Match darf denselben Teilnehmer nicht mehrfach enthalten.'
-        )
-
-    return Ok(participant_ids)
+    return len(set(real_participant_ids)) != len(real_participant_ids)
 
 
 def _build_manual_flatout2_match_spec(

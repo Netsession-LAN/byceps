@@ -42,17 +42,32 @@ def is_allowed_push_endpoint(endpoint: str) -> bool:
     if len(endpoint) > MAX_ENDPOINT_LENGTH:
         return False
 
+    host = _get_https_push_host(endpoint)
+    if host is None:
+        return False
+
+    return any(
+        _push_host_matches(host, allowed) for allowed in ALLOWED_PUSH_HOSTS
+    )
+
+
+def _get_https_push_host(endpoint: str) -> str | None:
+    """Return the lower-cased host of an HTTPS endpoint on the default
+    port, or `None` if the endpoint is not acceptable."""
     try:
         url = urlsplit(endpoint)
         port = url.port
     except ValueError:
-        return False
+        return None
 
     host = (url.hostname or '').lower()
     if url.scheme != 'https' or port not in (None, 443) or not host:
-        return False
+        return None
 
-    return any(
+    return host
+
+
+def _push_host_matches(host: str, allowed: str) -> bool:
+    return (
         host.endswith(allowed) if allowed.startswith('.') else host == allowed
-        for allowed in ALLOWED_PUSH_HOSTS
     )

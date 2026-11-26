@@ -29,17 +29,49 @@ def resolve_round_robin_builder_plan(
     round_robin_group_count: int | None,
 ) -> Result[RoundRobinBuilderPlan, str]:
     if round_robin_builder_mode == 'manual_group_count':
-        if round_robin_group_count is None:
-            return Err(
-                'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
-            )
-        return _build_round_robin_builder_plan_for_group_count(
+        return _resolve_manual_round_robin_builder_plan(
             participant_count=participant_count,
             main_stage_size=main_stage_size,
-            group_count=round_robin_group_count,
-            mode='manual_group_count',
+            round_robin_group_count=round_robin_group_count,
         )
 
+    candidates = _collect_round_robin_builder_plan_candidates(
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+    )
+    if not candidates:
+        return Err(
+            'Für Round Robin Groups konnte keine sinnvolle Vorrundenverteilung gefunden werden. '
+            'Wähle eine andere Größe des Hauptturniers oder ein anderes Vorrundenformat.'
+        )
+
+    candidates.sort(key=lambda item: item[0])
+    return Ok(candidates[0][1])
+
+
+def _resolve_manual_round_robin_builder_plan(
+    *,
+    participant_count: int,
+    main_stage_size: int,
+    round_robin_group_count: int | None,
+) -> Result[RoundRobinBuilderPlan, str]:
+    if round_robin_group_count is None:
+        return Err(
+            'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
+        )
+    return _build_round_robin_builder_plan_for_group_count(
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        group_count=round_robin_group_count,
+        mode='manual_group_count',
+    )
+
+
+def _collect_round_robin_builder_plan_candidates(
+    *,
+    participant_count: int,
+    main_stage_size: int,
+) -> list[tuple[tuple[float, int, int], RoundRobinBuilderPlan]]:
     candidates: list[tuple[tuple[float, int, int], RoundRobinBuilderPlan]] = []
     for group_count in sorted(get_divisors(main_stage_size)):
         plan_result = _build_round_robin_builder_plan_for_group_count(
@@ -52,28 +84,34 @@ def resolve_round_robin_builder_plan(
             continue
         plan = plan_result.unwrap()
 
-        average_group_size = participant_count / plan.group_count
-        prefers_esports_default = (
-            main_stage_size == 16
-            and plan.group_count == 8
-            and plan.qualifiers_per_group == 2
-        )
-        score = (
-            0 if prefers_esports_default else 1,
-            abs(average_group_size - 6),
-            abs(plan.qualifiers_per_group - 2),
-            -plan.group_count,
+        score = _score_round_robin_builder_plan(
+            plan,
+            participant_count=participant_count,
+            main_stage_size=main_stage_size,
         )
         candidates.append((score, plan))
+    return candidates
 
-    if not candidates:
-        return Err(
-            'Für Round Robin Groups konnte keine sinnvolle Vorrundenverteilung gefunden werden. '
-            'Wähle eine andere Größe des Hauptturniers oder ein anderes Vorrundenformat.'
-        )
 
-    candidates.sort(key=lambda item: item[0])
-    return Ok(candidates[0][1])
+def _score_round_robin_builder_plan(
+    plan: RoundRobinBuilderPlan,
+    *,
+    participant_count: int,
+    main_stage_size: int,
+) -> tuple[int, float, int, int]:
+    """Return a sort key; lower is better."""
+    average_group_size = participant_count / plan.group_count
+    prefers_esports_default = (
+        main_stage_size == 16
+        and plan.group_count == 8
+        and plan.qualifiers_per_group == 2
+    )
+    return (
+        0 if prefers_esports_default else 1,
+        abs(average_group_size - 6),
+        abs(plan.qualifiers_per_group - 2),
+        -plan.group_count,
+    )
 
 
 def _build_round_robin_builder_plan_for_group_count(

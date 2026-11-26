@@ -81,26 +81,21 @@ def validate_duel_builder_input(
     timing: StageTiming,
 ) -> str | None:
     """Return an error message, or `None` if the input is fine."""
-    if main_stage_type not in DUEL_MAIN_STAGE_TYPES:
-        return 'Dieser Typ des Hauptturniers wird vom Turnierplaner nicht unterstützt.'
-    if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
-        return 'Ungültige Größe des Hauptturniers.'
-    if generation_basis != 'ready':
-        return 'Ungültige Grundlage für die Erzeugung.'
-    if preliminary_type not in DUEL_PRELIMINARY_TYPES:
-        return 'Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.'
+    structure_error = _validate_duel_builder_structure(
+        main_stage_type=main_stage_type,
+        main_stage_size=main_stage_size,
+        generation_basis=generation_basis,
+        preliminary_type=preliminary_type,
+    )
+    if structure_error is not None:
+        return structure_error
 
     if preliminary_type == StageType.round_robin_groups:
-        if round_robin_builder_mode not in {
-            None,
-            'standard',
-            'manual_group_count',
-        }:
-            return 'Ungültige Round-Robin-Strategie.'
-        if round_robin_builder_mode == 'manual_group_count' and (
-            round_robin_group_count is None or round_robin_group_count < 2
-        ):
-            return 'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
+        round_robin_error = _validate_round_robin_builder_options(
+            round_robin_builder_mode, round_robin_group_count
+        )
+        if round_robin_error is not None:
+            return round_robin_error
 
     if (
         preliminary_type == StageType.swiss
@@ -109,6 +104,41 @@ def validate_duel_builder_input(
         return 'Für eine Swiss-Vorrunde bitte eine gültige Schwelle wählen.'
 
     return timing.validate()
+
+
+def _validate_duel_builder_structure(
+    *,
+    main_stage_type: StageType,
+    main_stage_size: int,
+    generation_basis: str,
+    preliminary_type: StageType | None,
+) -> str | None:
+    if main_stage_type not in DUEL_MAIN_STAGE_TYPES:
+        return 'Dieser Typ des Hauptturniers wird vom Turnierplaner nicht unterstützt.'
+    if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
+        return 'Ungültige Größe des Hauptturniers.'
+    if generation_basis != 'ready':
+        return 'Ungültige Grundlage für die Erzeugung.'
+    if preliminary_type not in DUEL_PRELIMINARY_TYPES:
+        return 'Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.'
+    return None
+
+
+def _validate_round_robin_builder_options(
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+) -> str | None:
+    if round_robin_builder_mode not in {
+        None,
+        'standard',
+        'manual_group_count',
+    }:
+        return 'Ungültige Round-Robin-Strategie.'
+    if round_robin_builder_mode == 'manual_group_count' and (
+        round_robin_group_count is None or round_robin_group_count < 2
+    ):
+        return 'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
+    return None
 
 
 def duel_preliminary_settings(

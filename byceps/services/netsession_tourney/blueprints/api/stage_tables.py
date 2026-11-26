@@ -34,12 +34,7 @@ def build_stage_tables(ranking) -> dict:
     participants_by_id = {p.id: p for p in ranking.participants}
     matches_by_stage_id = group_by_stage(ranking.matches)
     participant_ids_by_stage_id = {
-        stage_id: {
-            slot.participant_id
-            for match in matches
-            for slot in ranking.slots_by_match_id.get(match.id, [])
-            if slot.participant_id is not None
-        }
+        stage_id: _collect_participant_ids(matches, ranking.slots_by_match_id)
         for stage_id, matches in matches_by_stage_id.items()
     }
     stages = sorted(ranking.stages, key=lambda stage: stage.order_no)
@@ -49,47 +44,77 @@ def build_stage_tables(ranking) -> dict:
         if stage.type not in TABLE_STAGE_TYPES:
             continue
         matches = matches_by_stage_id.get(stage.id, [])
-        later_ids = set().union(
-            *(
-                participant_ids_by_stage_id.get(other.id, set())
-                for other in stages
-                if other.order_no > stage.order_no
-            )
+        later_ids = _get_later_participant_ids(
+            stage, stages, participant_ids_by_stage_id
         )
         groups = _split_groups(stage, matches, ranking.slots_by_match_id)
         tables[stage.id] = [
             {
                 'name': name,
-                'standings': [
-                    _serialize_row(row, stage, later_ids)
-                    for row in build_ranking_rows(
-                        [
-                            participants_by_id[pid]
-                            for pid in participant_ids
-                            if pid in participants_by_id
-                        ],
-                        group_matches,
-                        {
-                            m.id: ranking.slots_by_match_id.get(m.id, [])
-                            for m in group_matches
-                        },
-                        ranking.results_by_match_id,
-                        stage_type=stage.type,
-                    )
-                ],
+                'standings': _build_group_standings(
+                    ranking,
+                    participants_by_id,
+                    participant_ids,
+                    group_matches,
+                    stage,
+                    later_ids,
+                ),
             }
             for name, participant_ids, group_matches in groups
         ]
     return tables
 
 
-def _split_groups(stage, matches, slots_by_match_id) -> list[tuple]:
-    participant_ids = [
+def _collect_participant_ids(matches, slots_by_match_id) -> set:
+    return {
         slot.participant_id
         for match in matches
         for slot in slots_by_match_id.get(match.id, [])
         if slot.participant_id is not None
+    }
+
+
+def _get_later_participant_ids(
+    stage, stages, participant_ids_by_stage_id
+) -> set:
+    return set().union(
+        *(
+            participant_ids_by_stage_id.get(other.id, set())
+            for other in stages
+            if other.order_no > stage.order_no
+        )
+    )
+
+
+def _build_group_standings(
+    ranking,
+    participants_by_id,
+    participant_ids,
+    group_matches,
+    stage,
+    later_ids: set,
+) -> list[dict]:
+    return [
+        _serialize_row(row, stage, later_ids)
+        for row in build_ranking_rows(
+            [
+                participants_by_id[pid]
+                for pid in participant_ids
+                if pid in participants_by_id
+            ],
+            group_matches,
+            {
+                m.id: ranking.slots_by_match_id.get(m.id, [])
+                for m in group_matches
+            },
+            ranking.results_by_match_id,
+            stage_type=stage.type,
+        )
     ]
+
+
+def _split_groups(stage, matches, slots_by_match_id) -> list[tuple]:
+    participant_ids = _list_participant_ids(matches, slots_by_match_id)
     if stage.type != StageType.round_robin_groups:
         return [(None, list(dict.fromkeys(participant_ids)), matches)]
 
@@ -100,19 +125,34 @@ def _split_groups(stage, matches, slots_by_match_id) -> list[tuple]:
     if group_count < 2:
         return [(None, list(group_index_by_pid), matches)]
 
-    groups = []
-    for index in range(group_count):
-        pids = [pid for pid, i in group_index_by_pid.items() if i == index]
-        group_matches = [
-            match
-            for match in matches
-            if any(
-                slot.participant_id in pids
-                for slot in slots_by_match_id.get(match.id, [])
-            )
-        ]
-        groups.append(('Gruppe ' + _group_letter(index), pids, group_matches))
-    return groups
+    return [
+        _build_group(index, group_index_by_pid, matches, slots_by_match_id)
+        for index in range(group_count)
+    ]
+
+
+def _list_participant_ids(matches, slots_by_match_id) -> list:
+    return [
+        slot.participant_id
+        for match in matches
+        for slot in slots_by_match_id.get(match.id, [])
+        if slot.participant_id is not None
+    ]
+
+
+def _build_group(
+    index: int, group_index_by_pid: dict, matches, slots_by_match_id
+) -> tuple:
+    pids = [pid for pid, i in group_index_by_pid.items() if i == index]
+    group_matches = [
+        match
+        for match in matches
+        if any(
+            slot.participant_id in pids
+            for slot in slots_by_match_id.get(match.id, [])
+        )
+    ]
+    return ('Gruppe ' + _group_letter(index), pids, group_matches)
 
 
 def _serialize_row(row: dict, stage, later_participant_ids: set) -> dict:

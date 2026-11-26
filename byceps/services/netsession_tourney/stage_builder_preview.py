@@ -76,6 +76,31 @@ def preview_stage_builder_plan(
     if tournament_mode != TournamentMode.duel:
         return Err('Der Turnierplaner unterstützt diesen Turniermodus nicht.')
 
+    return _preview_duel_stage_builder_plan(
+        party_id,
+        tournament_id,
+        generation_basis=generation_basis,
+        main_stage_type=main_stage_type,
+        main_stage_size=main_stage_size,
+        preliminary_type=preliminary_type,
+        round_robin_builder_mode=round_robin_builder_mode,
+        round_robin_group_count=round_robin_group_count,
+        swiss_threshold=swiss_threshold,
+    )
+
+
+def _preview_duel_stage_builder_plan(
+    party_id: PartyID,
+    tournament_id: TournamentID,
+    *,
+    generation_basis: str,
+    main_stage_type: StageType,
+    main_stage_size: int,
+    preliminary_type: StageType | None,
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+    swiss_threshold: int | None,
+) -> Result[dict[str, Any], str]:
     validation_error = _validate_duel_stage_builder_options(
         generation_basis=generation_basis,
         main_stage_type=main_stage_type,
@@ -98,11 +123,40 @@ def preview_stage_builder_plan(
         'main_stage_size': main_stage_size,
         'participant_count': participant_count,
         'preliminary_type': preliminary_type,
-        'needs_preliminary': (
-            preliminary_type is not None and participant_count > main_stage_size
+        'needs_preliminary': _needs_preliminary(
+            preliminary_type, participant_count, main_stage_size
         ),
     }
 
+    return _add_preliminary_to_preview(
+        preview,
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        preliminary_type=preliminary_type,
+        round_robin_builder_mode=round_robin_builder_mode,
+        round_robin_group_count=round_robin_group_count,
+        swiss_threshold=swiss_threshold,
+    )
+
+
+def _needs_preliminary(
+    preliminary_type: StageType | None,
+    participant_count: int,
+    main_stage_size: int,
+) -> bool:
+    return preliminary_type is not None and participant_count > main_stage_size
+
+
+def _add_preliminary_to_preview(
+    preview: dict[str, Any],
+    *,
+    participant_count: int,
+    main_stage_size: int,
+    preliminary_type: StageType | None,
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+    swiss_threshold: int | None,
+) -> Result[dict[str, Any], str]:
     if preliminary_type is None or participant_count <= main_stage_size:
         return Ok(preview)
 
@@ -136,6 +190,24 @@ def _validate_duel_stage_builder_options(
     swiss_threshold: int | None,
 ) -> str | None:
     """Return the first validation error message, or `None` if valid."""
+    return _validate_duel_stage_builder_main_stage_options(
+        generation_basis=generation_basis,
+        main_stage_type=main_stage_type,
+        main_stage_size=main_stage_size,
+    ) or _validate_duel_stage_builder_preliminary_options(
+        preliminary_type=preliminary_type,
+        round_robin_builder_mode=round_robin_builder_mode,
+        round_robin_group_count=round_robin_group_count,
+        swiss_threshold=swiss_threshold,
+    )
+
+
+def _validate_duel_stage_builder_main_stage_options(
+    *,
+    generation_basis: str,
+    main_stage_type: StageType,
+    main_stage_size: int,
+) -> str | None:
     if main_stage_type not in {
         StageType.single_elimination,
         StageType.double_elimination,
@@ -149,6 +221,16 @@ def _validate_duel_stage_builder_options(
     if generation_basis != 'ready':
         return 'Ungültige Grundlage für die Erzeugung.'
 
+    return None
+
+
+def _validate_duel_stage_builder_preliminary_options(
+    *,
+    preliminary_type: StageType | None,
+    round_robin_builder_mode: str | None,
+    round_robin_group_count: int | None,
+    swiss_threshold: int | None,
+) -> str | None:
     if preliminary_type not in {
         None,
         StageType.round_robin_groups,
@@ -157,19 +239,29 @@ def _validate_duel_stage_builder_options(
         return 'Dieser Vorrunden-Typ wird vom Baukasten nicht unterstützt.'
 
     if preliminary_type == StageType.round_robin_groups:
-        if round_robin_builder_mode not in {
-            None,
-            'standard',
-            'manual_group_count',
-        }:
-            return 'Ungültige Round-Robin-Strategie.'
-        if round_robin_builder_mode == 'manual_group_count':
-            if round_robin_group_count is None or round_robin_group_count < 2:
-                return 'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
+        return _validate_round_robin_builder_options(
+            round_robin_builder_mode, round_robin_group_count
+        )
 
     if preliminary_type == StageType.swiss:
         if swiss_threshold not in SWISS_THRESHOLDS:
             return 'Swiss preliminaries require a valid threshold.'
+
+    return None
+
+
+def _validate_round_robin_builder_options(
+    round_robin_builder_mode: str | None, round_robin_group_count: int | None
+) -> str | None:
+    if round_robin_builder_mode not in {
+        None,
+        'standard',
+        'manual_group_count',
+    }:
+        return 'Ungültige Round-Robin-Strategie.'
+    if round_robin_builder_mode == 'manual_group_count':
+        if round_robin_group_count is None or round_robin_group_count < 2:
+            return 'Für die Expertenoption muss eine gültige Gruppenzahl gewählt werden.'
 
     return None
 
@@ -242,49 +334,64 @@ def resolve_stage_builder_stage_for_generation(
         )
 
     if stage.type == StageType.round_robin_groups:
-        plan_result = resolve_round_robin_builder_plan(
+        return _resolve_round_robin_builder_stage(
+            stage,
             participant_count=participant_count,
             main_stage_size=main_stage_size,
-            round_robin_builder_mode=stage.settings.get(
-                'builder_round_robin_mode'
-            ),
-            round_robin_group_count=stage.settings.get(
-                'builder_round_robin_group_count'
-            ),
-        )
-        if plan_result.is_err():
-            return Err(plan_result.unwrap_err())
-
-        plan = plan_result.unwrap()
-        resolved_settings = dict(stage.settings)
-        resolved_settings['group_count'] = plan.group_count
-        resolved_settings['builder_resolved_qualifiers_per_group'] = (
-            plan.qualifiers_per_group
-        )
-        resolved_settings['builder_resolved_group_size_min'] = (
-            plan.min_group_size
-        )
-        resolved_settings['builder_resolved_group_size_max'] = (
-            plan.max_group_size
-        )
-        return Ok(
-            Stage(
-                id=stage.id,
-                tournament_id=stage.tournament_id,
-                order_no=stage.order_no,
-                type=stage.type,
-                name=stage.name,
-                settings=resolved_settings,
-                status=stage.status,
-            )
         )
 
     if stage.type == StageType.swiss:
-        threshold = get_swiss_threshold_for_stage(
+        return _check_swiss_builder_stage(
             stage, participant_count=participant_count
         )
-        if threshold not in SWISS_THRESHOLDS and participant_count > 1:
-            return Err('Ungültige Swiss-Schwelle.')
-        return Ok(stage)
 
+    return Ok(stage)
+
+
+def _resolve_round_robin_builder_stage(
+    stage: Stage,
+    *,
+    participant_count: int,
+    main_stage_size: int,
+) -> Result[Stage, str]:
+    plan_result = resolve_round_robin_builder_plan(
+        participant_count=participant_count,
+        main_stage_size=main_stage_size,
+        round_robin_builder_mode=stage.settings.get('builder_round_robin_mode'),
+        round_robin_group_count=stage.settings.get(
+            'builder_round_robin_group_count'
+        ),
+    )
+    if plan_result.is_err():
+        return Err(plan_result.unwrap_err())
+
+    plan = plan_result.unwrap()
+    resolved_settings = dict(stage.settings)
+    resolved_settings['group_count'] = plan.group_count
+    resolved_settings['builder_resolved_qualifiers_per_group'] = (
+        plan.qualifiers_per_group
+    )
+    resolved_settings['builder_resolved_group_size_min'] = plan.min_group_size
+    resolved_settings['builder_resolved_group_size_max'] = plan.max_group_size
+    return Ok(
+        Stage(
+            id=stage.id,
+            tournament_id=stage.tournament_id,
+            order_no=stage.order_no,
+            type=stage.type,
+            name=stage.name,
+            settings=resolved_settings,
+            status=stage.status,
+        )
+    )
+
+
+def _check_swiss_builder_stage(
+    stage: Stage, *, participant_count: int
+) -> Result[Stage, str]:
+    threshold = get_swiss_threshold_for_stage(
+        stage, participant_count=participant_count
+    )
+    if threshold not in SWISS_THRESHOLDS and participant_count > 1:
+        return Err('Ungültige Swiss-Schwelle.')
     return Ok(stage)

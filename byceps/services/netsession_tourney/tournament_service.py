@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 
 from byceps.database import db
 from byceps.services.party.models import PartyID
@@ -268,15 +268,13 @@ def get_tournaments_for_party(
     game: str | None = None,
     visible_on_site: bool | None = None,
 ) -> list[Tournament]:
-    stmt = select(DbNetsessionTourneyTournament).filter_by(party_id=party_id)
-    if status is not None:
-        stmt = stmt.filter_by(status=status.value)
-    if mode is not None:
-        stmt = stmt.filter_by(mode=mode.value)
-    if game:
-        stmt = stmt.filter_by(game=game)
-    if visible_on_site is not None:
-        stmt = stmt.filter_by(visible_on_site=visible_on_site)
+    stmt = _build_party_tournaments_statement(
+        party_id,
+        status=status,
+        mode=mode,
+        game=game,
+        visible_on_site=visible_on_site,
+    )
 
     db_tournaments = db.session.scalars(stmt).all()
     category_positions_by_id = {
@@ -296,6 +294,26 @@ def get_tournaments_for_party(
             item.title.lower(),
         ),
     )
+
+
+def _build_party_tournaments_statement(
+    party_id: PartyID,
+    *,
+    status: TournamentStatus | None,
+    mode: TournamentMode | None,
+    game: str | None,
+    visible_on_site: bool | None,
+) -> Select:
+    stmt = select(DbNetsessionTourneyTournament).filter_by(party_id=party_id)
+    if status is not None:
+        stmt = stmt.filter_by(status=status.value)
+    if mode is not None:
+        stmt = stmt.filter_by(mode=mode.value)
+    if game:
+        stmt = stmt.filter_by(game=game)
+    if visible_on_site is not None:
+        stmt = stmt.filter_by(visible_on_site=visible_on_site)
+    return stmt
 
 
 def find_tournament_by_slug_for_party(

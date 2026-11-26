@@ -7,6 +7,7 @@ Discord forum integration: configuration, event queue and its processing.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -25,7 +26,6 @@ from .dbmodels import (
     DbNetsessionTourneyTournament,
 )
 from .discord_dm_service import (
-    DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS,
     get_configured_discord_bot_credentials,
 )
 from .discord_forum_api import (
@@ -35,9 +35,13 @@ from .discord_forum_threads import (
     recover_deleted_discord_forum_thread,
     sync_discord_thread_for_tournament,
 )
-from .discord_ids import is_discord_id
 from .discord_payloads import (
     build_discord_message_payload,
+)
+from .discord_service_validation import (
+    DISCORD_SUPPORTED_EVENTS,
+    validate_discord_applied_tag_ids,
+    validate_discord_configuration,
 )
 from .models import (
     DiscordOutboxID,
@@ -56,16 +60,6 @@ from .tournament_queries import (
 
 
 log = structlog.get_logger()
-
-
-DISCORD_SUPPORTED_EVENTS = {
-    'manual_announcement',
-    'match_completed',
-    'stage_started',
-    'tournament_canceled',
-    'tournament_finished',
-    'tournament_live',
-}
 
 
 DISCORD_MAX_ATTEMPTS = 5
@@ -170,6 +164,28 @@ def _deliver_discord_outbox_row(
         )
         return
 
+    thread_id = _ensure_discord_thread_id(db_tournament)
+    if not thread_id:
+        _schedule_discord_outbox_retry(
+            db_row,
+            'Discord-Forum-Thread konnte noch nicht erstellt werden.',
+            now,
+        )
+        return
+
+    if not _post_discord_outbox_row(
+        db_row, db_tournament, credentials, thread_id, now
+    ):
+        return
+
+    db_row.status = DiscordOutboxStatus.sent.value
+    db_row.next_attempt_at = None
+    db_row.last_error = None
+
+
+def _ensure_discord_thread_id(db_tournament) -> str | None:
+    """Create the tournament's forum thread if it has none yet, and return
+    its ID (`None` if it still has none)."""
     if not db_tournament.discord_thread_id:
         try:
             sync_discord_thread_for_tournament(db_tournament)
@@ -181,15 +197,14 @@ def _deliver_discord_outbox_row(
                 error=type(exc).__name__,
             )
 
-    thread_id = db_tournament.discord_thread_id
-    if not thread_id:
-        _schedule_discord_outbox_retry(
-            db_row,
-            'Discord-Forum-Thread konnte noch nicht erstellt werden.',
-            now,
-        )
-        return
+    return db_tournament.discord_thread_id
 
+
+def _post_discord_outbox_row(
+    db_row, db_tournament, credentials, thread_id, now: datetime
+) -> bool:
+    """Post the row's message to the thread (to a recreated one if the
+    thread was deleted). Return `False` if a retry has been scheduled."""
     application_id, bot_token = credentials
 
     def post(to_thread_id) -> None:
@@ -203,24 +218,37 @@ def _deliver_discord_outbox_row(
     try:
         post(thread_id)
     except httpx.HTTPStatusError as exc:
-        recovered_thread_id = recover_deleted_discord_forum_thread(
-            db_tournament=db_tournament, failed_thread_id=thread_id, exc=exc
+        return _repost_to_recovered_discord_thread(
+            db_row, db_tournament, thread_id, exc, post, now
         )
-        if not recovered_thread_id:
-            _retry_after_discord_error(db_row, exc, now)
-            return
-        try:
-            post(recovered_thread_id)
-        except httpx.HTTPError as retry_exc:
-            _retry_after_discord_error(db_row, retry_exc, now)
-            return
     except httpx.HTTPError as exc:
         _retry_after_discord_error(db_row, exc, now)
-        return
+        return False
 
-    db_row.status = DiscordOutboxStatus.sent.value
-    db_row.next_attempt_at = None
-    db_row.last_error = None
+    return True
+
+
+def _repost_to_recovered_discord_thread(
+    db_row,
+    db_tournament,
+    thread_id,
+    exc: httpx.HTTPStatusError,
+    post: Callable[[Any], None],
+    now: datetime,
+) -> bool:
+    recovered_thread_id = recover_deleted_discord_forum_thread(
+        db_tournament=db_tournament, failed_thread_id=thread_id, exc=exc
+    )
+    if not recovered_thread_id:
+        _retry_after_discord_error(db_row, exc, now)
+        return False
+    try:
+        post(recovered_thread_id)
+    except httpx.HTTPError as retry_exc:
+        _retry_after_discord_error(db_row, retry_exc, now)
+        return False
+
+    return True
 
 
 def _discord_dead_letter_reason(db_tournament) -> str | None:
@@ -265,38 +293,35 @@ def configure_discord(
     if db_tournament is None:
         return Err('Unbekanntes Turnier.')
 
-    normalized_forum_channel_id = (forum_channel_id or '').strip() or None
-    normalized_discord_forum_image_url = (
-        discord_forum_image_url.strip() if discord_forum_image_url else None
+    normalized_forum_channel_id = _normalize_discord_forum_channel_id(
+        forum_channel_id
+    )
+    normalized_discord_forum_image_url = _normalize_discord_forum_image_url(
+        discord_forum_image_url
     )
     normalized_event_mask = sorted(set(event_mask))
-    error = _validate_discord_configuration(
+    error = validate_discord_configuration(
         enabled=enabled,
         normalized_forum_channel_id=normalized_forum_channel_id,
         normalized_event_mask=normalized_event_mask,
         discord_dm_enabled=discord_dm_enabled,
         discord_dm_event_mask=discord_dm_event_mask,
-    )
-    if error is None and not all(is_discord_id(t) for t in applied_tag_ids):
-        error = 'Discord-Tag-IDs müssen aus 17 bis 20 Ziffern bestehen.'
+    ) or validate_discord_applied_tag_ids(applied_tag_ids)
     if error is not None:
         return Err(error)
 
     normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
 
-    forum_channel_changed = (
-        db_tournament.discord_forum_channel_id != normalized_forum_channel_id
+    _apply_discord_configuration(
+        db_tournament,
+        enabled=enabled,
+        forum_channel_id=normalized_forum_channel_id,
+        discord_forum_image_url=normalized_discord_forum_image_url,
+        applied_tag_ids=applied_tag_ids,
+        event_mask=normalized_event_mask,
+        discord_dm_enabled=discord_dm_enabled,
+        discord_dm_event_mask=normalized_discord_dm_event_mask,
     )
-    db_tournament.discord_enabled = enabled
-    db_tournament.discord_forum_channel_id = normalized_forum_channel_id
-    db_tournament.discord_forum_image_url = normalized_discord_forum_image_url
-    if forum_channel_changed:
-        db_tournament.discord_thread_id = None
-    db_tournament.discord_applied_tag_ids = list(applied_tag_ids)
-    db_tournament.discord_event_mask = normalized_event_mask
-    db_tournament.discord_dm_enabled = discord_dm_enabled
-    db_tournament.discord_dm_event_mask = normalized_discord_dm_event_mask
-    db_tournament.updated_at = datetime.utcnow()
 
     append_audit_log(
         actor_user_id=initiator.id,
@@ -321,47 +346,42 @@ def configure_discord(
     return Ok(db_tournament_to_model(db_tournament))
 
 
-def _validate_discord_configuration(
+def _normalize_discord_forum_channel_id(
+    forum_channel_id: str | None,
+) -> str | None:
+    return (forum_channel_id or '').strip() or None
+
+
+def _normalize_discord_forum_image_url(
+    discord_forum_image_url: str | None,
+) -> str | None:
+    return discord_forum_image_url.strip() if discord_forum_image_url else None
+
+
+def _apply_discord_configuration(
+    db_tournament,
     *,
     enabled: bool,
-    normalized_forum_channel_id: str | None,
-    normalized_event_mask: list[str],
+    forum_channel_id: str | None,
+    discord_forum_image_url: str | None,
+    applied_tag_ids: list[str],
+    event_mask: list[str],
     discord_dm_enabled: bool,
     discord_dm_event_mask: list[str],
-) -> str | None:
-    """Return the first validation error message, or `None` if valid."""
-    if enabled and not normalized_forum_channel_id:
-        return 'Eine Discord-Forum-Channel-ID ist erforderlich.'
-    if normalized_forum_channel_id and not is_discord_id(
-        normalized_forum_channel_id
-    ):
-        return (
-            'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.'
-        )
-
-    invalid_events = sorted(
-        set(normalized_event_mask).difference(DISCORD_SUPPORTED_EVENTS)
+) -> None:
+    forum_channel_changed = (
+        db_tournament.discord_forum_channel_id != forum_channel_id
     )
-    if invalid_events:
-        return 'Unbekannte Discord-Forum-Events: ' + ', '.join(invalid_events)
-    if enabled and not normalized_event_mask:
-        return 'Mindestens ein Discord-Forum-Event muss ausgewählt werden.'
-
-    invalid_dm_events = sorted(
-        set(discord_dm_event_mask).difference(
-            DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
-        )
-    )
-    if invalid_dm_events:
-        return 'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(
-            invalid_dm_events
-        )
-
-    normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
-    if discord_dm_enabled and not normalized_discord_dm_event_mask:
-        return 'Mindestens ein Discord-DM-Event muss ausgewählt werden.'
-
-    return None
+    db_tournament.discord_enabled = enabled
+    db_tournament.discord_forum_channel_id = forum_channel_id
+    db_tournament.discord_forum_image_url = discord_forum_image_url
+    if forum_channel_changed:
+        db_tournament.discord_thread_id = None
+    db_tournament.discord_applied_tag_ids = list(applied_tag_ids)
+    db_tournament.discord_event_mask = event_mask
+    db_tournament.discord_dm_enabled = discord_dm_enabled
+    db_tournament.discord_dm_event_mask = discord_dm_event_mask
+    db_tournament.updated_at = datetime.utcnow()
 
 
 def _mark_discord_outbox_dead_letter(

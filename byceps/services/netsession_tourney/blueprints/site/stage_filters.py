@@ -46,129 +46,57 @@ def _is_round_based_duel_stage(stage) -> bool:
     }
 
 
-def uses_only_ffa_simple_stages(stages, matches) -> bool:
+def _get_match_stages(stages_by_id, match_stage_ids) -> list:
+    return [
+        stages_by_id[stage_id]
+        for stage_id in match_stage_ids
+        if stage_id in stages_by_id
+    ]
+
+
+def _get_relevant_stages(stages, matches) -> list:
     if not stages:
-        return False
+        return []
 
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
-    )
+    if not match_stage_ids:
+        return list(stages)
+
+    return _get_match_stages(stages_by_id, match_stage_ids)
+
+
+def _uses_only_stages_matching(stages, matches, predicate) -> bool:
+    relevant_stages = _get_relevant_stages(stages, matches)
     if not relevant_stages:
         return False
 
-    return all(_is_ffa_simple_stage(stage) for stage in relevant_stages)
+    return all(predicate(stage) for stage in relevant_stages)
+
+
+def uses_only_ffa_simple_stages(stages, matches) -> bool:
+    return _uses_only_stages_matching(stages, matches, _is_ffa_simple_stage)
 
 
 def uses_only_ffa_scoring_stages(stages, matches) -> bool:
-    if not stages:
-        return False
-
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
-    )
-    if not relevant_stages:
-        return False
-
-    return all(_is_ffa_scoring_stage(stage) for stage in relevant_stages)
+    return _uses_only_stages_matching(stages, matches, _is_ffa_scoring_stage)
 
 
 def uses_only_flatout2_stages(stages, matches) -> bool:
-    if not stages:
-        return False
-
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
-    )
-    if not relevant_stages:
-        return False
-
-    return all(_is_flatout2_stage(stage) for stage in relevant_stages)
+    return _uses_only_stages_matching(stages, matches, _is_flatout2_stage)
 
 
 def uses_only_ffa_single_elimination_stages(stages, matches) -> bool:
-    if not stages:
-        return False
-
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
-    )
-    if not relevant_stages:
-        return False
-
-    return all(
-        is_ffa_single_elimination_stage(stage) for stage in relevant_stages
+    return _uses_only_stages_matching(
+        stages, matches, is_ffa_single_elimination_stage
     )
 
 
 def uses_only_swiss_stages(stages, matches) -> bool:
-    if not stages:
-        return False
-
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
-    )
-    if not relevant_stages:
-        return False
-
-    return all(_is_swiss_stage(stage) for stage in relevant_stages)
+    return _uses_only_stages_matching(stages, matches, _is_swiss_stage)
 
 
 def uses_only_round_based_duel_stages(stages, matches) -> bool:
-    if not stages:
-        return False
-
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_stage_ids = {match.stage_id for match in matches}
-    relevant_stages = (
-        [
-            stages_by_id[stage_id]
-            for stage_id in match_stage_ids
-            if stage_id in stages_by_id
-        ]
-        if match_stage_ids
-        else list(stages)
+    return _uses_only_stages_matching(
+        stages, matches, _is_round_based_duel_stage
     )
-    if not relevant_stages:
-        return False
-
-    return all(_is_round_based_duel_stage(stage) for stage in relevant_stages)
