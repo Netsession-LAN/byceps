@@ -8,6 +8,7 @@ Results and the optional second grand final (bracket reset) of double eliminatio
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -153,18 +154,22 @@ def _find_reset_match_id(source_match_id: MatchID) -> MatchID | None:
     if not downstream_slots:
         return None
 
+    return _find_match_fed_by_winner_and_loser(downstream_slots)
+
+
+def _find_match_fed_by_winner_and_loser(
+    downstream_slots: Sequence[DbNetsessionTourneyMatchSlot],
+) -> MatchID | None:
     downstream_slots_by_match_id = defaultdict(list)
     for db_slot in downstream_slots:
         downstream_slots_by_match_id[db_slot.match_id].append(db_slot)
 
-    reset_match_id = None
     for match_id, slots in downstream_slots_by_match_id.items():
         outcomes = {slot.source_outcome for slot in slots}
         if outcomes == {SourceOutcome.winner.value, SourceOutcome.loser.value}:
-            reset_match_id = match_id
-            break
+            return match_id
 
-    return reset_match_id
+    return None
 
 
 def _mark_reset_match_as_skipped(
