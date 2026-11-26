@@ -13,32 +13,19 @@ from flask import (
 )
 from flask_babel import gettext
 
-from byceps.services.netsession_tourney.double_grand_final import (
-    get_match_results,
-)
 from byceps.services.netsession_tourney.forms import (
     TeamCreationForm,
     TeamMemberAddForm,
 )
-from byceps.services.netsession_tourney.match_queries import (
-    get_match_slots,
-    get_matches_for_tournament,
-)
 from byceps.services.netsession_tourney.models import (
     ParticipantType,
     TournamentStatus,
-)
-from byceps.services.netsession_tourney.participant_admin_service import (
-    get_participants_by_ids,
 )
 from byceps.services.netsession_tourney.registration_validation import (
     get_team_members_for_participants,
 )
 from byceps.services.netsession_tourney.screen_name_suggestions import (
     get_suggested_screen_names_for_party,
-)
-from byceps.services.netsession_tourney.team_invite_service import (
-    get_team_invite_code_for_manager,
 )
 from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
@@ -49,21 +36,17 @@ from byceps.util.framework.templating import templated
 from byceps.util.views import login_required, redirect_to
 
 from .blueprint import blueprint
-from .builder_helpers import get_materialized_builder_container_stages
 from .common import (
     _get_tournament_or_404,
     get_main_nav_current_page_id,
 )
-from .match_helpers import (
-    build_match_labels,
-)
-from .stage_filters import (
-    uses_only_ffa_scoring_stages,
-    uses_only_ffa_simple_stages,
-    uses_only_flatout2_stages,
-)
-from .stage_render_helpers import (
-    build_team_history_rows,
+from .routes_teams_helpers import (
+    build_participant_history,
+    build_participant_page_tab_flags,
+    can_current_user_manage_team,
+    find_team_invite_code,
+    get_tournament_participant_or_404,
+    sort_team_members,
 )
 from .user_state_helpers import (
     get_seat_data_by_user_id,
@@ -73,12 +56,9 @@ from .user_state_helpers import (
 def _build_team_view_context(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
     stages = get_stages_for_tournament(g.party.id, tournament.id)
-    participants_by_id = get_participants_by_ids(g.party.id, {participant_id})
-    team = participants_by_id.get(participant_id)
-    if team is None or team.tournament_id != tournament.id:
-        abort(404)
-    if team.type != ParticipantType.team:
-        abort(404)
+    team = get_tournament_participant_or_404(
+        tournament, participant_id, ParticipantType.team
+    )
 
     members_by_participant_id = get_team_members_for_participants(
         {participant_id}
@@ -88,65 +68,15 @@ def _build_team_view_context(slug, participant_id):
         {member.user_id for member in members},
         include_avatars=True,
     )
-    role_sort_order = {'captain': 0, 'player': 1, 'substitute': 2}
-    members = sorted(
-        members,
-        key=lambda member: (
-            role_sort_order.get(member.role.value, 9),
-            (
-                users_by_id.get(member.user_id).screen_name.lower()
-                if users_by_id.get(member.user_id)
-                else str(member.user_id)
-            ),
-        ),
-    )
+    members = sort_team_members(members, users_by_id)
     seat_data_by_user_id = get_seat_data_by_user_id(
         g.party.id, {member.user_id for member in members}
     )
-    current_user = getattr(g, 'user', None)
-    can_manage_team = (
-        current_user is not None
-        and current_user.authenticated
-        and team.manager_user_id == current_user.id
-    )
-    team_invite_code = None
-    if can_manage_team:
-        invite_code_result = get_team_invite_code_for_manager(
-            g.party.id,
-            tournament.id,
-            team.id,
-            current_user.id,
-        )
-        if invite_code_result.is_ok():
-            team_invite_code = invite_code_result.unwrap()
+    can_manage_team = can_current_user_manage_team(team)
+    team_invite_code = find_team_invite_code(tournament, team, can_manage_team)
 
-    matches = get_matches_for_tournament(g.party.id, tournament.id)
-    slots_by_match_id = get_match_slots({match.id for match in matches})
-    results_by_match_id = get_match_results({match.id for match in matches})
-    stages = get_stages_for_tournament(g.party.id, tournament.id)
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_labels_by_id = build_match_labels(
-        matches,
-        slots_by_match_id,
-        stages_by_id,
-    )
-    participant_ids = {
-        slot.participant_id
-        for slots in slots_by_match_id.values()
-        for slot in slots
-        if slot.participant_id
-    }
-    participants_lookup = get_participants_by_ids(g.party.id, participant_ids)
-    team_history = build_team_history_rows(
-        team,
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        participants_lookup,
-        match_labels_by_id,
-        stages_by_id,
-    )
-    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
+    matches, stages, team_history = build_participant_history(tournament, team)
+    tab_flags = build_participant_page_tab_flags(stages, matches)
 
     current_page_id = get_main_nav_current_page_id()
 
@@ -164,17 +94,7 @@ def _build_team_view_context(slug, participant_id):
             g.party.id
         ),
         'team_history': team_history,
-        'is_ffa_scoring_tournament': uses_only_ffa_scoring_stages(
-            stages, matches
-        ),
-        'is_flatout2_tournament': uses_only_flatout2_stages(stages, matches),
-        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
-        'show_preliminaries_tab': bool(
-            get_materialized_builder_container_stages(
-                stages, role='preliminary'
-            )
-        )
-        and not is_flatout2_tournament,
+        **tab_flags,
         'current_page': current_page_id,
         'current_tournament_page': 'overview',
     }
@@ -183,12 +103,9 @@ def _build_team_view_context(slug, participant_id):
 def _build_player_view_context(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
     stages = get_stages_for_tournament(g.party.id, tournament.id)
-    participants_by_id = get_participants_by_ids(g.party.id, {participant_id})
-    player = participants_by_id.get(participant_id)
-    if player is None or player.tournament_id != tournament.id:
-        abort(404)
-    if player.type != ParticipantType.user:
-        abort(404)
+    player = get_tournament_participant_or_404(
+        tournament, participant_id, ParticipantType.user
+    )
     if player.user_id is None:
         abort(404)
 
@@ -198,33 +115,10 @@ def _build_player_view_context(slug, participant_id):
     )
     seat_data = seat_data_by_user_id.get(player.user_id)
 
-    matches = get_matches_for_tournament(g.party.id, tournament.id)
-    slots_by_match_id = get_match_slots({match.id for match in matches})
-    results_by_match_id = get_match_results({match.id for match in matches})
-    stages = get_stages_for_tournament(g.party.id, tournament.id)
-    stages_by_id = {stage.id: stage for stage in stages}
-    match_labels_by_id = build_match_labels(
-        matches,
-        slots_by_match_id,
-        stages_by_id,
+    matches, stages, player_history = build_participant_history(
+        tournament, player
     )
-    participant_ids = {
-        slot.participant_id
-        for slots in slots_by_match_id.values()
-        for slot in slots
-        if slot.participant_id
-    }
-    participants_lookup = get_participants_by_ids(g.party.id, participant_ids)
-    player_history = build_team_history_rows(
-        player,
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        participants_lookup,
-        match_labels_by_id,
-        stages_by_id,
-    )
-    is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
+    tab_flags = build_participant_page_tab_flags(stages, matches)
 
     current_page_id = get_main_nav_current_page_id()
 
@@ -234,17 +128,7 @@ def _build_player_view_context(slug, participant_id):
         'player_user': player_user,
         'seat_data': seat_data,
         'player_history': player_history,
-        'is_ffa_scoring_tournament': uses_only_ffa_scoring_stages(
-            stages, matches
-        ),
-        'is_flatout2_tournament': uses_only_flatout2_stages(stages, matches),
-        'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
-        'show_preliminaries_tab': bool(
-            get_materialized_builder_container_stages(
-                stages, role='preliminary'
-            )
-        )
-        and not is_flatout2_tournament,
+        **tab_flags,
         'current_page': current_page_id,
         'current_tournament_page': 'overview',
     }

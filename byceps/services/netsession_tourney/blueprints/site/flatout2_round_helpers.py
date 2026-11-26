@@ -16,6 +16,177 @@ from .ffa_single_elimination_rendering import (
 from .stage_filters import _is_flatout2_stage
 
 
+def _parse_explicit_round_numbers(
+    settings, raw_round: dict, index: int
+) -> tuple[int, int, int] | None:
+    try:
+        round_no = int(raw_round.get('round_no') or index)
+        match_count = int(raw_round.get('match_count') or 0)
+        max_heat_size = int(settings.get('max_players_per_match') or 0)
+    except TypeError, ValueError:
+        return None
+
+    return round_no, match_count, max_heat_size
+
+
+def _build_explicit_round_display_title(
+    raw_round: dict, index: int, total_round_count: int, round_no: int
+) -> str:
+    return str(
+        raw_round.get('display_title')
+        or raw_round.get('title')
+        or ('Finale' if index == total_round_count else f'Runde {round_no}')
+    ).strip()
+
+
+def _parse_explicit_round(
+    settings, raw_round, index: int, total_round_count: int
+) -> dict[str, int | str] | None:
+    if not isinstance(raw_round, dict):
+        return None
+
+    numbers = _parse_explicit_round_numbers(settings, raw_round, index)
+    if numbers is None:
+        return None
+
+    round_no, match_count, max_heat_size = numbers
+    if round_no < 1 or match_count < 1 or max_heat_size < 1:
+        return None
+
+    return {
+        'round_no': round_no,
+        'match_count': match_count,
+        'max_heat_size': max_heat_size,
+        'display_title': _build_explicit_round_display_title(
+            raw_round, index, total_round_count, round_no
+        ),
+    }
+
+
+def _parse_explicit_rounds(settings) -> list[dict[str, int | str]]:
+    raw_rounds = settings.get('flatout2_rounds')
+    if not isinstance(raw_rounds, list):
+        return []
+
+    parsed_rounds = []
+    total_round_count = len(raw_rounds)
+    for index, raw_round in enumerate(raw_rounds, start=1):
+        parsed_round = _parse_explicit_round(
+            settings, raw_round, index, total_round_count
+        )
+        if parsed_round is not None:
+            parsed_rounds.append(parsed_round)
+
+    return parsed_rounds
+
+
+def _parse_materialized_round_numbers(
+    settings,
+) -> tuple[int, int, int] | None:
+    try:
+        round_no = int(settings.get('builder_display_round_no') or 1)
+        match_count = int(settings.get('builder_expected_match_count') or 0)
+        max_heat_size = int(
+            settings.get('builder_expected_max_heat_size')
+            or settings.get('max_players_per_match')
+            or 0
+        )
+    except TypeError, ValueError:
+        return None
+
+    return round_no, match_count, max_heat_size
+
+
+def _build_materialized_round_summaries(
+    settings,
+) -> list[dict[str, int | str]]:
+    numbers = _parse_materialized_round_numbers(settings)
+    if numbers is None:
+        return []
+
+    round_no, match_count, max_heat_size = numbers
+    if match_count < 1:
+        return []
+
+    return [
+        {
+            'round_no': round_no,
+            'match_count': match_count,
+            'max_heat_size': max_heat_size,
+            'display_title': str(
+                settings.get('builder_display_title')
+                or gettext('Runde %(round_no)s', round_no=round_no)
+            ),
+        }
+    ]
+
+
+def _parse_builder_round_summary_numbers(
+    settings, raw_round_summary: dict, index: int
+) -> tuple[int, int, int] | None:
+    try:
+        round_no = int(raw_round_summary.get('round_no') or index)
+        match_count = int(raw_round_summary.get('match_count') or 0)
+        max_heat_size = int(
+            raw_round_summary.get('max_heat_size')
+            or settings.get('max_players_per_match')
+            or 0
+        )
+    except TypeError, ValueError:
+        return None
+
+    return round_no, match_count, max_heat_size
+
+
+def _parse_builder_round_summary(
+    stage, settings, raw_round_summary, index: int, total_round_count: int
+) -> dict[str, int | str] | None:
+    if not isinstance(raw_round_summary, dict):
+        return None
+
+    numbers = _parse_builder_round_summary_numbers(
+        settings, raw_round_summary, index
+    )
+    if numbers is None:
+        return None
+
+    round_no, match_count, max_heat_size = numbers
+    if match_count < 1:
+        return None
+
+    return {
+        'round_no': round_no,
+        'match_count': match_count,
+        'max_heat_size': max_heat_size,
+        'display_title': get_ffa_single_elimination_round_title(
+            index - 1,
+            total_round_count,
+            stage_type=stage.type,
+            round_no=round_no,
+            total_round_count=total_round_count,
+        ),
+    }
+
+
+def _parse_builder_round_summaries(
+    stage, settings
+) -> list[dict[str, int | str]]:
+    raw_round_summaries = settings.get('builder_expected_round_summaries')
+    if not isinstance(raw_round_summaries, list):
+        return []
+
+    parsed_round_summaries = []
+    total_round_count = len(raw_round_summaries)
+    for index, raw_round_summary in enumerate(raw_round_summaries, start=1):
+        parsed_round_summary = _parse_builder_round_summary(
+            stage, settings, raw_round_summary, index, total_round_count
+        )
+        if parsed_round_summary is not None:
+            parsed_round_summaries.append(parsed_round_summary)
+
+    return parsed_round_summaries
+
+
 def get_flatout2_expected_round_summaries(
     stage,
 ) -> list[dict[str, int | str]]:
@@ -24,112 +195,14 @@ def get_flatout2_expected_round_summaries(
 
     settings = stage.settings or {}
 
-    raw_rounds = settings.get('flatout2_rounds')
-    if isinstance(raw_rounds, list):
-        parsed_rounds = []
-        total_round_count = len(raw_rounds)
-        for index, raw_round in enumerate(raw_rounds, start=1):
-            if not isinstance(raw_round, dict):
-                continue
-
-            try:
-                round_no = int(raw_round.get('round_no') or index)
-                match_count = int(raw_round.get('match_count') or 0)
-                max_heat_size = int(settings.get('max_players_per_match') or 0)
-            except TypeError, ValueError:
-                continue
-
-            if round_no < 1 or match_count < 1 or max_heat_size < 1:
-                continue
-
-            display_title = str(
-                raw_round.get('display_title')
-                or raw_round.get('title')
-                or (
-                    'Finale'
-                    if index == total_round_count
-                    else f'Runde {round_no}'
-                )
-            ).strip()
-            parsed_rounds.append(
-                {
-                    'round_no': round_no,
-                    'match_count': match_count,
-                    'max_heat_size': max_heat_size,
-                    'display_title': display_title,
-                }
-            )
-
-        if parsed_rounds:
-            return parsed_rounds
+    parsed_rounds = _parse_explicit_rounds(settings)
+    if parsed_rounds:
+        return parsed_rounds
 
     if settings.get('builder_materialized_round_stage'):
-        try:
-            round_no = int(settings.get('builder_display_round_no') or 1)
-            match_count = int(settings.get('builder_expected_match_count') or 0)
-            max_heat_size = int(
-                settings.get('builder_expected_max_heat_size')
-                or settings.get('max_players_per_match')
-                or 0
-            )
-        except TypeError, ValueError:
-            return []
+        return _build_materialized_round_summaries(settings)
 
-        if match_count < 1:
-            return []
-
-        return [
-            {
-                'round_no': round_no,
-                'match_count': match_count,
-                'max_heat_size': max_heat_size,
-                'display_title': str(
-                    settings.get('builder_display_title')
-                    or gettext('Runde %(round_no)s', round_no=round_no)
-                ),
-            }
-        ]
-
-    raw_round_summaries = settings.get('builder_expected_round_summaries')
-    if not isinstance(raw_round_summaries, list):
-        return []
-
-    parsed_round_summaries = []
-    total_round_count = len(raw_round_summaries)
-    for index, raw_round_summary in enumerate(raw_round_summaries, start=1):
-        if not isinstance(raw_round_summary, dict):
-            continue
-
-        try:
-            round_no = int(raw_round_summary.get('round_no') or index)
-            match_count = int(raw_round_summary.get('match_count') or 0)
-            max_heat_size = int(
-                raw_round_summary.get('max_heat_size')
-                or settings.get('max_players_per_match')
-                or 0
-            )
-        except TypeError, ValueError:
-            continue
-
-        if match_count < 1:
-            continue
-
-        parsed_round_summaries.append(
-            {
-                'round_no': round_no,
-                'match_count': match_count,
-                'max_heat_size': max_heat_size,
-                'display_title': get_ffa_single_elimination_round_title(
-                    index - 1,
-                    total_round_count,
-                    stage_type=stage.type,
-                    round_no=round_no,
-                    total_round_count=total_round_count,
-                ),
-            }
-        )
-
-    return parsed_round_summaries
+    return _parse_builder_round_summaries(stage, settings)
 
 
 def build_flatout2_placeholder_match_round(stage, round_summary: dict) -> dict:

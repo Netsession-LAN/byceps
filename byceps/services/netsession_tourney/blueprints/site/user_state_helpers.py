@@ -8,17 +8,14 @@ byceps.services.netsession_tourney.blueprints.site.user_state_helpers
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from flask import g, url_for
-from flask_babel import format_datetime, gettext
+from flask_babel import gettext
 
 from byceps.services.netsession_tourney.coin_service import (
     get_coin_settings,
     get_user_coin_balance,
     is_tournament_coin_refund_available,
 )
-from byceps.services.netsession_tourney.enum_labels import enum_label
 from byceps.services.netsession_tourney.models import (
     MatchState,
     ParticipantType,
@@ -37,9 +34,6 @@ from byceps.services.netsession_tourney.tournament_queries import (
 )
 from byceps.services.party.models import PartyID
 from byceps.services.ticketing import ticket_service
-
-from .flatout2_public_rendering import get_flatout2_host_participant_id
-from .stage_filters import _is_flatout2_stage
 
 
 def get_registration_state_for_tournament(tournament) -> dict:
@@ -90,26 +84,25 @@ def get_user_registered_tournament_ids(
     )
 
 
-def build_registration_state(
-    tournament,
-    active_participant_count: int,
-    user_is_registered: bool,
-) -> dict:
-    is_full = (
+def _is_registration_full(tournament, active_participant_count: int):
+    return (
         tournament.participant_limit is not None
         and active_participant_count >= tournament.participant_limit
     )
-    user = getattr(g, 'user', None)
-    can_participate = user is not None and user.authenticated
-    coin_settings = get_party_coin_settings()
-    user_coin_balance = get_current_user_coin_balance()
-    available_coins = (
+
+
+def _get_available_coins(user_coin_balance):
+    return (
         user_coin_balance.available_coins
         if user_coin_balance is not None
         else None
     )
-    coins_enabled = coin_settings.enabled
-    has_enough_coins = (
+
+
+def _has_enough_coins(
+    coins_enabled, tournament, can_participate, available_coins
+):
+    return (
         not coins_enabled
         or tournament.coin_cost <= 0
         or not can_participate
@@ -118,8 +111,16 @@ def build_registration_state(
             and available_coins >= tournament.coin_cost
         )
     )
-    insufficient_coins = can_participate and not has_enough_coins
-    can_register = (
+
+
+def _can_register(
+    tournament,
+    can_participate,
+    user_is_registered: bool,
+    is_full,
+    has_enough_coins,
+):
+    return (
         can_participate
         and tournament.registration_open
         and tournament.status == TournamentStatus.draft
@@ -127,16 +128,51 @@ def build_registration_state(
         and not is_full
         and has_enough_coins
     )
-    can_unregister = (
+
+
+def _can_unregister(tournament, can_participate, user_is_registered: bool):
+    return (
         can_participate
         and user_is_registered
         and tournament.status == TournamentStatus.draft
     )
-    refund_available = (
+
+
+def _is_coin_refund_available(tournament, coins_enabled):
+    return (
         coins_enabled
         and tournament.coin_cost > 0
         and is_tournament_coin_refund_available(tournament)
     )
+
+
+def build_registration_state(
+    tournament,
+    active_participant_count: int,
+    user_is_registered: bool,
+) -> dict:
+    is_full = _is_registration_full(tournament, active_participant_count)
+    user = getattr(g, 'user', None)
+    can_participate = user is not None and user.authenticated
+    coin_settings = get_party_coin_settings()
+    user_coin_balance = get_current_user_coin_balance()
+    available_coins = _get_available_coins(user_coin_balance)
+    coins_enabled = coin_settings.enabled
+    has_enough_coins = _has_enough_coins(
+        coins_enabled, tournament, can_participate, available_coins
+    )
+    insufficient_coins = can_participate and not has_enough_coins
+    can_register = _can_register(
+        tournament,
+        can_participate,
+        user_is_registered,
+        is_full,
+        has_enough_coins,
+    )
+    can_unregister = _can_unregister(
+        tournament, can_participate, user_is_registered
+    )
+    refund_available = _is_coin_refund_available(tournament, coins_enabled)
 
     return {
         'active_participant_count': active_participant_count,
@@ -152,6 +188,25 @@ def build_registration_state(
     }
 
 
+def _is_match_open_for_reports(tournament, match) -> bool:
+    if tournament.status != TournamentStatus.live:
+        return False
+
+    return match.state in {
+        MatchState.ready,
+        MatchState.in_progress,
+        MatchState.pending_confirmation,
+    }
+
+
+def _is_match_managed_by_user(slots, participants_by_id, user_id) -> bool:
+    return any(
+        participant is not None and participant.manager_user_id == user_id
+        for slot in slots
+        for participant in [participants_by_id.get(slot.participant_id)]
+    )
+
+
 def can_user_report_match_result(
     user_id,
     tournament,
@@ -162,14 +217,7 @@ def can_user_report_match_result(
     is_admin_or_referee: bool,
     admin_only: bool = False,
 ) -> bool:
-    if tournament.status != TournamentStatus.live:
-        return False
-
-    if match.state not in {
-        MatchState.ready,
-        MatchState.in_progress,
-        MatchState.pending_confirmation,
-    }:
+    if not _is_match_open_for_reports(tournament, match):
         return False
 
     if is_admin_or_referee:
@@ -181,11 +229,7 @@ def can_user_report_match_result(
     if tournament.mode == TournamentMode.ffa:
         return False
 
-    return any(
-        participant is not None and participant.manager_user_id == user_id
-        for slot in slots
-        for participant in [participants_by_id.get(slot.participant_id)]
-    )
+    return _is_match_managed_by_user(slots, participants_by_id, user_id)
 
 
 def get_captain_team_for_current_user(tournament_id):
@@ -196,6 +240,33 @@ def get_captain_team_for_current_user(tournament_id):
     return find_managed_team_for_user(g.party.id, tournament_id, user.id)
 
 
+def _find_team_member_for_user(members, user_id):
+    for member in members:
+        if member.user_id == user_id:
+            return member
+    return None
+
+
+def _find_participant_membership(participant, members_by_participant_id, user):
+    if participant.type == ParticipantType.team:
+        member = _find_team_member_for_user(
+            members_by_participant_id.get(participant.id, []), user.id
+        )
+        if member is not None:
+            return {
+                'participant': participant,
+                'member': member,
+            }
+
+    if participant.user_id == user.id:
+        return {
+            'participant': participant,
+            'member': None,
+        }
+
+    return None
+
+
 def get_current_user_tournament_membership(
     participants, members_by_participant_id
 ):
@@ -204,21 +275,11 @@ def get_current_user_tournament_membership(
         return None
 
     for participant in participants:
-        if participant.type == ParticipantType.team:
-            for member in members_by_participant_id.get(participant.id, []):
-                if member.user_id != user.id:
-                    continue
-
-                return {
-                    'participant': participant,
-                    'member': member,
-                }
-
-        if participant.user_id == user.id:
-            return {
-                'participant': participant,
-                'member': None,
-            }
+        membership = _find_participant_membership(
+            participant, members_by_participant_id, user
+        )
+        if membership is not None:
+            return membership
 
     return None
 
@@ -232,6 +293,18 @@ def format_open_match_participant_name(slot, *, participants_by_id) -> str:
         return gettext('offen')
 
     return participant.name
+
+
+def _is_participant_involving_user(
+    participant, user_id, members_by_participant_id
+) -> bool:
+    if participant.user_id == user_id or participant.manager_user_id == user_id:
+        return True
+
+    return any(
+        member.user_id == user_id
+        for member in members_by_participant_id.get(participant.id, [])
+    )
 
 
 def is_match_involving_user(
@@ -249,15 +322,8 @@ def is_match_involving_user(
         if participant is None:
             continue
 
-        if (
-            participant.user_id == user_id
-            or participant.manager_user_id == user_id
-        ):
-            return True
-
-        if any(
-            member.user_id == user_id
-            for member in members_by_participant_id.get(participant.id, [])
+        if _is_participant_involving_user(
+            participant, user_id, members_by_participant_id
         ):
             return True
 
@@ -271,103 +337,6 @@ def format_team_member_role_label(role: TeamMemberRole) -> str:
         return gettext('Ersatzspieler')
 
     return gettext('Mitspieler')
-
-
-def build_current_user_overview_match_rows(
-    tournament,
-    matches,
-    slots_by_match_id,
-    results_by_match_id,
-    participants_by_id,
-    stages_by_id,
-    match_labels_by_id,
-    current_participant_id,
-):
-    if current_participant_id is None:
-        return []
-
-    rows = []
-
-    for match in matches:
-        slots = slots_by_match_id.get(match.id, [])
-        if not any(
-            slot.participant_id == current_participant_id for slot in slots
-        ):
-            continue
-
-        is_flatout2_match = _is_flatout2_stage(stages_by_id.get(match.stage_id))
-        participant_count = len(
-            [slot for slot in slots if slot.participant_id is not None]
-        )
-
-        opponent_names = []
-        for slot in slots:
-            if slot.participant_id == current_participant_id:
-                continue
-
-            participant = participants_by_id.get(slot.participant_id)
-            if participant is not None:
-                opponent_names.append(participant.name)
-            elif slot.participant_id is None:
-                opponent_names.append(gettext('Freilos'))
-
-        result = results_by_match_id.get(match.id)
-        score_display = None
-        if result is not None and isinstance(result.score, dict):
-            score_display = result.score.get('display')
-
-        rows.append(
-            {
-                'match': match,
-                'url': url_for(
-                    'netsession_tourney.view_match',
-                    slug=tournament.slug,
-                    match_id=match.id,
-                ),
-                'match_label': match_labels_by_id.get(
-                    match.id, f'{gettext("Match")} #{match.match_no}'
-                ),
-                'stage_name': (
-                    stages_by_id[match.stage_id].name
-                    if match.stage_id in stages_by_id
-                    else '-'
-                ),
-                'opponent_label': (
-                    gettext(
-                        'Heat mit %(count)s Teilnehmern',
-                        count=participant_count,
-                    )
-                    if is_flatout2_match
-                    else (
-                        ', '.join(opponent_names)
-                        if opponent_names
-                        else gettext('Freilos')
-                    )
-                ),
-                'scheduled_at_label': (
-                    format_datetime(match.scheduled_at, 'short')
-                    if match.scheduled_at is not None
-                    else '-'
-                ),
-                'state_label': enum_label(match.state),
-                'score_display': score_display,
-                'is_flatout2_match': is_flatout2_match,
-                'is_host': (
-                    get_flatout2_host_participant_id(match)
-                    == str(current_participant_id)
-                ),
-            }
-        )
-
-    return sorted(
-        rows,
-        key=lambda row: (
-            row['match'].state == MatchState.completed,
-            row['match'].scheduled_at or datetime.max,
-            row['match'].round_no,
-            row['match'].match_no,
-        ),
-    )
 
 
 def get_seat_data_by_user_id(party_id: PartyID, user_ids: set) -> dict:
