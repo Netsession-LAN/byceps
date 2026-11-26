@@ -223,7 +223,7 @@ def update_team(slug, participant_id):
 
     user = user_service.get_user(g.user.id)
     logo_file = request.files.get('logo_file')
-    replace_logo = bool(logo_file is not None and logo_file.filename)
+    replace_logo = _is_logo_replacement(logo_file)
     team_logo_url = None
     if replace_logo:
         upload_result = upload_logo_for_managed_team(
@@ -247,20 +247,32 @@ def update_team(slug, participant_id):
         tournament.id,
         participant_id,
         user,
-        (
-            form.name.data
-            if tournament.status == TournamentStatus.draft
-            else request.form.get('name', '')
-        ),
+        _get_team_update_name(tournament, form),
         team_logo_url=team_logo_url,
         replace_logo=replace_logo,
     )
+    _flash_team_update_result(result)
+
+    return redirect_to('.view_team', slug=slug, participant_id=participant_id)
+
+
+def _is_logo_replacement(logo_file) -> bool:
+    return bool(logo_file is not None and logo_file.filename)
+
+
+def _get_team_update_name(tournament, form) -> str:
+    return (
+        form.name.data
+        if tournament.status == TournamentStatus.draft
+        else request.form.get('name', '')
+    )
+
+
+def _flash_team_update_result(result) -> None:
     if result.is_ok():
         flash_success(gettext('Das Team wurde aktualisiert.'))
     else:
         flash_error(result.unwrap_err())
-
-    return redirect_to('.view_team', slug=slug, participant_id=participant_id)
 
 
 @blueprint.post('/<slug>/teams/join')

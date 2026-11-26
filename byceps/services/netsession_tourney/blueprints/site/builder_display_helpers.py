@@ -70,15 +70,18 @@ def get_builder_main_display_stages(stages):
                 for child_stage in get_builder_container_child_stages(
                     stages, stage
                 )
-                if not (child_stage.settings or {}).get('builder_role')
-                or str(
-                    (child_stage.settings or {}).get('builder_role')
-                ).startswith('main')
+                if _is_main_display_child_stage(child_stage)
             )
         else:
             display_stages.append(stage)
 
     return display_stages
+
+
+def _is_main_display_child_stage(child_stage) -> bool:
+    return not (child_stage.settings or {}).get('builder_role') or str(
+        (child_stage.settings or {}).get('builder_role')
+    ).startswith('main')
 
 
 def select_matches_for_public_bracket(stages, matches):
@@ -109,57 +112,39 @@ def _is_materialized_builder_round_robin_summary_stage(stage) -> bool:
 def build_builder_stage_summary_lines(stage, stages) -> list[str]:
     settings = stage.settings or {}
     if settings.get('builder_materialized_stage_ids'):
-        lines = [
-            gettext(
-                'Diese Vorrunden-Übersicht enthält eigene Rundenphasen, die nacheinander vorbereitet und gespielt werden.'
-            )
-        ]
-        child_stages = get_builder_container_child_stages(stages, stage)
-        if child_stages:
-            lines.append(
-                gettext(
-                    '%(count)s Rundenphasen: %(names)s',
-                    count=len(child_stages),
-                    names=', '.join(
-                        stage_item.name for stage_item in child_stages
-                    ),
-                )
-            )
+        return _build_round_container_summary_lines(stage, stages)
 
-        main_container = next(
-            (
-                stage_item
-                for stage_item in stages
-                if (stage_item.settings or {}).get('builder_role') == 'main'
-                and (stage_item.settings or {}).get(
-                    'builder_preliminary_stage_id'
-                )
-                == str(stage.id)
-            ),
-            None,
+    return _build_group_summary_lines(stage, stages, settings)
+
+
+def _build_round_container_summary_lines(stage, stages) -> list[str]:
+    lines = [
+        gettext(
+            'Diese Vorrunden-Übersicht enthält eigene Rundenphasen, die nacheinander vorbereitet und gespielt werden.'
         )
-        if main_container is not None:
-            lines.append(
-                gettext('Hauptturnier: %(name)s', name=main_container.name)
+    ]
+    child_stages = get_builder_container_child_stages(stages, stage)
+    if child_stages:
+        lines.append(
+            gettext(
+                '%(count)s Rundenphasen: %(names)s',
+                count=len(child_stages),
+                names=', '.join(stage_item.name for stage_item in child_stages),
             )
+        )
 
-        return lines
+    _append_main_stage_line(lines, stage, stages)
+    return lines
 
+
+def _build_group_summary_lines(stage, stages, settings) -> list[str]:
     lines = [
         gettext(
             'Diese Vorrunden-Übersicht fasst die Gruppenphase zusammen. Die eigentlichen Matches liegen in den Gruppenphasen.'
         )
     ]
 
-    group_stage_ids = {
-        str(stage_id)
-        for stage_id in settings.get('builder_materialized_group_stage_ids', [])
-    }
-    group_stages = [
-        stage_item
-        for stage_item in stages
-        if str(stage_item.id) in group_stage_ids
-    ]
+    group_stages = _get_summary_group_stages(stages, settings)
     if group_stages:
         lines.append(
             gettext(
@@ -178,7 +163,30 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
             )
         )
 
-    main_stage = next(
+    _append_main_stage_line(lines, stage, stages)
+    return lines
+
+
+def _get_summary_group_stages(stages, settings) -> list:
+    group_stage_ids = {
+        str(stage_id)
+        for stage_id in settings.get('builder_materialized_group_stage_ids', [])
+    }
+    return [
+        stage_item
+        for stage_item in stages
+        if str(stage_item.id) in group_stage_ids
+    ]
+
+
+def _append_main_stage_line(lines: list[str], stage, stages) -> None:
+    main_stage = _find_main_stage_for_preliminary(stage, stages)
+    if main_stage is not None:
+        lines.append(gettext('Hauptturnier: %(name)s', name=main_stage.name))
+
+
+def _find_main_stage_for_preliminary(stage, stages):
+    return next(
         (
             stage_item
             for stage_item in stages
@@ -188,10 +196,6 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
         ),
         None,
     )
-    if main_stage is not None:
-        lines.append(gettext('Hauptturnier: %(name)s', name=main_stage.name))
-
-    return lines
 
 
 def get_flatout2_builder_bracket_display_stages(stages):

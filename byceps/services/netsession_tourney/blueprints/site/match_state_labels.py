@@ -11,23 +11,23 @@ from byceps.services.netsession_tourney.enum_labels import enum_label
 from byceps.services.netsession_tourney.models import MatchState
 
 
-def bracket_label(state: MatchState) -> str:
+_BRACKET_LABEL_FACTORIES = {
+    MatchState.pending: lambda: gettext('Offen'),
+    MatchState.ready: lambda: gettext('Bereit'),
+    MatchState.in_progress: lambda: gettext('Live'),
+    MatchState.pending_confirmation: lambda: gettext('Bestätigung'),
+    MatchState.needs_admin_review: lambda: gettext('Prüfung'),
+    MatchState.completed: lambda: gettext('Fertig'),
+    MatchState.disputed: lambda: gettext('Strittig'),
+}
+
+
+def bracket_label(state: MatchState) -> str | None:
     """Return a short label that fits on a bracket card."""
-    match state:
-        case MatchState.pending:
-            return gettext('Offen')
-        case MatchState.ready:
-            return gettext('Bereit')
-        case MatchState.in_progress:
-            return gettext('Live')
-        case MatchState.pending_confirmation:
-            return gettext('Bestätigung')
-        case MatchState.needs_admin_review:
-            return gettext('Prüfung')
-        case MatchState.completed:
-            return gettext('Fertig')
-        case MatchState.disputed:
-            return gettext('Strittig')
+    label_factory = _BRACKET_LABEL_FACTORIES.get(state)
+    if label_factory is None:
+        return None
+    return label_factory()
 
 
 def open_label(state: MatchState) -> str:

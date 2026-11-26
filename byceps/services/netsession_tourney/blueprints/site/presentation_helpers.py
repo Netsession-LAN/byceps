@@ -75,39 +75,12 @@ def build_match_overview_slot_data(
     users_by_id,
 ) -> dict:
     if slot is None:
-        return {
-            'name': gettext('offen'),
-            'image_url': None,
-            'image_alt': None,
-            'show_avatar': True,
-            'is_bye': False,
-            'is_winner': False,
-        }
+        return _build_open_slot_data()
 
     participant = slot.get('participant')
     is_bye = bool(slot.get('is_bye'))
-    image_url = None
-    image_alt = None
-
-    if (
-        participant
-        and participant.type.value == 'team'
-        and participant.logo_url
-    ):
-        image_url = participant.logo_url
-        image_alt = gettext('Team-Logo')
-    elif participant and participant.user_id is not None:
-        user = users_by_id.get(participant.user_id)
-        if user is not None and user.avatar_url:
-            image_url = user.avatar_url
-            image_alt = gettext('Avatar')
-
-    if is_bye:
-        name = gettext('Freilos')
-    elif participant is None:
-        name = gettext('offen')
-    else:
-        name = participant.name
+    image_url, image_alt = get_participant_image(participant, users_by_id)
+    name = _get_slot_name(participant, is_bye)
 
     return {
         'name': name,
@@ -117,6 +90,52 @@ def build_match_overview_slot_data(
         'is_bye': is_bye,
         'is_winner': winner_slot is not None and slot['slot_no'] == winner_slot,
     }
+
+
+def _build_open_slot_data() -> dict:
+    return {
+        'name': gettext('offen'),
+        'image_url': None,
+        'image_alt': None,
+        'show_avatar': True,
+        'is_bye': False,
+        'is_winner': False,
+    }
+
+
+def get_participant_image(
+    participant, users_by_id
+) -> tuple[str | None, str | None]:
+    if _has_team_logo(participant):
+        return participant.logo_url, gettext('Team-Logo')
+
+    if participant and participant.user_id is not None:
+        return _get_user_avatar(participant.user_id, users_by_id)
+
+    return None, None
+
+
+def _has_team_logo(participant) -> bool:
+    return bool(
+        participant
+        and participant.type.value == 'team'
+        and participant.logo_url
+    )
+
+
+def _get_user_avatar(user_id, users_by_id) -> tuple[str | None, str | None]:
+    user = users_by_id.get(user_id)
+    if user is not None and user.avatar_url:
+        return user.avatar_url, gettext('Avatar')
+    return None, None
+
+
+def _get_slot_name(participant, is_bye: bool) -> str:
+    if is_bye:
+        return gettext('Freilos')
+    if participant is None:
+        return gettext('offen')
+    return participant.name
 
 
 def get_stage_duration_minutes(stage) -> int | None:

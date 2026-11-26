@@ -33,13 +33,7 @@ def build_elimination_placements(
     """Return a place per participant, or `None` if the bracket is not
     finished or has no single final."""
     # A skipped grand final reset is treated as if it did not exist.
-    played = [
-        match
-        for match in matches
-        if not is_skipped_double_grand_final_result(
-            results_by_match_id.get(match.id)
-        )
-    ]
+    played = _played_matches(matches, results_by_match_id)
     results = {match.id: results_by_match_id.get(match.id) for match in played}
     if not played:
         return None
@@ -52,19 +46,7 @@ def build_elimination_placements(
         return None
 
     # Only rank a finished bracket: every real match must be decided.
-    for match in played:
-        if _is_real_match(match, slots_by_match_id) and (
-            _outcome(match, slots_by_match_id, results) is None
-        ):
-            return None
-    if (
-        _outcome(
-            next(m for m in played if m.id == final_id),
-            slots_by_match_id,
-            results,
-        )
-        is None
-    ):
+    if not _is_bracket_finished(played, final_id, slots_by_match_id, results):
         return None
 
     distance = _distances_to_final(played, targets, final_id)
@@ -75,21 +57,59 @@ def build_elimination_placements(
             third_place_id, slots_by_match_id, results
         )
 
+    groups += _eliminated_groups(
+        played,
+        targets,
+        distance,
+        {final_id, third_place_id},
+        slots_by_match_id,
+        results,
+    )
+
+    return _places_from_groups(groups)
+
+
+def _played_matches(matches, results_by_match_id) -> list:
+    return [
+        match
+        for match in matches
+        if not is_skipped_double_grand_final_result(
+            results_by_match_id.get(match.id)
+        )
+    ]
+
+
+def _is_bracket_finished(played, final_id, slots_by_match_id, results) -> bool:
+    for match in played:
+        if _is_real_match(match, slots_by_match_id) and (
+            _outcome(match, slots_by_match_id, results) is None
+        ):
+            return False
+    final_match = next(m for m in played if m.id == final_id)
+    return _outcome(final_match, slots_by_match_id, results) is not None
+
+
+def _eliminated_groups(
+    played, targets, distance, placed_match_ids, slots_by_match_id, results
+) -> list[list[ParticipantId]]:
     eliminated_by_distance: dict[int, list[ParticipantId]] = defaultdict(list)
     for match in played:
-        if match.id in {final_id, third_place_id}:
+        if match.id in placed_match_ids:
             continue
-        if any(outcome == 'loser' for _, outcome in targets[match.id]):
+        if _loser_drops_into_another_match(targets, match):
             continue  # loser drops into another match, not eliminated here
         outcome = _outcome(match, slots_by_match_id, results)
         if outcome is not None and outcome[1] is not None:
             eliminated_by_distance[distance.get(match.id, 999)].append(
                 outcome[1]
             )
-    for key in sorted(eliminated_by_distance):
-        groups.append(eliminated_by_distance[key])
+    return [
+        eliminated_by_distance[key] for key in sorted(eliminated_by_distance)
+    ]
 
-    return _places_from_groups(groups)
+
+def _loser_drops_into_another_match(targets, match) -> bool:
+    return any(outcome == 'loser' for _, outcome in targets[match.id])
 
 
 def _participants(slots_by_match_id, match_id) -> list[ParticipantId]:
@@ -110,13 +130,21 @@ def _outcome(match, slots_by_match_id, results):
     slots = slots_by_match_id.get(match.id, [])
     result = results.get(match.id)
     if result is None or result.winner_slot is None:
-        if not _is_real_match(match, slots_by_match_id):
-            participants = _participants(slots_by_match_id, match.id)
-            return (participants[0], None) if participants else None
-        return None
+        return _undecided_outcome(match, slots_by_match_id)
+    return _find_winner_and_loser(slots, result)
+
+
+def _undecided_outcome(match, slots_by_match_id):
+    if not _is_real_match(match, slots_by_match_id):
+        participants = _participants(slots_by_match_id, match.id)
+        return (participants[0], None) if participants else None
+    return None
+
+
+def _find_winner_and_loser(slots, result):
     winner = loser = None
     for slot in slots:
-        if slot.slot_no == result.winner_slot:
+        if result is not None and slot.slot_no == result.winner_slot:
             winner = slot.participant_id
         elif slot.participant_id is not None:
             loser = slot.participant_id
@@ -154,17 +182,26 @@ def _incoming_outcomes(match, slots_by_match_id) -> set[str]:
 
 
 def _find_final_and_third_place(matches, targets, slots_by_match_id):
-    terminal = [m for m in matches if not targets[m.id]]
-    third_place = [
-        m
-        for m in terminal
-        if _incoming_outcomes(m, slots_by_match_id) == {'loser'}
-    ]
-    finals = [m for m in terminal if m not in third_place]
+    third_place, finals = _split_terminal_matches(
+        matches, targets, slots_by_match_id
+    )
     if len(finals) != 1:
         return None, None
     third_place_id = third_place[0].id if len(third_place) == 1 else None
     return finals[0].id, third_place_id
+
+
+def _split_terminal_matches(matches, targets, slots_by_match_id):
+    terminal = [m for m in matches if not targets[m.id]]
+    third_place = [
+        m for m in terminal if _is_third_place_match(m, slots_by_match_id)
+    ]
+    finals = [m for m in terminal if m not in third_place]
+    return third_place, finals
+
+
+def _is_third_place_match(match, slots_by_match_id) -> bool:
+    return _incoming_outcomes(match, slots_by_match_id) == {'loser'}
 
 
 def _distances_to_final(matches, targets, final_id) -> dict[MatchId, int]:
@@ -188,12 +225,7 @@ def _distances_to_final(matches, targets, final_id) -> dict[MatchId, int]:
 def _winner_and_loser_groups(match_id, slots_by_match_id, results):
     slots = slots_by_match_id.get(match_id, [])
     result = results.get(match_id)
-    winner = loser = None
-    for slot in slots:
-        if result is not None and slot.slot_no == result.winner_slot:
-            winner = slot.participant_id
-        elif slot.participant_id is not None:
-            loser = slot.participant_id
+    winner, loser = _find_winner_and_loser(slots, result)
     return [[p] for p in (winner, loser) if p is not None]
 
 
@@ -216,6 +248,11 @@ def apply_placements(ranking_rows: list[dict], places) -> list[dict]:
     )
     rest = [row for row in ranking_rows if row['participant'].id not in places]
     rows = [{**row, 'rank': places[row['participant'].id]} for row in placed]
+    _append_unplaced_rows(rows, rest)
+    return rows
+
+
+def _append_unplaced_rows(rows: list[dict], rest: list[dict]) -> None:
     next_rank = len(rows) + 1
     previous_rank = None
     for index, row in enumerate(rest):
@@ -223,7 +260,6 @@ def apply_placements(ranking_rows: list[dict], places) -> list[dict]:
             current = next_rank + index
             previous_rank = row.get('rank')
         rows.append({**row, 'rank': current})
-    return rows
 
 
 ELIMINATION_STAGE_TYPE_VALUES = {
