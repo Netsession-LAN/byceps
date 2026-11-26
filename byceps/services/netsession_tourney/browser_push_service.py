@@ -7,43 +7,40 @@ Browser push: configuration (VAPID keys), subscriptions and recipients.
 
 from __future__ import annotations
 
-from base64 import urlsafe_b64encode
 from datetime import datetime
-from hashlib import sha256
 from typing import Any
 
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from flask import current_app
-from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
 from byceps.database import db
-from byceps.services.party.dbmodels import DbParty
 from byceps.services.party.models import PartyID
 from byceps.services.user.models import UserID
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
+from .browser_push_config import (
+    configure_browser_push as configure_browser_push,
+    get_browser_push_config as get_browser_push_config,
+    get_browser_push_public_key_for_party as get_browser_push_public_key_for_party,
+    is_browser_push_enabled_for_party as is_browser_push_enabled_for_party,
+    is_missing_browser_push_table_error as is_missing_browser_push_table_error,
+)
 from .browser_push_endpoint import validate_push_subscription
+from .browser_push_keys import (
+    decrypt_browser_push_private_key as decrypt_browser_push_private_key,
+)
 from .dbmodels import (
-    DbNetsessionTourneyBrowserPushConfig,
     DbNetsessionTourneyBrowserPushOutbox,
     DbNetsessionTourneyBrowserPushSubscription,
     DbNetsessionTourneyNotification,
 )
 from .models import (
-    BrowserPushConfig,
     BrowserPushSubscriptionID,
     TournamentID,
 )
 from .notification_recipients import (
     get_active_user_ids_for_tournament,
-)
-from .service_helpers import (
-    db_browser_push_config_to_model,
 )
 
 
@@ -63,105 +60,6 @@ BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS = {
 
 
 BROWSER_PUSH_MAX_ATTEMPTS = 5
-
-
-def get_browser_push_config(party_id: PartyID) -> BrowserPushConfig:
-    try:
-        db_config = db.session.get(
-            DbNetsessionTourneyBrowserPushConfig, party_id
-        )
-    except DBAPIError as exc:
-        if is_missing_browser_push_table_error(exc):
-            db.session.rollback()
-            return _build_default_browser_push_config(party_id)
-        raise
-
-    if db_config is None:
-        return _build_default_browser_push_config(party_id)
-
-    return db_browser_push_config_to_model(db_config)
-
-
-def is_browser_push_enabled_for_party(party_id: PartyID) -> bool:
-    try:
-        db_config = db.session.get(
-            DbNetsessionTourneyBrowserPushConfig, party_id
-        )
-    except DBAPIError as exc:
-        if is_missing_browser_push_table_error(exc):
-            db.session.rollback()
-            return False
-        raise
-
-    return bool(db_config and db_config.enabled and db_config.vapid_public_key)
-
-
-def get_browser_push_public_key_for_party(party_id: PartyID) -> str | None:
-    try:
-        db_config = db.session.get(
-            DbNetsessionTourneyBrowserPushConfig, party_id
-        )
-    except DBAPIError as exc:
-        if is_missing_browser_push_table_error(exc):
-            db.session.rollback()
-            return None
-        raise
-
-    if db_config is None or not db_config.enabled:
-        return None
-
-    return db_config.vapid_public_key
-
-
-def configure_browser_push(
-    party_id: PartyID,
-    *,
-    enabled: bool,
-) -> Result[BrowserPushConfig, str]:
-    db_party = db.session.get(DbParty, party_id)
-    if db_party is None:
-        return Err('Unbekannte Party.')
-
-    try:
-        db_config = db.session.get(
-            DbNetsessionTourneyBrowserPushConfig, party_id
-        )
-    except DBAPIError as exc:
-        if is_missing_browser_push_table_error(exc):
-            db.session.rollback()
-            return Err(
-                'Die Tabellen für Browser-Benachrichtigungen fehlen noch.'
-            )
-        raise
-
-    now = datetime.utcnow()
-    if db_config is None:
-        db_config = DbNetsessionTourneyBrowserPushConfig(party_id, now)
-        db.session.add(db_config)
-
-    if enabled:
-        _ensure_browser_push_vapid_keys(db_config)
-
-    db_config.enabled = enabled
-    db_config.updated_at = now
-    db.session.commit()
-
-    return Ok(db_browser_push_config_to_model(db_config))
-
-
-def _ensure_browser_push_vapid_keys(
-    db_config: DbNetsessionTourneyBrowserPushConfig,
-) -> None:
-    if db_config.vapid_public_key and db_config.vapid_private_key_encrypted:
-        return
-
-    private_key_pem = _generate_browser_push_private_key_pem()
-    db_config.vapid_public_key = _derive_browser_push_public_key(
-        private_key_pem
-    )
-    db_config.vapid_private_key_encrypted = _encrypt_browser_push_private_key(
-        private_key_pem
-    )
 
 
 def upsert_browser_push_subscription(
@@ -407,83 +305,3 @@ def _clean_browser_push_payload_text(
     payload: dict[str, Any], key: str
 ) -> str | None:
     return str(payload.get(key) or '').strip() or None
-
-
-def _get_browser_push_fernet() -> Fernet:
-    secret_key = current_app.config['SECRET_KEY']
-    if isinstance(secret_key, str):
-        raw = secret_key.encode('utf-8')
-    else:
-        raw = bytes(secret_key)
-
-    key = urlsafe_b64encode(sha256(raw + b'browser-push').digest())
-    return Fernet(key)
-
-
-def _get_browser_push_serializer() -> URLSafeSerializer:
-    return URLSafeSerializer(
-        current_app.config['SECRET_KEY'], salt='netsession_tourney.browser_push'
-    )
-
-
-def _generate_browser_push_private_key_pem() -> str:
-    private_key = ec.generate_private_key(ec.SECP256R1())
-    pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    return pem.decode('ascii')
-
-
-def _derive_browser_push_public_key(private_key_pem: str) -> str:
-    private_key = serialization.load_pem_private_key(
-        private_key_pem.encode('ascii'), password=None
-    )
-    public_key = private_key.public_key()
-    public_key_bytes = public_key.public_bytes(
-        encoding=serialization.Encoding.X962,
-        format=serialization.PublicFormat.UncompressedPoint,
-    )
-    return urlsafe_b64encode(public_key_bytes).decode('ascii').rstrip('=')
-
-
-def _encrypt_browser_push_private_key(private_key_pem: str) -> str:
-    token = _get_browser_push_fernet().encrypt(private_key_pem.encode('utf-8'))
-    return token.decode('ascii')
-
-
-def decrypt_browser_push_private_key(token: str) -> str | None:
-    try:
-        decrypted = _get_browser_push_fernet().decrypt(token.encode('ascii'))
-        return decrypted.decode('utf-8')
-    except InvalidToken, UnicodeDecodeError:
-        try:
-            data = _get_browser_push_serializer().loads(token)
-        except BadSignature:
-            return None
-
-        private_key_pem = data.get('private_key_pem')
-        return private_key_pem if isinstance(private_key_pem, str) else None
-
-
-def _build_default_browser_push_config(
-    party_id: PartyID,
-) -> BrowserPushConfig:
-    now = datetime.utcnow()
-    return BrowserPushConfig(
-        party_id=party_id,
-        enabled=False,
-        vapid_public_key=None,
-        created_at=now,
-        updated_at=now,
-    )
-
-
-def is_missing_browser_push_table_error(exc: DBAPIError) -> bool:
-    sqlstate = getattr(getattr(exc, 'orig', None), 'sqlstate', None)
-    if sqlstate != '42P01':
-        return False
-
-    statement = str(getattr(exc, 'statement', '') or '')
-    return 'netsession_tourney_browser_push_' in statement
