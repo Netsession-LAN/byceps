@@ -1,0 +1,82 @@
+# Netsession fork: tests with coverage for the `netsession` branch.
+#
+# Upstream's `test.yml` only runs for `main` and uploads coverage only for
+# byceps/byceps. This workflow does the same for our exported branch so that
+# qlty.sh can rate coverage. Steps and pinned actions follow `test.yml`.
+
+name: Netsession tests
+
+on:
+  push:
+    branches: [ netsession ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.rst'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres@sha256:52e6ffd11fddd081ae63880b635b2a61c14008c17fc98cdc7ce5472265516dd0
+        env:
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis@sha256:1f073813b641755b70b0200da64131bbeeb4ec5b633ca67772229b49820caafa
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      with:
+        enable-cache: auto
+        cache-dependency-glob: "uv.lock"
+        python-version: "3.14"
+
+    - name: Install project
+      run: uv sync --frozen --group test
+
+    - name: Test with pytest and coverage
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: postgres
+        PYTEST_ADDOPTS: "--color=yes"
+      run: |
+        uv run --no-sync coverage run --source=byceps -m pytest tests
+
+    - name: Generate XML output from test coverage
+      run: |
+        uv run --no-sync coverage xml
+
+    - name: Upload coverage to Qlty
+      uses: qltysh/qlty-action/coverage@c9b09987143d1e4ac955f4803c7bea742102feb5 # v2.4.0
+      with:
+        oidc: true
+        files: coverage.xml
