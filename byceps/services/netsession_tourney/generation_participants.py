@@ -212,9 +212,15 @@ def _decide_by_builder_main_stage_size(
         return None
 
     has_preliminary = bool(stage.settings.get('builder_preliminary_stage_id'))
-    if has_preliminary and len(eligible_participants) <= builder_main_stage_size:
+    if (
+        has_preliminary
+        and len(eligible_participants) <= builder_main_stage_size
+    ):
         return Ok(eligible_participants)
-    if not has_preliminary and len(eligible_participants) > builder_main_stage_size:
+    if (
+        not has_preliminary
+        and len(eligible_participants) > builder_main_stage_size
+    ):
         return Err(
             'Die aktuelle Anzahl bereiter Teilnehmer überschreitet die konfigurierte Größe des Hauptturniers. '
             'Aktiviere eine Vorrunde oder reduziere die Teilnehmerbasis.'
@@ -231,7 +237,9 @@ def _select_builder_fixed_participants(
         'builder_fixed_participant_ids', []
     ):
         try:
-            fixed_participant_ids.append(ParticipantID(UUID(str(raw_participant_id))))
+            fixed_participant_ids.append(
+                ParticipantID(UUID(str(raw_participant_id)))
+            )
         except ValueError:
             continue
 

@@ -50,8 +50,8 @@ from .service_helpers import (
 )
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 from .tourney_registration_checks import validate_user_can_enter_tournament
 
@@ -243,9 +243,7 @@ def set_managed_team_ready_state(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status not in {TournamentStatus.draft, TournamentStatus.live}:
-        return Err(
-            'Die Teamverwaltung ist gerade nicht verfügbar.'
-        )
+        return Err('Die Teamverwaltung ist gerade nicht verfügbar.')
 
     db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id

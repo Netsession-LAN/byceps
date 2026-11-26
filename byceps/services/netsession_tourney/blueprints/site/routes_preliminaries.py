@@ -17,21 +17,29 @@ from flask import (
 )
 from flask_babel import gettext
 
-from byceps.services.user import user_service
-from byceps.util.framework.templating import templated
-
-from ...double_grand_final import get_match_results
-from ...match_queries import (
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.match_queries import (
     get_match_slots,
     get_matches_for_tournament,
 )
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
 )
+from byceps.services.user import user_service
+from byceps.util.framework.templating import templated
+
+from .blueprint import blueprint
 from .builder_display_helpers import (
     build_builder_stage_summary_lines,
 )
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _get_tournament_or_404,
+    get_main_nav_current_page_id,
+    get_participants_for_tournament_indexed_by_id,
+)
 from .match_helpers import (
     build_match_labels,
     build_skipped_double_grand_final_match_ids,
@@ -51,13 +59,6 @@ from .stage_render_helpers import (
     build_builder_preliminary_match_sections,
 )
 from .stage_tabs import build_stage_tab_rows
-
-from .blueprint import blueprint
-from .common import (
-    get_main_nav_current_page_id,
-    _get_tournament_or_404,
-    get_participants_for_tournament_indexed_by_id,
-)
 
 
 @blueprint.get('/<slug>/preliminaries')
@@ -80,11 +81,13 @@ def view_preliminaries(slug):
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        stages_by_id,
+    skipped_double_grand_final_match_ids = (
+        build_skipped_double_grand_final_match_ids(
+            matches,
+            slots_by_match_id,
+            results_by_match_id,
+            stages_by_id,
+        )
     )
     participants_by_id = get_participants_for_tournament_indexed_by_id(
         g.party.id,
@@ -156,20 +159,14 @@ def view_preliminaries(slug):
                 if slot.participant_id is not None
             }
         ]
-        if (
-            selected_stage_participants
-            and all(
-                participant.type.value == 'team'
-                for participant in selected_stage_participants
-            )
+        if selected_stage_participants and all(
+            participant.type.value == 'team'
+            for participant in selected_stage_participants
         ):
             preliminary_ranking_subject_label = gettext('Team')
-        elif (
-            selected_stage_participants
-            and all(
-                participant.user_id is not None
-                for participant in selected_stage_participants
-            )
+        elif selected_stage_participants and all(
+            participant.user_id is not None
+            for participant in selected_stage_participants
         ):
             preliminary_ranking_subject_label = gettext('Spieler')
 
@@ -179,7 +176,9 @@ def view_preliminaries(slug):
                 selected_stage_matches,
                 selected_stage_slots_by_match_id,
                 selected_stage_results_by_match_id,
-                stage_type=selected_stage.type if selected_stage is not None else None,
+                stage_type=selected_stage.type
+                if selected_stage is not None
+                else None,
             )
     preliminary_tab_rows = build_stage_tab_rows(
         'netsession_tourney.view_preliminaries',

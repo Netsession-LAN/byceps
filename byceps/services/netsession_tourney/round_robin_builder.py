@@ -54,7 +54,9 @@ def resolve_round_robin_builder_plan(
 
         average_group_size = participant_count / plan.group_count
         prefers_esports_default = (
-            main_stage_size == 16 and plan.group_count == 8 and plan.qualifiers_per_group == 2
+            main_stage_size == 16
+            and plan.group_count == 8
+            and plan.qualifiers_per_group == 2
         )
         score = (
             0 if prefers_esports_default else 1,
@@ -125,7 +127,9 @@ def build_round_robin_builder_group_stage_specs(
         specs.append(
             BuilderGroupStageSpec(
                 label=build_group_label(index),
-                participant_ids=[participant.id for participant in group_participants],
+                participant_ids=[
+                    participant.id for participant in group_participants
+                ],
                 qualifiers_per_group=qualifiers_per_group,
             )
         )

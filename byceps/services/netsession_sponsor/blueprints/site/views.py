@@ -7,10 +7,9 @@ No pages; provides `ns_sponsors()` to templates (homepage partner tile).
 
 from flask import g
 
+from byceps.services.netsession_sponsor import sponsor_service
+from byceps.services.netsession_sponsor.models import Sponsor
 from byceps.util.framework.blueprint import create_blueprint
-
-from ...models import Sponsor
-from ... import sponsor_service
 
 
 blueprint = create_blueprint('netsession_sponsor', __name__)

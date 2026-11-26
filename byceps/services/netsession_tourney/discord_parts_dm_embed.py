@@ -11,12 +11,12 @@ from __future__ import annotations
 from typing import Any
 
 from .dbmodels import DbNetsessionTourneyTournament
+from .flatout2_races import (
+    build_flatout2_round_race_lines,
+)
 from .notification_urls import (
     build_absolute_notification_url,
     build_browser_push_logo_urls,
-)
-from .flatout2_races import (
-    build_flatout2_round_race_lines,
 )
 
 

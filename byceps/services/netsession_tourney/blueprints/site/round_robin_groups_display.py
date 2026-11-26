@@ -13,6 +13,7 @@ others) belong to the same group.
 from flask_babel import gettext
 
 from byceps.services.netsession_tourney.models import StageType
+
 from .ranking_helpers import build_ranking_rows
 
 

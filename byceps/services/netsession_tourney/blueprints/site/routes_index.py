@@ -23,37 +23,53 @@ from flask import (
 from flask_babel import format_datetime, gettext
 
 from byceps.services.external_accounts import external_accounts_service
-from byceps.util.framework.templating import templated
-from byceps.util.views import login_required
-
-from ...browser_push_service import (
+from byceps.services.netsession_tourney.browser_push_service import (
     disable_browser_push_subscription,
     get_browser_push_public_key_for_party,
     has_active_browser_push_subscription_for_user,
     is_browser_push_enabled_for_party,
     upsert_browser_push_subscription,
 )
-from ...discord_dm_service import (
+from byceps.services.netsession_tourney.discord_dm_service import (
     disable_discord_dm_subscription,
     has_active_discord_dm_subscription_for_user,
     is_discord_dm_enabled_for_party,
     upsert_discord_dm_subscription,
 )
-from ...match_queries import (
+from byceps.services.netsession_tourney.filter_parsing import (
+    parse_tournament_mode,
+    parse_tournament_status,
+)
+from byceps.services.netsession_tourney.match_queries import (
     get_match_slots,
     get_open_matches_for_party,
 )
-from ...participant_admin_service import (
+from byceps.services.netsession_tourney.participant_admin_service import (
     get_active_participant_counts_for_tournaments,
 )
-from ...registration_validation import get_team_members_for_participants
-from ...tournament_category_service import get_tournament_categories_for_party
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.registration_validation import (
+    get_team_members_for_participants,
+)
+from byceps.services.netsession_tourney.tournament_category_service import (
+    get_tournament_categories_for_party,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
     get_user_active_participation_tournament_ids,
 )
-from ...tournament_service import (
+from byceps.services.netsession_tourney.tournament_service import (
     get_tournaments_for_party,
+)
+from byceps.util.framework.templating import templated
+from byceps.util.views import login_required
+
+from .blueprint import blueprint
+from .common import (
+    build_public_tournament_status,
+    find_netsession_tourney_subnav_menu_id,
+    get_categories_with_tournaments,
+    get_main_nav_current_page_id,
+    get_participants_for_tournament_indexed_by_id,
 )
 from .match_helpers import (
     build_match_labels,
@@ -67,16 +83,6 @@ from .user_state_helpers import (
     get_user_registered_tournament_ids,
     is_match_involving_user,
 )
-
-from .blueprint import blueprint
-from .common import (
-    build_public_tournament_status,
-    get_main_nav_current_page_id,
-    find_netsession_tourney_subnav_menu_id,
-    get_categories_with_tournaments,
-    get_participants_for_tournament_indexed_by_id,
-)
-from ...filter_parsing import parse_tournament_mode, parse_tournament_status
 
 
 @blueprint.get('')
@@ -156,16 +162,12 @@ def index():
                     g.party.id, g.user.id
                 )
             )
-        discord_dm_prompt_enabled = (
-            discord_dm_enabled
-            and (
-                has_involved_tournaments
-                or discord_dm_has_subscription
-            )
+        discord_dm_prompt_enabled = discord_dm_enabled and (
+            has_involved_tournaments or discord_dm_has_subscription
         )
         if browser_push_prompt_enabled:
-            browser_push_vapid_public_key = get_browser_push_public_key_for_party(
-                g.party.id
+            browser_push_vapid_public_key = (
+                get_browser_push_public_key_for_party(g.party.id)
             )
             browser_push_has_subscription = (
                 has_active_browser_push_subscription_for_user(
@@ -266,15 +268,15 @@ def discord_dm_subscribe():
     if not g.party or not is_discord_dm_enabled_for_party(g.party.id):
         return jsonify({'error': 'disabled'}), 403
 
-    connected_account = (
-        external_accounts_service.find_connected_external_account_for_user_and_service(
-            g.user.id, 'discord'
-        )
+    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        g.user.id, 'discord'
     )
     if connected_account is None or not connected_account.external_id:
         return jsonify({'error': 'discord_not_connected'}), 400
 
-    tournament_ids = [tournament.id for tournament in get_tournaments_for_party(g.party.id)]
+    tournament_ids = [
+        tournament.id for tournament in get_tournaments_for_party(g.party.id)
+    ]
     involved_tournament_ids = get_user_active_participation_tournament_ids(
         g.party.id,
         tournament_ids,
@@ -328,7 +330,9 @@ def open_matches():
     participants = get_participants_for_tournament_indexed_by_id(
         g.party.id, participant_ids
     )
-    members_by_participant_id = get_team_members_for_participants(participant_ids)
+    members_by_participant_id = get_team_members_for_participants(
+        participant_ids
+    )
     tournaments_by_id = {
         tournament.id: tournament
         for tournament in get_tournaments_for_party(g.party.id)
@@ -375,21 +379,20 @@ def open_matches():
         stage = stages_by_tournament_id.get(match.tournament_id, {}).get(
             match.stage_id
         )
-        slots = sorted(slots_by_match_id.get(match.id, []), key=lambda slot: slot.slot_no)
+        slots = sorted(
+            slots_by_match_id.get(match.id, []), key=lambda slot: slot.slot_no
+        )
         participant_names = [
             format_open_match_participant_name(
                 slot, participants_by_id=participants
             )
             for slot in slots
         ]
-        is_my_match = (
-            current_user_id is not None
-            and is_match_involving_user(
-                current_user_id,
-                slots,
-                participants_by_id=participants,
-                members_by_participant_id=members_by_participant_id,
-            )
+        is_my_match = current_user_id is not None and is_match_involving_user(
+            current_user_id,
+            slots,
+            participants_by_id=participants,
+            members_by_participant_id=members_by_participant_id,
         )
 
         rows.append(
@@ -405,7 +408,9 @@ def open_matches():
                 ),
                 'participants_label': ' vs '.join(participant_names),
                 'tournament_title': tournament.title,
-                'stage_name': stage.name if stage is not None else gettext('Phase'),
+                'stage_name': stage.name
+                if stage is not None
+                else gettext('Phase'),
                 'state_label': open_label(match.state),
                 'state_class_name': open_class_name(match.state),
                 'scheduled_label': (

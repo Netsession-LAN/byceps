@@ -132,7 +132,7 @@ def read_manual_flatout2_max_players_per_match(
 ) -> Result[int, str]:
     try:
         max_players_per_match = int(settings.get('max_players_per_match') or 8)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return Err(
             'Die maximale Teilnehmerzahl pro FlatOut-2-Match ist ungültig.'
         )
@@ -157,7 +157,7 @@ def append_manual_flatout2_round_match_specs(
     try:
         round_no = int(raw_round.get('round_no') or 0)
         match_count = int(raw_round.get('match_count') or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 'Die FlatOut-2-Rundenkonfiguration ist ungültig.'
 
     if round_no < 1 or match_count < 1:
@@ -205,7 +205,7 @@ def _parse_manual_flatout2_match_participant_ids(
             continue
         try:
             participant_ids.append(ParticipantID(UUID(str(raw_participant_id))))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return Err(
                 'Die Teilnehmerzuordnung in der FlatOut-2-Phase ist ungültig.'
             )

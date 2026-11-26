@@ -16,7 +16,10 @@ from byceps.database import db
 from byceps.util.result import Err, Ok, Result
 
 from .coin_service import validate_coin_cost
-from .dbmodels import DbNetsessionTourneyParticipant, DbNetsessionTourneyTournament
+from .dbmodels import (
+    DbNetsessionTourneyParticipant,
+    DbNetsessionTourneyTournament,
+)
 from .models import RegistrationMode, TournamentMode, TournamentStatus
 from .participant_state import validate_participant_limit
 from .registration_validation import (
@@ -46,7 +49,8 @@ def validate_tournament_settings(
             registration_mode=registration_mode, team_size=team_size
         ),
         validate_substitute_count_for_registration_mode(
-            registration_mode=registration_mode, substitute_count=substitute_count
+            registration_mode=registration_mode,
+            substitute_count=substitute_count,
         ),
         validate_participant_limit(participant_limit),
         validate_coin_cost(coin_cost),
@@ -64,7 +68,9 @@ def clean_text(value: str | None) -> str | None:
 def sponsor_logo_url_if_sponsored(
     is_sponsored: bool, sponsor_logo_url: str | None
 ) -> str | None:
-    return sponsor_logo_url.strip() if is_sponsored and sponsor_logo_url else None
+    return (
+        sponsor_logo_url.strip() if is_sponsored and sponsor_logo_url else None
+    )
 
 
 @dataclass(frozen=True)
@@ -105,7 +111,9 @@ def apply_mode_changes(
         db_tournament.registration_mode = registration_mode.value
 
     return Ok(
-        ModeChanges(mode_changed, registration_mode_changed, deleted_stage_count)
+        ModeChanges(
+            mode_changed, registration_mode_changed, deleted_stage_count
+        )
     )
 
 

@@ -51,7 +51,10 @@ def sync_discord_thread_for_tournament(
     *,
     update_existing: bool = True,
 ) -> None:
-    if not db_tournament.discord_enabled or not db_tournament.discord_forum_channel_id:
+    if (
+        not db_tournament.discord_enabled
+        or not db_tournament.discord_forum_channel_id
+    ):
         return
 
     match get_configured_discord_bot_credentials():
@@ -248,9 +251,7 @@ def recover_deleted_discord_forum_thread(
         )
 
     try:
-        sync_discord_thread_for_tournament(
-            db_tournament, update_existing=False
-        )
+        sync_discord_thread_for_tournament(db_tournament, update_existing=False)
     except httpx.HTTPError:
         return None
 

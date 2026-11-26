@@ -8,24 +8,30 @@ byceps.services.netsession_tourney.engines.implementations
 
 from typing import TypeVar
 
+from byceps.services.netsession_tourney.models import (
+    MatchID,
+    ParticipantID,
+    Stage,
+    TournamentMode,
+)
 from byceps.util.result import Err, Ok, Result
 
-from ..models import MatchID, ParticipantID, Stage, TournamentMode
 from .base import MatchSpec, SlotSpec, StageEngine, Standing
 from .bracket_helpers import (
+    build_double_elimination_specs,
     build_seeded_bracket_slots,
+    build_single_elimination_specs,
     seeded_slots,
     snake_groups,
     sourced_slot,
     with_computed_round_numbers,
-    build_double_elimination_specs,
-    build_single_elimination_specs,
 )
 from .engine_ffa_knockouts import (
     build_ffa_first_round_specs,
     build_ffa_knockout_follow_up_specs,
     build_flatout2_follow_up_specs,
 )
+
 
 T = TypeVar('T')
 
@@ -56,7 +62,8 @@ class _WinnerMovesOnMixin:
             return []
 
         return [
-            (match_id, slot_no, winner_id) for match_id, slot_no in downstream_slots
+            (match_id, slot_no, winner_id)
+            for match_id, slot_no in downstream_slots
         ]
 
 
@@ -115,7 +122,6 @@ class _SortedScoreStandingsMixin:
         ]
 
 
-
 class _SingleEliminationEngine(_SortedScoreStandingsMixin, StageEngine):
     mode = TournamentMode.duel
 
@@ -135,9 +141,8 @@ class _SingleEliminationEngine(_SortedScoreStandingsMixin, StageEngine):
             return Err(validation_result.unwrap_err())
 
         bracket_slots = build_seeded_bracket_slots(participant_ids)
-        include_consolation_final = (
-            len(participant_ids) >= 4
-            and bool(stage.settings.get('include_consolation_final', True))
+        include_consolation_final = len(participant_ids) >= 4 and bool(
+            stage.settings.get('include_consolation_final', True)
         )
 
         return Ok(
@@ -162,7 +167,13 @@ class _SingleEliminationEngine(_SortedScoreStandingsMixin, StageEngine):
             updates.append((match_id, slot_no, winner_id))
         return updates
 
-class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
+
+class _DoubleEliminationEngine(
+    _AtLeastTwoParticipantsMixin,
+    _WinnerMovesOnMixin,
+    _ScoreStandingsMixin,
+    StageEngine,
+):
     mode = TournamentMode.duel
 
     def __init__(self, *, include_double_grand_final: bool = False) -> None:
@@ -176,8 +187,10 @@ class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin
         p2 = bracket_slots[1] if len(bracket_slots) > 1 else None
         specs = {
             1: (seeded_slots(p1, p2), 'ready' if p1 and p2 else 'pending'),
-            2: ([sourced_slot(1, 1, 'winner'), sourced_slot(2, 1, 'loser')],
-                'pending'),
+            2: (
+                [sourced_slot(1, 1, 'winner'), sourced_slot(2, 1, 'loser')],
+                'pending',
+            ),
         }
         if self._include_double_grand_final:
             specs[3] = (
@@ -206,7 +219,13 @@ class _DoubleEliminationEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin
             )
         )
 
-class _GauntletEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
+
+class _GauntletEngine(
+    _AtLeastTwoParticipantsMixin,
+    _WinnerMovesOnMixin,
+    _ScoreStandingsMixin,
+    StageEngine,
+):
     mode = TournamentMode.duel
 
     def generate(
@@ -267,7 +286,10 @@ class _GauntletEngine(_AtLeastTwoParticipantsMixin, _WinnerMovesOnMixin, _ScoreS
 
         return Ok(specs)
 
-class _SwissEngine(_NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine):
+
+class _SwissEngine(
+    _NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine
+):
     mode = TournamentMode.duel
 
     def validate(
@@ -326,6 +348,7 @@ class _SwissEngine(_NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine)
 
         return Ok(specs)
 
+
 def _get_swiss_threshold(settings: dict | None) -> int | None:
     if not isinstance(settings, dict):
         return None
@@ -333,7 +356,7 @@ def _get_swiss_threshold(settings: dict | None) -> int | None:
     raw_value = settings.get('swiss_threshold')
     try:
         return int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -345,13 +368,18 @@ def _get_swiss_round_count_from_settings(settings: dict | None) -> int:
     raw_round_count = (settings or {}).get('round_count', 5)
     try:
         round_count = int(raw_round_count)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 5
 
     return max(1, round_count)
 
 
-class _RoundRobinEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _ScoreStandingsMixin, StageEngine):
+class _RoundRobinEngine(
+    _AtLeastTwoParticipantsMixin,
+    _NoAdvancementMixin,
+    _ScoreStandingsMixin,
+    StageEngine,
+):
     mode = TournamentMode.duel
 
     def generate(
@@ -373,7 +401,13 @@ class _RoundRobinEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _Scor
         )
         return Ok(specs)
 
-class _RoundRobinGroupsEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _ScoreStandingsMixin, StageEngine):
+
+class _RoundRobinGroupsEngine(
+    _AtLeastTwoParticipantsMixin,
+    _NoAdvancementMixin,
+    _ScoreStandingsMixin,
+    StageEngine,
+):
     mode = TournamentMode.duel
 
     def generate(
@@ -386,7 +420,7 @@ class _RoundRobinGroupsEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin,
         raw_group_count = stage.settings.get('group_count')
         try:
             group_count = int(raw_group_count)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             group_count = 0
 
         if group_count > 0:
@@ -413,7 +447,13 @@ class _RoundRobinGroupsEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin,
 
         return Ok(specs)
 
-class _FfaSimpleEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _SortedScoreStandingsMixin, StageEngine):
+
+class _FfaSimpleEngine(
+    _AtLeastTwoParticipantsMixin,
+    _NoAdvancementMixin,
+    _SortedScoreStandingsMixin,
+    StageEngine,
+):
     mode = TournamentMode.ffa
 
     def generate(
@@ -442,7 +482,10 @@ class _FfaSimpleEngine(_AtLeastTwoParticipantsMixin, _NoAdvancementMixin, _Sorte
             ]
         )
 
-class _FfaKnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
+
+class _FfaKnockoutEngine(
+    _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine
+):
     mode = TournamentMode.ffa
 
     def validate(
@@ -475,7 +518,10 @@ class _FfaKnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine)
         )
         return Ok(specs)
 
-class _Flatout2KnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine):
+
+class _Flatout2KnockoutEngine(
+    _WinnerMovesOnMixin, _ScoreStandingsMixin, StageEngine
+):
     mode = TournamentMode.ffa
     qualifier_count_per_match = 3
     max_supported_players_per_match = 8
@@ -514,6 +560,7 @@ class _Flatout2KnockoutEngine(_WinnerMovesOnMixin, _ScoreStandingsMixin, StageEn
             )
         )
         return Ok(specs)
+
 
 def get_single_elimination_engine() -> StageEngine:
     return _SingleEliminationEngine()
@@ -661,7 +708,7 @@ def _get_round_count(raw_value: object, *, participant_count: int) -> int:
 
     try:
         parsed = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return max_rounds
 
     if parsed < 1:
@@ -676,7 +723,7 @@ def _get_group_size(raw_value: object) -> int:
 
     try:
         parsed = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 4
 
     return max(2, parsed)
@@ -686,9 +733,7 @@ def _get_max_players_per_match(settings: dict) -> int:
     raw = settings.get('max_players_per_match', 8)
     try:
         parsed = int(raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 8
 
     return max(2, parsed)
-
-

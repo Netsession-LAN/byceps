@@ -14,7 +14,7 @@ from markupsafe import Markup
 import mistletoe
 import nh3
 
-from ...models import RuleTemplateBodyFormat
+from byceps.services.netsession_tourney.models import RuleTemplateBodyFormat
 
 
 def render_formatted_body_html(

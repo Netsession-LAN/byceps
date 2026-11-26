@@ -28,7 +28,7 @@ from .tournament_queries import ACTIVE_PARTICIPANT_STATUS_VALUES
 
 
 def get_flatout2_round_races(
-    match_settings: dict[str, Any]
+    match_settings: dict[str, Any],
 ) -> list[dict[str, str]]:
     if not isinstance(match_settings, dict):
         return []
@@ -62,7 +62,7 @@ def get_match_host_participant_id(
 
     try:
         return ParticipantID(UUID(str(raw_value)))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -73,7 +73,9 @@ def get_selected_host_user_ids(
     if participant_id is None:
         return set()
 
-    db_participant = db.session.get(DbNetsessionTourneyParticipant, participant_id)
+    db_participant = db.session.get(
+        DbNetsessionTourneyParticipant, participant_id
+    )
     if (
         db_participant is None
         or db_participant.status not in ACTIVE_PARTICIPANT_STATUS_VALUES

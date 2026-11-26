@@ -7,7 +7,6 @@ Tournament pages: overview, participants, ranking, rules.
 
 from __future__ import annotations
 
-
 from flask import (
     g,
     redirect,
@@ -15,24 +14,31 @@ from flask import (
 )
 from flask_babel import format_datetime, gettext
 
-from byceps.services.user import user_service
-from byceps.util.framework.templating import templated
-
-from ...double_grand_final import get_match_results
-from ...match_queries import (
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.match_queries import (
     get_match_slots,
     get_matches_for_tournament,
 )
-from ...models import (
-    TeamMemberRole,
+from byceps.services.netsession_tourney.models import TeamMemberRole
+from byceps.services.netsession_tourney.registration_validation import (
+    get_team_members_for_participants,
 )
-from ...registration_validation import get_team_members_for_participants
-from ...tournament_admin_service import get_tournament_admin_user_ids
-from ...tournament_prize_service import get_tournament_prizes_for_tournament
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.tournament_admin_service import (
+    get_tournament_admin_user_ids,
+)
+from byceps.services.netsession_tourney.tournament_prize_service import (
+    get_tournament_prizes_for_tournament,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
     get_participants_for_tournament,
     get_stages_for_tournament,
 )
+from byceps.services.user import user_service
+from byceps.util.framework.templating import templated
+
+from .blueprint import blueprint
 from .body_rendering import (
     render_formatted_body_html as _render_formatted_body_html,
 )
@@ -40,6 +46,14 @@ from .builder_display_helpers import (
     get_materialized_builder_round_robin_group_stages,
 )
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _find_tournament_rule_template,
+    _get_tournament_or_404,
+    build_overview_stage_type_label,
+    build_public_tournament_status,
+    get_main_nav_current_page_id,
+    render_tournament_rule_template_body_html,
+)
 from .match_helpers import (
     build_match_labels,
 )
@@ -56,16 +70,6 @@ from .user_state_helpers import (
     get_current_user_tournament_membership,
     get_party_coin_settings,
     get_registration_state_for_tournament,
-)
-
-from .blueprint import blueprint
-from .common import (
-    build_public_tournament_status,
-    get_main_nav_current_page_id,
-    _find_tournament_rule_template,
-    render_tournament_rule_template_body_html,
-    _get_tournament_or_404,
-    build_overview_stage_type_label,
 )
 
 
@@ -85,7 +89,9 @@ def view_overview(slug):
     )
     admin_user_ids = get_tournament_admin_user_ids(tournament.id)
     participant_user_ids = {
-        participant.user_id for participant in participants if participant.user_id
+        participant.user_id
+        for participant in participants
+        if participant.user_id
     }
     member_user_ids = {
         member.user_id
@@ -97,7 +103,11 @@ def view_overview(slug):
         include_avatars=True,
     )
     admin_users = sorted(
-        (users_by_id[user_id] for user_id in admin_user_ids if user_id in users_by_id),
+        (
+            users_by_id[user_id]
+            for user_id in admin_user_ids
+            if user_id in users_by_id
+        ),
         key=lambda user: user.screen_name.lower(),
     )
     registration_state = get_registration_state_for_tournament(tournament)
@@ -146,9 +156,9 @@ def view_overview(slug):
         )
     starts_at_label = (
         (
-            f"{format_datetime(tournament.starts_at, 'EEEE')}, "
-            f"{format_datetime(tournament.starts_at, 'd. MMMM y')}, "
-            f"{format_datetime(tournament.starts_at, 'HH:mm')} Uhr"
+            f'{format_datetime(tournament.starts_at, "EEEE")}, '
+            f'{format_datetime(tournament.starts_at, "d. MMMM y")}, '
+            f'{format_datetime(tournament.starts_at, "HH:mm")} Uhr'
         )
         if tournament.starts_at
         else '-'
@@ -156,11 +166,11 @@ def view_overview(slug):
     starts_at_mobile_lines = (
         (
             (
-                f"{format_datetime(tournament.starts_at, 'EEEE')}, "
-                f"{format_datetime(tournament.starts_at, 'd.')}"
+                f'{format_datetime(tournament.starts_at, "EEEE")}, '
+                f'{format_datetime(tournament.starts_at, "d.")}'
             ),
             format_datetime(tournament.starts_at, 'MMMM y'),
-            f"{format_datetime(tournament.starts_at, 'HH:mm')} Uhr",
+            f'{format_datetime(tournament.starts_at, "HH:mm")} Uhr',
         )
         if tournament.starts_at
         else ('-',)
@@ -253,7 +263,8 @@ def view_participants(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'participants',
     }
@@ -273,9 +284,13 @@ def view_ranking(slug):
         if participant.user_id is not None
     }
     users_by_id = user_service.get_users_indexed_by_id(user_ids)
-    if participants and all(participant.type.value == 'team' for participant in participants):
+    if participants and all(
+        participant.type.value == 'team' for participant in participants
+    ):
         ranking_subject_label = gettext('Team')
-    elif participants and all(participant.user_id is not None for participant in participants):
+    elif participants and all(
+        participant.user_id is not None for participant in participants
+    ):
         ranking_subject_label = gettext('Spieler')
     else:
         ranking_subject_label = gettext('Teilnehmer')
@@ -297,7 +312,8 @@ def view_ranking(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not ranking.is_flatout2,
+        )
+        and not ranking.is_flatout2,
         'current_page': current_page_id,
         'current_tournament_page': 'ranking',
     }
@@ -323,7 +339,8 @@ def view_rules(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'rules',
     }

@@ -6,17 +6,23 @@ byceps.services.netsession_tourney.engines.registry
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
+from byceps.services.netsession_tourney.models import (
+    StageFamily,
+    StageType,
+    StageTypeSpec,
+)
+
 from .base import StageEngine
 from .implementations import (
     get_bracket_groups_engine,
+    get_custom_bracket_engine,
     get_double_elimination_engine,
     get_double_elimination_with_double_grand_final_engine,
-    get_custom_bracket_engine,
     get_ffa_bracket_groups_engine,
     get_ffa_custom_bracket_engine,
     get_ffa_league_engine,
-    get_ffa_single_elimination_engine,
     get_ffa_simple_engine,
+    get_ffa_single_elimination_engine,
     get_flatout2_single_elimination_engine,
     get_gauntlet_engine,
     get_league_engine,
@@ -24,7 +30,6 @@ from .implementations import (
     get_single_elimination_engine,
     get_swiss_engine,
 )
-from ..models import StageFamily, StageType, StageTypeSpec
 
 
 _STAGE_TYPE_SPECS = {
@@ -160,7 +165,12 @@ _ENGINES = {
 
 
 def get_stage_type_specs() -> list[StageTypeSpec]:
-    return [spec for _, spec in sorted(_STAGE_TYPE_SPECS.items(), key=lambda item: item[0].value)]
+    return [
+        spec
+        for _, spec in sorted(
+            _STAGE_TYPE_SPECS.items(), key=lambda item: item[0].value
+        )
+    ]
 
 
 def get_stage_type_spec(stage_type: StageType) -> StageTypeSpec:

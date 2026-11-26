@@ -35,7 +35,10 @@ STRUCTURAL_SETTING_KEYS = frozenset(
 
 
 def merge_stage_settings(
-    existing: dict[str, Any] | None, form_settings: dict[str, Any], *, type_changed: bool
+    existing: dict[str, Any] | None,
+    form_settings: dict[str, Any],
+    *,
+    type_changed: bool,
 ) -> dict[str, Any]:
     merged = {
         key: value
@@ -48,7 +51,10 @@ def merge_stage_settings(
 
 
 def is_structural_change(
-    existing: dict[str, Any] | None, merged: dict[str, Any], *, type_changed: bool
+    existing: dict[str, Any] | None,
+    merged: dict[str, Any],
+    *,
+    type_changed: bool,
 ) -> bool:
     existing = existing or {}
     return type_changed or any(

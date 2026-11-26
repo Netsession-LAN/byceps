@@ -9,6 +9,7 @@ byceps.services.netsession_tourney.blueprints.site.single_elimination_rendering
 from __future__ import annotations
 
 from collections import defaultdict
+
 from .double_elimination_rendering import is_loser_outcome
 
 
@@ -16,7 +17,9 @@ def build_single_elimination_match_labels(
     stage_matches,
     incoming_by_match_id,
 ) -> dict:
-    labels_by_match_id = {match.id: f'M #{match.match_no}' for match in stage_matches}
+    labels_by_match_id = {
+        match.id: f'M #{match.match_no}' for match in stage_matches
+    }
     if not stage_matches:
         return labels_by_match_id
 
@@ -32,12 +35,16 @@ def build_single_elimination_match_labels(
     final_matches = []
     for match in final_round_matches:
         incoming = incoming_by_match_id.get(match.id, [])
-        if incoming and all(is_loser_outcome(outcome) for _, outcome in incoming):
+        if incoming and all(
+            is_loser_outcome(outcome) for _, outcome in incoming
+        ):
             consolation_matches.append(match)
         else:
             final_matches.append(match)
 
-    for index, match in enumerate(sorted(final_matches, key=lambda m: m.match_no), start=1):
+    for index, match in enumerate(
+        sorted(final_matches, key=lambda m: m.match_no), start=1
+    ):
         labels_by_match_id[match.id] = (
             'Final' if len(final_matches) == 1 else f'Final #{index}'
         )
@@ -55,4 +62,3 @@ def build_single_elimination_match_labels(
                 labels_by_match_id[match.id] = f'Semi #{index}'
 
     return labels_by_match_id
-

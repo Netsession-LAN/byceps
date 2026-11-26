@@ -29,9 +29,9 @@ from byceps.database import db
 from byceps.services.party.models import PartyID
 
 from .browser_push_service import (
+    BROWSER_PUSH_MAX_ATTEMPTS,
     decrypt_browser_push_private_key,
     is_missing_browser_push_table_error,
-    BROWSER_PUSH_MAX_ATTEMPTS,
 )
 from .dbmodels import (
     DbNetsessionTourneyBrowserPushConfig,
@@ -41,6 +41,9 @@ from .dbmodels import (
     DbNetsessionTourneyNotification,
     DbNetsessionTourneyStage,
     DbNetsessionTourneyTournament,
+)
+from .flatout2_races import (
+    build_flatout2_first_race_summary,
 )
 from .models import (
     BrowserPushOutboxStatus,
@@ -56,9 +59,6 @@ from .notification_urls import (
     find_browser_push_site_server_name,
 )
 from .outbox_processing import process_outbox_rows
-from .flatout2_races import (
-    build_flatout2_first_race_summary,
-)
 
 
 def process_browser_push_outbox(*, limit: int = 50) -> int:
@@ -110,14 +110,18 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
         DbNetsessionTourneyNotification, db_row.notification_id
     )
     if db_notification is None:
-        _mark_browser_push_outbox_dead_letter(db_row, 'Unknown notification.', now)
+        _mark_browser_push_outbox_dead_letter(
+            db_row, 'Unknown notification.', now
+        )
         return
 
     db_tournament = db.session.get(
         DbNetsessionTourneyTournament, db_notification.tournament_id
     )
     if db_tournament is None:
-        _mark_browser_push_outbox_dead_letter(db_row, 'Unbekanntes Turnier.', now)
+        _mark_browser_push_outbox_dead_letter(
+            db_row, 'Unbekanntes Turnier.', now
+        )
         return
 
     db_config = db.session.get(
@@ -154,7 +158,9 @@ def _deliver_browser_push_row(db_row, now: datetime) -> None:
     delivered, transient_error = _push_to_subscriptions(
         db_subscriptions,
         db_tournament,
-        message=build_browser_push_message_payload(db_tournament, db_notification),
+        message=build_browser_push_message_payload(
+            db_tournament, db_notification
+        ),
         vapid_private_key=_build_browser_push_private_key_for_pywebpush(
             private_key_pem
         ),
@@ -181,7 +187,9 @@ def _push_to_subscriptions(
     for db_subscription in db_subscriptions:
         try:
             if webpush is None:
-                raise RuntimeError('pywebpush is not installed in this environment.')
+                raise RuntimeError(
+                    'pywebpush is not installed in this environment.'
+                )
 
             webpush(
                 subscription_info={
@@ -201,7 +209,9 @@ def _push_to_subscriptions(
             )
             delivered = True
         except WebPushException as exc:  # pragma: no branch
-            status_code = getattr(getattr(exc, 'response', None), 'status_code', None)
+            status_code = getattr(
+                getattr(exc, 'response', None), 'status_code', None
+            )
             if status_code in {404, 410}:
                 db_subscription.enabled = False
                 db_subscription.updated_at = now
@@ -296,9 +306,14 @@ def _build_browser_push_body(
     elif kind == 'tournament_canceled':
         body = 'Turnier wurde abgesagt.'
     elif kind == 'checkin_open':
-        body = 'Der Check-in ist offen – jetzt einchecken (bei Teams der Captain).'
+        body = (
+            'Der Check-in ist offen – jetzt einchecken (bei Teams der Captain).'
+        )
     elif kind == 'manual_announcement':
-        body = str(payload.get('body') or '').strip() or 'Es gibt ein neues Turnier-Update.'
+        body = (
+            str(payload.get('body') or '').strip()
+            or 'Es gibt ein neues Turnier-Update.'
+        )
     elif kind == 'match_ready':
         body = (
             f'{match_label} ist spielbereit.'
@@ -441,7 +456,9 @@ def build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
 
     generic_stage_names = {'match', 'matches'}
     stage_settings = db_stage.settings_json or {}
-    builder_display_title = str(stage_settings.get('builder_display_title') or '').strip()
+    builder_display_title = str(
+        stage_settings.get('builder_display_title') or ''
+    ).strip()
     if builder_display_title:
         return f'{builder_display_title} • M #{db_match.match_no}'
 

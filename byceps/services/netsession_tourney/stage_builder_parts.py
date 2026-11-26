@@ -23,8 +23,8 @@ from .stage_builder_settings import (
     STAGE_BUILDER_MAIN_STAGE_SIZES,
 )
 from .swiss_thresholds import (
-    SWISS_THRESHOLDS,
     get_swiss_round_count_for_threshold,
+    SWISS_THRESHOLDS,
 )
 
 

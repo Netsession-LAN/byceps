@@ -15,13 +15,17 @@ from uuid import UUID
 
 from flask_babel import gettext
 
-from ...models import StageType
-from ...swiss_stage import build_swiss_round_layout
-from ...swiss_thresholds import (
+from byceps.services.netsession_tourney.models import StageType
+from byceps.services.netsession_tourney.score_parsing import (
+    parse_numeric_score_value,
+)
+from byceps.services.netsession_tourney.swiss_stage import (
+    build_swiss_round_layout,
+)
+from byceps.services.netsession_tourney.swiss_thresholds import (
     get_round_count_for_swiss_stage,
     get_swiss_threshold_for_stage,
 )
-from ...score_parsing import parse_numeric_score_value
 
 
 def build_swiss_bracket_sections(
@@ -86,7 +90,9 @@ def build_swiss_bracket_sections(
     for stage_id, stage_matches in sorted(
         matches_by_stage_id.items(),
         key=lambda item: (
-            stages_by_id.get(item[0]).order_no if stages_by_id.get(item[0]) else 999,
+            stages_by_id.get(item[0]).order_no
+            if stages_by_id.get(item[0])
+            else 999,
             stages_by_id.get(item[0]).name if stages_by_id.get(item[0]) else '',
         ),
     ):
@@ -98,7 +104,8 @@ def build_swiss_bracket_sections(
             {
                 slot.participant_id
                 for slots in (
-                    slots_by_match_id.get(match.id, []) for match in stage_matches
+                    slots_by_match_id.get(match.id, [])
+                    for match in stage_matches
                 )
                 for slot in slots
                 if slot.participant_id is not None
@@ -128,7 +135,7 @@ def build_swiss_bracket_sections(
             qualified_outcome = None
             eliminated_outcome = None
             for pool in round_layout['pools']:
-                pool_label = f"{pool['wins']}-{pool['losses']}"
+                pool_label = f'{pool["wins"]}-{pool["losses"]}'
                 pool_matches = round_matches[
                     match_cursor : match_cursor + pool['match_count']
                 ]
@@ -148,12 +155,9 @@ def build_swiss_bracket_sections(
                             if slot.participant_id
                             else None
                         )
-                        is_bye = (
-                            participant is None
-                            and any(
-                                other_slot.participant_id is not None
-                                for other_slot in slots
-                            )
+                        is_bye = participant is None and any(
+                            other_slot.participant_id is not None
+                            for other_slot in slots
                         )
                         source_match_id = None
                         if (
@@ -198,22 +202,24 @@ def build_swiss_bracket_sections(
                     tone = 'danger'
 
                 winner_target_id = (
-                    f"swiss-round-{round_layout['round_no']}-qualified"
+                    f'swiss-round-{round_layout["round_no"]}-qualified'
                     if pool['wins'] + 1 >= threshold
-                    else f"swiss-round-{round_layout['round_no'] + 1}-{pool['wins'] + 1}-{pool['losses']}"
+                    else f'swiss-round-{round_layout["round_no"] + 1}-{pool["wins"] + 1}-{pool["losses"]}'
                 )
                 loser_target_id = (
-                    f"swiss-round-{round_layout['round_no']}-eliminated"
+                    f'swiss-round-{round_layout["round_no"]}-eliminated'
                     if pool['losses'] + 1 >= threshold
-                    else f"swiss-round-{round_layout['round_no'] + 1}-{pool['wins']}-{pool['losses'] + 1}"
+                    else f'swiss-round-{round_layout["round_no"] + 1}-{pool["wins"]}-{pool["losses"] + 1}'
                 )
 
                 pool_views.append(
                     {
-                        'id': f"swiss-round-{round_layout['round_no']}-{pool['wins']}-{pool['losses']}",
+                        'id': f'swiss-round-{round_layout["round_no"]}-{pool["wins"]}-{pool["losses"]}',
                         'wins': pool['wins'],
                         'losses': pool['losses'],
-                        'row_position': (threshold - 1) + pool['losses'] - pool['wins'],
+                        'row_position': (threshold - 1)
+                        + pool['losses']
+                        - pool['wins'],
                         'label': pool_label,
                         'tone': tone,
                         'participant_count': pool['participant_count'],
@@ -228,8 +234,10 @@ def build_swiss_bracket_sections(
                 for slot in slots_by_match_id.get(round_match.id, []):
                     if slot.participant_id is None:
                         continue
-                    cumulative_points_by_participant_id[slot.participant_id] += (
-                        parse_numeric_score_value(slot_scores.get(slot.slot_no))
+                    cumulative_points_by_participant_id[
+                        slot.participant_id
+                    ] += parse_numeric_score_value(
+                        slot_scores.get(slot.slot_no)
                     )
 
             qualified_count = 0
@@ -271,7 +279,9 @@ def build_swiss_bracket_sections(
                         and winner_slot is not None
                         and winner_slot.participant_id is not None
                     ):
-                        qualified_participant_ids.append(winner_slot.participant_id)
+                        qualified_participant_ids.append(
+                            winner_slot.participant_id
+                        )
 
                     if reaches_eliminated:
                         eliminated_participant_ids.extend(
@@ -291,7 +301,7 @@ def build_swiss_bracket_sections(
                 )
                 qualified_row_position = qualified_source_row_position - 0.85
                 qualified_outcome = {
-                    'id': f"swiss-round-{round_layout['round_no']}-qualified",
+                    'id': f'swiss-round-{round_layout["round_no"]}-qualified',
                     'label': gettext('Weiter'),
                     'tone': 'qualified',
                     'count': qualified_count,
@@ -316,7 +326,7 @@ def build_swiss_bracket_sections(
                 )
                 eliminated_row_position = eliminated_source_row_position + 0.85
                 eliminated_outcome = {
-                    'id': f"swiss-round-{round_layout['round_no']}-eliminated",
+                    'id': f'swiss-round-{round_layout["round_no"]}-eliminated',
                     'label': gettext('Raus'),
                     'tone': 'eliminated',
                     'count': eliminated_count,

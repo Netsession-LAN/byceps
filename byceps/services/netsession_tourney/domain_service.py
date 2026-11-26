@@ -26,7 +26,9 @@ def validate_registration_open(
     tournament: Tournament, now: datetime
 ) -> Result[None, str]:
     if tournament.status != TournamentStatus.draft:
-        return Err('Anmelden ist nur möglich, solange das Turnier ein Entwurf ist.')
+        return Err(
+            'Anmelden ist nur möglich, solange das Turnier ein Entwurf ist.'
+        )
 
     if not tournament.registration_open:
         return Err('Die Anmeldung ist geschlossen.')

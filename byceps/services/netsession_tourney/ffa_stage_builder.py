@@ -63,7 +63,9 @@ def preview_ffa_stage_builder_plan(
         return Err(validation_result.unwrap_err())
 
     if max_players_per_match is None:
-        return Err('Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.')
+        return Err(
+            'Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.'
+        )
 
     participants = get_participants_for_tournament(party_id, tournament_id)
     ready_participants = domain_service.select_ready_participants(participants)
@@ -171,8 +173,7 @@ def _assemble_ffa_stage_builder_preview(
         'max_players_per_match': max_players_per_match,
         'qualifier_rule': (
             'top_3'
-            if main_stage_type
-            == StageType.ffa_flatout2_single_elimination
+            if main_stage_type == StageType.ffa_flatout2_single_elimination
             else 'dynamic'
         ),
         'round_summaries': main_preview['round_summaries'],
@@ -207,7 +208,9 @@ def validate_ffa_stage_builder_settings(
         StageType.ffa_flatout2_single_elimination,
     }
     if main_stage_type not in allowed_ffa_stage_types:
-        return Err('Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.')
+        return Err(
+            'Dieser Typ des Hauptturniers wird vom FFA-Baukasten nicht unterstützt.'
+        )
 
     if main_stage_size not in STAGE_BUILDER_MAIN_STAGE_SIZES:
         return Err('Ungültige Größe des Hauptturniers.')
@@ -215,11 +218,18 @@ def validate_ffa_stage_builder_settings(
     if generation_basis != 'ready':
         return Err('Ungültige Grundlage für die Erzeugung.')
 
-    if preliminary_type is not None and preliminary_type not in allowed_ffa_stage_types:
-        return Err('Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.')
+    if (
+        preliminary_type is not None
+        and preliminary_type not in allowed_ffa_stage_types
+    ):
+        return Err(
+            'Dieser Vorrunden-Typ wird vom FFA-Baukasten nicht unterstützt.'
+        )
 
     if max_players_per_match is None:
-        return Err('Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.')
+        return Err(
+            'Für den FFA-Baukasten bitte die maximale Spielerzahl pro Match angeben.'
+        )
 
     if max_players_per_match < 2 or max_players_per_match > 64:
         return Err('Ungültige maximale Spielerzahl pro Match.')
@@ -259,9 +269,7 @@ def build_ffa_stage_builder_common_settings(
     if max_matches_per_round is not None:
         settings['max_matches_per_round'] = max_matches_per_round
     if break_between_rounds_minutes is not None:
-        settings['break_between_rounds_minutes'] = (
-            break_between_rounds_minutes
-        )
+        settings['break_between_rounds_minutes'] = break_between_rounds_minutes
 
     return settings
 

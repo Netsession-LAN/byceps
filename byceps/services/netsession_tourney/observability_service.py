@@ -53,4 +53,3 @@ def record_api_request_metric(
             method=method,
             status_code=status_code,
         )
-

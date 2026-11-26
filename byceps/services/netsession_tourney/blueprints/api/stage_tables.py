@@ -11,9 +11,15 @@ everybody else counts as eliminated.
 
 from __future__ import annotations
 
-from ...models import StageStatus, StageType
-from ..site.ranking_helpers import build_ranking_rows
-from ..site.round_robin_groups_display import _assign_groups, _group_letter
+from byceps.services.netsession_tourney.blueprints.site.ranking_helpers import (
+    build_ranking_rows,
+)
+from byceps.services.netsession_tourney.blueprints.site.round_robin_groups_display import (
+    _assign_groups,
+    _group_letter,
+)
+from byceps.services.netsession_tourney.models import StageStatus, StageType
+
 from .match_extras import group_by_stage
 
 

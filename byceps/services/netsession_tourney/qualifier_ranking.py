@@ -67,7 +67,9 @@ def get_ranked_participant_ids_by_match_for_stage(
     if not db_matches:
         return Err('contains no generated matches yet.')
 
-    if any(db_match.state != MatchState.completed.value for db_match in db_matches):
+    if any(
+        db_match.state != MatchState.completed.value for db_match in db_matches
+    ):
         return Err('is not fully completed yet.')
 
     db_slots = db.session.scalars(
@@ -77,8 +79,8 @@ def get_ranked_participant_ids_by_match_for_stage(
             )
         )
     ).all()
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = defaultdict(
-        list
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
+        defaultdict(list)
     )
     for db_slot in db_slots:
         slots_by_match_id[db_slot.match_id].append(db_slot)
@@ -113,10 +115,12 @@ def get_effective_qualifier_top_n_for_source_stage(
         raw_top_n = (stage.settings or {}).get('qualifier_top_n', 1)
         try:
             top_n = int(raw_top_n)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return Err('Ungültige Top-Anzahl für die Qualifikation.')
         if top_n < 1 or top_n > 128:
-            return Err('Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.')
+            return Err(
+                'Die Top-Anzahl für die Qualifikation muss zwischen 1 und 128 liegen.'
+            )
         return Ok(top_n)
 
     main_stage_size = get_stage_builder_main_stage_size(stage)
@@ -131,9 +135,11 @@ def get_effective_qualifier_top_n_for_source_stage(
             'Automatische Qualifikanten pro Gruppe gibt es nur mit einer Round-Robin-Gruppenphase als Quelle.'
         )
 
-    ranked_group_participant_ids_result = get_ranked_participant_ids_by_group_for_stage(
-        db_source_stage.id,
-        tournament_id,
+    ranked_group_participant_ids_result = (
+        get_ranked_participant_ids_by_group_for_stage(
+            db_source_stage.id,
+            tournament_id,
+        )
     )
     if ranked_group_participant_ids_result.is_err():
         return Err(ranked_group_participant_ids_result.unwrap_err())
@@ -201,9 +207,7 @@ def get_ranked_participant_ids_by_group_for_stage(
             is_ffa_scoring_stage=ranking_data.is_ffa_scoring_stage,
         )
         first_match_no = min(
-            first_match_no_by_participant_id.get(
-                group_participant_id, 999_999
-            )
+            first_match_no_by_participant_id.get(group_participant_id, 999_999)
             for group_participant_id in group_participant_ids
         )
         ranked_group_participant_ids.append(
@@ -236,7 +240,9 @@ def _build_group_participant_connections(
             participant_id
             for participant_id in {
                 db_slot.participant_id
-                for db_slot in ranking_data.slots_by_match_id.get(db_match.id, [])
+                for db_slot in ranking_data.slots_by_match_id.get(
+                    db_match.id, []
+                )
                 if db_slot.participant_id is not None
             }
         ]
@@ -257,9 +263,9 @@ def _build_group_participant_connections(
 
         for index, participant_id in enumerate(match_participant_ids):
             for other_participant_id in match_participant_ids[index + 1 :]:
-                connected_participant_ids_by_participant_id[
-                    participant_id
-                ].add(other_participant_id)
+                connected_participant_ids_by_participant_id[participant_id].add(
+                    other_participant_id
+                )
                 connected_participant_ids_by_participant_id[
                     other_participant_id
                 ].add(participant_id)

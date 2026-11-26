@@ -7,29 +7,36 @@ Tournament bracket and match overview.
 
 from __future__ import annotations
 
-
 from flask import (
     g,
     request,
 )
 
-from byceps.services.user import user_service
-from byceps.util.framework.templating import templated
-
-from ...double_grand_final import get_match_results
-from ...match_queries import (
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.match_queries import (
     get_match_slots,
     get_matches_for_tournament,
 )
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
 )
-from .bracket_helpers import build_bracket_sections, build_bracket_data
+from byceps.services.user import user_service
+from byceps.util.framework.templating import templated
+
+from .blueprint import blueprint
+from .bracket_helpers import build_bracket_data, build_bracket_sections
 from .builder_display_helpers import (
     get_builder_main_display_stages,
     select_matches_for_public_bracket,
 )
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _get_tournament_or_404,
+    get_main_nav_current_page_id,
+    get_participants_for_tournament_indexed_by_id,
+)
 from .match_helpers import (
     build_match_labels,
     build_skipped_double_grand_final_match_ids,
@@ -56,13 +63,6 @@ from .stage_render_helpers import (
 )
 from .stage_tabs import build_stage_tab_rows
 from .swiss_public_rendering import build_swiss_bracket_sections
-
-from .blueprint import blueprint
-from .common import (
-    get_main_nav_current_page_id,
-    _get_tournament_or_404,
-    get_participants_for_tournament_indexed_by_id,
-)
 
 
 @blueprint.get('/<slug>/bracket')
@@ -100,11 +100,13 @@ def view_bracket(slug):
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        stages_by_id,
+    skipped_double_grand_final_match_ids = (
+        build_skipped_double_grand_final_match_ids(
+            matches,
+            slots_by_match_id,
+            results_by_match_id,
+            stages_by_id,
+        )
     )
     matches_for_bracket = select_matches_for_public_bracket(stages, matches)
     bracket = build_bracket_data(
@@ -134,7 +136,8 @@ def view_bracket(slug):
             skipped_double_grand_final_match_ids,
             stages_by_id,
         )
-        if is_ffa_scoring_tournament and not is_ffa_single_elimination_tournament
+        if is_ffa_scoring_tournament
+        and not is_ffa_single_elimination_tournament
         else []
     )
     ffa_single_elimination_bracket_sections = (
@@ -246,7 +249,8 @@ def view_bracket(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'bracket',
     }
@@ -266,11 +270,13 @@ def view_matches(slug):
         slots_by_match_id,
         stages_by_id,
     )
-    skipped_double_grand_final_match_ids = build_skipped_double_grand_final_match_ids(
-        matches,
-        slots_by_match_id,
-        results_by_match_id,
-        stages_by_id,
+    skipped_double_grand_final_match_ids = (
+        build_skipped_double_grand_final_match_ids(
+            matches,
+            slots_by_match_id,
+            results_by_match_id,
+            stages_by_id,
+        )
     )
     participants_by_id = get_participants_for_tournament_indexed_by_id(
         g.party.id,
@@ -339,8 +345,7 @@ def view_matches(slug):
             match_labels_by_id,
             skipped_double_grand_final_match_ids,
         )
-        if bool(main_builder_display_stages)
-        and not is_flatout2_tournament
+        if bool(main_builder_display_stages) and not is_flatout2_tournament
         else []
     )
     selected_builder_match_section = None
@@ -371,7 +376,8 @@ def view_matches(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'matches',
     }

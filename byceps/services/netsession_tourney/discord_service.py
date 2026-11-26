@@ -148,10 +148,14 @@ def _load_due_discord_outbox_rows(now: datetime, limit: int):
     ).all()
 
 
-def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> None:
+def _deliver_discord_outbox_row(
+    db_row, credentials, credentials_error, now
+) -> None:
     """Post one event to the tournament's forum thread, or schedule a retry
     (temporary problem) or give up (dead letter)."""
-    db_tournament = db.session.get(DbNetsessionTourneyTournament, db_row.tournament_id)
+    db_tournament = db.session.get(
+        DbNetsessionTourneyTournament, db_row.tournament_id
+    )
     dead_letter_reason = _discord_dead_letter_reason(db_tournament)
     if dead_letter_reason is not None:
         _mark_discord_outbox_dead_letter(db_row, dead_letter_reason, now)
@@ -160,7 +164,8 @@ def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> 
     if credentials is None:
         _schedule_discord_outbox_retry(
             db_row,
-            credentials_error or 'Keine gültige Discord-Bot-Konfiguration aktiv.',
+            credentials_error
+            or 'Keine gültige Discord-Bot-Konfiguration aktiv.',
             now,
         )
         return
@@ -179,7 +184,9 @@ def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> 
     thread_id = db_tournament.discord_thread_id
     if not thread_id:
         _schedule_discord_outbox_retry(
-            db_row, 'Discord-Forum-Thread konnte noch nicht erstellt werden.', now
+            db_row,
+            'Discord-Forum-Thread konnte noch nicht erstellt werden.',
+            now,
         )
         return
 
@@ -228,7 +235,9 @@ def _discord_dead_letter_reason(db_tournament) -> str | None:
 
 def _retry_after_discord_error(db_row, exc: Exception, now: datetime) -> None:
     _schedule_discord_outbox_retry(
-        db_row, f'Discord-Forum-Anfrage fehlgeschlagen: {type(exc).__name__}', now
+        db_row,
+        f'Discord-Forum-Anfrage fehlgeschlagen: {type(exc).__name__}',
+        now,
     )
     log.warning(
         'netsession_tourney.discord_forum_delivery_failed',
@@ -326,7 +335,9 @@ def _validate_discord_configuration(
     if normalized_forum_channel_id and not is_discord_id(
         normalized_forum_channel_id
     ):
-        return 'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.'
+        return (
+            'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.'
+        )
 
     invalid_events = sorted(
         set(normalized_event_mask).difference(DISCORD_SUPPORTED_EVENTS)
@@ -337,10 +348,14 @@ def _validate_discord_configuration(
         return 'Mindestens ein Discord-Forum-Event muss ausgewählt werden.'
 
     invalid_dm_events = sorted(
-        set(discord_dm_event_mask).difference(DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS)
+        set(discord_dm_event_mask).difference(
+            DISCORD_DM_SUPPORTED_NOTIFICATION_KINDS
+        )
     )
     if invalid_dm_events:
-        return 'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(invalid_dm_events)
+        return 'Unbekannte Discord-DM-Ereignisse: ' + ', '.join(
+            invalid_dm_events
+        )
 
     normalized_discord_dm_event_mask = sorted(set(discord_dm_event_mask))
     if discord_dm_enabled and not normalized_discord_dm_event_mask:

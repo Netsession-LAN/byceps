@@ -19,8 +19,8 @@ from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
 from .browser_push_service import (
-    get_active_browser_push_subscription_recipients_for_tournament,
     BROWSER_PUSH_SUPPORTED_NOTIFICATION_KINDS,
+    get_active_browser_push_subscription_recipients_for_tournament,
     has_active_browser_push_subscription_for_user,
     is_browser_push_enabled_for_party,
 )
@@ -40,6 +40,11 @@ from .discord_dm_service import (
 from .discord_service import (
     enqueue_discord_event,
 )
+from .flatout2_races import (
+    get_flatout2_round_races,
+    get_match_host_participant_id,
+    get_selected_host_user_ids,
+)
 from .models import (
     BrowserPushOutboxID,
     DiscordDmOutboxID,
@@ -48,24 +53,19 @@ from .models import (
     TournamentID,
     TournamentStatus,
 )
-from .service_helpers import (
-    append_audit_log,
-)
-from .tournament_queries import (
-    find_db_tournament_for_party,
-)
-from .flatout2_races import (
-    get_flatout2_round_races,
-    get_match_host_participant_id,
-    get_selected_host_user_ids,
-)
 from .notification_recipients import (
     get_active_user_ids_for_tournament,
     get_match_involved_user_ids,
 )
+from .service_helpers import (
+    append_audit_log,
+)
 from .site_paths import (
     build_site_match_path,
     build_site_tournament_overview_path,
+)
+from .tournament_queries import (
+    find_db_tournament_for_party,
 )
 
 
@@ -202,9 +202,7 @@ def append_notification_for_match_report(
             'match_id': str(db_match.id),
             'state': db_match.state,
             'url': (
-                build_site_match_path(
-                    db_tournament.slug, db_match.id
-                )
+                build_site_match_path(db_tournament.slug, db_match.id)
                 if db_tournament is not None
                 else None
             ),
@@ -273,7 +271,10 @@ def _build_flatout2_host_notification_payload(
     db_match: DbNetsessionTourneyMatch,
 ) -> dict[str, Any] | None:
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
-    if db_stage is None or db_stage.type != StageType.ffa_flatout2_single_elimination.value:
+    if (
+        db_stage is None
+        or db_stage.type != StageType.ffa_flatout2_single_elimination.value
+    ):
         return None
 
     host_participant_id = get_match_host_participant_id(db_match)
@@ -283,7 +284,10 @@ def _build_flatout2_host_notification_payload(
     db_tournament = db.session.get(
         DbNetsessionTourneyTournament, db_match.tournament_id
     )
-    if db_tournament is None or db_tournament.status != TournamentStatus.live.value:
+    if (
+        db_tournament is None
+        or db_tournament.status != TournamentStatus.live.value
+    ):
         return None
 
     round_races = get_flatout2_round_races(db_match.settings_json or {})
@@ -387,10 +391,8 @@ def append_notification(
             db_tournament.party_id, user_id
         )
     ):
-        connected_account = (
-            external_accounts_service.find_connected_external_account_for_user_and_service(
-                user_id, 'discord'
-            )
+        connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+            user_id, 'discord'
         )
         if connected_account is not None and connected_account.external_id:
             db.session.add(

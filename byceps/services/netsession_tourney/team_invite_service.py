@@ -50,8 +50,8 @@ from .team_captain_service import (
 )
 from .team_parts_membership import add_team_member
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 from .tourney_registration_checks import validate_user_can_enter_tournament
 
@@ -142,9 +142,7 @@ def regenerate_team_invite_code_for_manager(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teams lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teams lassen sich nur im Entwurf verwalten.')
 
     db_participant = find_db_managed_team_participant(
         party_id, tournament_id, participant_id, initiator.id

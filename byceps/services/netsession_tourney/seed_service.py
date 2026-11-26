@@ -39,8 +39,8 @@ from .stage_builder_settings import (
     is_stage_builder_v1_main_stage_with_locked_qualifier_seeding,
 )
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 
 
@@ -172,7 +172,9 @@ def set_stage_generation_seeds(
     for seed, participant_id in enumerate(final_participant_ids, start=1):
         db_participant = db_participants_by_id.get(participant_id)
         if db_participant is None:
-            return Err('Ein Teilnehmer für die Vergabe der Setzplätze wurde nicht gefunden.')
+            return Err(
+                'Ein Teilnehmer für die Vergabe der Setzplätze wurde nicht gefunden.'
+            )
         db_participant.seed = seed
 
     _append_stage_generation_seeds_audit_log(
@@ -271,4 +273,6 @@ def _resolve_final_seed_participant_ids(
         for participant_id in auto_seed_participant_ids
         if participant_id not in normalized_manual_seed_by_participant_id
     ]
-    return Ok(manual_prefix_participant_ids + remaining_auto_seed_participant_ids)
+    return Ok(
+        manual_prefix_participant_ids + remaining_auto_seed_participant_ids
+    )

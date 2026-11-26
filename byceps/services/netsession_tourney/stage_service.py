@@ -100,7 +100,9 @@ def create_stage(
     ):
         return Err('Dieser Phasentyp passt nicht zum Turniermodus.')
 
-    tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
+    tournament_registration_mode = RegistrationMode(
+        db_tournament.registration_mode
+    )
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
@@ -171,7 +173,9 @@ def update_stage(
     ):
         return Err('Dieser Phasentyp passt nicht zum Turniermodus.')
 
-    tournament_registration_mode = RegistrationMode(db_tournament.registration_mode)
+    tournament_registration_mode = RegistrationMode(
+        db_tournament.registration_mode
+    )
     if not _is_stage_type_compatible_with_registration_mode(
         type_, tournament_registration_mode
     ):
@@ -185,7 +189,9 @@ def update_stage(
         db_stage.settings_json, settings, type_changed=type_changed
     )
     # Only a structural change makes the generated matches invalid.
-    if is_structural_change(db_stage.settings_json, merged, type_changed=type_changed):
+    if is_structural_change(
+        db_stage.settings_json, merged, type_changed=type_changed
+    ):
         delete_stage_matches(stage_id)
 
     db_stage.type = type_.value
@@ -297,7 +303,8 @@ def stage_has_assigned_participants(
         select(db.func.count(DbNetsessionTourneyMatchSlot.id))
         .join(
             DbNetsessionTourneyMatch,
-            DbNetsessionTourneyMatch.id == DbNetsessionTourneyMatchSlot.match_id,
+            DbNetsessionTourneyMatch.id
+            == DbNetsessionTourneyMatchSlot.match_id,
         )
         .filter(
             DbNetsessionTourneyMatch.tournament_id == tournament_id,
@@ -315,7 +322,8 @@ def stage_has_reported_results(
         select(db.func.count(DbNetsessionTourneyMatchResult.id))
         .join(
             DbNetsessionTourneyMatch,
-            DbNetsessionTourneyMatch.id == DbNetsessionTourneyMatchResult.match_id,
+            DbNetsessionTourneyMatch.id
+            == DbNetsessionTourneyMatchResult.match_id,
         )
         .filter(
             DbNetsessionTourneyMatch.tournament_id == tournament_id,
@@ -376,7 +384,7 @@ def get_stage_setting_int(
 
     try:
         value = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return fallback
 
     if value < minimum:

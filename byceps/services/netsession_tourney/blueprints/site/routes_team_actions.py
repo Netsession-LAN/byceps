@@ -7,7 +7,6 @@ Registration and team management actions of players and captains.
 
 from __future__ import annotations
 
-
 from flask import (
     g,
     redirect,
@@ -16,43 +15,51 @@ from flask import (
 )
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.forms import (
+    TeamCreationForm,
+    TeamJoinForm,
+    TeamMemberAddForm,
+)
+from byceps.services.netsession_tourney.models import (
+    RegistrationMode,
+    TournamentStatus,
+)
+from byceps.services.netsession_tourney.registration_service import (
+    deregister_user,
+    register_user,
+)
+from byceps.services.netsession_tourney.team_captain_service import (
+    create_team_for_captain,
+    set_managed_team_ready_state,
+    update_managed_team_for_captain,
+)
+from byceps.services.netsession_tourney.team_invite_service import (
+    join_team_by_invite_code,
+    regenerate_team_invite_code_for_manager,
+)
+from byceps.services.netsession_tourney.team_logo_uploads import (
+    upload_logo_for_managed_team,
+    upload_logo_for_new_team,
+)
+from byceps.services.netsession_tourney.team_member_service import (
+    add_team_member_by_captain,
+    assign_team_captain_by_captain,
+    remove_team_member_by_captain,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_stages_for_tournament,
+)
 from byceps.services.user import user_service
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
 from byceps.util.views import login_required, redirect_to
 
-from ...forms import (
-    TeamCreationForm,
-    TeamJoinForm,
-    TeamMemberAddForm,
-)
-from ...models import (
-    RegistrationMode,
-    TournamentStatus,
-)
-from ...registration_service import deregister_user, register_user
-from ...team_captain_service import (
-    create_team_for_captain,
-    set_managed_team_ready_state,
-    update_managed_team_for_captain,
-)
-from ...team_invite_service import (
-    join_team_by_invite_code,
-    regenerate_team_invite_code_for_manager,
-)
-from ...team_logo_uploads import (
-    upload_logo_for_managed_team,
-    upload_logo_for_new_team,
-)
-from ...team_member_service import (
-    add_team_member_by_captain,
-    assign_team_captain_by_captain,
-    remove_team_member_by_captain,
-)
-from ...tournament_queries import (
-    get_stages_for_tournament,
-)
+from .blueprint import blueprint
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _get_tournament_or_404,
+    get_main_nav_current_page_id,
+)
 from .stage_filters import (
     uses_only_ffa_simple_stages,
     uses_only_flatout2_stages,
@@ -60,12 +67,6 @@ from .stage_filters import (
 from .user_state_helpers import (
     get_captain_team_for_current_user,
     get_registration_state_for_tournament,
-)
-
-from .blueprint import blueprint
-from .common import (
-    get_main_nav_current_page_id,
-    _get_tournament_or_404,
 )
 
 
@@ -123,9 +124,15 @@ def create_team_form(slug):
                 participant_id=captain_team.id,
             )
         if registration_state['insufficient_coins']:
-            flash_error(gettext('Du hast aktuell nicht genügend Coins für dieses Turnier.'))
+            flash_error(
+                gettext(
+                    'Du hast aktuell nicht genügend Coins für dieses Turnier.'
+                )
+            )
         else:
-            flash_error(gettext('Team-Anmeldungen sind aktuell nicht verfügbar.'))
+            flash_error(
+                gettext('Team-Anmeldungen sind aktuell nicht verfügbar.')
+            )
         return redirect_to('.view_participants', slug=slug)
 
     current_page_id = get_main_nav_current_page_id()
@@ -139,7 +146,8 @@ def create_team_form(slug):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'overview',
     }
@@ -163,8 +171,12 @@ def create_team(slug):
     logo_file = request.files.get('logo_file')
     if logo_file is not None and logo_file.filename:
         upload_result = upload_logo_for_new_team(
-            g.party.id, tournament, user, logo_file.stream,
-            label=form.name.data, original_filename=logo_file.filename,
+            g.party.id,
+            tournament,
+            user,
+            logo_file.stream,
+            label=form.name.data,
+            original_filename=logo_file.filename,
         )
         if upload_result.is_err():
             flash_error(upload_result.unwrap_err())
@@ -181,9 +193,7 @@ def create_team(slug):
     if result.is_ok():
         flash_success(gettext('Das Team wurde erstellt.'))
         team = result.unwrap()
-        return redirect_to(
-            '.view_team', slug=slug, participant_id=team.id
-        )
+        return redirect_to('.view_team', slug=slug, participant_id=team.id)
     else:
         flash_error(result.unwrap_err())
 
@@ -217,8 +227,13 @@ def update_team(slug, participant_id):
     team_logo_url = None
     if replace_logo:
         upload_result = upload_logo_for_managed_team(
-            g.party.id, tournament.id, participant_id, user, logo_file.stream,
-            label=form.name.data, original_filename=logo_file.filename,
+            g.party.id,
+            tournament.id,
+            participant_id,
+            user,
+            logo_file.stream,
+            label=form.name.data,
+            original_filename=logo_file.filename,
         )
         if upload_result.is_err():
             flash_error(upload_result.unwrap_err())
@@ -264,9 +279,7 @@ def join_team(slug):
     if result.is_ok():
         flash_success(gettext('Du bist dem Team beigetreten.'))
         team = result.unwrap()
-        return redirect_to(
-            '.view_team', slug=slug, participant_id=team.id
-        )
+        return redirect_to('.view_team', slug=slug, participant_id=team.id)
     else:
         flash_error(result.unwrap_err())
 
@@ -293,7 +306,9 @@ def regenerate_team_invite_code(slug, participant_id):
     return redirect_to('.view_team', slug=slug, participant_id=participant_id)
 
 
-@blueprint.post('/<slug>/teams/<uuid:participant_id>/members/<uuid:member_user_id>/remove')
+@blueprint.post(
+    '/<slug>/teams/<uuid:participant_id>/members/<uuid:member_user_id>/remove'
+)
 @login_required
 def remove_team_member(slug, participant_id, member_user_id):
     tournament = _get_tournament_or_404(slug)
@@ -344,13 +359,17 @@ def add_team_member(slug, participant_id):
     form = TeamMemberAddForm(request.form)
     if not form.validate():
         flash_error(gettext('Ungültige Teammitglied-Daten.'))
-        return redirect_to('.view_team', slug=slug, participant_id=participant_id)
+        return redirect_to(
+            '.view_team', slug=slug, participant_id=participant_id
+        )
 
     screen_name = form.screen_name.data.strip()
     member_user = user_service.find_user_by_screen_name(screen_name)
     if member_user is None:
         flash_error(gettext('Unbekannter Benutzer.'))
-        return redirect_to('.view_team', slug=slug, participant_id=participant_id)
+        return redirect_to(
+            '.view_team', slug=slug, participant_id=participant_id
+        )
 
     user = user_service.get_user(g.user.id)
     result = add_team_member_by_captain(

@@ -76,7 +76,11 @@ def set_tournament_admin_user_ids(
         object_type='tournament',
         object_id=tournament_id,
         action='tournament_admins_set',
-        payload={'admin_user_ids': [str(user_id) for user_id in sorted(normalized_user_ids, key=str)]},
+        payload={
+            'admin_user_ids': [
+                str(user_id) for user_id in sorted(normalized_user_ids, key=str)
+            ]
+        },
         created_at=now,
     )
 

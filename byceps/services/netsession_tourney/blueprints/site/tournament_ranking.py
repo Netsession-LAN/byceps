@@ -11,11 +11,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from byceps.services.party.models import PartyID
-
-from ...double_grand_final import get_match_results
-from ...match_queries import get_match_slots, get_matches_for_tournament
-from ...models import (
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.match_queries import (
+    get_match_slots,
+    get_matches_for_tournament,
+)
+from byceps.services.netsession_tourney.models import (
     Match,
     MatchResult,
     MatchSlot,
@@ -23,10 +26,12 @@ from ...models import (
     Stage,
     StageType,
 )
-from ...tournament_queries import (
+from byceps.services.netsession_tourney.tournament_queries import (
     get_participants_for_tournament,
     get_stages_for_tournament,
 )
+from byceps.services.party.models import PartyID
+
 from .elimination_ranking import rank_by_elimination
 from .ranking_helpers import (
     are_all_rankable_matches_completed,

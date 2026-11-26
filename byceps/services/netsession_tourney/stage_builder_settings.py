@@ -96,28 +96,28 @@ def find_builder_main_stage_for_preliminary_stage(
         .order_by(DbNetsessionTourneyStage.order_no.asc())
     ):
         settings = db_stage.settings_json or {}
-        if (
-            settings.get('builder_role') == 'main'
-            and settings.get('builder_preliminary_stage_id')
-            == str(preliminary_stage_id)
-        ):
+        if settings.get('builder_role') == 'main' and settings.get(
+            'builder_preliminary_stage_id'
+        ) == str(preliminary_stage_id):
             return db_stage
 
     return None
 
 
 def is_stage_builder_v1_main_stage(stage: Stage) -> bool:
-    return (
-        (stage.settings or {}).get('builder_kind') == STAGE_BUILDER_KIND_V1
-        and (stage.settings or {}).get('builder_role') == 'main'
-    )
+    return (stage.settings or {}).get(
+        'builder_kind'
+    ) == STAGE_BUILDER_KIND_V1 and (stage.settings or {}).get(
+        'builder_role'
+    ) == 'main'
 
 
 def is_stage_builder_v1_preliminary_stage(stage: Stage) -> bool:
-    return (
-        (stage.settings or {}).get('builder_kind') == STAGE_BUILDER_KIND_V1
-        and (stage.settings or {}).get('builder_role') == 'preliminary'
-    )
+    return (stage.settings or {}).get(
+        'builder_kind'
+    ) == STAGE_BUILDER_KIND_V1 and (stage.settings or {}).get(
+        'builder_role'
+    ) == 'preliminary'
 
 
 def is_stage_builder_v1_main_stage_with_locked_qualifier_seeding(
@@ -135,7 +135,7 @@ def get_stage_builder_main_stage_size(stage: Stage) -> int | None:
     raw_value = (stage.settings or {}).get('builder_main_stage_size')
     try:
         parsed = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return parsed if parsed in STAGE_BUILDER_MAIN_STAGE_SIZES else None
@@ -159,9 +159,10 @@ def is_builder_container_db_stage(
     has_materialized_stage_ids = bool(
         settings.get('builder_materialized_stage_ids')
     )
-    has_materialized_group_stage_ids = bool(
-        settings.get('builder_materialized_group_stage_ids')
-    ) and settings.get('builder_role') == 'preliminary'
+    has_materialized_group_stage_ids = (
+        bool(settings.get('builder_materialized_group_stage_ids'))
+        and settings.get('builder_role') == 'preliminary'
+    )
     return settings.get('builder_kind') == STAGE_BUILDER_KIND_V1 and bool(
         has_materialized_stage_ids or has_materialized_group_stage_ids
     )

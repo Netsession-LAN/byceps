@@ -13,19 +13,13 @@ from uuid import UUID
 
 from flask_babel import gettext
 
-from byceps.services.party.models import Party
-from byceps.services.party.models import PartyID
-from byceps.util.framework.flash import flash_error
-from byceps.util.result import Err, Ok, Result
-from byceps.util.views import redirect_to
-
-from ...forms import (
-    StageBuilderMainForm,
-    StageBuilderPreliminaryForm,
-    StageBuilderTimingForm,
-    StageForm,
+from byceps.services.netsession_tourney.blueprints.site.builder_helpers import (
+    get_builder_container_child_stage_ids,
 )
-from ...flatout2 import (
+from byceps.services.netsession_tourney.engines.bracket_helpers import (
+    distribute_evenly,
+)
+from byceps.services.netsession_tourney.flatout2 import (
     FLATOUT2_MAX_RACES_PER_ROUND,
     FLATOUT2_MODE_CHOICES,
     FLATOUT2_MODE_SPECS,
@@ -34,7 +28,19 @@ from ...flatout2 import (
     FLATOUT2_VEHICLE_CHOICES_BY_MODE,
     FLATOUT2_VEHICLE_SET_BY_MODE,
 )
-from ...models import (
+from byceps.services.netsession_tourney.forms import (
+    StageBuilderMainForm,
+    StageBuilderPreliminaryForm,
+    StageBuilderTimingForm,
+    StageForm,
+)
+from byceps.services.netsession_tourney.generation_guard import (
+    check_generation_allowed_for_stage,
+)
+from byceps.services.netsession_tourney.generation_participants import (
+    is_builder_preliminary_skipped,
+)
+from byceps.services.netsession_tourney.models import (
     Match,
     MatchState,
     ParticipantID,
@@ -44,22 +50,36 @@ from ...models import (
     TournamentID,
     TournamentMode,
 )
-from ...result_report_mode import RESULT_REPORT_MODE_ADMIN_ONLY
-from ...stage_builder_preview import preview_stage_builder_plan
-from ...stage_builder_settings import STAGE_BUILDER_MAIN_STAGE_SIZES
-from ...stage_generation import preview_stage_match_generation
-from ...swiss_thresholds import (
+from byceps.services.netsession_tourney.result_report_mode import (
+    RESULT_REPORT_MODE_ADMIN_ONLY,
+)
+from byceps.services.netsession_tourney.score_parsing import (
+    get_ffa_points_per_kill,
+)
+from byceps.services.netsession_tourney.stage_builder_preview import (
+    preview_stage_builder_plan,
+)
+from byceps.services.netsession_tourney.stage_builder_settings import (
+    STAGE_BUILDER_MAIN_STAGE_SIZES,
+)
+from byceps.services.netsession_tourney.stage_generation import (
+    preview_stage_match_generation,
+)
+from byceps.services.netsession_tourney.stage_service import (
+    parse_source_stage_ids,
+)
+from byceps.services.netsession_tourney.swiss_thresholds import (
     get_configured_swiss_threshold,
     get_swiss_round_count_for_threshold,
     get_swiss_threshold_for_round_count,
 )
-from ...tournament_queries import get_stages_for_tournament
-from ...score_parsing import get_ffa_points_per_kill
-from ...engines.bracket_helpers import distribute_evenly
-from ..site.builder_helpers import get_builder_container_child_stage_ids
-from ...generation_guard import check_generation_allowed_for_stage
-from ...generation_participants import is_builder_preliminary_skipped
-from ...stage_service import parse_source_stage_ids
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_stages_for_tournament,
+)
+from byceps.services.party.models import Party, PartyID
+from byceps.util.framework.flash import flash_error
+from byceps.util.result import Err, Ok, Result
+from byceps.util.views import redirect_to
 
 
 def is_stage_builder_main_complete(state: dict) -> bool:
@@ -136,7 +156,7 @@ def stage_to_form_data(stage) -> dict:
             swiss_threshold = get_swiss_threshold_for_round_count(
                 int(raw_round_count)
             )
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             swiss_threshold = None
     if swiss_threshold not in {2, 3, 4}:
         swiss_threshold = None
@@ -174,7 +194,7 @@ def _format_ffa_placement_points_rules(rules) -> str:
             from_place = int(rule.get('from_place'))
             to_place = int(rule.get('to_place'))
             points = int(rule.get('points'))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         normalized_rules.append((from_place, to_place, points))
@@ -193,7 +213,9 @@ def _format_ffa_placement_points_rules(rules) -> str:
     return '\n'.join(lines)
 
 
-def _parse_ffa_placement_points_text(raw_text: str | None) -> Result[list[dict], str]:
+def _parse_ffa_placement_points_text(
+    raw_text: str | None,
+) -> Result[list[dict], str]:
     normalized_text = (raw_text or '').strip()
     if not normalized_text:
         return Err(
@@ -309,21 +331,22 @@ def get_ffa_placement_points_row_count(
         for candidate in candidates:
             try:
                 parsed = int(candidate)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
             if parsed > 0:
                 return parsed
 
     participant_limit = getattr(tournament, 'participant_limit', None)
     if (
-        stage_type
-        != StageType.ffa_single_elimination
+        stage_type != StageType.ffa_single_elimination
         and isinstance(participant_limit, int)
         and participant_limit > 0
     ):
         return participant_limit
 
-    parsed_rules_result = _parse_ffa_placement_points_text(placement_points_text)
+    parsed_rules_result = _parse_ffa_placement_points_text(
+        placement_points_text
+    )
     if parsed_rules_result.is_err():
         return 0
 
@@ -372,15 +395,11 @@ def stage_settings_from_form(
         )
     if form.match_duration_minutes.data:
         settings['match_duration_minutes'] = form.match_duration_minutes.data
-    if (
-        form.max_matches_per_round.data
-        and stage_type
-        not in {
-            StageType.ffa_simple,
-            StageType.ffa_single_elimination,
-            StageType.ffa_flatout2_single_elimination,
-        }
-    ):
+    if form.max_matches_per_round.data and stage_type not in {
+        StageType.ffa_simple,
+        StageType.ffa_single_elimination,
+        StageType.ffa_flatout2_single_elimination,
+    }:
         settings['max_matches_per_round'] = form.max_matches_per_round.data
     if form.break_between_rounds_minutes.data is not None:
         settings['break_between_rounds_minutes'] = (
@@ -435,7 +454,9 @@ def participant_source_settings_from_form(
 
     if not selected_source_stage_ids:
         return Err(
-            gettext('Bitte mindestens eine vorherige Phase als Quelle auswählen.')
+            gettext(
+                'Bitte mindestens eine vorherige Phase als Quelle auswählen.'
+            )
         )
 
     raw_top_n = (request_form.get('qualifier_top_n') or '1').strip()
@@ -498,11 +519,15 @@ def parse_stage_generation_auto_seed_participant_ids(
         try:
             participant_id = ParticipantID(UUID(raw_participant_id))
         except ValueError:
-            return Err(gettext('Ungültige Zuordnung der automatischen Setzplätze.'))
+            return Err(
+                gettext('Ungültige Zuordnung der automatischen Setzplätze.')
+            )
         if participant_id not in allowed_participant_ids:
             return Err(gettext('Die Teilnehmerliste hat sich geändert.'))
         if participant_id in seen_participant_ids:
-            return Err(gettext('Die Liste der automatischen Setzplätze ist ungültig.'))
+            return Err(
+                gettext('Die Liste der automatischen Setzplätze ist ungültig.')
+            )
         seen_participant_ids.add(participant_id)
         auto_seed_participant_ids.append(participant_id)
 
@@ -557,10 +582,14 @@ def build_stage_generation_seed_rows(
     auto_seed_participant_ids: list[ParticipantID],
     manual_seed_values_by_participant_id: dict[ParticipantID, int],
 ):
-    participants_by_id = {participant.id: participant for participant in participants}
+    participants_by_id = {
+        participant.id: participant for participant in participants
+    }
     auto_seed_by_participant_id = {
         participant_id: index
-        for index, participant_id in enumerate(auto_seed_participant_ids, start=1)
+        for index, participant_id in enumerate(
+            auto_seed_participant_ids, start=1
+        )
     }
     manual_prefix_participant_ids = [
         participant_id
@@ -651,7 +680,9 @@ def get_stage_generation_block_reason(
     }:
         return None
 
-    source_stage_ids = parse_source_stage_ids(settings.get('qualifier_source_stage_ids', []))
+    source_stage_ids = parse_source_stage_ids(
+        settings.get('qualifier_source_stage_ids', [])
+    )
     if not source_stage_ids:
         return gettext(
             'Qualifikationsphasen fehlen. Konfiguriere zuerst die Vorrunden-Quelle.'
@@ -694,7 +725,9 @@ def build_stage_display_rows(stages: list[Stage]) -> list[dict]:
                 for stage_id in get_builder_container_child_stage_ids(stage)
                 if str(stage_id) in stages_by_id
             ]
-            consumed_stage_ids.update(child_stage.id for child_stage in child_stages)
+            consumed_stage_ids.update(
+                child_stage.id for child_stage in child_stages
+            )
             rows.append(
                 {
                     'kind': 'builder_container',
@@ -710,11 +743,7 @@ def build_stage_display_rows(stages: list[Stage]) -> list[dict]:
 
 
 def build_visible_stage_tabs(stages: list[Stage]) -> list[Stage]:
-    return [
-        stage
-        for stage in stages
-        if not _is_builder_container_stage(stage)
-    ]
+    return [stage for stage in stages if not _is_builder_container_stage(stage)]
 
 
 def build_stage_builder_meta(stage: Stage) -> dict | None:
@@ -781,9 +810,7 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
                 title=settings.get('builder_display_title') or '?',
             )
         )
-        lines.append(
-            gettext('Teilnehmerquelle: Qualifikanten der Vorrunde')
-        )
+        lines.append(gettext('Teilnehmerquelle: Qualifikanten der Vorrunde'))
     elif role == 'main_round':
         role_label = (
             gettext('Turnierplaner')
@@ -793,9 +820,7 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
                 title=settings.get('builder_display_title') or '?',
             )
         )
-        lines.append(
-            gettext('Teilnehmerquelle: Qualifikanten der Vorstufe')
-        )
+        lines.append(gettext('Teilnehmerquelle: Qualifikanten der Vorstufe'))
     elif role == 'preliminary_group':
         role_label = gettext(
             'Turnierplaner: Vorrunden-Gruppe %(label)s',
@@ -817,7 +842,9 @@ def build_stage_builder_meta(stage: Stage) -> dict | None:
             else gettext('Turnierplaner: Hauptturnier')
         )
         if settings.get('builder_preliminary_stage_id'):
-            lines.append(gettext('Teilnehmerquelle: automatische Qualifikation'))
+            lines.append(
+                gettext('Teilnehmerquelle: automatische Qualifikation')
+            )
         else:
             lines.append(
                 gettext('Teilnehmerquelle: direkte bereite Teilnehmer')
@@ -846,7 +873,12 @@ def build_stage_builder_generation_summary(
     settings = resolved_stage.settings or {}
     role = (stage.settings or {}).get('builder_role')
     main_stage_size = settings.get('builder_main_stage_size')
-    lines = [gettext('Aktuelle Generierungsbasis: %(count)s bereite Teilnehmer', count=participant_count)]
+    lines = [
+        gettext(
+            'Aktuelle Generierungsbasis: %(count)s bereite Teilnehmer',
+            count=participant_count,
+        )
+    ]
 
     if role == 'preliminary':
         if stage.type == StageType.round_robin_groups:
@@ -879,9 +911,7 @@ def build_stage_builder_generation_summary(
                     )
                 )
             if group_count:
-                lines.append(
-                    gettext('Gruppen: %(count)s', count=group_count)
-                )
+                lines.append(gettext('Gruppen: %(count)s', count=group_count))
             if min_group_size and max_group_size:
                 if min_group_size == max_group_size:
                     lines.append(
@@ -907,7 +937,9 @@ def build_stage_builder_generation_summary(
                     )
                 )
             if group_count:
-                group_sizes = distribute_evenly(participant_count, int(group_count))
+                group_sizes = distribute_evenly(
+                    participant_count, int(group_count)
+                )
                 lines.append(_format_group_distribution_summary(group_sizes))
                 round_summary = _format_round_robin_global_round_summary(
                     group_sizes
@@ -959,7 +991,9 @@ def build_stage_builder_generation_summary(
                 )
         else:
             lines.append(
-                gettext('Dieses Hauptturnier wird direkt aus bereiten Teilnehmern erzeugt.')
+                gettext(
+                    'Dieses Hauptturnier wird direkt aus bereiten Teilnehmern erzeugt.'
+                )
             )
 
     return {
@@ -979,12 +1013,10 @@ def build_round_robin_generation_intro(
     settings = resolved_stage.settings or {}
     main_stage_size = settings.get('builder_main_stage_size')
     group_count = settings.get('group_count')
-    qualifiers_per_group = settings.get(
-        'builder_resolved_qualifiers_per_group'
-    )
-    round_robin_builder_mode = settings.get(
-        'builder_round_robin_mode'
-    ) or (stage.settings or {}).get('builder_round_robin_mode')
+    qualifiers_per_group = settings.get('builder_resolved_qualifiers_per_group')
+    round_robin_builder_mode = settings.get('builder_round_robin_mode') or (
+        stage.settings or {}
+    ).get('builder_round_robin_mode')
 
     group_sizes: list[int] = []
     if group_count:
@@ -1052,13 +1084,17 @@ def _format_group_distribution_summary(group_sizes: list[int]) -> str:
     return gettext('Konkrete Verteilung: %(parts)s', parts=', '.join(parts))
 
 
-def _format_round_robin_global_round_summary(group_sizes: list[int]) -> str | None:
+def _format_round_robin_global_round_summary(
+    group_sizes: list[int],
+) -> str | None:
     if not group_sizes:
         return None
 
     matches_by_round: list[int] = []
     for group_size in group_sizes:
-        round_count = group_size if group_size % 2 == 1 else max(1, group_size - 1)
+        round_count = (
+            group_size if group_size % 2 == 1 else max(1, group_size - 1)
+        )
         matches_per_round = group_size // 2
         for round_index in range(round_count):
             if round_index >= len(matches_by_round):
@@ -1100,9 +1136,8 @@ def build_stage_builder_main_form(
             ),
             'main_stage_size': state.get('main_stage_size')
             or get_stage_builder_default_main_stage_size(tournament),
-            'max_players_per_match': state.get('max_players_per_match')
-            or 8,
-        }
+            'max_players_per_match': state.get('max_players_per_match') or 8,
+        },
     )
 
 
@@ -1143,7 +1178,7 @@ def build_stage_builder_preliminary_form(
             ),
             'round_robin_group_count': state.get('round_robin_group_count'),
             'swiss_threshold': state.get('swiss_threshold') or 3,
-        }
+        },
     )
 
 
@@ -1202,7 +1237,7 @@ def build_stage_builder_review_preview(
     try:
         main_stage_type = StageType(state['main_stage_type'])
         main_stage_size = int(state['main_stage_size'])
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         return None
 
     preliminary_type = None
@@ -1315,7 +1350,9 @@ def build_stage_builder_review_preview(
                 )
             )
 
-        preliminary_round_summaries = preview.get('preliminary_round_summaries', [])
+        preliminary_round_summaries = preview.get(
+            'preliminary_round_summaries', []
+        )
         if preliminary_round_summaries:
             lines.append(gettext('Vorrunden-Preview:'))
             for round_summary in preliminary_round_summaries:
@@ -1328,9 +1365,9 @@ def build_stage_builder_review_preview(
                     )
                 )
 
-        main_round_summaries = preview.get('main_round_summaries') or preview.get(
-            'round_summaries', []
-        )
+        main_round_summaries = preview.get(
+            'main_round_summaries'
+        ) or preview.get('round_summaries', [])
         if main_round_summaries:
             lines.append(gettext('Vorschau Hauptturnier:'))
             for round_summary in main_round_summaries:
@@ -1357,12 +1394,23 @@ def build_stage_builder_review_preview(
                     count=preview.get('main_match_count'),
                 )
             )
-        return {'title': gettext('Aktuelle Vorschau des Turnierplaners'), 'lines': lines}
+        return {
+            'title': gettext('Aktuelle Vorschau des Turnierplaners'),
+            'lines': lines,
+        }
 
     if preview['participant_count'] < 2:
-        lines.append(gettext('Noch keine 2 bereiten Teilnehmer: Matches lassen sich erst ab 2 erzeugen.'))
+        lines.append(
+            gettext(
+                'Noch keine 2 bereiten Teilnehmer: Matches lassen sich erst ab 2 erzeugen.'
+            )
+        )
     elif preview['participant_count'] <= main_stage_size:
-        lines.append(gettext('Mit der aktuellen Anzahl bereiter Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier wird direkt erzeugt, eine angelegte Vorrunde übersprungen.'))
+        lines.append(
+            gettext(
+                'Mit der aktuellen Anzahl bereiter Teilnehmer ist keine Vorrunde nötig. Das Hauptturnier wird direkt erzeugt, eine angelegte Vorrunde übersprungen.'
+            )
+        )
     elif preliminary_type is None:
         lines.append(
             gettext(
@@ -1386,7 +1434,9 @@ def build_stage_builder_review_preview(
         group_sizes = preview.get('group_sizes', [])
         if group_sizes:
             lines.append(_format_group_distribution_summary(group_sizes))
-            round_summary = _format_round_robin_global_round_summary(group_sizes)
+            round_summary = _format_round_robin_global_round_summary(
+                group_sizes
+            )
             if round_summary is not None:
                 lines.append(round_summary)
         qualifiers_per_group = preview.get('qualifiers_per_group')
@@ -1420,7 +1470,10 @@ def build_stage_builder_review_preview(
             )
         )
 
-    return {'title': gettext('Aktuelle Vorschau des Turnierplaners'), 'lines': lines}
+    return {
+        'title': gettext('Aktuelle Vorschau des Turnierplaners'),
+        'lines': lines,
+    }
 
 
 def is_flatout2_stage_type(stage_type: StageType | None) -> bool:
@@ -1431,14 +1484,18 @@ def _get_flatout2_total_round_count(stage: Stage) -> int | None:
     raw_rounds = (stage.settings or {}).get('flatout2_rounds')
     if isinstance(raw_rounds, list):
         round_count = len(
-            [raw_round for raw_round in raw_rounds if isinstance(raw_round, dict)]
+            [
+                raw_round
+                for raw_round in raw_rounds
+                if isinstance(raw_round, dict)
+            ]
         )
         if round_count > 0:
             return round_count
 
     try:
         round_count = int((stage.settings or {}).get('round_count') or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return round_count if round_count > 0 else None
@@ -1508,7 +1565,9 @@ def build_flatout2_generation_state(
     raw_rounds = existing_stage_settings.get('flatout2_rounds')
     if not isinstance(raw_rounds, list):
         raw_rounds = []
-    raw_match_blueprints = existing_stage_settings.get('flatout2_match_blueprints')
+    raw_match_blueprints = existing_stage_settings.get(
+        'flatout2_match_blueprints'
+    )
     if not isinstance(raw_match_blueprints, dict):
         raw_match_blueprints = {}
 
@@ -1516,15 +1575,19 @@ def build_flatout2_generation_state(
         max_players_per_match = int(
             existing_stage_settings.get('max_players_per_match') or 8
         )
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         max_players_per_match = 8
     max_players_per_match = max(2, min(max_players_per_match, 8))
 
     participant_choices = [
         {'value': str(participant.id), 'label': participant.name}
-        for participant in sorted(participants, key=lambda item: item.name.casefold())
+        for participant in sorted(
+            participants, key=lambda item: item.name.casefold()
+        )
     ]
-    participant_choice_values = {choice['value'] for choice in participant_choices}
+    participant_choice_values = {
+        choice['value'] for choice in participant_choices
+    }
     max_match_count_per_round = 10
     round_defaults_by_no: dict[int, dict] = {}
     for index, raw_round in enumerate(raw_rounds, start=1):
@@ -1532,7 +1595,7 @@ def build_flatout2_generation_state(
             continue
         try:
             round_no = int(raw_round.get('round_no') or index)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             round_no = index
         round_defaults_by_no[round_no] = raw_round
 
@@ -1540,7 +1603,9 @@ def build_flatout2_generation_state(
     for round_no in (1,):
         default_round = round_defaults_by_no.get(round_no, {})
         posted_match_count = (
-            (posted_form.get(f'flatout2_match_count_round_{round_no}') or '').strip()
+            (
+                posted_form.get(f'flatout2_match_count_round_{round_no}') or ''
+            ).strip()
             if posted_form is not None
             else ''
         )
@@ -1551,7 +1616,7 @@ def build_flatout2_generation_state(
         if match_count < 1 or match_count > max_match_count_per_round:
             try:
                 match_count = int(default_round.get('match_count') or 1)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 match_count = 1
         match_count = max(1, min(match_count, max_match_count_per_round))
 
@@ -1567,7 +1632,9 @@ def build_flatout2_generation_state(
                     default_round_races = legacy_races
 
         posted_race_count = (
-            (posted_form.get(f'flatout2_race_count_round_{round_no}') or '').strip()
+            (
+                posted_form.get(f'flatout2_race_count_round_{round_no}') or ''
+            ).strip()
             if posted_form is not None
             else ''
         )
@@ -1590,19 +1657,34 @@ def build_flatout2_generation_state(
                 else {}
             )
             mode = (
-                (posted_form.get(f'flatout2_mode_round_{round_no}_race_{race_no}') or '').strip()
+                (
+                    posted_form.get(
+                        f'flatout2_mode_round_{round_no}_race_{race_no}'
+                    )
+                    or ''
+                ).strip()
                 if posted_form is not None
                 else str(default_race.get('mode') or 'single_race').strip()
             )
             if mode not in FLATOUT2_MODE_SPECS:
                 mode = 'single_race'
             track = (
-                (posted_form.get(f'flatout2_track_round_{round_no}_race_{race_no}') or '').strip()
+                (
+                    posted_form.get(
+                        f'flatout2_track_round_{round_no}_race_{race_no}'
+                    )
+                    or ''
+                ).strip()
                 if posted_form is not None
                 else str(default_race.get('track') or '').strip()
             )
             vehicle = (
-                (posted_form.get(f'flatout2_vehicle_round_{round_no}_race_{race_no}') or '').strip()
+                (
+                    posted_form.get(
+                        f'flatout2_vehicle_round_{round_no}_race_{race_no}'
+                    )
+                    or ''
+                ).strip()
                 if posted_form is not None
                 else str(default_race.get('vehicle') or '').strip()
             )
@@ -1699,7 +1781,7 @@ def parse_flatout2_generation_configuration(
         max_players_per_match = int(
             (stage.settings or {}).get('max_players_per_match') or 8
         )
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         max_players_per_match = 8
     max_players_per_match = max(2, min(max_players_per_match, 8))
     max_match_count_per_round = 10
@@ -1745,7 +1827,9 @@ def parse_flatout2_generation_configuration(
         round_races = []
         for race_no in range(1, race_count + 1):
             mode = (
-                request_form.get(f'flatout2_mode_round_{round_no}_race_{race_no}')
+                request_form.get(
+                    f'flatout2_mode_round_{round_no}_race_{race_no}'
+                )
                 or ''
             ).strip()
             if mode not in FLATOUT2_MODE_SPECS:
@@ -1874,5 +1958,3 @@ def parse_flatout2_generation_configuration(
             match_settings_by_round_and_match_no,
         )
     )
-
-

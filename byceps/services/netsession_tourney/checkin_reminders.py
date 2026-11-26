@@ -34,7 +34,9 @@ def send_due_checkin_reminders(now: datetime | None = None) -> int:
     now = now or datetime.utcnow()
     db_tournaments = db.session.scalars(
         select(DbNetsessionTourneyTournament)
-        .filter(DbNetsessionTourneyTournament.status == TournamentStatus.live.value)
+        .filter(
+            DbNetsessionTourneyTournament.status == TournamentStatus.live.value
+        )
         .filter(DbNetsessionTourneyTournament.checkin_open_at <= now)
         .filter(DbNetsessionTourneyTournament.checkin_close_at > now)
     ).all()

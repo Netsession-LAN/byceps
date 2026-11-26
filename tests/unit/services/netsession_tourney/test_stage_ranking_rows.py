@@ -4,8 +4,8 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from byceps.services.netsession_tourney.stage_ranking_rows import (
-    RankingTally,
     new_ranking_row,
+    RankingTally,
 )
 
 
@@ -22,13 +22,17 @@ def _slots(*participant_ids):
 
 def _result(winner_slot, score=None, ranking=None):
     return SimpleNamespace(
-        winner_slot=winner_slot, score_json=score or {}, ranking_json=ranking or {}
+        winner_slot=winner_slot,
+        score_json=score or {},
+        ranking_json=ranking or {},
     )
 
 
 def _tally(*ids, ffa=False, swiss=False, points_per_kill=0):
     return RankingTally(
-        rows_by_participant_id={pid: new_ranking_row(_participant(1)) for pid in ids},
+        rows_by_participant_id={
+            pid: new_ranking_row(_participant(1)) for pid in ids
+        },
         is_ffa_scoring_stage=ffa,
         is_swiss_stage=swiss,
         points_per_kill=points_per_kill,
@@ -74,11 +78,23 @@ def test_ffa_adds_points_kills_and_best_placement():
     tally.add_result(
         _result(None, {'slots': {'1': 4, '2': 'x'}}, ranking), _slots('a', 'b')
     )
-    tally.add_result(_result(None, {}, {'placements': {'1': 2}}), _slots('a', 'b'))
+    tally.add_result(
+        _result(None, {}, {'placements': {'1': 2}}), _slots('a', 'b')
+    )
 
     a, b = tally.rows_by_participant_id['a'], tally.rows_by_participant_id['b']
-    assert (a['points'], a['kills'], a['total_points'], a['placement']) == (5, 4, 13, 2)
-    assert (b['points'], b['kills'], b['total_points'], b['placement']) == (10, 0, 10, 1)
+    assert (a['points'], a['kills'], a['total_points'], a['placement']) == (
+        5,
+        4,
+        13,
+        2,
+    )
+    assert (b['points'], b['kills'], b['total_points'], b['placement']) == (
+        10,
+        0,
+        10,
+        1,
+    )
 
 
 def test_strength_of_schedule():

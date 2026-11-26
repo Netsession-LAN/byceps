@@ -87,7 +87,9 @@ def _build_double_elimination_notification_match_labels(
         sorted_matches, stage_match_ids, incoming_by_match_id
     )
 
-    labels_by_match_id = {match.id: f'M #{match.match_no}' for match in db_stage_matches}
+    labels_by_match_id = {
+        match.id: f'M #{match.match_no}' for match in db_stage_matches
+    }
 
     gf_matches = sorted(
         [
@@ -159,7 +161,9 @@ def _assign_double_elimination_notification_brackets(
             ]
             bracket = bracket_by_match_id.get(match.id)
             next_bracket = (
-                _determine_next_notification_bracket(incoming, bracket_by_match_id)
+                _determine_next_notification_bracket(
+                    incoming, bracket_by_match_id
+                )
                 if incoming
                 else 'WB'
             )
@@ -187,7 +191,9 @@ def _determine_next_notification_bracket(
 
     if 'GF' in source_brackets:
         return 'GF'
-    elif any(_is_loser_notification_outcome(outcome) for _, outcome in incoming):
+    elif any(
+        _is_loser_notification_outcome(outcome) for _, outcome in incoming
+    ):
         return 'LB'
     elif source_brackets == {'WB'}:
         return 'WB'

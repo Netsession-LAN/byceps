@@ -36,7 +36,9 @@ def get_ffa_single_elimination_qualifier_ids(
         return []
 
     db_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult).filter_by(match_id=source_match_id)
+        select(DbNetsessionTourneyMatchResult).filter_by(
+            match_id=source_match_id
+        )
     )
 
     placements_by_slot_no: dict[int, int] = {}
@@ -49,7 +51,7 @@ def get_ffa_single_elimination_qualifier_ids(
                     raw_value = raw_placements.get(slot.slot_no)
                 try:
                     placements_by_slot_no[slot.slot_no] = int(raw_value)
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
 
     sorted_slots = sorted(
@@ -64,6 +66,8 @@ def get_ffa_single_elimination_qualifier_ids(
     )
 
     participant_ids = [
-        slot.participant_id for slot in sorted_slots if slot.participant_id is not None
+        slot.participant_id
+        for slot in sorted_slots
+        if slot.participant_id is not None
     ]
     return participant_ids[:qualifier_count]

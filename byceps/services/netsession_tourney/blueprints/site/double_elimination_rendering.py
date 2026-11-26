@@ -30,7 +30,9 @@ def build_double_elimination_match_labels(
         for match in sorted_matches:
             incoming = [
                 (source_match_id, outcome)
-                for source_match_id, outcome in incoming_by_match_id.get(match.id, [])
+                for source_match_id, outcome in incoming_by_match_id.get(
+                    match.id, []
+                )
                 if source_match_id in stage_match_ids
             ]
             bracket = bracket_by_match_id.get(match.id)
@@ -59,10 +61,16 @@ def build_double_elimination_match_labels(
                 bracket_by_match_id[match.id] = next_bracket
                 changed = True
 
-    labels_by_match_id = {match.id: f'M #{match.match_no}' for match in stage_matches}
+    labels_by_match_id = {
+        match.id: f'M #{match.match_no}' for match in stage_matches
+    }
 
     gf_matches = sorted(
-        [match for match in sorted_matches if bracket_by_match_id.get(match.id) == 'GF'],
+        [
+            match
+            for match in sorted_matches
+            if bracket_by_match_id.get(match.id) == 'GF'
+        ],
         key=lambda match: (match.round_no, match.match_no),
     )
     if gf_matches:
@@ -76,10 +84,14 @@ def build_double_elimination_match_labels(
                 labels_by_match_id[match.id] = f'Grand Final #{index}'
 
     wb_matches = [
-        match for match in sorted_matches if bracket_by_match_id.get(match.id) == 'WB'
+        match
+        for match in sorted_matches
+        if bracket_by_match_id.get(match.id) == 'WB'
     ]
     lb_matches = [
-        match for match in sorted_matches if bracket_by_match_id.get(match.id) == 'LB'
+        match
+        for match in sorted_matches
+        if bracket_by_match_id.get(match.id) == 'LB'
     ]
 
     labels_by_match_id.update(
@@ -110,8 +122,12 @@ def is_double_elimination_bracket(bracket, match_labels_by_id) -> bool:
     )
     return loser_rounds_present or any(
         match_labels_by_id.get(item['match'].id, '').startswith('WB ')
-        or match_labels_by_id.get(item['match'].id, '').startswith('Grand Final')
-        or match_labels_by_id.get(item['match'].id, '').startswith('Double Grand Final')
+        or match_labels_by_id.get(item['match'].id, '').startswith(
+            'Grand Final'
+        )
+        or match_labels_by_id.get(item['match'].id, '').startswith(
+            'Double Grand Final'
+        )
         for round_data in bracket
         for item in round_data['matches']
     )
@@ -188,9 +204,11 @@ def _decorate_double_elimination_winner_rounds(
 
     for index, round_data in enumerate(wb_rounds):
         round_data['display_round_no'] = str(index + 1)
-        round_data['display_title'] = _get_double_elimination_winner_round_title(
-            index,
-            len(wb_rounds),
+        round_data['display_title'] = (
+            _get_double_elimination_winner_round_title(
+                index,
+                len(wb_rounds),
+            )
         )
 
     for index, round_data in enumerate(gf_rounds):
@@ -259,7 +277,9 @@ def _label_bracket_matches(
     )
     for index, match in enumerate(final_round_matches, start=1):
         labels_by_match_id[match.id] = (
-            final_label if len(final_round_matches) == 1 else f'{final_label} #{index}'
+            final_label
+            if len(final_round_matches) == 1
+            else f'{final_label} #{index}'
         )
 
     semi_round_no = sorted_round_nos[-2] if len(sorted_round_nos) >= 2 else None
@@ -273,7 +293,8 @@ def _label_bracket_matches(
     running_no = 1
     for round_no in sorted_round_nos:
         for match in sorted(
-            matches_by_round_no[round_no], key=lambda current_match: current_match.match_no
+            matches_by_round_no[round_no],
+            key=lambda current_match: current_match.match_no,
         ):
             if match.id in labels_by_match_id:
                 continue

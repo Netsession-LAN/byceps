@@ -37,12 +37,12 @@ from .service_helpers import (
     append_audit_log,
     db_match_chat_message_to_model,
 )
-from .tournament_queries import (
-    find_db_tournament_for_party,
-    ACTIVE_PARTICIPANT_STATUS_VALUES,
-)
 from .site_paths import (
     build_site_match_path,
+)
+from .tournament_queries import (
+    ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 
 
@@ -107,7 +107,9 @@ def can_user_access_match_chat(
                 DbNetsessionTourneyParticipant.id
                 == DbNetsessionTourneyTeamMember.participant_id,
             )
-            .filter(DbNetsessionTourneyParticipant.tournament_id == tournament_id)
+            .filter(
+                DbNetsessionTourneyParticipant.tournament_id == tournament_id
+            )
             .filter(
                 DbNetsessionTourneyParticipant.status.in_(
                     ACTIVE_PARTICIPANT_STATUS_VALUES
@@ -117,7 +119,9 @@ def can_user_access_match_chat(
         ).all()
     )
 
-    return bool((own_participant_ids | team_participant_ids) & match_participant_ids)
+    return bool(
+        (own_participant_ids | team_participant_ids) & match_participant_ids
+    )
 
 
 def get_match_chat_messages(

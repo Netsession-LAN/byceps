@@ -8,11 +8,13 @@ Check-in of a player or team on the tournament page.
 from flask import g
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.checkin_service import (
+    check_in,
+    get_checkin_phase,
+)
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.result import Err, Ok
 from byceps.util.views import login_required, redirect_to
-
-from ...checkin_service import check_in, get_checkin_phase
 
 
 def register(blueprint, get_tournament_or_404) -> None:
@@ -34,4 +36,3 @@ def _checkin_phase_name(tournament) -> str:
     """'before', 'open', 'closed' or '' (no check-in)."""
     phase = get_checkin_phase(tournament)
     return phase.value if phase is not None else ''
-

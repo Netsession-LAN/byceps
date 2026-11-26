@@ -103,9 +103,7 @@ def configure_discord_dm(
     except DBAPIError as exc:
         if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
-            return Err(
-                'Discord-DM-Tabellen sind noch nicht installiert.'
-            )
+            return Err('Discord-DM-Tabellen sind noch nicht installiert.')
         raise
 
     normalized_application_id = (application_id or '').strip() or None
@@ -120,7 +118,9 @@ def configure_discord_dm(
 
     if enabled and not normalized_application_id:
         return Err('Eine Application ID ist erforderlich.')
-    if normalized_application_id and not is_discord_id(normalized_application_id):
+    if normalized_application_id and not is_discord_id(
+        normalized_application_id
+    ):
         return Err('Die Application ID muss aus 17 bis 20 Ziffern bestehen.')
 
     now = datetime.utcnow()
@@ -128,7 +128,11 @@ def configure_discord_dm(
         db_config = DbNetsessionTourneyDiscordDmConfig(party_id, now)
         db.session.add(db_config)
 
-    if enabled and not normalized_bot_token and not db_config.bot_token_encrypted:
+    if (
+        enabled
+        and not normalized_bot_token
+        and not db_config.bot_token_encrypted
+    ):
         return Err('Ein Bot-Token ist erforderlich.')
 
     db_config.enabled = enabled
@@ -161,7 +165,9 @@ def get_masked_discord_dm_bot_token(party_id: PartyID) -> str:
     )
 
 
-def get_configured_discord_bot_credentials() -> Result[tuple[str, str] | None, str]:
+def get_configured_discord_bot_credentials() -> Result[
+    tuple[str, str] | None, str
+]:
     try:
         db_configs = db.session.scalars(
             select(DbNetsessionTourneyDiscordDmConfig)
@@ -177,9 +183,7 @@ def get_configured_discord_bot_credentials() -> Result[tuple[str, str] | None, s
         if not db_config.application_id or not db_config.bot_token_encrypted:
             continue
 
-        bot_token = decrypt_discord_dm_bot_token(
-            db_config.bot_token_encrypted
-        )
+        bot_token = decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
         if not bot_token:
             continue
 
@@ -196,7 +200,9 @@ def get_configured_discord_bot_credentials() -> Result[tuple[str, str] | None, s
     return Ok(next(iter(credentials)))
 
 
-def get_enabled_discord_dm_bot_credentials() -> Result[tuple[str, str] | None, str]:
+def get_enabled_discord_dm_bot_credentials() -> Result[
+    tuple[str, str] | None, str
+]:
     match get_configured_discord_bot_credentials():
         case Err(message):
             return Err(message)
@@ -220,9 +226,7 @@ def get_enabled_discord_dm_bot_credentials() -> Result[tuple[str, str] | None, s
         if not db_config.application_id or not db_config.bot_token_encrypted:
             continue
 
-        bot_token = decrypt_discord_dm_bot_token(
-            db_config.bot_token_encrypted
-        )
+        bot_token = decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
         if not bot_token:
             continue
 
@@ -241,10 +245,8 @@ def upsert_discord_dm_subscription(
     if not is_discord_dm_enabled_for_party(party_id):
         return Err('Discord-Benachrichtigungen sind deaktiviert.')
 
-    connected_account = (
-        external_accounts_service.find_connected_external_account_for_user_and_service(
-            user_id, 'discord'
-        )
+    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        user_id, 'discord'
     )
     if connected_account is None or not connected_account.external_id:
         return Err('Bitte verbinde zuerst deinen Discord-Account.')
@@ -260,9 +262,7 @@ def upsert_discord_dm_subscription(
     except DBAPIError as exc:
         if is_missing_discord_dm_table_error(exc):
             db.session.rollback()
-            return Err(
-                'Discord-DM-Tabellen sind noch nicht installiert.'
-            )
+            return Err('Discord-DM-Tabellen sind noch nicht installiert.')
         raise
 
     if db_subscription is None:
@@ -309,9 +309,7 @@ def disable_discord_dm_subscription(
 def has_active_discord_dm_subscription_for_user(
     party_id: PartyID, user_id: UserID
 ) -> bool:
-    return count_active_discord_dm_subscriptions_for_user(
-        party_id, user_id
-    ) > 0
+    return count_active_discord_dm_subscriptions_for_user(party_id, user_id) > 0
 
 
 def count_active_discord_dm_subscriptions_for_user(
@@ -319,8 +317,9 @@ def count_active_discord_dm_subscriptions_for_user(
 ) -> int:
     try:
         count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyDiscordDmSubscription.id))
-            .filter_by(party_id=party_id, user_id=user_id, enabled=True)
+            select(
+                db.func.count(DbNetsessionTourneyDiscordDmSubscription.id)
+            ).filter_by(party_id=party_id, user_id=user_id, enabled=True)
         )
     except DBAPIError as exc:
         if is_missing_discord_dm_table_error(exc):
@@ -353,7 +352,7 @@ def decrypt_discord_dm_bot_token(token: str | None) -> str | None:
 
     try:
         decrypted = _get_discord_dm_fernet().decrypt(token.encode('ascii'))
-    except (InvalidToken, ValueError):
+    except InvalidToken, ValueError:
         return None
 
     return decrypted.decode('utf-8')

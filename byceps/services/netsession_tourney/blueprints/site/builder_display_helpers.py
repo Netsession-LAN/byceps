@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from flask_babel import gettext
 
-from ...models import StageType
+from byceps.services.netsession_tourney.models import StageType
+
 from .builder_helpers import (
     get_builder_container_child_stages,
     get_materialized_builder_container_stages,
@@ -119,7 +120,9 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
                 gettext(
                     '%(count)s Rundenphasen: %(names)s',
                     count=len(child_stages),
-                    names=', '.join(stage_item.name for stage_item in child_stages),
+                    names=', '.join(
+                        stage_item.name for stage_item in child_stages
+                    ),
                 )
             )
 
@@ -128,7 +131,9 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
                 stage_item
                 for stage_item in stages
                 if (stage_item.settings or {}).get('builder_role') == 'main'
-                and (stage_item.settings or {}).get('builder_preliminary_stage_id')
+                and (stage_item.settings or {}).get(
+                    'builder_preliminary_stage_id'
+                )
                 == str(stage.id)
             ),
             None,
@@ -184,9 +189,7 @@ def build_builder_stage_summary_lines(stage, stages) -> list[str]:
         None,
     )
     if main_stage is not None:
-        lines.append(
-            gettext('Hauptturnier: %(name)s', name=main_stage.name)
-        )
+        lines.append(gettext('Hauptturnier: %(name)s', name=main_stage.name))
 
     return lines
 

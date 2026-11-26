@@ -35,15 +35,15 @@ from .models import (
     TournamentMode,
     TournamentStatus,
 )
+from .service_helpers import (
+    db_stage_to_model,
+)
 from .stage_builder_parts import (
-    StageTiming,
     audit_created_stages,
     duel_main_stage_settings,
     duel_preliminary_settings,
+    StageTiming,
     validate_duel_builder_input,
-)
-from .service_helpers import (
-    db_stage_to_model,
 )
 from .tournament_queries import (
     find_db_tournament_for_party,
@@ -72,9 +72,7 @@ def build_stage_builder_plan(
         return Err('Unbekanntes Turnier.')
 
     if db_tournament.status != TournamentStatus.draft.value:
-        return Err(
-            'Die Phasenstruktur kann nur im Entwurf aufgebaut werden.'
-        )
+        return Err('Die Phasenstruktur kann nur im Entwurf aufgebaut werden.')
 
     existing_stage_count = db.session.scalar(
         select(db.func.count(DbNetsessionTourneyStage.id)).filter_by(

@@ -11,15 +11,21 @@ from __future__ import annotations
 from flask import abort, g, request
 from flask_babel import gettext
 
-from byceps.services.ticketing import ticket_category_service
-from byceps.services.user import user_service
-from byceps.util.framework.flash import flash_error, flash_success
-from byceps.util.framework.templating import templated
-from byceps.util.result import Err, Ok
-from byceps.util.views import permission_required, redirect_to, respond_no_content
-
-from ..site.timetable_helpers import build_party_timetable
-from ...forms import (
+from byceps.services.netsession_tourney import (
+    browser_push_service,
+    coin_service,
+    discord_dm_outbox,
+    discord_dm_service,
+    participant_admin_service,
+    tournament_category_service,
+    tournament_prize_service,
+    tournament_rule_template_service,
+    tournament_service,
+)
+from byceps.services.netsession_tourney.blueprints.site.timetable_helpers import (
+    build_party_timetable,
+)
+from byceps.services.netsession_tourney.forms import (
     BrowserPushConfigForm,
     CoinAdjustmentForm,
     CoinSettingsForm,
@@ -32,7 +38,7 @@ from ...forms import (
     TournamentPrizeForm,
     TournamentRuleTemplateForm,
 )
-from ...logo_service import (
+from byceps.services.netsession_tourney.logo_service import (
     delete_discord_forum_image_asset,
     delete_sponsor_logo_asset,
     delete_tournament_logo_asset,
@@ -46,19 +52,22 @@ from ...logo_service import (
     upload_sponsor_logo_image,
     upload_tournament_logo_image,
 )
-from ...models import RuleTemplateBodyFormat
-from ... import (
-    browser_push_service,
-    coin_service,
-    discord_dm_outbox,
-    discord_dm_service,
-    participant_admin_service,
-    tournament_category_service,
-    tournament_prize_service,
-    tournament_rule_template_service,
-    tournament_service,
+from byceps.services.netsession_tourney.models import RuleTemplateBodyFormat
+from byceps.services.netsession_tourney.screen_name_suggestions import (
+    get_suggested_screen_names_for_party,
 )
-from .result_helpers import get_party_or_404, _get_tournament_or_404, parse_csv
+from byceps.services.ticketing import ticket_category_service
+from byceps.services.user import user_service
+from byceps.util.framework.flash import flash_error, flash_success
+from byceps.util.framework.templating import templated
+from byceps.util.result import Err, Ok
+from byceps.util.views import (
+    permission_required,
+    redirect_to,
+    respond_no_content,
+)
+
+from .result_helpers import _get_tournament_or_404, get_party_or_404, parse_csv
 from .wizard_helpers import (
     get_discord_forum_image_asset_or_404,
     get_sponsor_logo_asset_or_404,
@@ -67,7 +76,6 @@ from .wizard_helpers import (
     get_tournament_prize_or_404,
     get_tournament_rule_template_or_404,
 )
-from ...screen_name_suggestions import get_suggested_screen_names_for_party
 
 
 def register(blueprint):
@@ -77,13 +85,15 @@ def register(blueprint):
     def index(party_id):
         party = get_party_or_404(party_id)
         tournaments = tournament_service.get_tournaments_for_party(party.id)
-        categories = tournament_category_service.get_tournament_categories_for_party(party.id)
-        categories_by_id = {category.id: category for category in categories}
-        active_participant_counts_by_tournament_id = (
-            participant_admin_service.get_active_participant_counts_for_tournaments(
-                party.id,
-                {tournament.id for tournament in tournaments},
+        categories = (
+            tournament_category_service.get_tournament_categories_for_party(
+                party.id
             )
+        )
+        categories_by_id = {category.id: category for category in categories}
+        active_participant_counts_by_tournament_id = participant_admin_service.get_active_participant_counts_for_tournaments(
+            party.id,
+            {tournament.id for tournament in tournaments},
         )
         return {
             'party': party,
@@ -94,18 +104,20 @@ def register(blueprint):
             ),
         }
 
-
     @blueprint.get('/for_party/<party_id>/categories')
     @permission_required('netsession_tourney.view')
     @templated('admin/netsession_tourney/category/index')
     def category_index(party_id):
         party = get_party_or_404(party_id)
-        categories = tournament_category_service.get_tournament_categories_for_party(party.id)
+        categories = (
+            tournament_category_service.get_tournament_categories_for_party(
+                party.id
+            )
+        )
         return {
             'party': party,
             'categories': categories,
         }
-
 
     @blueprint.get('/for_party/<party_id>/timetable')
     @permission_required('netsession_tourney.view')
@@ -120,7 +132,6 @@ def register(blueprint):
             ),
         }
 
-
     @blueprint.get('/for_party/<party_id>/notifications')
     @permission_required('netsession_tourney.view')
     @templated('admin/netsession_tourney/notifications/index')
@@ -131,7 +142,9 @@ def register(blueprint):
             if isinstance(erroneous_form, BrowserPushConfigForm)
             else BrowserPushConfigForm()
         )
-        browser_push_config = browser_push_service.get_browser_push_config(party.id)
+        browser_push_config = browser_push_service.get_browser_push_config(
+            party.id
+        )
         if not isinstance(erroneous_form, BrowserPushConfigForm):
             browser_push_form.enabled.data = browser_push_config.enabled
 
@@ -143,7 +156,9 @@ def register(blueprint):
         discord_dm_config = discord_dm_service.get_discord_dm_config(party.id)
         if not isinstance(erroneous_form, DiscordDmConfigForm):
             discord_dm_form.enabled.data = discord_dm_config.enabled
-            discord_dm_form.application_id.data = discord_dm_config.application_id
+            discord_dm_form.application_id.data = (
+                discord_dm_config.application_id
+            )
             discord_dm_form.default_event_mask.data = ', '.join(
                 discord_dm_config.default_event_mask
             )
@@ -169,14 +184,17 @@ def register(blueprint):
             'subscribed_counts_by_tournament_id': subscribed_counts_by_tournament_id,
         }
 
-
     @blueprint.post('/for_party/<party_id>/notifications')
     @permission_required('netsession_tourney.manage')
     def notifications_update(party_id):
         party = get_party_or_404(party_id)
         form = BrowserPushConfigForm(request.form)
         if not form.validate():
-            flash_error(gettext('Browser-Benachrichtigungen konnten nicht gespeichert werden.'))
+            flash_error(
+                gettext(
+                    'Browser-Benachrichtigungen konnten nicht gespeichert werden.'
+                )
+            )
             return notifications_index(party.id, form)
 
         match browser_push_service.configure_browser_push(
@@ -186,10 +204,11 @@ def register(blueprint):
             case Err(message):
                 flash_error(gettext(message))
             case Ok(_config):
-                flash_success(gettext('Browser-Benachrichtigungen wurden gespeichert.'))
+                flash_success(
+                    gettext('Browser-Benachrichtigungen wurden gespeichert.')
+                )
 
         return redirect_to('.notifications_index', party_id=party.id)
-
 
     @blueprint.post('/for_party/<party_id>/notifications/discord-dm')
     @permission_required('netsession_tourney.manage')
@@ -224,7 +243,6 @@ def register(blueprint):
 
         return redirect_to('.notifications_index', party_id=party.id)
 
-
     @blueprint.post('/for_party/<party_id>/notifications/discord-dm/test')
     @permission_required('netsession_tourney.manage')
     def notifications_discord_dm_send_test(party_id):
@@ -234,12 +252,9 @@ def register(blueprint):
             case Err(message):
                 flash_error(gettext(message))
             case Ok(_):
-                flash_success(
-                    gettext('Discord-Testnachricht wurde gesendet.')
-                )
+                flash_success(gettext('Discord-Testnachricht wurde gesendet.'))
 
         return redirect_to('.notifications_index', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/coins')
     @permission_required('netsession_tourney.view')
@@ -252,7 +267,9 @@ def register(blueprint):
         categories = ticket_category_service.get_categories_for_party(party.id)
         category_amounts_by_id = {
             item.ticket_category_id: item.coin_amount
-            for item in coin_service.get_ticket_category_coin_settings_for_party(party.id)
+            for item in coin_service.get_ticket_category_coin_settings_for_party(
+                party.id
+            )
         }
 
         settings_form = (
@@ -272,7 +289,9 @@ def register(blueprint):
             and erroneous_adjustment_form is not None
             and erroneous_adjustment_form.screen_name.data
         ):
-            searched_screen_name = erroneous_adjustment_form.screen_name.data.strip()
+            searched_screen_name = (
+                erroneous_adjustment_form.screen_name.data.strip()
+            )
         selected_user = (
             user_service.find_user_by_screen_name(searched_screen_name)
             if searched_screen_name
@@ -284,7 +303,9 @@ def register(blueprint):
             else None
         )
         recent_coin_entries = (
-            coin_service.get_recent_coin_ledger_entries_for_user(party.id, selected_user.id)
+            coin_service.get_recent_coin_ledger_entries_for_user(
+                party.id, selected_user.id
+            )
             if selected_user is not None
             else []
         )
@@ -315,19 +336,24 @@ def register(blueprint):
             ),
         }
 
-
     @blueprint.post('/for_party/<party_id>/coins')
     @permission_required('netsession_tourney.manage')
     def coins_update(party_id):
         party = get_party_or_404(party_id)
         form = CoinSettingsForm(request.form)
         if not form.validate():
-            flash_error(gettext('Coin-Einstellungen konnten nicht gespeichert werden.'))
+            flash_error(
+                gettext('Coin-Einstellungen konnten nicht gespeichert werden.')
+            )
             return coins_index(party.id, erroneous_settings_form=form)
 
         category_coin_amounts = {}
-        for category in ticket_category_service.get_categories_for_party(party.id):
-            raw_value = (request.form.get(f'category_coin_{category.id}') or '').strip()
+        for category in ticket_category_service.get_categories_for_party(
+            party.id
+        ):
+            raw_value = (
+                request.form.get(f'category_coin_{category.id}') or ''
+            ).strip()
             if not raw_value:
                 continue
 
@@ -368,20 +394,23 @@ def register(blueprint):
 
         return redirect_to('.coins_index', party_id=party.id)
 
-
     @blueprint.post('/for_party/<party_id>/coins/adjust')
     @permission_required('netsession_tourney.manage')
     def coins_adjust(party_id):
         party = get_party_or_404(party_id)
         form = CoinAdjustmentForm(request.form)
         if not form.validate():
-            flash_error(gettext('Coin-Anpassung konnte nicht gespeichert werden.'))
+            flash_error(
+                gettext('Coin-Anpassung konnte nicht gespeichert werden.')
+            )
             return coins_index(
                 party.id,
                 erroneous_adjustment_form=form,
             )
 
-        user = user_service.find_user_by_screen_name(form.screen_name.data.strip())
+        user = user_service.find_user_by_screen_name(
+            form.screen_name.data.strip()
+        )
         if user is None:
             flash_error(gettext('Der angegebene User wurde nicht gefunden.'))
             return coins_index(
@@ -443,7 +472,6 @@ def register(blueprint):
             screen_name=user.screen_name,
         )
 
-
     @blueprint.get('/for_party/<party_id>/logos/tournament')
     @permission_required('netsession_tourney.view')
     @templated('admin/netsession_tourney/logo/tournament_index')
@@ -460,7 +488,6 @@ def register(blueprint):
             'upload_form': upload_form,
             'current_logo_subtab': 'tournament',
         }
-
 
     @blueprint.post('/for_party/<party_id>/logos/tournament/upload')
     @permission_required('netsession_tourney.manage')
@@ -489,7 +516,6 @@ def register(blueprint):
 
         return redirect_to('.tournament_logo_index', party_id=party.id)
 
-
     @blueprint.get('/logos/tournament/<uuid:logo_asset_id>/update')
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/logo/tournament_update_form')
@@ -507,7 +533,6 @@ def register(blueprint):
             'form': form,
             'current_logo_subtab': 'tournament',
         }
-
 
     @blueprint.post('/logos/tournament/<uuid:logo_asset_id>')
     @permission_required('netsession_tourney.manage')
@@ -529,7 +554,6 @@ def register(blueprint):
 
         return redirect_to('.tournament_logo_index', party_id=party.id)
 
-
     @blueprint.post('/logos/tournament/<uuid:logo_asset_id>/delete')
     @permission_required('netsession_tourney.manage')
     def tournament_logo_delete(logo_asset_id):
@@ -543,7 +567,6 @@ def register(blueprint):
                 flash_error(message)
 
         return redirect_to('.tournament_logo_index', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/logos/sponsor')
     @permission_required('netsession_tourney.view')
@@ -561,7 +584,6 @@ def register(blueprint):
             'upload_form': upload_form,
             'current_logo_subtab': 'sponsor',
         }
-
 
     @blueprint.post('/for_party/<party_id>/logos/sponsor/upload')
     @permission_required('netsession_tourney.manage')
@@ -591,7 +613,6 @@ def register(blueprint):
 
         return redirect_to('.sponsor_logo_index', party_id=party.id)
 
-
     @blueprint.get('/logos/sponsor/<uuid:logo_asset_id>/update')
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/logo/sponsor_update_form')
@@ -614,7 +635,6 @@ def register(blueprint):
             'form': form,
             'current_logo_subtab': 'sponsor',
         }
-
 
     @blueprint.post('/logos/sponsor/<uuid:logo_asset_id>')
     @permission_required('netsession_tourney.manage')
@@ -639,7 +659,6 @@ def register(blueprint):
 
         return redirect_to('.sponsor_logo_index', party_id=party.id)
 
-
     @blueprint.post('/logos/sponsor/<uuid:logo_asset_id>/delete')
     @permission_required('netsession_tourney.manage')
     def sponsor_logo_delete(logo_asset_id):
@@ -653,7 +672,6 @@ def register(blueprint):
                 flash_error(message)
 
         return redirect_to('.sponsor_logo_index', party_id=party.id)
-
 
     @blueprint.get('/for_party/<party_id>/logos/discord-forum')
     @permission_required('netsession_tourney.view')
@@ -671,7 +689,6 @@ def register(blueprint):
             'upload_form': upload_form,
             'current_logo_subtab': 'discord_forum',
         }
-
 
     @blueprint.post('/for_party/<party_id>/logos/discord-forum/upload')
     @permission_required('netsession_tourney.manage')
@@ -700,7 +717,6 @@ def register(blueprint):
 
         return redirect_to('.discord_forum_image_index', party_id=party.id)
 
-
     @blueprint.get('/logos/discord-forum/<uuid:image_asset_id>/update')
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/logo/discord_forum_update_form')
@@ -718,7 +734,6 @@ def register(blueprint):
             'form': form,
             'current_logo_subtab': 'discord_forum',
         }
-
 
     @blueprint.post('/logos/discord-forum/<uuid:image_asset_id>')
     @permission_required('netsession_tourney.manage')
@@ -740,7 +755,6 @@ def register(blueprint):
 
         return redirect_to('.discord_forum_image_index', party_id=party.id)
 
-
     @blueprint.post('/logos/discord-forum/<uuid:image_asset_id>/delete')
     @permission_required('netsession_tourney.manage')
     def discord_forum_image_delete(image_asset_id):
@@ -755,7 +769,6 @@ def register(blueprint):
 
         return redirect_to('.discord_forum_image_index', party_id=party.id)
 
-
     @blueprint.get('/for_party/<party_id>/categories/create')
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/category/create_form')
@@ -767,7 +780,6 @@ def register(blueprint):
             'form': form,
         }
 
-
     @blueprint.post('/for_party/<party_id>/categories')
     @permission_required('netsession_tourney.manage')
     def category_create(party_id):
@@ -776,7 +788,9 @@ def register(blueprint):
         if not form.validate():
             return category_create_form(party.id, form)
 
-        match tournament_category_service.create_tournament_category(party.id, form.title.data):
+        match tournament_category_service.create_tournament_category(
+            party.id, form.title.data
+        ):
             case Ok(category):
                 flash_success(
                     gettext(
@@ -789,7 +803,6 @@ def register(blueprint):
                 return category_create_form(party.id, form)
 
         return redirect_to('.category_index', party_id=party.id)
-
 
     @blueprint.get('/categories/<uuid:category_id>/update')
     @permission_required('netsession_tourney.manage')
@@ -808,7 +821,6 @@ def register(blueprint):
             'form': form,
         }
 
-
     @blueprint.post('/categories/<uuid:category_id>')
     @permission_required('netsession_tourney.manage')
     def category_update(category_id):
@@ -819,7 +831,9 @@ def register(blueprint):
         if not form.validate():
             return category_update_form(category.id, form)
 
-        match tournament_category_service.update_tournament_category(category.id, form.title.data):
+        match tournament_category_service.update_tournament_category(
+            category.id, form.title.data
+        ):
             case Ok(updated_category):
                 flash_success(
                     gettext(
@@ -833,19 +847,19 @@ def register(blueprint):
 
         return redirect_to('.category_index', party_id=party.id)
 
-
     @blueprint.post('/categories/<uuid:category_id>/up')
     @permission_required('netsession_tourney.manage')
     @respond_no_content
     def category_move_up(category_id):
         category = get_tournament_category_or_404(category_id)
 
-        match tournament_category_service.move_tournament_category_up(category.id):
+        match tournament_category_service.move_tournament_category_up(
+            category.id
+        ):
             case Ok(_):
                 flash_success(gettext('Kategorie wurde nach oben verschoben.'))
             case Err(message):
                 flash_error(message)
-
 
     @blueprint.post('/categories/<uuid:category_id>/down')
     @permission_required('netsession_tourney.manage')
@@ -853,24 +867,26 @@ def register(blueprint):
     def category_move_down(category_id):
         category = get_tournament_category_or_404(category_id)
 
-        match tournament_category_service.move_tournament_category_down(category.id):
+        match tournament_category_service.move_tournament_category_down(
+            category.id
+        ):
             case Ok(_):
                 flash_success(gettext('Kategorie wurde nach unten verschoben.'))
             case Err(message):
                 flash_error(message)
-
 
     @blueprint.get('/for_party/<party_id>/rules')
     @permission_required('netsession_tourney.view')
     @templated('admin/netsession_tourney/rule_template/index')
     def rule_template_index(party_id):
         party = get_party_or_404(party_id)
-        rule_templates = tournament_rule_template_service.get_tournament_rule_templates_for_party(party.id)
+        rule_templates = tournament_rule_template_service.get_tournament_rule_templates_for_party(
+            party.id
+        )
         return {
             'party': party,
             'rule_templates': rule_templates,
         }
-
 
     @blueprint.get('/for_party/<party_id>/rules/create')
     @permission_required('netsession_tourney.manage')
@@ -886,7 +902,6 @@ def register(blueprint):
             'party': party,
             'form': form,
         }
-
 
     @blueprint.post('/for_party/<party_id>/rules')
     @permission_required('netsession_tourney.manage')
@@ -916,7 +931,6 @@ def register(blueprint):
 
         return redirect_to('.rule_template_index', party_id=party.id)
 
-
     @blueprint.get('/rules/<uuid:rule_template_id>/update')
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/rule_template/update_form')
@@ -940,7 +954,6 @@ def register(blueprint):
             'rule_template': rule_template,
             'form': form,
         }
-
 
     @blueprint.post('/rules/<uuid:rule_template_id>')
     @permission_required('netsession_tourney.manage')
@@ -972,13 +985,14 @@ def register(blueprint):
 
         return redirect_to('.rule_template_index', party_id=party.id)
 
-
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes/create'
     )
     @permission_required('netsession_tourney.manage')
     @templated('admin/netsession_tourney/prize/create_form')
-    def tournament_prize_create_form(party_id, tournament_id, erroneous_form=None):
+    def tournament_prize_create_form(
+        party_id, tournament_id, erroneous_form=None
+    ):
         party = get_party_or_404(party_id)
         tournament = _get_tournament_or_404(party.id, tournament_id)
         form = (
@@ -993,8 +1007,9 @@ def register(blueprint):
             'form': form,
         }
 
-
-    @blueprint.post('/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes')
+    @blueprint.post(
+        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes'
+    )
     @permission_required('netsession_tourney.manage')
     def tournament_prize_create(party_id, tournament_id):
         party = get_party_or_404(party_id)
@@ -1018,7 +1033,9 @@ def register(blueprint):
                 )
             case Err(message):
                 flash_error(message)
-                return tournament_prize_create_form(party.id, tournament.id, form)
+                return tournament_prize_create_form(
+                    party.id, tournament.id, form
+                )
 
         return redirect_to(
             '.view',
@@ -1026,7 +1043,6 @@ def register(blueprint):
             tournament_id=tournament.id,
             tab='prizes',
         )
-
 
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes/<uuid:prize_id>/update'
@@ -1060,7 +1076,6 @@ def register(blueprint):
             'prize': prize,
             'form': form,
         }
-
 
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes/<uuid:prize_id>'
@@ -1104,7 +1119,6 @@ def register(blueprint):
             tournament_id=tournament.id,
             tab='prizes',
         )
-
 
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/prizes/<uuid:prize_id>/delete'

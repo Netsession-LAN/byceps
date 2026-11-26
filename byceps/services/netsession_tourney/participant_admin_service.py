@@ -48,8 +48,8 @@ from .notification_service import (
     append_notification,
 )
 from .participant_state import (
-    is_user_already_active_participant,
     count_active_participants_for_tournament,
+    is_user_already_active_participant,
 )
 from .registration_service import (
     ensure_registration_is_registered,
@@ -62,8 +62,8 @@ from .service_helpers import (
     db_tournament_to_model,
 )
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 from .tournament_service import (
     find_tournament_for_party,
@@ -85,9 +85,7 @@ def add_user_participant_by_admin(
 
     tournament = db_tournament_to_model(db_tournament)
     if tournament.status != TournamentStatus.draft:
-        return Err(
-            'Teilnehmer lassen sich nur im Entwurf verwalten.'
-        )
+        return Err('Teilnehmer lassen sich nur im Entwurf verwalten.')
     if tournament.registration_mode not in {
         RegistrationMode.solo,
         RegistrationMode.mixed,
@@ -95,7 +93,11 @@ def add_user_participant_by_admin(
         return Err(
             'Spieler direkt hinzufügen geht nur bei Einzel- oder gemischter Anmeldung.'
         )
-    if (ticket_check := _validate_user_uses_ticket_for_party(participant_user.id, party_id)).is_err():
+    if (
+        ticket_check := _validate_user_uses_ticket_for_party(
+            participant_user.id, party_id
+        )
+    ).is_err():
         return ticket_check
     if is_user_already_active_participant(tournament_id, participant_user.id):
         return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
@@ -175,7 +177,9 @@ def remove_participant_by_admin(
     if db_participant is None:
         return Err('Unbekannter Teilnehmer.')
 
-    affected_user_ids = set(get_team_member_user_ids_for_participant(participant_id))
+    affected_user_ids = set(
+        get_team_member_user_ids_for_participant(participant_id)
+    )
     if db_participant.user_id is not None:
         affected_user_ids.add(db_participant.user_id)
     if db_participant.manager_user_id is not None:
@@ -220,7 +224,9 @@ def get_active_participant_counts_for_tournaments(
             == DbNetsessionTourneyTournament.id,
         )
         .filter(DbNetsessionTourneyTournament.party_id == party_id)
-        .filter(DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids))
+        .filter(
+            DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids)
+        )
         .filter(
             DbNetsessionTourneyParticipant.status.in_(
                 ACTIVE_PARTICIPANT_STATUS_VALUES
@@ -247,10 +253,7 @@ def get_participants_by_ids(
         .filter(DbNetsessionTourneyTournament.party_id == party_id)
         .filter(DbNetsessionTourneyParticipant.id.in_(participant_ids))
     ).all()
-    return {
-        item.id: db_participant_to_model(item)
-        for item in db_participants
-    }
+    return {item.id: db_participant_to_model(item) for item in db_participants}
 
 
 def set_participant_status(
@@ -331,7 +334,12 @@ def disqualify_participant(
 
     now = datetime.utcnow()
     _flag_matches_for_admin_review(
-        affected_matches, initiator, participant_id, comment, correlation_id, now
+        affected_matches,
+        initiator,
+        participant_id,
+        comment,
+        correlation_id,
+        now,
     )
 
     append_audit_log(
@@ -375,7 +383,8 @@ def _find_open_matches_for_participant(
         select(DbNetsessionTourneyMatch)
         .join(
             DbNetsessionTourneyMatchSlot,
-            DbNetsessionTourneyMatch.id == DbNetsessionTourneyMatchSlot.match_id,
+            DbNetsessionTourneyMatch.id
+            == DbNetsessionTourneyMatchSlot.match_id,
         )
         .filter(DbNetsessionTourneyMatch.tournament_id == tournament_id)
         .filter(DbNetsessionTourneyMatchSlot.participant_id == participant_id)

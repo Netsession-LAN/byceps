@@ -33,4 +33,6 @@ def distribute_evenly(total: int, bucket_count: int) -> list[int]:
 
     base = total // bucket_count
     remainder = total % bucket_count
-    return [base + (1 if index < remainder else 0) for index in range(bucket_count)]
+    return [
+        base + (1 if index < remainder else 0) for index in range(bucket_count)
+    ]

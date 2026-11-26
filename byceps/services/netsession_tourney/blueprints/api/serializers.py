@@ -14,7 +14,7 @@ from datetime import datetime, UTC
 import re
 from typing import Any
 
-from ...models import (
+from byceps.services.netsession_tourney.models import (
     Match,
     MatchResult,
     MatchSlot,
@@ -24,14 +24,15 @@ from ...models import (
     Stage,
     TournamentPrize,
 )
-from .match_extras import (
-    MatchExtras,
-    bye_slot_ids,
-    describe_match,
-)
-from ...score_parsing import (
+from byceps.services.netsession_tourney.score_parsing import (
     is_walkover_score_json,
     parse_match_result_slot_scores,
+)
+
+from .match_extras import (
+    bye_slot_ids,
+    describe_match,
+    MatchExtras,
 )
 
 
@@ -93,7 +94,7 @@ def _advance_count(stage: Stage) -> int | None:
     )
     try:
         return int(value) if value is not None else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

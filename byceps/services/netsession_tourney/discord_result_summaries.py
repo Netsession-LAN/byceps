@@ -19,15 +19,15 @@ from .models import (
     Stage,
     StageType,
 )
+from .score_parsing import (
+    parse_match_result_slot_scores,
+)
 from .stage_ranking import (
     get_ranked_participant_ids_for_stage,
 )
 from .tournament_queries import (
     get_participants_for_tournament,
     get_stages_for_tournament,
-)
-from .score_parsing import (
-    parse_match_result_slot_scores,
 )
 
 
@@ -76,9 +76,7 @@ def _build_discord_ffa_match_result_summary(
         else None
     )
     raw_points = (
-        ranking_data.get('points')
-        if isinstance(ranking_data, dict)
-        else None
+        ranking_data.get('points') if isinstance(ranking_data, dict) else None
     )
     if not isinstance(raw_placements, dict):
         return None
@@ -299,7 +297,7 @@ def build_discord_match_completed_description(
 
 
 def build_discord_match_completed_fields(
-    payload_data: dict[str, Any]
+    payload_data: dict[str, Any],
 ) -> list[dict[str, Any]]:
     fields: list[dict[str, Any]] = []
 
@@ -363,7 +361,7 @@ def _build_discord_ffa_ranking_lines(rows: list[Any]) -> list[str]:
             continue
         try:
             position = int(row.get('position'))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         points = row.get('points')
@@ -406,7 +404,7 @@ def _normalize_discord_tournament_placements(
 
         try:
             position = int(item.get('position'))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
         if position < 1:

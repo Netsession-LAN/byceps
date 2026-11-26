@@ -11,10 +11,13 @@ from byceps.services.netsession_tourney.models import (
     RegistrationMode,
     TournamentMode,
 )
+
 from tests.helpers import generate_token, http_client
 
 
-def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_user):
+def test_anonymous_user_can_view_tournaments_and_details(
+    site_app, party, admin_user
+):
     create_result = tournament_service.create_tournament(
         party.id,
         'ns-public-' + generate_token().lower(),
@@ -65,14 +68,18 @@ def test_anonymous_user_can_view_tournaments_and_details(site_app, party, admin_
 def test_tournaments_are_grouped_by_category_on_index(
     site_app, party, admin_user
 ):
-    main_category_result = tournament_category_service.create_tournament_category(
-        party.id, 'Hauptturnier'
+    main_category_result = (
+        tournament_category_service.create_tournament_category(
+            party.id, 'Hauptturnier'
+        )
     )
     assert main_category_result.is_ok()
     main_category = main_category_result.unwrap()
 
-    side_category_result = tournament_category_service.create_tournament_category(
-        party.id, 'Nebenturnier'
+    side_category_result = (
+        tournament_category_service.create_tournament_category(
+            party.id, 'Nebenturnier'
+        )
     )
     assert side_category_result.is_ok()
     side_category = side_category_result.unwrap()
@@ -105,7 +112,9 @@ def test_tournaments_are_grouped_by_category_on_index(
     assert response.status_code == 200
     assert 'Hauptturnier' in response.text
     assert 'Nebenturnier' in response.text
-    assert response.text.index('Hauptturnier') < response.text.index('Nebenturnier')
+    assert response.text.index('Hauptturnier') < response.text.index(
+        'Nebenturnier'
+    )
 
 
 def test_anonymous_user_cannot_register(site_app, party, admin_user):

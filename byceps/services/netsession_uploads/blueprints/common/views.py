@@ -8,14 +8,13 @@ the form with a message instead of the bare "413" page.
 
 from flask import redirect
 
-from byceps.util.framework.blueprint import create_blueprint
-from byceps.util.framework.flash import flash_error
-
-from ...upload_limits import (
+from byceps.services.netsession_uploads.upload_limits import (
     build_too_large_message,
     find_same_host_referrer_path,
     get_max_upload_bytes,
 )
+from byceps.util.framework.blueprint import create_blueprint
+from byceps.util.framework.flash import flash_error
 
 
 blueprint = create_blueprint('netsession_uploads', __name__)

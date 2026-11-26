@@ -128,7 +128,9 @@ def get_user_active_participation_tournament_ids(
             == DbNetsessionTourneyTournament.id,
         )
         .filter(DbNetsessionTourneyTournament.party_id == party_id)
-        .filter(DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids))
+        .filter(
+            DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids)
+        )
         .filter(DbNetsessionTourneyParticipant.user_id == user_id)
         .filter(
             DbNetsessionTourneyParticipant.status.in_(
@@ -150,7 +152,9 @@ def get_user_active_participation_tournament_ids(
             == DbNetsessionTourneyTournament.id,
         )
         .filter(DbNetsessionTourneyTournament.party_id == party_id)
-        .filter(DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids))
+        .filter(
+            DbNetsessionTourneyParticipant.tournament_id.in_(tournament_ids)
+        )
         .filter(DbNetsessionTourneyTeamMember.user_id == user_id)
         .filter(
             DbNetsessionTourneyParticipant.status.in_(

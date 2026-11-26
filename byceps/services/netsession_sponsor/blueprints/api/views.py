@@ -9,11 +9,10 @@ token with `ns_api.read`. Logo URLs are site paths (`/data/...`).
 from flask import abort, request
 
 from byceps.services.netsession_api.token_auth import read_token_required
+from byceps.services.netsession_sponsor import sponsor_service
 from byceps.services.party import party_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
-
-from ... import sponsor_service
 
 
 blueprint = create_blueprint('netsession_sponsor_api', __name__)

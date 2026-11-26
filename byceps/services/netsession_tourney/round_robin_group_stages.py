@@ -45,7 +45,7 @@ def read_group_plan(
         qualifiers_per_group = int(
             stage_settings.get('builder_resolved_qualifiers_per_group')
         )
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return Err('Gruppenplan ist ungültig.')
 
     if group_count < 1 or qualifiers_per_group < 1:
