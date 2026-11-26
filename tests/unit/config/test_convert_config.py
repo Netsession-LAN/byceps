@@ -77,6 +77,7 @@ def test_convert_config():
             password='smtppass',
             suppress_send=False,
         ),
+        steam=None,
     )
 
     actual = convert_config(config)

@@ -31,6 +31,7 @@ from byceps.config.models import (
     RedisConfig,
     SiteWebAppConfig,
     SmtpConfig,
+    SteamConfig,
     WebAppsConfig,
 )
 from byceps.database import db
@@ -114,6 +115,7 @@ def build_byceps_config(
     redis_config: RedisConfig,
     *,
     metrics_enabled: bool = False,
+    steam: SteamConfig | None = None,
     style_guide_enabled: bool = False,
 ) -> BycepsConfig:
     return BycepsConfig(
@@ -150,6 +152,7 @@ def build_byceps_config(
             password=None,
             suppress_send=True,
         ),
+        steam=steam,
     )
 
 
@@ -229,10 +232,15 @@ def make_site_app(admin_app, make_byceps_config):
     """Provide a site web application."""
 
     def _wrapper(
-        server_name: str, site_id: SiteID, *, style_guide_enabled: bool = False
+        server_name: str,
+        site_id: SiteID,
+        *,
+        steam: SteamConfig | None = None,
+        style_guide_enabled: bool = False,
     ) -> BycepsApp:
         byceps_config = make_byceps_config(
-            style_guide_enabled=style_guide_enabled
+            steam=steam,
+            style_guide_enabled=style_guide_enabled,
         )
 
         app_config = SiteWebAppConfig(
@@ -261,6 +269,7 @@ def make_byceps_config(
     def _wrapper(
         *,
         metrics_enabled: bool = False,
+        steam: SteamConfig | None = None,
         style_guide_enabled: bool = False,
     ) -> BycepsConfig:
         return build_byceps_config(
@@ -268,6 +277,7 @@ def make_byceps_config(
             database_config,
             redis_config,
             metrics_enabled=metrics_enabled,
+            steam=steam,
             style_guide_enabled=style_guide_enabled,
         )
 

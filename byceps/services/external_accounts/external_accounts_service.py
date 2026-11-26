@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from byceps.database import db
 from byceps.services.user import user_service
@@ -64,7 +65,12 @@ def connect_external_account(
         connected_external_account.external_name,
     )
     db.session.add(db_connected_external_account)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return Err('External account is already connected')
 
     return Ok((connected_external_account, event))
 
@@ -104,6 +110,27 @@ def find_connected_external_account_for_user_and_service(
         select(DbConnectedExternalAccount)
         .filter_by(user_id=user_id)
         .filter_by(service=service)
+    ).scalar_one_or_none()
+
+    if db_connected_external_account is None:
+        return None
+
+    return _db_entity_to_connected_external_account(
+        db_connected_external_account
+    )
+
+
+def find_connected_external_account_for_service_and_external_id(
+    service: str,
+    external_id: str,
+) -> ConnectedExternalAccount | None:
+    """Return the connected external account with that external ID at
+    that service, if found.
+    """
+    db_connected_external_account = db.session.execute(
+        select(DbConnectedExternalAccount)
+        .filter_by(service=service)
+        .filter_by(external_id=external_id)
     ).scalar_one_or_none()
 
     if db_connected_external_account is None:
