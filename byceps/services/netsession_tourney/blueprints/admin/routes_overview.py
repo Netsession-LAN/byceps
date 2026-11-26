@@ -68,7 +68,7 @@ from byceps.util.views import (
 )
 
 from .result_helpers import _get_tournament_or_404, get_party_or_404, parse_csv
-from .wizard_helpers import (
+from .wizard_lookups import (
     get_discord_forum_image_asset_or_404,
     get_sponsor_logo_asset_or_404,
     get_tournament_category_or_404,

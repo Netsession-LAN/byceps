@@ -50,11 +50,13 @@ from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required, redirect_to
 
 from .result_helpers import get_party_or_404, parse_csv
-from .wizard_helpers import (
-    assert_party_has_categories_or_redirect,
+from .wizard_forms import (
     build_wizard_details_form,
     build_wizard_format_form,
     build_wizard_schedule_form,
+)
+from .wizard_helpers import (
+    assert_party_has_categories_or_redirect,
     clear_create_wizard_state,
     deserialize_datetime_local,
     get_available_tournament_admin_users,

@@ -98,14 +98,16 @@ from .stage_builder_helpers import (
     build_visible_stage_tabs,
     is_flatout2_stage_type,
 )
+from .wizard_forms import (
+    set_logo_choices_for_form,
+    set_rules_template_choices_for_form,
+)
 from .wizard_helpers import (
     assert_party_has_categories_or_redirect,
     get_available_tournament_admin_users,
     parse_admin_user_ids,
     parse_category_id,
     set_category_choices_for_form,
-    set_logo_choices_for_form,
-    set_rules_template_choices_for_form,
     update_form_with_categories,
 )
 
