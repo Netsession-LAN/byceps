@@ -35,4 +35,5 @@ server {
     }
 
     include includes/byceps;
+    include includes/netsession-stats;  # Netsession: Matomo pass-through
 }
