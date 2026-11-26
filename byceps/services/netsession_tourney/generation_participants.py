@@ -91,21 +91,10 @@ def order_participants_for_stage_generation(
     seen_seeds: set[int] = set()
     expected_seed = 1
 
-    for participant in sorted(
-        participants,
-        key=lambda item: (
-            item.seed if item.seed is not None else 999_999,
-            item.name.lower(),
-            str(item.id),
-        ),
-    ):
+    for participant in sorted(participants, key=_get_generation_order_sort_key):
         seed = participant.seed
-        if (
-            seed is None
-            or seed < 1
-            or seed > participant_count
-            or seed in seen_seeds
-            or seed != expected_seed
+        if not _is_next_contiguous_seed(
+            seed, participant_count, seen_seeds, expected_seed
         ):
             deferred_unseeded.append(participant)
             continue
@@ -117,6 +106,31 @@ def order_participants_for_stage_generation(
     if shuffle_unseeded:
         random.shuffle(deferred_unseeded)
     return contiguous_seeded + deferred_unseeded
+
+
+def _get_generation_order_sort_key(
+    item: Participant,
+) -> tuple[int, str, str]:
+    return (
+        item.seed if item.seed is not None else 999_999,
+        item.name.lower(),
+        str(item.id),
+    )
+
+
+def _is_next_contiguous_seed(
+    seed: int | None,
+    participant_count: int,
+    seen_seeds: set[int],
+    expected_seed: int,
+) -> bool:
+    return not (
+        seed is None
+        or seed < 1
+        or seed > participant_count
+        or seed in seen_seeds
+        or seed != expected_seed
+    )
 
 
 def is_builder_preliminary_skipped(stage: Stage) -> bool:
@@ -232,16 +246,7 @@ def _select_builder_fixed_participants(
     stage: Stage, all_tournament_participants: list[Participant]
 ) -> Result[list[Participant], str]:
     """The participants the stage builder assigned to a group."""
-    fixed_participant_ids: list[ParticipantID] = []
-    for raw_participant_id in (stage.settings or {}).get(
-        'builder_fixed_participant_ids', []
-    ):
-        try:
-            fixed_participant_ids.append(
-                ParticipantID(UUID(str(raw_participant_id)))
-            )
-        except ValueError:
-            continue
+    fixed_participant_ids = _parse_builder_fixed_participant_ids(stage)
 
     if not fixed_participant_ids:
         return Err('Teilnehmerliste der Gruppe ist leer.')
@@ -260,3 +265,17 @@ def _select_builder_fixed_participants(
     if len(selected_participants) < 2:
         return Err('Zu wenige bereite Teilnehmer für diese Gruppe.')
     return Ok(selected_participants)
+
+
+def _parse_builder_fixed_participant_ids(stage: Stage) -> list[ParticipantID]:
+    fixed_participant_ids: list[ParticipantID] = []
+    for raw_participant_id in (stage.settings or {}).get(
+        'builder_fixed_participant_ids', []
+    ):
+        try:
+            fixed_participant_ids.append(
+                ParticipantID(UUID(str(raw_participant_id)))
+            )
+        except ValueError:
+            continue
+    return fixed_participant_ids
