@@ -89,7 +89,9 @@ def validate_substitute_count_for_registration_mode(
         return Err('Bitte die Anzahl der Ersatzspieler angeben.')
 
     if substitute_count < 0 or substitute_count > 20:
-        return Err('Die Anzahl der Ersatzspieler muss zwischen 0 und 20 liegen.')
+        return Err(
+            'Die Anzahl der Ersatzspieler muss zwischen 0 und 20 liegen.'
+        )
 
     if registration_mode == RegistrationMode.solo and substitute_count != 0:
         return Err('Bei Einzelanmeldung gibt es keine Ersatzspieler.')

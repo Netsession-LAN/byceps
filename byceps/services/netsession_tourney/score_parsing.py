@@ -20,7 +20,7 @@ def parse_numeric_score_value(value: Any) -> int:
 
     try:
         return int(str(value).strip())
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 
@@ -84,11 +84,9 @@ def parse_match_result_slot_scores(
                             first_slot_no = slots[0].slot_no
                             second_slot_no = slots[1].slot_no
                             winner_has_lower_score = (
-                                winner_slot == first_slot_no
-                                and left < right
+                                winner_slot == first_slot_no and left < right
                             ) or (
-                                winner_slot == second_slot_no
-                                and right < left
+                                winner_slot == second_slot_no and right < left
                             )
                             if winner_has_lower_score:
                                 normalized_parts = [parts[1], parts[0]]
@@ -114,7 +112,7 @@ def get_ffa_points_per_kill(settings: dict[str, Any] | None) -> int:
     raw_value = settings.get('points_per_kill', 1)
     try:
         value = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 1
 
     return max(0, value)

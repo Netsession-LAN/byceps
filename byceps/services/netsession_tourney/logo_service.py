@@ -24,24 +24,24 @@ from byceps.util.image.image_type import ImageType
 from byceps.util.result import Err, Ok, Result
 from byceps.util.uuid import generate_uuid7
 
-from .dbmodels import DbNetsessionTourneyLogoAsset
-from .logo_image_preparation import prepare_logo_image
 from .dbmodels import (
     DbNetsessionTourneyDiscordForumImageAsset,
+    DbNetsessionTourneyLogoAsset,
     DbNetsessionTourneySponsorLogoAsset,
-    DbNetsessionTourneyTournamentLogoAsset,
     DbNetsessionTourneyTournament,
+    DbNetsessionTourneyTournamentLogoAsset,
 )
-from .sponsor_link import normalize_target_url
-from .models import LogoAssetID
+from .logo_image_preparation import prepare_logo_image
 from .models import (
     DiscordForumImageAsset,
     DiscordForumImageAssetID,
+    LogoAssetID,
     SponsorLogoAsset,
     SponsorLogoAssetID,
     TournamentLogoAsset,
     TournamentLogoAssetID,
 )
+from .sponsor_link import normalize_target_url
 
 
 # Uploads: no SVG (may contain scripts); existing SVG files stay usable.

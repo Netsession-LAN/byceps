@@ -8,12 +8,11 @@ Seat statistics for read-only clients (Screens), at `/v1/ns-seating`.
 
 from flask import abort, request
 
+from byceps.services.netsession_api.token_auth import read_token_required
 from byceps.services.party import party_service
 from byceps.services.seating import seat_service
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.views import jsonified
-
-from ...token_auth import read_token_required
 
 
 blueprint = create_blueprint('netsession_seating_api', __name__)

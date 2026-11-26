@@ -38,8 +38,8 @@ from .notification_service import (
     enqueue_match_ready_notifications,
 )
 from .tournament_queries import (
-    find_db_tournament_for_party,
     ACTIVE_PARTICIPANT_STATUS_VALUES,
+    find_db_tournament_for_party,
 )
 
 
@@ -58,7 +58,8 @@ def refresh_match_states_for_participant_readiness(
         select(DbNetsessionTourneyMatch)
         .join(
             DbNetsessionTourneyMatchSlot,
-            DbNetsessionTourneyMatch.id == DbNetsessionTourneyMatchSlot.match_id,
+            DbNetsessionTourneyMatch.id
+            == DbNetsessionTourneyMatchSlot.match_id,
         )
         .filter(DbNetsessionTourneyMatch.tournament_id == db_tournament.id)
         .filter(DbNetsessionTourneyMatchSlot.participant_id == participant_id)
@@ -103,7 +104,10 @@ def refresh_match_states_for_participant_readiness(
         db_match.state = next_state.value
         db_match.updated_at = now
 
-        if previous_state != MatchState.ready and next_state == MatchState.ready:
+        if (
+            previous_state != MatchState.ready
+            and next_state == MatchState.ready
+        ):
             enqueue_match_ready_notifications(db_match)
 
 
@@ -140,7 +144,8 @@ def calculate_match_state_for_slots(
     *,
     tournament_status: str,
     db_match_slots: list[DbNetsessionTourneyMatchSlot],
-    participant_status_value_by_participant_id: dict[ParticipantID, str] | None = None,
+    participant_status_value_by_participant_id: dict[ParticipantID, str]
+    | None = None,
 ) -> MatchState:
     if not db_match_slots:
         return MatchState.pending
@@ -198,7 +203,9 @@ def _get_participant_status_value_by_participant_id(
     return {participant_id: status for participant_id, status in rows}
 
 
-def validate_participant_limit(participant_limit: int | None) -> Result[None, str]:
+def validate_participant_limit(
+    participant_limit: int | None,
+) -> Result[None, str]:
     if participant_limit is None:
         return Ok(None)
 

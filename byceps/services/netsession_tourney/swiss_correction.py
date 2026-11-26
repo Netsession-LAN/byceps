@@ -30,7 +30,9 @@ from .models import MatchState, StageType
 _UNPLAYED_STATES = {MatchState.pending.value, MatchState.ready.value}
 
 
-def prepare_swiss_winner_change(db_match: DbNetsessionTourneyMatch) -> str | None:
+def prepare_swiss_winner_change(
+    db_match: DbNetsessionTourneyMatch,
+) -> str | None:
     """Return why the winner cannot change, or empty the later rounds of a
     Swiss stage and return None. Not Swiss: None, nothing changed."""
     db_stage = db.session.get(DbNetsessionTourneyStage, db_match.stage_id)
@@ -75,7 +77,9 @@ def _empty_matches(later_matches, later_match_ids, slots) -> None:
         DbNetsessionTourneyResultReportReceipt,
         DbNetsessionTourneyMatchResult,
     ):
-        db.session.execute(delete(model).where(model.match_id.in_(later_match_ids)))
+        db.session.execute(
+            delete(model).where(model.match_id.in_(later_match_ids))
+        )
     for slot in slots:
         slot.participant_id = None
     now = datetime.utcnow()

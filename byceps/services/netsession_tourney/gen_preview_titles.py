@@ -61,7 +61,7 @@ def _build_flatout2_generation_preview_round_titles(
     round_nos = sorted({spec.round_no for spec in match_specs})
     try:
         total_round_count = int((stage.settings or {}).get('round_count') or 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         total_round_count = 0
 
     return {
@@ -83,7 +83,7 @@ def _parse_flatout2_round_display_titles(
             continue
         try:
             round_no = int(raw_round.get('round_no') or 0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
         if round_no < 1:
             continue

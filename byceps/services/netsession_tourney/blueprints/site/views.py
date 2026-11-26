@@ -8,6 +8,7 @@ Public pages of the tournament system. The routes live in the
 
 from . import (  # noqa: F401 (the imports register the routes)
     routes_bracket,
+    routes_checkin,
     routes_index,
     routes_match,
     routes_pages,
@@ -15,7 +16,6 @@ from . import (  # noqa: F401 (the imports register the routes)
     routes_team_actions,
     routes_teams,
 )
-from . import routes_checkin
 from .blueprint import blueprint
 from .common import _get_tournament_or_404
 from .match_state_labels import register_filters

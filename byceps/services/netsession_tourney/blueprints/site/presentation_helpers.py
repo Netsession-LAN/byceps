@@ -47,7 +47,9 @@ def _build_round_time_range_label(
             continue
 
         starts_at.append(match.scheduled_at)
-        stage_duration_minutes = stage_duration_minutes_by_id.get(match.stage_id)
+        stage_duration_minutes = stage_duration_minutes_by_id.get(
+            match.stage_id
+        )
         end_at = (
             match.scheduled_at + timedelta(minutes=stage_duration_minutes)
             if stage_duration_minutes is not None
@@ -62,8 +64,8 @@ def _build_round_time_range_label(
     round_ends_at = max(ends_at) if ends_at else round_starts_at
 
     return (
-        f"{format_datetime(round_starts_at, 'EEEE, HH:mm')} - "
-        f"{format_datetime(round_ends_at, 'EEEE, HH:mm')}"
+        f'{format_datetime(round_starts_at, "EEEE, HH:mm")} - '
+        f'{format_datetime(round_ends_at, "EEEE, HH:mm")}'
     )
 
 
@@ -87,7 +89,11 @@ def build_match_overview_slot_data(
     image_url = None
     image_alt = None
 
-    if participant and participant.type.value == 'team' and participant.logo_url:
+    if (
+        participant
+        and participant.type.value == 'team'
+        and participant.logo_url
+    ):
         image_url = participant.logo_url
         image_alt = gettext('Team-Logo')
     elif participant and participant.user_id is not None:
@@ -126,4 +132,3 @@ def get_stage_duration_minutes(stage) -> int | None:
             return parsed
 
     return None
-

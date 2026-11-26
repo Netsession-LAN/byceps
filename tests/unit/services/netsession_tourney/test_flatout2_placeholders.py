@@ -5,7 +5,9 @@ The placeholder builders were called but never imported (NameError).
 
 from types import SimpleNamespace
 
-from byceps.services.netsession_tourney.blueprints.site import stage_render_helpers
+from byceps.services.netsession_tourney.blueprints.site import (
+    stage_render_helpers,
+)
 from byceps.services.netsession_tourney.models import StageType
 
 

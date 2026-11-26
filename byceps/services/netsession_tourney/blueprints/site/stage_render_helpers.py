@@ -12,9 +12,13 @@ from collections import defaultdict
 
 from flask_babel import gettext
 
-from ...models import StageType
+from byceps.services.netsession_tourney.models import StageType
+from byceps.services.netsession_tourney.score_parsing import (
+    get_ffa_points_per_kill,
+)
+
 from . import builder_helpers
-from .bracket_helpers import build_bracket_sections, build_bracket_data
+from .bracket_helpers import build_bracket_data, build_bracket_sections
 from .builder_display_helpers import (
     get_builder_main_display_stages,
     get_flatout2_builder_bracket_display_stages,
@@ -25,28 +29,31 @@ from .builder_helpers import (
     get_materialized_builder_container_stages,
     has_materialized_builder_container_stage,
 )
-from .ffa_single_elimination_rendering import get_ffa_single_elimination_round_title
+from .ffa_single_elimination_rendering import (
+    get_ffa_single_elimination_round_title,
+)
 from .flatout2_public_rendering import (
     build_flatout2_bracket_section,
     build_flatout2_match_section,
 )
 from .match_helpers import (
-    build_match_labels,
     _parse_slot_scores,
+    build_match_labels,
 )
 from .presentation_helpers import (
     _build_round_time_range_label,
     combine_stage_section_title,
     get_stage_duration_minutes,
 )
+from .round_based_public_rendering import (
+    _get_score_display,
+    build_match_overview_sections,
+)
 from .stage_filters import (
     _is_ffa_scoring_stage,
-    is_ffa_single_elimination_stage,
     _is_flatout2_stage,
+    is_ffa_single_elimination_stage,
 )
-from .round_based_public_rendering import build_match_overview_sections
-from .round_based_public_rendering import _get_score_display
-from ...score_parsing import get_ffa_points_per_kill
 
 
 def _group_matches_by_round(matches):
@@ -83,7 +90,9 @@ def build_ffa_match_sections(
     for stage_id, stage_matches in sorted(
         matches_by_stage_id.items(),
         key=lambda item: (
-            stages_by_id.get(item[0]).order_no if stages_by_id.get(item[0]) else 999,
+            stages_by_id.get(item[0]).order_no
+            if stages_by_id.get(item[0])
+            else 999,
             stages_by_id.get(item[0]).name if stages_by_id.get(item[0]) else '',
         ),
     ):
@@ -111,16 +120,14 @@ def build_ffa_match_sections(
             continue
 
         grouped_rounds = _group_matches_by_round(stage_matches)
-        is_ffa_single_elimination = (
-            stage is not None
-            and stage.type
-            in {
-                StageType.ffa_single_elimination,
-            }
-        )
+        is_ffa_single_elimination = stage is not None and stage.type in {
+            StageType.ffa_single_elimination,
+        }
         try:
-            total_round_count = int((stage.settings or {}).get('round_count') or 0)
-        except (AttributeError, TypeError, ValueError):
+            total_round_count = int(
+                (stage.settings or {}).get('round_count') or 0
+            )
+        except AttributeError, TypeError, ValueError:
             total_round_count = 0
         builder_display_title = str(
             (stage.settings or {}).get('builder_display_title') or ''
@@ -174,7 +181,8 @@ def build_ffa_match_sections(
                         ),
                         'participants': participants,
                         'score_display': _get_score_display(result),
-                        'has_result': result is not None and result.winner_slot is not None,
+                        'has_result': result is not None
+                        and result.winner_slot is not None,
                         'is_struck': match.id in skipped_match_ids,
                         'show_kills': True,
                         'host_participant_id': '',
@@ -192,7 +200,9 @@ def build_ffa_match_sections(
                         or get_ffa_single_elimination_round_title(
                             round_index,
                             round_count,
-                            stage_type=stage.type if stage is not None else None,
+                            stage_type=stage.type
+                            if stage is not None
+                            else None,
                             round_no=round_data['round_no'],
                             total_round_count=total_round_count or None,
                         )
@@ -240,7 +250,9 @@ def build_ffa_single_elimination_bracket_sections(
     for stage_id, stage_matches in sorted(
         matches_by_stage_id.items(),
         key=lambda item: (
-            stages_by_id.get(item[0]).order_no if stages_by_id.get(item[0]) else 999,
+            stages_by_id.get(item[0]).order_no
+            if stages_by_id.get(item[0])
+            else 999,
             stages_by_id.get(item[0]).name if stages_by_id.get(item[0]) else '',
         ),
     ):
@@ -265,8 +277,10 @@ def build_ffa_single_elimination_bracket_sections(
         grouped_rounds = _group_matches_by_round(stage_matches)
         round_count = len(grouped_rounds)
         try:
-            total_round_count = int((stage.settings or {}).get('round_count') or 0)
-        except (AttributeError, TypeError, ValueError):
+            total_round_count = int(
+                (stage.settings or {}).get('round_count') or 0
+            )
+        except AttributeError, TypeError, ValueError:
             total_round_count = 0
         builder_display_title = str(
             (stage.settings or {}).get('builder_display_title') or ''
@@ -331,7 +345,9 @@ def build_ffa_single_elimination_bracket_sections(
                         get_ffa_single_elimination_round_title(
                             round_index,
                             round_count,
-                            stage_type=stage.type if stage is not None else None,
+                            stage_type=stage.type
+                            if stage is not None
+                            else None,
                             round_no=round_data['round_no'],
                             total_round_count=total_round_count or None,
                         )
@@ -363,7 +379,9 @@ def build_ffa_single_elimination_bracket_sections(
                         'display_round_no': display_round_no,
                         'display_title': round_data.get('display_title')
                         or section_title
-                        or gettext('Runde %(round_no)s', round_no=display_round_no),
+                        or gettext(
+                            'Runde %(round_no)s', round_no=display_round_no
+                        ),
                         'matches': [
                             {
                                 **item,
@@ -403,7 +421,11 @@ def _build_ffa_match_participant_data(
     participant = participants_by_id.get(slot.participant_id)
     image_url = None
     image_alt = None
-    if participant and participant.type.value == 'team' and participant.logo_url:
+    if (
+        participant
+        and participant.type.value == 'team'
+        and participant.logo_url
+    ):
         image_url = participant.logo_url
         image_alt = gettext('Team-Logo')
     elif participant and participant.user_id is not None:
@@ -414,7 +436,9 @@ def _build_ffa_match_participant_data(
 
     return {
         'slot_no': slot.slot_no,
-        'name': participant.name if participant is not None else gettext('offen'),
+        'name': participant.name
+        if participant is not None
+        else gettext('offen'),
         'participant': participant,
         'image_url': image_url,
         'image_alt': image_alt,
@@ -425,6 +449,7 @@ def _build_ffa_match_participant_data(
         'is_winner': winner_slot is not None and slot.slot_no == winner_slot,
         'is_host': is_host,
     }
+
 
 def build_ffa_match_detail_rows(
     slots,
@@ -486,7 +511,7 @@ def _get_ffa_placement_by_slot_no(result, slots) -> dict[int, int]:
             raw_value = raw_placements.get(slot.slot_no)
         try:
             placements[slot.slot_no] = int(raw_value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
     return placements
@@ -507,7 +532,7 @@ def _get_ffa_points_by_slot_no(result, slots) -> dict[int, int]:
             raw_value = raw_points.get(slot.slot_no)
         try:
             points[slot.slot_no] = int(raw_value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
 
     return points
@@ -516,7 +541,7 @@ def _get_ffa_points_by_slot_no(result, slots) -> dict[int, int]:
 def _parse_score_int(value: str | None) -> int:
     try:
         return int(value or '0')
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 
@@ -534,7 +559,9 @@ def _build_stage_public_match_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return builder_helpers._build_flatout2_placeholder_match_sections(stage)
+            return builder_helpers._build_flatout2_placeholder_match_sections(
+                stage
+            )
         return []
 
     if is_ffa_single_elimination_stage(stage):
@@ -576,7 +603,9 @@ def _build_stage_public_bracket_sections(
 ):
     if not stage_matches:
         if _is_flatout2_stage(stage):
-            return builder_helpers._build_flatout2_placeholder_bracket_sections(stage)
+            return builder_helpers._build_flatout2_placeholder_bracket_sections(
+                stage
+            )
         return []
 
     if is_ffa_single_elimination_stage(stage):
@@ -617,7 +646,9 @@ def _build_builder_stage_match_sections(
 
     sections = []
     for container_stage in get_materialized_builder_container_stages(stages):
-        child_stages = get_builder_container_child_stages(stages, container_stage)
+        child_stages = get_builder_container_child_stages(
+            stages, container_stage
+        )
         if not child_stages:
             continue
 
@@ -688,7 +719,9 @@ def _build_builder_stage_bracket_sections(
 
     sections = []
     for container_stage in get_materialized_builder_container_stages(stages):
-        child_stages = get_builder_container_child_stages(stages, container_stage)
+        child_stages = get_builder_container_child_stages(
+            stages, container_stage
+        )
         if not child_stages:
             continue
 
@@ -735,6 +768,7 @@ def _build_builder_stage_bracket_sections(
 
     return sections
 
+
 def build_builder_preliminary_match_sections(
     stages,
     matches,
@@ -759,7 +793,9 @@ def build_builder_preliminary_match_sections(
 
     sections = []
     for container_stage in preliminary_containers:
-        for stage in get_builder_container_child_stages(stages, container_stage):
+        for stage in get_builder_container_child_stages(
+            stages, container_stage
+        ):
             stage_matches = matches_by_stage_id.get(stage.id, [])
             if not stage_matches:
                 sections.append(
@@ -944,6 +980,7 @@ def build_builder_main_stage_bracket_sections(
 
     return sections
 
+
 def _build_flatout2_builder_full_bracket_sections(
     stages,
     matches,
@@ -1029,7 +1066,8 @@ def build_team_history_rows(
             (
                 slot
                 for slot in slots
-                if slot.participant_id is not None and slot.participant_id == team.id
+                if slot.participant_id is not None
+                and slot.participant_id == team.id
             ),
             None,
         )
@@ -1039,13 +1077,16 @@ def build_team_history_rows(
         opponents = [
             participants_by_id.get(slot.participant_id)
             for slot in slots
-            if slot.participant_id is not None and slot.participant_id != team.id
+            if slot.participant_id is not None
+            and slot.participant_id != team.id
         ]
         stage = stages_by_id.get(match.stage_id)
         result = results_by_match_id.get(match.id)
         outcome = 'pending'
         if result and result.winner_slot is not None:
-            outcome = 'win' if result.winner_slot == own_slot.slot_no else 'loss'
+            outcome = (
+                'win' if result.winner_slot == own_slot.slot_no else 'loss'
+            )
 
         is_ffa_scoring_match = _is_ffa_scoring_stage(stage)
         is_flatout2_match = _is_flatout2_stage(stage)
@@ -1138,4 +1179,3 @@ def _get_score_side(result, index: int) -> str | None:
         return None
 
     return parts[index].strip()
-

@@ -72,7 +72,9 @@ def get_flatout2_current_round_generation_context(
 
     full_specs = full_generation_result.unwrap()
     if not full_specs:
-        return Err('Für diese FlatOut-2-Phase konnten keine Runden berechnet werden.')
+        return Err(
+            'Für diese FlatOut-2-Phase konnten keine Runden berechnet werden.'
+        )
 
     if (stage.settings or {}).get('builder_materialized_round_stage'):
         return Ok(
@@ -146,8 +148,7 @@ def build_flatout2_current_round_match_specs(
     host_participant_ids = host_participant_ids_result.unwrap()
 
     ordered_participant_ids = [
-        participant.id
-        for participant in context.participants
+        participant.id for participant in context.participants
     ]
     host_participant_id_set = set(host_participant_ids)
     remaining_participant_ids = [
@@ -213,7 +214,10 @@ def set_flatout2_match_host_by_admin(
         if slot.participant_id is not None
     }
 
-    if host_participant_id is not None and host_participant_id not in allowed_participant_ids:
+    if (
+        host_participant_id is not None
+        and host_participant_id not in allowed_participant_ids
+    ):
         return Err('Der gewählte Host spielt nicht in diesem Match.')
 
     previous_host_participant_id = apply_flatout2_match_host(
@@ -227,7 +231,9 @@ def set_flatout2_match_host_by_admin(
         action='flatout2_match_host_updated_by_admin',
         payload={
             'host_participant_id': (
-                str(host_participant_id) if host_participant_id is not None else None
+                str(host_participant_id)
+                if host_participant_id is not None
+                else None
             ),
         },
         created_at=datetime.utcnow(),

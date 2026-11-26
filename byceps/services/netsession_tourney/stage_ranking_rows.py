@@ -155,7 +155,7 @@ class RankingTally:
         row['points'] += points_by_slot_no.get(slot_no, 0)
         try:
             row['kills'] += int(_slot_value(score_slots, slot_no))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             pass
         row['total_points'] = (
             row['points'] + row['kills'] * self.points_per_kill
@@ -194,7 +194,7 @@ def _read_slot_numbers(raw, db_match_slots) -> dict[int, int]:
     for db_slot in db_match_slots:
         try:
             numbers[db_slot.slot_no] = int(_slot_value(raw, db_slot.slot_no))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
     return numbers
 

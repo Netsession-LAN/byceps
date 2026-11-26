@@ -48,14 +48,14 @@ from .service_helpers import (
     db_match_to_model,
     parse_source_outcome,
 )
+from .site_paths import (
+    build_site_match_path,
+)
 from .stage_service import (
     get_stage_setting_int,
 )
 from .tournament_queries import (
     find_db_tournament_for_party,
-)
-from .site_paths import (
-    build_site_match_path,
 )
 
 
@@ -218,7 +218,9 @@ def persist_generated_matches(
         for slot in spec.slots:
             source_slot_id = None
             if slot.source_match_no is not None:
-                source_slot_id = source_slot_id_by_match_no.get(slot.source_match_no)
+                source_slot_id = source_slot_id_by_match_no.get(
+                    slot.source_match_no
+                )
             db_slot = DbNetsessionTourneyMatchSlot(
                 MatchSlotID(generate_uuid7()),
                 match_id_by_match_no[spec.match_no],
@@ -320,8 +322,8 @@ def _get_db_matches_by_round_no(
         )
     ).all()
 
-    db_matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = defaultdict(
-        list
+    db_matches_by_round_no: dict[int, list[DbNetsessionTourneyMatch]] = (
+        defaultdict(list)
     )
     for db_match in db_matches:
         db_matches_by_round_no[db_match.round_no].append(db_match)
@@ -386,9 +388,8 @@ def build_round_starts_at_schedule(
         schedule[round_no] = round_starts_at
         max_concurrent_matches = max_matches_per_round or match_count
         wave_count = (
-            (match_count + max_concurrent_matches - 1)
-            // max_concurrent_matches
-        )
+            match_count + max_concurrent_matches - 1
+        ) // max_concurrent_matches
         round_starts_at += timedelta(
             minutes=(wave_count * match_duration_minutes)
             + break_between_rounds_minutes

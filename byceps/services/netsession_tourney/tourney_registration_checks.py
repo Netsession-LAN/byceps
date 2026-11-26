@@ -19,9 +19,9 @@ from .eligibility import (
 )
 from .models import Tournament, TournamentID
 from .participant_state import (
+    count_active_participants_for_tournament,
     is_tournament_full,
     is_user_already_active_participant,
-    count_active_participants_for_tournament,
 )
 from .registration_locks import (
     lock_tournament_for_registration,

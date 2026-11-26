@@ -7,42 +7,53 @@ Team and player pages.
 
 from __future__ import annotations
 
-
 from flask import (
     abort,
     g,
 )
 from flask_babel import gettext
 
+from byceps.services.netsession_tourney.double_grand_final import (
+    get_match_results,
+)
+from byceps.services.netsession_tourney.forms import (
+    TeamCreationForm,
+    TeamMemberAddForm,
+)
+from byceps.services.netsession_tourney.match_queries import (
+    get_match_slots,
+    get_matches_for_tournament,
+)
+from byceps.services.netsession_tourney.models import (
+    ParticipantType,
+    TournamentStatus,
+)
+from byceps.services.netsession_tourney.participant_admin_service import (
+    get_participants_by_ids,
+)
+from byceps.services.netsession_tourney.registration_validation import (
+    get_team_members_for_participants,
+)
+from byceps.services.netsession_tourney.screen_name_suggestions import (
+    get_suggested_screen_names_for_party,
+)
+from byceps.services.netsession_tourney.team_invite_service import (
+    get_team_invite_code_for_manager,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_stages_for_tournament,
+)
 from byceps.services.user import user_service
 from byceps.util.framework.flash import flash_error
 from byceps.util.framework.templating import templated
 from byceps.util.views import login_required, redirect_to
 
-from ...double_grand_final import get_match_results
-from ...forms import (
-    TeamCreationForm,
-    TeamMemberAddForm,
-)
-from ...match_queries import (
-    get_match_slots,
-    get_matches_for_tournament,
-)
-from ...models import (
-    ParticipantType,
-    TournamentStatus,
-)
-from ...participant_admin_service import (
-    get_participants_by_ids,
-)
-from ...registration_validation import get_team_members_for_participants
-from ...team_invite_service import (
-    get_team_invite_code_for_manager,
-)
-from ...tournament_queries import (
-    get_stages_for_tournament,
-)
+from .blueprint import blueprint
 from .builder_helpers import get_materialized_builder_container_stages
+from .common import (
+    _get_tournament_or_404,
+    get_main_nav_current_page_id,
+)
 from .match_helpers import (
     build_match_labels,
 )
@@ -58,13 +69,6 @@ from .user_state_helpers import (
     get_seat_data_by_user_id,
 )
 
-from .blueprint import blueprint
-from .common import (
-    get_main_nav_current_page_id,
-    _get_tournament_or_404,
-)
-from ...screen_name_suggestions import get_suggested_screen_names_for_party
-
 
 def _build_team_view_context(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
@@ -76,7 +80,9 @@ def _build_team_view_context(slug, participant_id):
     if team.type != ParticipantType.team:
         abort(404)
 
-    members_by_participant_id = get_team_members_for_participants({participant_id})
+    members_by_participant_id = get_team_members_for_participants(
+        {participant_id}
+    )
     members = members_by_participant_id.get(participant_id, [])
     users_by_id = user_service.get_users_indexed_by_id(
         {member.user_id for member in members},
@@ -167,7 +173,8 @@ def _build_team_view_context(slug, participant_id):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'overview',
     }
@@ -236,7 +243,8 @@ def _build_player_view_context(slug, participant_id):
             get_materialized_builder_container_stages(
                 stages, role='preliminary'
             )
-        ) and not is_flatout2_tournament,
+        )
+        and not is_flatout2_tournament,
         'current_page': current_page_id,
         'current_tournament_page': 'overview',
     }
@@ -255,11 +263,9 @@ def view_team(slug, participant_id):
 @templated('site/netsession_tourney/view_team')
 def edit_team(slug, participant_id):
     context = _build_team_view_context(slug, participant_id)
-    is_manageable = (
-        context['can_manage_team']
-        and context['tournament'].status
-        in {TournamentStatus.draft, TournamentStatus.live}
-    )
+    is_manageable = context['can_manage_team'] and context[
+        'tournament'
+    ].status in {TournamentStatus.draft, TournamentStatus.live}
     if not is_manageable:
         flash_error(gettext('Team kann aktuell nicht bearbeitet werden.'))
         return redirect_to(

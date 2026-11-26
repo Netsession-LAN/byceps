@@ -27,9 +27,12 @@ url = "redis://127.0.0.1:6379/0"
 
 
 def test_netsession_sections_are_read():
-    toml = dedent("""\
+    toml = (
+        dedent("""\
     netsession_tourney_enabled = true
-    """) + BASE_TOML + dedent("""\
+    """)
+        + BASE_TOML
+        + dedent("""\
 
     [steam]
     enabled = true
@@ -40,6 +43,7 @@ def test_netsession_sections_are_read():
     sitekey = "site-key"
     secret_key = "secret"
     """)
+    )
 
     byceps_config, _ = parse_config(toml).unwrap()
 

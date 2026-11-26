@@ -11,7 +11,8 @@ from __future__ import annotations
 import math
 from typing import TypeVar
 
-from ..models import ParticipantID
+from byceps.services.netsession_tourney.models import ParticipantID
+
 from .base import MatchSpec, SlotSpec
 
 

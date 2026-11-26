@@ -11,30 +11,33 @@ from __future__ import annotations
 from flask_babel import gettext
 
 from .flatout2_round_helpers import (
+    build_flatout2_placeholder_bracket_round,
+    build_flatout2_placeholder_match_round,
     get_flatout2_expected_round_summaries as _get_flatout2_builder_expected_round_summaries,
 )
-from .flatout2_round_helpers import build_flatout2_placeholder_match_round
-from .flatout2_round_helpers import build_flatout2_placeholder_bracket_round
 
 
 def get_builder_container_child_stage_ids(stage) -> list[str]:
     settings = stage.settings or {}
     raw_stage_ids = settings.get('builder_materialized_stage_ids') or []
     if not raw_stage_ids and settings.get('builder_role') == 'preliminary':
-        raw_stage_ids = settings.get('builder_materialized_group_stage_ids') or []
+        raw_stage_ids = (
+            settings.get('builder_materialized_group_stage_ids') or []
+        )
     return [str(stage_id) for stage_id in raw_stage_ids if stage_id]
 
 
 def is_materialized_builder_container_stage(stage) -> bool:
     settings = stage.settings or {}
-    return (
-        settings.get('builder_kind') == 'stage_builder_v1'
-        and bool(get_builder_container_child_stage_ids(stage))
+    return settings.get('builder_kind') == 'stage_builder_v1' and bool(
+        get_builder_container_child_stage_ids(stage)
     )
 
 
 def has_materialized_builder_container_stage(stages) -> bool:
-    return any(is_materialized_builder_container_stage(stage) for stage in stages)
+    return any(
+        is_materialized_builder_container_stage(stage) for stage in stages
+    )
 
 
 def get_materialized_builder_container_stages(
@@ -51,7 +54,9 @@ def get_materialized_builder_container_stages(
 
 
 def get_builder_container_child_stages(stages, container_stage):
-    child_stage_ids = set(get_builder_container_child_stage_ids(container_stage))
+    child_stage_ids = set(
+        get_builder_container_child_stage_ids(container_stage)
+    )
     return [
         stage
         for stage in sorted(stages, key=lambda item: item.order_no)
@@ -183,8 +188,12 @@ def _build_flatout2_placeholder_bracket_sections(stage) -> list[dict]:
     ]
 
 
-def _merge_flatout2_missing_match_rounds(stage, rounds: list[dict]) -> list[dict]:
-    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(stage)
+def _merge_flatout2_missing_match_rounds(
+    stage, rounds: list[dict]
+) -> list[dict]:
+    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(
+        stage
+    )
     if not expected_round_summaries:
         return rounds
 
@@ -205,8 +214,12 @@ def _merge_flatout2_missing_match_rounds(stage, rounds: list[dict]) -> list[dict
     return merged_rounds
 
 
-def _merge_flatout2_missing_bracket_rounds(stage, rounds: list[dict]) -> list[dict]:
-    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(stage)
+def _merge_flatout2_missing_bracket_rounds(
+    stage, rounds: list[dict]
+) -> list[dict]:
+    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(
+        stage
+    )
     if not expected_round_summaries:
         return rounds
 

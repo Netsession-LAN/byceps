@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from byceps.services.netsession_tourney.models import StageType
 from byceps.util.uuid import generate_uuid7
 
-from ...models import StageType
 from .double_elimination_rendering import (
     build_double_elimination_match_labels,
 )
@@ -42,7 +42,9 @@ def build_match_labels(
         for slot in slots:
             if slot.source_match_slot_id is None:
                 continue
-            source_match_id = source_match_id_by_slot_id.get(slot.source_match_slot_id)
+            source_match_id = source_match_id_by_slot_id.get(
+                slot.source_match_slot_id
+            )
             if source_match_id is None:
                 continue
             incoming_by_match_id[match_id].append(
@@ -117,7 +119,9 @@ def build_skipped_double_grand_final_match_ids(
     skipped_match_ids = {
         match.id
         for match in matches
-        if is_skipped_double_grand_final_result(results_by_match_id.get(match.id))
+        if is_skipped_double_grand_final_result(
+            results_by_match_id.get(match.id)
+        )
     }
 
     for stage_id, stage_matches in matches_by_stage_id.items():
@@ -137,10 +141,7 @@ def build_skipped_double_grand_final_match_ids(
 
             source_slot_ids = {slot.source_match_slot_id for slot in slots}
             outcomes = {slot.source_outcome.value for slot in slots}
-            if (
-                len(source_slot_ids) != 1
-                or outcomes != {'winner', 'loser'}
-            ):
+            if len(source_slot_ids) != 1 or outcomes != {'winner', 'loser'}:
                 continue
 
             source_slot_id = next(iter(source_slot_ids))
@@ -156,6 +157,7 @@ def build_skipped_double_grand_final_match_ids(
                 skipped_match_ids.add(match.id)
 
     return skipped_match_ids
+
 
 def build_slot_scores_by_match_id(
     matches,
@@ -211,7 +213,9 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
                 break
         if delimiter is not None:
             parts = display.split(delimiter)
-            if len(parts) == len(slots) and all(part.isdigit() for part in parts):
+            if len(parts) == len(slots) and all(
+                part.isdigit() for part in parts
+            ):
                 normalized_parts = list(parts)
                 # Keep display aligned with winner slot if a reversed score
                 # string was submitted (e.g. winner_slot=1 with "0:1").
@@ -222,8 +226,7 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
                         first_slot_no = slots[0].slot_no
                         second_slot_no = slots[1].slot_no
                         winner_has_lower_score = (
-                            result.winner_slot == first_slot_no
-                            and left < right
+                            result.winner_slot == first_slot_no and left < right
                         ) or (
                             result.winner_slot == second_slot_no
                             and right < left
@@ -240,8 +243,12 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
 
     if len(slots) == 2:
         return {
-            slots[0].slot_no: '1' if result.winner_slot == slots[0].slot_no else '0',
-            slots[1].slot_no: '1' if result.winner_slot == slots[1].slot_no else '0',
+            slots[0].slot_no: '1'
+            if result.winner_slot == slots[0].slot_no
+            else '0',
+            slots[1].slot_no: '1'
+            if result.winner_slot == slots[1].slot_no
+            else '0',
         }
 
     return {}

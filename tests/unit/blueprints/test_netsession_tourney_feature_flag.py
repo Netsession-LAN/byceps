@@ -5,9 +5,11 @@
 
 from flask import Flask
 
-from byceps.blueprints import admin as admin_blueprints
-from byceps.blueprints import api as api_blueprints
-from byceps.blueprints import site as site_blueprints
+from byceps.blueprints import (
+    admin as admin_blueprints,
+    api as api_blueprints,
+    site as site_blueprints,
+)
 
 
 def test_site_blueprints_do_not_include_netsession_tourney_if_disabled(
@@ -18,7 +20,9 @@ def test_site_blueprints_do_not_include_netsession_tourney_if_disabled(
 
     captured = {}
 
-    monkeypatch.setattr(site_blueprints, 'get_common_blueprints', lambda **_: [])
+    monkeypatch.setattr(
+        site_blueprints, 'get_common_blueprints', lambda **_: []
+    )
     monkeypatch.setattr(
         site_blueprints,
         'register_blueprints',
@@ -39,7 +43,9 @@ def test_site_blueprints_include_netsession_tourney_if_enabled(monkeypatch):
 
     captured = {}
 
-    monkeypatch.setattr(site_blueprints, 'get_common_blueprints', lambda **_: [])
+    monkeypatch.setattr(
+        site_blueprints, 'get_common_blueprints', lambda **_: []
+    )
     monkeypatch.setattr(
         site_blueprints,
         'register_blueprints',
@@ -95,4 +101,3 @@ def test_api_blueprints_include_netsession_tourney_if_enabled(monkeypatch):
         'services.netsession_tourney.blueprints.api',
         '/ns-tourneys',
     ) in captured['blueprints']
-

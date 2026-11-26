@@ -120,9 +120,11 @@ def preview_stage_match_generation(
         stage=payload.stage,
         round_match_counts=round_match_counts,
     )
-    display_titles_by_round_no = build_generation_preview_round_titles_by_round_no(
-        payload.stage,
-        payload.match_specs,
+    display_titles_by_round_no = (
+        build_generation_preview_round_titles_by_round_no(
+            payload.stage,
+            payload.match_specs,
+        )
     )
     preview_participants_by_id = {
         participant.id: participant for participant in payload.participants
@@ -130,7 +132,9 @@ def preview_stage_match_generation(
     matches_by_round_no: dict[int, list[StageGeneratedMatchPreview]] = (
         defaultdict(list)
     )
-    for spec in sorted(payload.match_specs, key=lambda item: (item.round_no, item.match_no)):
+    for spec in sorted(
+        payload.match_specs, key=lambda item: (item.round_no, item.match_no)
+    ):
         matches_by_round_no[spec.round_no].append(
             StageGeneratedMatchPreview(
                 round_no=spec.round_no,
@@ -138,7 +142,9 @@ def preview_stage_match_generation(
                 participants=[
                     StageMatchGenerationPreviewParticipant(
                         participant_id=slot.participant_id,
-                        name=preview_participants_by_id[slot.participant_id].name,
+                        name=preview_participants_by_id[
+                            slot.participant_id
+                        ].name,
                     )
                     for slot in spec.slots
                     if slot.participant_id is not None
@@ -211,12 +217,9 @@ def build_stage_generation_payload(
         return Err(resolved_stage_result.unwrap_err())
     stage = resolved_stage_result.unwrap()
 
-    if (
-        stage.type == StageType.ffa_flatout2_single_elimination
-        and (
-            (stage.settings or {}).get('flatout2_manual_stage')
-            or not (stage.settings or {}).get('builder_kind')
-        )
+    if stage.type == StageType.ffa_flatout2_single_elimination and (
+        (stage.settings or {}).get('flatout2_manual_stage')
+        or not (stage.settings or {}).get('builder_kind')
     ):
         return build_manual_flatout2_stage_generation_payload(
             tournament=tournament,

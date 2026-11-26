@@ -43,11 +43,11 @@ from .service_helpers import (
     db_match_to_model,
     db_stage_to_model,
 )
-from .tournament_queries import (
-    find_db_tournament_for_party,
-)
 from .site_paths import (
     build_site_match_path,
+)
+from .tournament_queries import (
+    find_db_tournament_for_party,
 )
 
 
@@ -116,7 +116,9 @@ def delete_match_result_by_admin(
         object_id=match_id,
         action='result_deleted',
         payload={
-            'deleted_match_ids': [str(item) for item in sorted(deleted_match_ids)],
+            'deleted_match_ids': [
+                str(item) for item in sorted(deleted_match_ids)
+            ],
             'deleted_match_count': len(deleted_match_ids),
         },
         created_at=now,
@@ -133,7 +135,9 @@ def find_match_result_delete_blocker(
         visited = set()
 
     source_slot = db.session.scalar(
-        select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id, slot_no=1)
+        select(DbNetsessionTourneyMatchSlot).filter_by(
+            match_id=match_id, slot_no=1
+        )
     )
     if source_slot is None:
         return None
@@ -203,7 +207,9 @@ def _delete_match_result_branch(
         return
 
     downstream_slots = _get_downstream_slots(match_id)
-    downstream_match_ids = sorted({db_slot.match_id for db_slot in downstream_slots})
+    downstream_match_ids = sorted(
+        {db_slot.match_id for db_slot in downstream_slots}
+    )
 
     for downstream_match_id in downstream_match_ids:
         db_downstream_result = db.session.scalar(
@@ -221,7 +227,9 @@ def _delete_match_result_branch(
         )
 
     db.session.execute(
-        delete(DbNetsessionTourneyResultReportReceipt).filter_by(match_id=match_id)
+        delete(DbNetsessionTourneyResultReportReceipt).filter_by(
+            match_id=match_id
+        )
     )
     db.session.delete(db_result)
     _reset_match_after_result_delete(db_match)
@@ -236,7 +244,9 @@ def _get_downstream_slots(
 ) -> list[DbNetsessionTourneyMatchSlot]:
     """Return the slots that are fed by the match's results."""
     source_slot = db.session.scalar(
-        select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id, slot_no=1)
+        select(DbNetsessionTourneyMatchSlot).filter_by(
+            match_id=match_id, slot_no=1
+        )
     )
     return (
         db.session.scalars(
@@ -272,7 +282,9 @@ def _clear_downstream_slots(
         _reset_match_after_result_delete(db_downstream_match)
 
 
-def _reset_match_after_result_delete(db_match: DbNetsessionTourneyMatch) -> None:
+def _reset_match_after_result_delete(
+    db_match: DbNetsessionTourneyMatch,
+) -> None:
     db_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot)
         .filter_by(match_id=db_match.id)

@@ -75,7 +75,9 @@ def _delete_matches(db_matches, slots_by_match_id) -> None:
 def _shift_match_numbers(db_matches, by: int) -> None:
     """Shift match numbers one by one, in an order that never collides
     with the unique (stage, round, match number) constraint."""
-    for db_match in sorted(db_matches, key=lambda m: m.match_no, reverse=by > 0):
+    for db_match in sorted(
+        db_matches, key=lambda m: m.match_no, reverse=by > 0
+    ):
         db_match.match_no += by
         db.session.flush()
 
@@ -101,7 +103,9 @@ def _add_placeholder_like(
     db.session.flush()
 
     slots = [
-        DbNetsessionTourneyMatchSlot(MatchSlotID(generate_uuid7()), db_match.id, slot_no)
+        DbNetsessionTourneyMatchSlot(
+            MatchSlotID(generate_uuid7()), db_match.id, slot_no
+        )
         for slot_no in (1, 2)
     ]
     for db_slot in slots:

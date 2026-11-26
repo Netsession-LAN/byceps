@@ -84,7 +84,9 @@ _LABELS = {
 
 RESULT_REPORT_MODE_LABELS = {
     'admin_only': lazy_gettext('Nur Admins tragen Ergebnisse ein'),
-    'both_must_confirm': lazy_gettext('Beide Teams müssen das gleiche Ergebnis bestätigen'),
+    'both_must_confirm': lazy_gettext(
+        'Beide Teams müssen das gleiche Ergebnis bestätigen'
+    ),
     'winner_can_report': lazy_gettext('Gewinner darf Ergebnis übermitteln'),
     'loser_can_report': lazy_gettext('Verlierer darf Ergebnis übermitteln'),
 }

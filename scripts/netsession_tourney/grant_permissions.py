@@ -12,6 +12,7 @@ import click
 from byceps.services.authz import authz_service
 from byceps.services.authz.models import PermissionID, RoleID
 
+
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from _util import call_with_app_context

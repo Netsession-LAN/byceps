@@ -48,13 +48,13 @@ from .result_report_mode import (
     validate_actor_matches_report_mode as _validate_actor_matches_report_mode,
 )
 from .result_reporting import (
-    MatchSides,
-    ResultReport,
     advance_after_completion,
     apply_match_state,
     find_result_of_repeated_report,
     is_conflicting_duel_report,
     load_match_sides,
+    MatchSides,
+    ResultReport,
     store_receipt_and_audit,
     store_reported_result,
     validate_report_allowed,
@@ -132,7 +132,9 @@ def report_result(
     if empty_slot_error is not None:
         return Err(empty_slot_error)
     if not domain_service.can_actor_report_match_result(
-        tournament.mode, report.by_admin, actor_user_id in sides.manager_user_ids()
+        tournament.mode,
+        report.by_admin,
+        actor_user_id in sides.manager_user_ids(),
     ):
         return Err('Du darfst für dieses Match kein Ergebnis melden.')
 
@@ -152,11 +154,15 @@ def report_result(
     )
 
 
-def _check_duel_slots_occupied(tournament, sides: MatchSides, report) -> str | None:
+def _check_duel_slots_occupied(
+    tournament, sides: MatchSides, report
+) -> str | None:
     """A duel result needs both participants; a walkover the winner."""
     if tournament.mode != TournamentMode.duel:
         return None
-    needed = [report.winner_slot] if report.reason_code == 'walkover' else [1, 2]
+    needed = (
+        [report.winner_slot] if report.reason_code == 'walkover' else [1, 2]
+    )
     if any(sides.participant_id_in_slot(slot_no) is None for slot_no in needed):
         return 'Für dieses Match stehen noch nicht alle Teilnehmer fest.'
     return None

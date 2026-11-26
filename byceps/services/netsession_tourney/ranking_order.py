@@ -23,7 +23,8 @@ def sort_ranked_participant_ids(
     stage_type: str | None = None,
     head_to_head_winner_id_by_pair: dict[
         frozenset[ParticipantID], ParticipantID
-    ] | None = None,
+    ]
+    | None = None,
     is_ffa_scoring_stage: bool,
 ) -> list[ParticipantID]:
     if not is_ffa_scoring_stage and stage_type == StageType.swiss.value:
@@ -67,11 +68,7 @@ def _sort_swiss_ranked_participant_ids(
                 -swiss_head_to_head_scores.get(item[0], 0),
                 -item[1].get('round_diff', 0),
                 -item[1].get('round_wins', 0),
-                (
-                    item[1]['seed']
-                    if item[1]['seed'] is not None
-                    else 999_999
-                ),
+                (item[1]['seed'] if item[1]['seed'] is not None else 999_999),
                 item[1]['created_at'],
             ),
         )
@@ -126,11 +123,7 @@ def _sort_round_robin_ranked_participant_ids(
                 -tie_break_values_by_participant_id[item[0]][1],
                 -tie_break_values_by_participant_id[item[0]][2],
                 -tie_break_values_by_participant_id[item[0]][3],
-                (
-                    item[1]['seed']
-                    if item[1]['seed'] is not None
-                    else 999_999
-                ),
+                (item[1]['seed'] if item[1]['seed'] is not None else 999_999),
                 item[1]['created_at'],
             ),
         )
@@ -147,21 +140,9 @@ def _sort_default_ranked_participant_ids(
         for participant_id, _ in sorted(
             rows_by_participant_id.items(),
             key=lambda item: (
-                (
-                    -item[1]['total_points']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                (
-                    -item[1]['points']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
-                (
-                    -item[1]['kills']
-                    if is_ffa_scoring_stage
-                    else 0
-                ),
+                (-item[1]['total_points'] if is_ffa_scoring_stage else 0),
+                (-item[1]['points'] if is_ffa_scoring_stage else 0),
+                (-item[1]['kills'] if is_ffa_scoring_stage else 0),
                 (
                     (
                         item[1]['placement']

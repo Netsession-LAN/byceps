@@ -109,7 +109,9 @@ def build_ffa_stage_builder_plan(
         tournament_id,
         main_stage_type,
         main_stage_size=main_stage_size,
-        participant_count=main_stage_size if uses_preliminary else participant_count,
+        participant_count=main_stage_size
+        if uses_preliminary
+        else participant_count,
         max_players_per_match=max_players_per_match,
         plan=plan,
         preliminary_type=preliminary_type,
@@ -190,7 +192,9 @@ def _create_ffa_preliminary(
             _FfaPreliminary(
                 stage=container,
                 created_stages=[container, *round_stages],
-                last_source_stage_id=round_stages[-1].id if round_stages else None,
+                last_source_stage_id=round_stages[-1].id
+                if round_stages
+                else None,
                 next_order_no=2 + len(round_stages),
             )
         )
@@ -269,7 +273,9 @@ def _ffa_main_stage_settings(
 ) -> dict[str, Any]:
     settings['builder_role'] = 'main'
     if main_stage_type == StageType.ffa_flatout2_single_elimination:
-        settings['builder_expected_round_summaries'] = main_preview['round_summaries']
+        settings['builder_expected_round_summaries'] = main_preview[
+            'round_summaries'
+        ]
         settings['round_count'] = len(main_preview['round_summaries'])
 
     if preliminary.stage is None:
@@ -278,7 +284,9 @@ def _ffa_main_stage_settings(
 
     if preliminary_type == StageType.ffa_flatout2_single_elimination:
         settings['participant_source_mode'] = 'stage_match_qualifiers'
-        settings['qualifier_source_stage_ids'] = [str(preliminary.last_source_stage_id)]
+        settings['qualifier_source_stage_ids'] = [
+            str(preliminary.last_source_stage_id)
+        ]
         settings['qualifier_top_n_per_match'] = 3
     else:
         settings['participant_source_mode'] = 'stage_qualifiers'
@@ -290,7 +298,9 @@ def _ffa_main_stage_settings(
     return settings
 
 
-def _validate_ffa_builder_input(*, timing: StageTiming, **settings) -> str | None:
+def _validate_ffa_builder_input(
+    *, timing: StageTiming, **settings
+) -> str | None:
     """Return an error message, or `None` if the input is fine."""
     validation_result = validate_ffa_stage_builder_settings(**settings)
     if validation_result.is_err():

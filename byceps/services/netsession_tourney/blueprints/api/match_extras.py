@@ -12,11 +12,11 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from ...models import MatchState, SourceOutcome
-from ..site.match_helpers import (
+from byceps.services.netsession_tourney.blueprints.site.match_helpers import (
     build_match_labels,
     build_skipped_double_grand_final_match_ids,
 )
+from byceps.services.netsession_tourney.models import MatchState, SourceOutcome
 
 
 @dataclass(frozen=True, kw_only=True)

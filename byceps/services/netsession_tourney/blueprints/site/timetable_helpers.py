@@ -14,9 +14,15 @@ from typing import Any
 
 from flask_babel import format_datetime, gettext
 
-from ...match_queries import get_matches_for_tournament
-from ...tournament_queries import get_stages_for_tournament
-from ...tournament_service import get_tournaments_for_party
+from byceps.services.netsession_tourney.match_queries import (
+    get_matches_for_tournament,
+)
+from byceps.services.netsession_tourney.tournament_queries import (
+    get_stages_for_tournament,
+)
+from byceps.services.netsession_tourney.tournament_service import (
+    get_tournaments_for_party,
+)
 
 
 def build_party_timetable(
@@ -67,12 +73,16 @@ def build_party_timetable(
             if match.scheduled_at is None:
                 unscheduled_match_count += 1
                 continue
-            matches_by_stage_and_round[(match.stage_id, match.round_no)].append(match)
+            matches_by_stage_and_round[(match.stage_id, match.round_no)].append(
+                match
+            )
 
         sorted_stage_round_keys = sorted(
             matches_by_stage_and_round.keys(),
             key=lambda item: (
-                stages_by_id[item[0]].order_no if item[0] in stages_by_id else 9999,
+                stages_by_id[item[0]].order_no
+                if item[0] in stages_by_id
+                else 9999,
                 item[1],
             ),
         )
@@ -109,8 +119,8 @@ def build_party_timetable(
                     'start_label': format_datetime(round_start, 'HH:mm'),
                     'end_label': format_datetime(round_end, 'HH:mm'),
                     'time_label': (
-                        f"{format_datetime(round_start, 'HH:mm')} - "
-                        f"{format_datetime(round_end, 'HH:mm')}"
+                        f'{format_datetime(round_start, "HH:mm")} - '
+                        f'{format_datetime(round_end, "HH:mm")}'
                     ),
                     'duration_minutes': round_duration_minutes,
                     'duration_label': gettext(
@@ -133,15 +143,15 @@ def build_party_timetable(
         {
             'date': day,
             'iso': day.isoformat(),
-            'label': format_datetime(datetime.combine(day, time.min), 'EEE d.M'),
+            'label': format_datetime(
+                datetime.combine(day, time.min), 'EEE d.M'
+            ),
         }
         for day in party_days
     ]
 
     agenda_days: list[dict[str, Any]] = []
-    days_for_agenda = (
-        [selected_day] if selected_day is not None else party_days
-    )
+    days_for_agenda = [selected_day] if selected_day is not None else party_days
     today = datetime.utcnow().date()
     for day in days_for_agenda:
         items = sorted(
@@ -189,8 +199,7 @@ def build_party_timetable(
             key=lambda item: item['tournament'].title.lower(),
         ),
         'unscheduled_match_total': sum(
-            item['unscheduled_match_count']
-            for item in unscheduled_tournaments
+            item['unscheduled_match_count'] for item in unscheduled_tournaments
         ),
         'item_count': sum(len(day['items']) for day in agenda_days),
         'tournament_count': len(tournaments),
@@ -218,8 +227,8 @@ def _build_agenda_slots(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 'start_label': format_datetime(current_start, 'HH:mm'),
                 'end_label': format_datetime(current_end, 'HH:mm'),
                 'time_label': (
-                    f"{format_datetime(current_start, 'HH:mm')} - "
-                    f"{format_datetime(current_end, 'HH:mm')}"
+                    f'{format_datetime(current_start, "HH:mm")} - '
+                    f'{format_datetime(current_end, "HH:mm")}'
                 ),
                 'duration_minutes': int(
                     (current_end - current_start).total_seconds() // 60
@@ -350,7 +359,7 @@ def _get_stage_match_duration_minutes(stage) -> int:
     raw_value = stage.settings.get('match_duration_minutes', 30)
     try:
         value = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 30
 
     return max(1, value)
@@ -363,7 +372,7 @@ def _get_stage_max_matches_per_round(stage) -> int:
 
     try:
         value = int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 9999
 
     return max(1, value)
@@ -374,6 +383,7 @@ def _estimate_round_duration_minutes(stage, round_match_count: int) -> int:
     max_matches_per_round = _get_stage_max_matches_per_round(stage)
     waves = max(
         1,
-        (round_match_count + max_matches_per_round - 1) // max_matches_per_round,
+        (round_match_count + max_matches_per_round - 1)
+        // max_matches_per_round,
     )
     return waves * match_duration_minutes

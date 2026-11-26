@@ -58,6 +58,9 @@ from .service_helpers import (
     append_audit_log,
     db_tournament_to_model,
 )
+from .site_paths import (
+    build_site_tournament_overview_path,
+)
 from .stage_activation import (
     activate_prepared_matches_for_live_tournament,
     activate_prepared_stages_for_live_tournament,
@@ -69,9 +72,6 @@ from .tournament_queries import (
     find_db_tournament_for_party,
     get_participants_for_tournament,
     get_stages_for_tournament,
-)
-from .site_paths import (
-    build_site_tournament_overview_path,
 )
 
 
@@ -328,7 +328,9 @@ def delete_tournament(
 
 def _delete_stages_with_matches(tournament_id: TournamentID) -> None:
     stage_ids = db.session.scalars(
-        select(DbNetsessionTourneyStage.id).filter_by(tournament_id=tournament_id)
+        select(DbNetsessionTourneyStage.id).filter_by(
+            tournament_id=tournament_id
+        )
     ).all()
     for stage_id in stage_ids:
         delete_stage_matches(stage_id)
@@ -347,7 +349,9 @@ def _delete_participants_and_registrations(tournament_id: TournamentID) -> None:
     if participant_ids:
         db.session.execute(
             delete(DbNetsessionTourneyTeamMember).filter(
-                DbNetsessionTourneyTeamMember.participant_id.in_(participant_ids)
+                DbNetsessionTourneyTeamMember.participant_id.in_(
+                    participant_ids
+                )
             )
         )
 

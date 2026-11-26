@@ -32,9 +32,9 @@ from .dbmodels import (
 )
 from .discord_dm_service import (
     decrypt_discord_dm_bot_token,
-    is_missing_discord_dm_table_error,
     DISCORD_DM_MAX_ATTEMPTS,
     DISCORD_DM_TIMEOUT_SECONDS,
+    is_missing_discord_dm_table_error,
 )
 from .discord_parts_dm_embed import (
     build_discord_dm_embed_fields,
@@ -101,7 +101,9 @@ def _deliver_discord_dm_outbox_row(
         DbNetsessionTourneyNotification, db_row.notification_id
     )
     if db_notification is None:
-        _mark_discord_dm_outbox_dead_letter(db_row, 'Unknown notification.', now)
+        _mark_discord_dm_outbox_dead_letter(
+            db_row, 'Unknown notification.', now
+        )
         return
 
     db_tournament = db.session.get(
@@ -147,7 +149,9 @@ def _deliver_discord_dm_outbox_row(
         )
     except httpx.HTTPError as exc:
         _schedule_discord_dm_outbox_retry(
-            db_row, f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}', now
+            db_row,
+            f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}',
+            now,
         )
         return
     except ValueError as exc:
@@ -171,15 +175,11 @@ def _is_discord_dm_config_complete(
 
 
 def _find_discord_user_id(user_id: UserID) -> str | None:
-    connected_account = (
-        external_accounts_service.find_connected_external_account_for_user_and_service(
-            user_id, 'discord'
-        )
+    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        user_id, 'discord'
     )
     return (
-        connected_account.external_id
-        if connected_account is not None
-        else None
+        connected_account.external_id if connected_account is not None else None
     )
 
 
@@ -194,22 +194,16 @@ def send_test_discord_dm(
     if not db_config.application_id or not db_config.bot_token_encrypted:
         return Err('Discord-DM-Konfiguration ist unvollständig.')
 
-    connected_account = (
-        external_accounts_service.find_connected_external_account_for_user_and_service(
-            user_id, 'discord'
-        )
+    connected_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        user_id, 'discord'
     )
     discord_user_id = (
-        connected_account.external_id
-        if connected_account is not None
-        else None
+        connected_account.external_id if connected_account is not None else None
     )
     if not discord_user_id:
         return Err('Dein Benutzerkonto hat keinen verbundenen Discord-Account.')
 
-    bot_token = decrypt_discord_dm_bot_token(
-        db_config.bot_token_encrypted
-    )
+    bot_token = decrypt_discord_dm_bot_token(db_config.bot_token_encrypted)
     if not bot_token:
         return Err('Kein gültiges Discord-Bot-Token konfiguriert.')
 
@@ -223,9 +217,7 @@ def send_test_discord_dm(
             payload=payload,
         )
     except httpx.HTTPError as exc:
-        return Err(
-            f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}'
-        )
+        return Err(f'Discord-DM-Anfrage fehlgeschlagen: {type(exc).__name__}')
     except ValueError as exc:
         return Err(str(exc))
 
@@ -273,7 +265,10 @@ def _build_discord_dm_message_payload(
     payload = dict(db_notification.payload_json or {})
     kind = db_notification.kind
     match_label = build_browser_push_match_label(payload)
-    body = str(browser_payload.get('body') or '').strip() or 'Es gibt ein neues Update.'
+    body = (
+        str(browser_payload.get('body') or '').strip()
+        or 'Es gibt ein neues Update.'
+    )
     url = build_absolute_notification_url(
         db_tournament.party_id,
         str(browser_payload.get('url') or f'/ns-tourneys/{db_tournament.slug}'),
@@ -296,12 +291,15 @@ def _build_discord_dm_message_payload(
 
     embed: dict[str, Any] = {
         'author': {'name': 'Netsession Turniere'},
-        'title': f"{event_meta['emoji']} {event_meta['headline']}"[:256],
+        'title': f'{event_meta["emoji"]} {event_meta["headline"]}'[:256],
         'description': '\n'.join(description_lines)[:4096],
         'color': 0xFF2B00,
         'fields': fields,
         'footer': {'text': 'Netsession Turniere'},
-        'timestamp': db_notification.created_at.replace(microsecond=0).isoformat() + 'Z',
+        'timestamp': db_notification.created_at.replace(
+            microsecond=0
+        ).isoformat()
+        + 'Z',
     }
 
     if url:

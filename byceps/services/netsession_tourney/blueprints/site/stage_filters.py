@@ -6,7 +6,7 @@ byceps.services.netsession_tourney.blueprints.site.stage_filters
 :License: Revised BSD (see `LICENSE` file for details)
 """
 
-from ...models import StageType
+from byceps.services.netsession_tourney.models import StageType
 
 
 def _is_ffa_simple_stage(stage) -> bool:
@@ -53,7 +53,11 @@ def uses_only_ffa_simple_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )
@@ -70,7 +74,11 @@ def uses_only_ffa_scoring_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )
@@ -87,7 +95,11 @@ def uses_only_flatout2_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )
@@ -104,14 +116,20 @@ def uses_only_ffa_single_elimination_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )
     if not relevant_stages:
         return False
 
-    return all(is_ffa_single_elimination_stage(stage) for stage in relevant_stages)
+    return all(
+        is_ffa_single_elimination_stage(stage) for stage in relevant_stages
+    )
 
 
 def uses_only_swiss_stages(stages, matches) -> bool:
@@ -121,7 +139,11 @@ def uses_only_swiss_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )
@@ -138,7 +160,11 @@ def uses_only_round_based_duel_stages(stages, matches) -> bool:
     stages_by_id = {stage.id: stage for stage in stages}
     match_stage_ids = {match.stage_id for match in matches}
     relevant_stages = (
-        [stages_by_id[stage_id] for stage_id in match_stage_ids if stage_id in stages_by_id]
+        [
+            stages_by_id[stage_id]
+            for stage_id in match_stage_ids
+            if stage_id in stages_by_id
+        ]
         if match_stage_ids
         else list(stages)
     )

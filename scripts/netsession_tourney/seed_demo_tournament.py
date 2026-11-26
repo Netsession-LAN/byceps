@@ -9,13 +9,13 @@ import sys
 
 import click
 
+from byceps.services.netsession_tourney.match_generation import (
+    generate_stage_matches,
+)
 from byceps.services.netsession_tourney.models import (
     RegistrationMode,
     StageType,
     TournamentMode,
-)
-from byceps.services.netsession_tourney.match_generation import (
-    generate_stage_matches,
 )
 from byceps.services.netsession_tourney.registration_service import (
     register_user,

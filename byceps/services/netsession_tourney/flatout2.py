@@ -203,7 +203,10 @@ FLATOUT2_ALL_VEHICLES = _flatten_unique(list(FLATOUT2_VEHICLE_GROUPS.values()))
 FLATOUT2_TRACK_CHOICES_BY_MODE = {
     mode: sorted(
         _flatten_unique(
-            [FLATOUT2_TRACK_GROUPS[group_name] for group_name in spec['track_groups']]
+            [
+                FLATOUT2_TRACK_GROUPS[group_name]
+                for group_name in spec['track_groups']
+            ]
         ),
         key=str.casefold,
     )

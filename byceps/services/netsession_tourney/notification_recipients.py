@@ -28,7 +28,9 @@ def get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
     db_slots = db.session.scalars(
         select(DbNetsessionTourneyMatchSlot).filter_by(match_id=match_id)
     ).all()
-    participant_ids = [slot.participant_id for slot in db_slots if slot.participant_id]
+    participant_ids = [
+        slot.participant_id for slot in db_slots if slot.participant_id
+    ]
     if not participant_ids:
         return set()
 
@@ -55,7 +57,9 @@ def get_match_involved_user_ids(match_id: MatchID) -> set[UserID]:
     user_ids.update(
         db.session.scalars(
             select(DbNetsessionTourneyTeamMember.user_id).filter(
-                DbNetsessionTourneyTeamMember.participant_id.in_(participant_ids)
+                DbNetsessionTourneyTeamMember.participant_id.in_(
+                    participant_ids
+                )
             )
         ).all()
     )

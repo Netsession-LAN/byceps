@@ -39,11 +39,11 @@ from .models import (
     BrowserPushSubscriptionID,
     TournamentID,
 )
-from .service_helpers import (
-    db_browser_push_config_to_model,
-)
 from .notification_recipients import (
     get_active_user_ids_for_tournament,
+)
+from .service_helpers import (
+    db_browser_push_config_to_model,
 )
 
 
@@ -67,7 +67,9 @@ BROWSER_PUSH_MAX_ATTEMPTS = 5
 
 def get_browser_push_config(party_id: PartyID) -> BrowserPushConfig:
     try:
-        db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
+        db_config = db.session.get(
+            DbNetsessionTourneyBrowserPushConfig, party_id
+        )
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
             db.session.rollback()
@@ -82,7 +84,9 @@ def get_browser_push_config(party_id: PartyID) -> BrowserPushConfig:
 
 def is_browser_push_enabled_for_party(party_id: PartyID) -> bool:
     try:
-        db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
+        db_config = db.session.get(
+            DbNetsessionTourneyBrowserPushConfig, party_id
+        )
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
             db.session.rollback()
@@ -94,7 +98,9 @@ def is_browser_push_enabled_for_party(party_id: PartyID) -> bool:
 
 def get_browser_push_public_key_for_party(party_id: PartyID) -> str | None:
     try:
-        db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
+        db_config = db.session.get(
+            DbNetsessionTourneyBrowserPushConfig, party_id
+        )
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
             db.session.rollback()
@@ -117,11 +123,15 @@ def configure_browser_push(
         return Err('Unbekannte Party.')
 
     try:
-        db_config = db.session.get(DbNetsessionTourneyBrowserPushConfig, party_id)
+        db_config = db.session.get(
+            DbNetsessionTourneyBrowserPushConfig, party_id
+        )
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
             db.session.rollback()
-            return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
+            return Err(
+                'Die Tabellen für Browser-Benachrichtigungen fehlen noch.'
+            )
         raise
 
     now = datetime.utcnow()
@@ -137,8 +147,8 @@ def configure_browser_push(
         db_config.vapid_public_key = _derive_browser_push_public_key(
             private_key_pem
         )
-        db_config.vapid_private_key_encrypted = _encrypt_browser_push_private_key(
-            private_key_pem
+        db_config.vapid_private_key_encrypted = (
+            _encrypt_browser_push_private_key(private_key_pem)
         )
 
     db_config.enabled = enabled
@@ -178,7 +188,9 @@ def upsert_browser_push_subscription(
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
             db.session.rollback()
-            return Err('Die Tabellen für Browser-Benachrichtigungen fehlen noch.')
+            return Err(
+                'Die Tabellen für Browser-Benachrichtigungen fehlen noch.'
+            )
         raise
     if db_subscription is None:
         db_subscription = DbNetsessionTourneyBrowserPushSubscription(
@@ -235,9 +247,9 @@ def disable_browser_push_subscription(
 def has_active_browser_push_subscription_for_user(
     party_id: PartyID, user_id: UserID
 ) -> bool:
-    return count_active_browser_push_subscriptions_for_user(
-        party_id, user_id
-    ) > 0
+    return (
+        count_active_browser_push_subscriptions_for_user(party_id, user_id) > 0
+    )
 
 
 def count_active_browser_push_subscriptions_for_user(
@@ -245,8 +257,9 @@ def count_active_browser_push_subscriptions_for_user(
 ) -> int:
     try:
         count = db.session.scalar(
-            select(db.func.count(DbNetsessionTourneyBrowserPushSubscription.id))
-            .filter_by(party_id=party_id, user_id=user_id, enabled=True)
+            select(
+                db.func.count(DbNetsessionTourneyBrowserPushSubscription.id)
+            ).filter_by(party_id=party_id, user_id=user_id, enabled=True)
         )
     except DBAPIError as exc:
         if is_missing_browser_push_table_error(exc):
@@ -277,10 +290,12 @@ def get_active_browser_push_subscription_recipients_for_tournament(
 
     try:
         rows = db.session.execute(
-            select(DbNetsessionTourneyBrowserPushSubscription.user_id).filter_by(
+            select(DbNetsessionTourneyBrowserPushSubscription.user_id)
+            .filter_by(
                 party_id=party_id,
                 enabled=True,
-            ).filter(
+            )
+            .filter(
                 DbNetsessionTourneyBrowserPushSubscription.user_id.in_(user_ids)
             )
         ).all()
@@ -335,7 +350,9 @@ def get_recent_browser_push_outbox_entries_for_tournament(
                 DbNetsessionTourneyNotification.id
                 == DbNetsessionTourneyBrowserPushOutbox.notification_id,
             )
-            .filter(DbNetsessionTourneyNotification.tournament_id == tournament_id)
+            .filter(
+                DbNetsessionTourneyNotification.tournament_id == tournament_id
+            )
             .order_by(DbNetsessionTourneyBrowserPushOutbox.created_at.desc())
             .limit(limit)
         ).all()
@@ -403,15 +420,11 @@ def _derive_browser_push_public_key(private_key_pem: str) -> str:
         encoding=serialization.Encoding.X962,
         format=serialization.PublicFormat.UncompressedPoint,
     )
-    return (
-        urlsafe_b64encode(public_key_bytes).decode('ascii').rstrip('=')
-    )
+    return urlsafe_b64encode(public_key_bytes).decode('ascii').rstrip('=')
 
 
 def _encrypt_browser_push_private_key(private_key_pem: str) -> str:
-    token = _get_browser_push_fernet().encrypt(
-        private_key_pem.encode('utf-8')
-    )
+    token = _get_browser_push_fernet().encrypt(private_key_pem.encode('utf-8'))
     return token.decode('ascii')
 
 
@@ -419,7 +432,7 @@ def decrypt_browser_push_private_key(token: str) -> str | None:
     try:
         decrypted = _get_browser_push_fernet().decrypt(token.encode('ascii'))
         return decrypted.decode('utf-8')
-    except (InvalidToken, UnicodeDecodeError):
+    except InvalidToken, UnicodeDecodeError:
         try:
             data = _get_browser_push_serializer().loads(token)
         except BadSignature:

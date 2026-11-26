@@ -169,9 +169,7 @@ def deregister_user(
     if status_error is not None:
         return Err(status_error)
 
-    db_participant = find_db_active_participant_for_user(
-        tournament_id, user.id
-    )
+    db_participant = find_db_active_participant_for_user(tournament_id, user.id)
     if db_participant is None:
         return Err('Du bist für dieses Turnier nicht angemeldet.')
 

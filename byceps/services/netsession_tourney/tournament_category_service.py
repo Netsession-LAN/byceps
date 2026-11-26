@@ -77,7 +77,10 @@ def update_tournament_category(
             title=normalized_title,
         )
     )
-    if existing_db_category is not None and existing_db_category.id != db_category.id:
+    if (
+        existing_db_category is not None
+        and existing_db_category.id != db_category.id
+    ):
         return Err('Diesen Kategorietitel gibt es bereits.')
 
     db_category.title = normalized_title
@@ -93,7 +96,9 @@ def move_tournament_category_up(
     if db_category is None:
         return Err('Unbekannte Kategorie.')
 
-    db_category_list = db_category.party.netsession_tourney_tournament_categories
+    db_category_list = (
+        db_category.party.netsession_tourney_tournament_categories
+    )
     if db_category.position == 1:
         return Err('Die Kategorie steht bereits ganz oben.')
 
@@ -111,7 +116,9 @@ def move_tournament_category_down(
     if db_category is None:
         return Err('Unbekannte Kategorie.')
 
-    db_category_list = db_category.party.netsession_tourney_tournament_categories
+    db_category_list = (
+        db_category.party.netsession_tourney_tournament_categories
+    )
     if db_category.position == len(db_category_list):
         return Err('Die Kategorie steht bereits ganz unten.')
 

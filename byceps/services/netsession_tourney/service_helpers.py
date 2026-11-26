@@ -225,7 +225,9 @@ def db_coin_ledger_entry_to_model(
     )
 
 
-def db_tournament_to_model(db_tournament: DbNetsessionTourneyTournament) -> Tournament:
+def db_tournament_to_model(
+    db_tournament: DbNetsessionTourneyTournament,
+) -> Tournament:
     sponsor_logo_target_url = _find_sponsor_logo_target_url(
         db_tournament.party_id, db_tournament.sponsor_logo_url
     )
@@ -263,7 +265,9 @@ def db_tournament_to_model(db_tournament: DbNetsessionTourneyTournament) -> Tour
         discord_enabled=db_tournament.discord_enabled,
         discord_forum_channel_id=db_tournament.discord_forum_channel_id,
         discord_thread_id=db_tournament.discord_thread_id,
-        discord_applied_tag_ids=list(db_tournament.discord_applied_tag_ids or []),
+        discord_applied_tag_ids=list(
+            db_tournament.discord_applied_tag_ids or []
+        ),
         discord_event_mask=list(db_tournament.discord_event_mask or []),
         discord_dm_enabled=db_tournament.discord_dm_enabled,
         discord_dm_event_mask=list(db_tournament.discord_dm_event_mask or []),
@@ -286,7 +290,7 @@ def _find_sponsor_logo_target_url(
     try:
         parties_segment_index = path_segments.index('parties')
         effective_party_id = PartyID(path_segments[parties_segment_index + 1])
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         pass
 
     if not filename:
@@ -312,7 +316,9 @@ def db_stage_to_model(db_stage: DbNetsessionTourneyStage) -> Stage:
     )
 
 
-def db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> Participant:
+def db_participant_to_model(
+    db_participant: DbNetsessionTourneyParticipant,
+) -> Participant:
     return Participant(
         id=db_participant.id,
         tournament_id=db_participant.tournament_id,
@@ -327,7 +333,9 @@ def db_participant_to_model(db_participant: DbNetsessionTourneyParticipant) -> P
     )
 
 
-def db_team_member_to_model(db_member: DbNetsessionTourneyTeamMember) -> TeamMember:
+def db_team_member_to_model(
+    db_member: DbNetsessionTourneyTeamMember,
+) -> TeamMember:
     return TeamMember(
         id=db_member.id,
         participant_id=db_member.participant_id,
@@ -364,7 +372,9 @@ def db_match_slot_to_model(db_slot: DbNetsessionTourneyMatchSlot) -> MatchSlot:
     )
 
 
-def db_match_result_to_model(db_result: DbNetsessionTourneyMatchResult) -> MatchResult:
+def db_match_result_to_model(
+    db_result: DbNetsessionTourneyMatchResult,
+) -> MatchResult:
     return MatchResult(
         id=db_result.id,
         match_id=db_result.match_id,
@@ -391,7 +401,9 @@ def db_match_chat_message_to_model(
     )
 
 
-def _db_registration_to_model(db_registration: DbNetsessionTourneyRegistration) -> Registration:
+def _db_registration_to_model(
+    db_registration: DbNetsessionTourneyRegistration,
+) -> Registration:
     return Registration(
         id=db_registration.id,
         tournament_id=db_registration.tournament_id,

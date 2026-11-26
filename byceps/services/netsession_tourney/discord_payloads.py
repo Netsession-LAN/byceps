@@ -94,7 +94,8 @@ def build_discord_message_payload(
     payload_data = db_row.payload_json or {}
     event_name = db_row.event_name
     url = build_absolute_notification_url(
-        db_tournament.party_id, build_site_tournament_overview_path(db_tournament.slug)
+        db_tournament.party_id,
+        build_site_tournament_overview_path(db_tournament.slug),
     )
     brand_icon_url = build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
@@ -200,7 +201,11 @@ def _build_discord_message_fields(
     url: str | None,
 ) -> list[dict[str, Any]]:
     fields = [
-        {'name': 'Turnier', 'value': db_tournament.title[:1024], 'inline': True},
+        {
+            'name': 'Turnier',
+            'value': db_tournament.title[:1024],
+            'inline': True,
+        },
         {'name': 'Ereignis', 'value': embed_title[:1024], 'inline': True},
     ]
     if url:
@@ -212,9 +217,7 @@ def _build_discord_message_fields(
             }
         )
     if event_name == 'tournament_finished':
-        fields.extend(
-            build_discord_tournament_finished_fields(payload_data)
-        )
+        fields.extend(build_discord_tournament_finished_fields(payload_data))
     elif event_name == 'match_completed':
         fields.extend(build_discord_match_completed_fields(payload_data))
     return fields
@@ -224,7 +227,8 @@ def build_discord_forum_thread_payload(
     db_tournament: DbNetsessionTourneyTournament,
 ) -> dict[str, Any]:
     url = build_absolute_notification_url(
-        db_tournament.party_id, build_site_tournament_overview_path(db_tournament.slug)
+        db_tournament.party_id,
+        build_site_tournament_overview_path(db_tournament.slug),
     )
     brand_icon_url = build_absolute_notification_url(
         db_tournament.party_id, '/static_sites/netsession/icon-192.png'
@@ -244,17 +248,27 @@ def build_discord_forum_thread_payload(
     )
 
     fields = [
-        {'name': 'Turnier', 'value': db_tournament.title[:1024], 'inline': True},
+        {
+            'name': 'Turnier',
+            'value': db_tournament.title[:1024],
+            'inline': True,
+        },
     ]
     if db_tournament.game:
         fields.append(
-            {'name': 'Spiel', 'value': db_tournament.game[:1024], 'inline': True}
+            {
+                'name': 'Spiel',
+                'value': db_tournament.game[:1024],
+                'inline': True,
+            }
         )
     if db_tournament.starts_at is not None:
         fields.append(
             {
                 'name': 'Start',
-                'value': db_tournament.starts_at.strftime('%d.%m.%Y %H:%M')[:1024],
+                'value': db_tournament.starts_at.strftime('%d.%m.%Y %H:%M')[
+                    :1024
+                ],
                 'inline': True,
             }
         )

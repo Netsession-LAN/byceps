@@ -13,11 +13,13 @@ from datetime import datetime
 
 from flask import render_template
 
+from byceps.services.netsession_newsletter import (
+    unsubscribe_service,
+    unsubscribe_token,
+)
 from byceps.services.newsletter import newsletter_service
 from byceps.services.user import user_service
 from byceps.util.framework.blueprint import create_blueprint
-
-from ... import unsubscribe_service, unsubscribe_token
 
 
 blueprint = create_blueprint('netsession_newsletter', __name__)
