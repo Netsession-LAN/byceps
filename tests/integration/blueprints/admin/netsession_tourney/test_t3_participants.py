@@ -109,6 +109,13 @@ def test_disqualify_participant(t3_client, t3_assert_flash, t3_make_tourney):
         t3_client, 'danger', 'Ungültige Angaben zur Disqualifikation.'
     )
 
+    _post(
+        t3_client,
+        tourney.url + f'/participants/{uuid4()}/disqualify',
+        {'reason_code': 'cheating', 'comment': 'Who?'},
+    )
+    t3_assert_flash(t3_client, 'danger', 'Unbekannter Teilnehmer.')
+
     response = _post(
         t3_client,
         url,
@@ -258,6 +265,13 @@ def test_team_members_and_captain(
         {'screen_name': 'Nobody' + str(uuid4())[:8]},
     )
     t3_assert_flash(t3_client, 'danger', 'Unbekannter Benutzer.')
+
+    _post(
+        t3_client,
+        team_tourney.url + f'/teams/{uuid4()}/members/add',
+        {'screen_name': sub.screen_name},
+    )
+    t3_assert_flash(t3_client, 'danger', 'Unbekanntes Team.')
 
     _post(t3_client, team_url + '/captain', {'member_user_id': 'captain'})
     t3_assert_flash(t3_client, 'danger', 'Ungültiges Team-Mitglied.')
