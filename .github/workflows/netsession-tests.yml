@@ -80,3 +80,42 @@ jobs:
       with:
         oidc: true
         files: coverage.xml
+
+    - name: Upload coverage to Scrutinizer
+      # Same payload as Scrutinizer's own uploader (scrutinizer-ocular):
+      # Cobertura XML with the checkout path replaced by a placeholder.
+      run: |
+        python3 - <<'PY'
+        import base64, json, os, subprocess, urllib.error, urllib.request
+
+        xml = open('coverage.xml', encoding='utf-8').read()
+        xml = xml.replace(os.environ['GITHUB_WORKSPACE'], '{scrutinizer_project_base_path}')
+        parents = subprocess.check_output(
+            ['git', 'log', '--pretty=%P', '-n1', 'HEAD'], text=True
+        ).split()
+        payload = {
+            'revision': os.environ['GITHUB_SHA'],
+            'parents': parents,
+            'coverage': {
+                'format': 'py-cc',
+                'data': base64.b64encode(xml.encode('utf-8')).decode('ascii'),
+            },
+        }
+        url = f"https://scrutinizer-ci.com/api/repositories/g/{os.environ['GITHUB_REPOSITORY']}/data/code-coverage"
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            # Cloudflare in front of Scrutinizer rejects urllib's default
+            # User-Agent (error 1010).
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': 'netsession-byceps-ci',
+            },
+        )
+        try:
+            with urllib.request.urlopen(request) as response:
+                print('Scrutinizer:', response.status)
+        except urllib.error.HTTPError as error:
+            print('Scrutinizer:', error.code, error.read().decode('utf-8', 'replace'))
+            raise
+        PY

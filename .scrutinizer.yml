@@ -17,3 +17,9 @@ tools:
     config:
       duplication_detector:
         enabled: false
+  # Netsession fork: coverage comes from the GitHub Actions test run
+  # (.github/workflows/netsession-tests.yml), which uploads coverage.xml.
+  # The test run takes about 13 minutes; an inspection waiting for coverage
+  # blocks the next one, so keep the timeout short.
+  external_code_coverage:
+    timeout: 1800
