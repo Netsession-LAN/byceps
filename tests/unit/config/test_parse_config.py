@@ -21,6 +21,7 @@ from byceps.config.models import (
     RedisConfig,
     SiteWebAppConfig,
     SmtpConfig,
+    SteamConfig,
     StripeConfig,
     WebAppsConfig,
 )
@@ -90,6 +91,10 @@ def test_parse_config():
                     username='smtp-user',
                     password='smtp-password',
                     suppress_send=True,
+                ),
+                steam=SteamConfig(
+                    enabled=True,
+                    api_key='steam-api-key',
                 ),
             ),
             WebAppsConfig(
@@ -177,6 +182,10 @@ def test_parse_config():
     username = "smtp-user"
     password = "smtp-password"
     suppress_send = true
+
+    [steam]
+    enabled = true
+    api_key = "steam-api-key"
     """
 
     assert parse_config(toml) == expected
@@ -227,6 +236,7 @@ def test_parse_config_defaults():
                     password='',
                     suppress_send=False,
                 ),
+                steam=None,
             ),
             WebAppsConfig(
                 admin=AdminWebAppConfig(
@@ -377,3 +387,31 @@ def test_parse_config_with_conflicting_site_server_names():
     """
 
     assert parse_config(toml) == expected
+
+
+def test_parse_config_with_steam_without_api_key():
+    toml = """\
+    locale = "en"
+    secret_key = "<RANDOM-BYTES>"
+    timezone = "Europe/London"
+
+    [apps]
+    admin = { server_name = "admin.test" }
+
+    [database]
+    username = "db-user"
+    password = "db-password"
+    database = "db-database"
+
+    [redis]
+    url = "redis://127.0.0.1:6379/0"
+
+    [smtp]
+
+    [steam]
+    enabled = true
+    """
+
+    byceps_config, _ = parse_config(toml).unwrap()
+
+    assert byceps_config.steam == SteamConfig(enabled=True, api_key=None)

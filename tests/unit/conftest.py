@@ -85,6 +85,7 @@ def make_byceps_config():
                 password=None,
                 suppress_send=True,
             ),
+            steam=None,
         )
 
     return _wrapper

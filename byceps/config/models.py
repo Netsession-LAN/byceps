@@ -63,6 +63,7 @@ class TomlConfig:
     )
     redis: RedisConfig
     smtp: SmtpConfig
+    steam: SteamConfig | None = None
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -82,6 +83,7 @@ class BycepsConfig:
     payment_gateways: PaymentGatewaysConfig | None
     redis: RedisConfig
     smtp: SmtpConfig
+    steam: SteamConfig | None
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -193,6 +195,12 @@ class SmtpConfig:
     username: str | None = ''
     password: str | None = ''
     suppress_send: bool = False
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class SteamConfig:
+    enabled: bool
+    api_key: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

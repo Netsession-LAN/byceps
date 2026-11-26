@@ -85,6 +85,7 @@ def parse_config(
         payment_gateways=toml_config.payment_gateways,
         redis=toml_config.redis,
         smtp=toml_config.smtp,
+        steam=toml_config.steam,
     )
 
     web_apps_config = toml_config.apps

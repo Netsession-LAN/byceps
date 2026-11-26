@@ -10,6 +10,7 @@ from babel import Locale
 from flask import abort, g, request
 from flask_babel import force_locale, gettext
 
+from byceps.byceps_app import get_current_byceps_app
 from byceps.services.brand import brand_service
 from byceps.services.external_accounts import external_accounts_service
 from byceps.services.country import country_service
@@ -64,6 +65,10 @@ def view():
         g.user.id, 'discord'
     )
 
+    steam_account = external_accounts_service.find_connected_external_account_for_user_and_service(
+        g.user.id, 'steam'
+    )
+
     return {
         'user': user,
         'email_address': email_address,
@@ -73,7 +78,14 @@ def view():
         'newsletter_list': newsletter_list,
         'subscribed_to_newsletter': subscribed_to_newsletter,
         'discord_account': discord_account,
+        'steam_enabled': _is_steam_enabled(),
+        'steam_account': steam_account,
     }
+
+
+def _is_steam_enabled() -> bool:
+    steam_config = get_current_byceps_app().byceps_config.steam
+    return (steam_config is not None) and steam_config.enabled
 
 
 @blueprint.get('/email_address')

@@ -526,3 +526,38 @@ port:
    The username to authenticate with against the SMTP server.
 
    *optional*
+
+
+Steam Section
+=============
+
+Integration with Steam_: Users can connect their Steam account in their
+user settings (by signing in through Steam via OpenID 2.0).
+
+.. _Steam: https://store.steampowered.com/
+
+
+.. code-block:: toml
+
+    [steam]
+    enabled = true
+    api_key = "steam-web-api-key"
+
+
+.. confval:: steam.enabled
+   :type: boolean
+
+   Enables the integration with Steam.
+
+   *required if section is defined*
+
+
+.. confval:: steam.api_key
+   :type: string
+
+   Steam Web API key (see https://steamcommunity.com/dev/apikey).
+
+   Used to obtain the public name of a connected Steam account. Without
+   it, the Steam ID is stored as name.
+
+   *optional*

@@ -120,6 +120,27 @@ def find_connected_external_account_for_user_and_service(
     )
 
 
+def find_connected_external_account_for_service_and_external_id(
+    service: str,
+    external_id: str,
+) -> ConnectedExternalAccount | None:
+    """Return the connected external account with that external ID at
+    that service, if found.
+    """
+    db_connected_external_account = db.session.execute(
+        select(DbConnectedExternalAccount)
+        .filter_by(service=service)
+        .filter_by(external_id=external_id)
+    ).scalar_one_or_none()
+
+    if db_connected_external_account is None:
+        return None
+
+    return _db_entity_to_connected_external_account(
+        db_connected_external_account
+    )
+
+
 def _db_entity_to_connected_external_account(
     db_entity: DbConnectedExternalAccount,
 ) -> ConnectedExternalAccount:
