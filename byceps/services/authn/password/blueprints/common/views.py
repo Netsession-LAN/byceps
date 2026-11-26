@@ -21,6 +21,7 @@ from byceps.services.global_setting import global_setting_service
 from byceps.services.user import user_service
 from byceps.services.verification_token import verification_token_service
 from byceps.services.verification_token.models import PasswordResetToken
+from byceps.util import turnstile
 from byceps.util.framework.blueprint import create_blueprint
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
@@ -87,6 +88,10 @@ def request_reset():
     """Request a password reset."""
     form = RequestResetForm(request.form)
     if not form.validate():
+        return request_reset_form(form)
+
+    if not turnstile.verify_request('password_reset_request'):
+        flash_error(gettext('Turnstile verification failed. Please try again.'))
         return request_reset_form(form)
 
     screen_name = form.screen_name.data.strip()
@@ -190,6 +195,10 @@ def reset(token):
 
     form = ResetForm(request.form)
     if not form.validate():
+        return reset_form(token, form)
+
+    if not turnstile.verify_request('password_reset'):
+        flash_error(gettext('Turnstile verification failed. Please try again.'))
         return reset_form(token, form)
 
     password = secret(form.new_password.data)

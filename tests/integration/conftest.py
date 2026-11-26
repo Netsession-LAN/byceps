@@ -23,6 +23,7 @@ from byceps.config.models import (
     AdminWebAppConfig,
     ApiWebAppConfig,
     BycepsConfig,
+    CloudflareTurnstileConfig,
     DatabaseConfig,
     DevelopmentConfig,
     JobsConfig,
@@ -113,6 +114,7 @@ def build_byceps_config(
     database_config: DatabaseConfig,
     redis_config: RedisConfig,
     *,
+    cloudflare_turnstile: CloudflareTurnstileConfig | None = None,
     metrics_enabled: bool = False,
     style_guide_enabled: bool = False,
 ) -> BycepsConfig:
@@ -123,6 +125,7 @@ def build_byceps_config(
         secret_key='secret-key-for-testing-ONLY',
         testing=True,
         timezone='Europe/Berlin',
+        cloudflare_turnstile=cloudflare_turnstile,
         database=database_config,
         development=DevelopmentConfig(
             style_guide_enabled=style_guide_enabled,
@@ -189,10 +192,12 @@ def make_admin_app(make_byceps_config):
     def _wrapper(
         server_name: str,
         *,
+        cloudflare_turnstile: CloudflareTurnstileConfig | None = None,
         metrics_enabled: bool = False,
         style_guide_enabled: bool = False,
     ) -> BycepsApp:
         byceps_config = make_byceps_config(
+            cloudflare_turnstile=cloudflare_turnstile,
             metrics_enabled=metrics_enabled,
             style_guide_enabled=style_guide_enabled,
         )
@@ -229,10 +234,15 @@ def make_site_app(admin_app, make_byceps_config):
     """Provide a site web application."""
 
     def _wrapper(
-        server_name: str, site_id: SiteID, *, style_guide_enabled: bool = False
+        server_name: str,
+        site_id: SiteID,
+        *,
+        cloudflare_turnstile: CloudflareTurnstileConfig | None = None,
+        style_guide_enabled: bool = False,
     ) -> BycepsApp:
         byceps_config = make_byceps_config(
-            style_guide_enabled=style_guide_enabled
+            cloudflare_turnstile=cloudflare_turnstile,
+            style_guide_enabled=style_guide_enabled,
         )
 
         app_config = SiteWebAppConfig(
@@ -260,6 +270,7 @@ def make_byceps_config(
 ):
     def _wrapper(
         *,
+        cloudflare_turnstile: CloudflareTurnstileConfig | None = None,
         metrics_enabled: bool = False,
         style_guide_enabled: bool = False,
     ) -> BycepsConfig:
@@ -267,6 +278,7 @@ def make_byceps_config(
             data_path,
             database_config,
             redis_config,
+            cloudflare_turnstile=cloudflare_turnstile,
             metrics_enabled=metrics_enabled,
             style_guide_enabled=style_guide_enabled,
         )

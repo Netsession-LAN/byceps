@@ -10,6 +10,7 @@ from byceps.config.models import (
     AdminWebAppConfig,
     ApiWebAppConfig,
     BycepsConfig,
+    CloudflareTurnstileConfig,
     DatabaseConfig,
     DevelopmentConfig,
     DiscordConfig,
@@ -38,6 +39,11 @@ def test_parse_config():
                 secret_key='<RANDOM-BYTES>',
                 testing=False,
                 timezone='Europe/Berlin',
+                cloudflare_turnstile=CloudflareTurnstileConfig(
+                    enabled=True,
+                    sitekey='turnstile-sitekey',
+                    secret_key='turnstile-secret-key',
+                ),
                 database=DatabaseConfig(
                     host='db-host',
                     port=54321,
@@ -127,6 +133,11 @@ def test_parse_config():
       { server_name = "site2.test", site_id = "site2" },
     ]
 
+    [cloudflare_turnstile]
+    enabled = true
+    sitekey = "turnstile-sitekey"
+    secret_key = "turnstile-secret-key"
+
     [database]
     host = "db-host"
     port = 54321
@@ -192,6 +203,7 @@ def test_parse_config_defaults():
                 secret_key='<RANDOM-BYTES>',
                 testing=False,
                 timezone='Europe/London',
+                cloudflare_turnstile=None,
                 database=DatabaseConfig(
                     host='localhost',
                     port=5432,

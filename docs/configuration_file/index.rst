@@ -111,6 +111,62 @@ An example with admin application, API application, and two sites:
    *optional*
 
 
+Cloudflare Turnstile Section
+============================
+
+Protection of public forms against bots with `Cloudflare Turnstile`_.
+
+.. _Cloudflare Turnstile: https://developers.cloudflare.com/turnstile/
+
+If enabled, a Turnstile widget is shown on these forms (and the
+submitted token is verified with Cloudflare):
+
+- log in (site)
+- create user account
+- request password reset, set new password (site and admin)
+- request email address confirmation email again
+
+If Cloudflare cannot be reached, form submissions are let through (and
+a warning is logged) so that an outage does not lock users out. The
+visitor's IP address is sent to Cloudflare along with the token.
+
+Sites that override one of these form templates need to render the
+widget themselves (macro ``render_turnstile`` in
+``macros/turnstile.html``), otherwise all submissions are rejected.
+
+
+.. code-block:: toml
+
+    [cloudflare_turnstile]
+    enabled = true
+    sitekey = "turnstile-sitekey"
+    secret_key = "turnstile-secret-key"
+
+
+.. confval:: cloudflare_turnstile.enabled
+   :type: boolean
+
+   Enables the Turnstile protection.
+
+   *required if section is defined*
+
+
+.. confval:: cloudflare_turnstile.sitekey
+   :type: string
+
+   Turnstile site key (public, embedded in the forms).
+
+   *required if section is defined*
+
+
+.. confval:: cloudflare_turnstile.secret_key
+   :type: string
+
+   Turnstile secret key (used to verify tokens with Cloudflare).
+
+   *required if section is defined*
+
+
 Database Section
 ================
 
