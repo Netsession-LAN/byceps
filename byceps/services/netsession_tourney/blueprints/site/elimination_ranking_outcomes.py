@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from .match_helpers import is_skipped_double_grand_final_result
+from .match_grand_final_skips import is_skipped_double_grand_final_result
 
 
 ParticipantId = Any

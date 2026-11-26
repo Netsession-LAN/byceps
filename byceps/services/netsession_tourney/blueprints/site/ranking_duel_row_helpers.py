@@ -18,10 +18,8 @@ from byceps.services.netsession_tourney.score_parsing import (
     parse_numeric_score_value,
 )
 
-from .match_helpers import (
-    _parse_slot_scores,
-    is_skipped_double_grand_final_result,
-)
+from .match_grand_final_skips import is_skipped_double_grand_final_result
+from .match_helpers import _parse_slot_scores
 from .ranking_row_helpers import assign_shared_ranks, participant_sort_values
 
 
