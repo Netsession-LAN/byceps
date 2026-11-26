@@ -21,11 +21,7 @@ from flask_babel import gettext, to_utc
 
 from byceps.services.netsession_tourney import (
     tournament_admin_service,
-    tournament_queries,
     tournament_service,
-)
-from byceps.services.netsession_tourney.blueprints.admin.result_helpers import (
-    _get_tournament_or_404,
 )
 from byceps.services.netsession_tourney.blueprints.admin.routes_tournament_form_checks import (
     get_sponsor_logo_error,
@@ -41,7 +37,6 @@ from byceps.services.netsession_tourney.blueprints.admin.wizard_helpers import (
     parse_admin_user_ids,
     parse_category_id,
     set_category_choices_for_form,
-    update_form_with_categories,
 )
 from byceps.services.netsession_tourney.forms import TournamentForm
 from byceps.services.netsession_tourney.models import (
@@ -63,41 +58,6 @@ class UpdateSelection:
     category_id: UUID
 
 
-def build_update_form_data(
-    tournament: Any, assigned_admin_user_ids: Any
-) -> dict[str, Any]:
-    """Return the form data to show the stored tournament."""
-    return {
-        'slug': tournament.slug,
-        'title': tournament.title,
-        'subtitle': tournament.subtitle,
-        'tournament_logo_url': tournament.logo_url,
-        'is_sponsored': tournament.is_sponsored,
-        'sponsor_logo_url': tournament.sponsor_logo_url,
-        'game': tournament.game,
-        'category_id': str(tournament.category_id),
-        'mode': tournament.mode.value,
-        'registration_mode': tournament.registration_mode.value,
-        'starts_at': tournament.starts_at,
-        'visible_on_site': tournament.visible_on_site,
-        'rules_template_slug': tournament.rules_page_slug,
-        'registration_open': tournament.registration_open,
-        'registration_deadline': tournament.registration_deadline,
-        'roster_lock_at': tournament.roster_lock_at,
-        'checkin_open_at': tournament.checkin_open_at,
-        'checkin_close_at': tournament.checkin_close_at,
-        'team_size': tournament.team_size or 1,
-        'substitute_count': tournament.substitute_count or 0,
-        'participant_limit': tournament.participant_limit,
-        'coin_cost': tournament.coin_cost,
-        'coin_refund_policy': tournament.coin_refund_policy.value,
-        'coin_charge_mode': tournament.coin_charge_mode.value,
-        'admin_user_ids': [
-            str(user_id) for user_id in sorted(assigned_admin_user_ids, key=str)
-        ],
-    }
-
-
 def set_update_form_choices(
     form: Any, party_id: PartyID, tournament: Any, available_admin_users: Any
 ) -> None:
@@ -116,44 +76,6 @@ def set_update_form_choices(
         party_id,
         selected_slug=tournament.rules_page_slug,
     )
-
-
-def build_update_form_context(
-    party: Any, tournament_id: Any, erroneous_form: Any
-) -> dict[str, Any]:
-    """Return the template context of the tournament update form."""
-    tournament = _get_tournament_or_404(party.id, tournament_id)
-    available_admin_users = get_available_tournament_admin_users()
-    assigned_admin_user_ids = (
-        tournament_admin_service.get_tournament_admin_user_ids(tournament.id)
-    )
-
-    if erroneous_form:
-        form = update_form_with_categories(
-            party.id,
-            category_id=tournament.category_id,
-            erroneous_form=erroneous_form,
-        )
-    else:
-        data = build_update_form_data(tournament, assigned_admin_user_ids)
-        form = update_form_with_categories(
-            party.id,
-            category_id=tournament.category_id,
-            erroneous_form=TournamentForm(data=data),
-        )
-        form.registration_mode.data = tournament.registration_mode.value
-        form.mode.data = tournament.mode.value
-        form.category_id.data = str(tournament.category_id)
-    set_update_form_choices(form, party.id, tournament, available_admin_users)
-
-    return {
-        'party': party,
-        'tournament': tournament,
-        'stages': tournament_queries.get_stages_for_tournament(
-            party.id, tournament.id
-        ),
-        'form': form,
-    }
 
 
 def build_submitted_update_form(
