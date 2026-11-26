@@ -64,6 +64,28 @@ def load_form(t3_client, t3_form_fields):
     return _wrapper
 
 
+def test_saving_the_unchanged_form_keeps_the_times(
+    t3_client, t3_make_tourney, load_form
+):
+    # Times are stored in UTC and shown in the user's time zone
+    # (Europe/Berlin, UTC+1 in December). Saving must not shift them.
+    tourney = t3_make_tourney(
+        count=2,
+        publish=False,
+        generate=False,
+        starts_at=datetime(2026, 12, 5, 18, 0),
+    )
+
+    page = t3_client.get(tourney.url + '/update')
+    assert 'value="2026-12-05 19:00:00"' in page.get_data(as_text=True)
+
+    for _ in range(2):
+        response = t3_client.post(tourney.url, data=load_form(tourney))
+        assert response.status_code == 302
+
+    assert tourney.reload().starts_at == datetime(2026, 12, 5, 18, 0)
+
+
 def test_update_form_shows_the_stored_values(t3_client, draft):
     response = t3_client.get(draft.url + '/update')
 
