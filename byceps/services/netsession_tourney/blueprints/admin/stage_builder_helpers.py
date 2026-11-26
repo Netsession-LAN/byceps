@@ -26,6 +26,13 @@ from byceps.services.netsession_tourney.blueprints.admin.stage_builder_flatout2_
 from byceps.services.netsession_tourney.blueprints.admin.stage_builder_flatout2_round_state import (
     build_flatout2_round_state,
 )
+from byceps.services.netsession_tourney.blueprints.admin.stage_builder_generation_summary_lines import (
+    build_preliminary_generation_summary_lines,
+    get_main_generation_summary_line,
+)
+from byceps.services.netsession_tourney.blueprints.admin.stage_builder_meta_lines import (
+    build_stage_builder_role_meta,
+)
 from byceps.services.netsession_tourney.blueprints.admin.stage_builder_placement_points import (
     get_first_positive_int,
     get_max_rule_place,
@@ -36,10 +43,7 @@ from byceps.services.netsession_tourney.blueprints.admin.stage_builder_review_li
     parse_review_plan_arguments,
 )
 from byceps.services.netsession_tourney.blueprints.admin.stage_builder_summary_lines import (
-    build_preliminary_generation_summary_lines,
-    build_stage_builder_role_meta,
     format_group_distribution_summary,
-    get_main_generation_summary_line,
     get_round_robin_builder_mode,
 )
 from byceps.services.netsession_tourney.blueprints.site.builder_helpers import (
