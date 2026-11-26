@@ -7,8 +7,6 @@ Match page: view, result report, chat.
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 from flask import (
     abort,
     g,
@@ -17,53 +15,30 @@ from flask import (
 )
 from flask_babel import gettext
 
-from byceps.services.netsession_tourney.double_grand_final import (
-    get_match_results,
-)
-from byceps.services.netsession_tourney.flatout2 import get_flatout2_mode_label
 from byceps.services.netsession_tourney.forms import (
     MatchChatMessageForm,
     MatchScoreReportForm,
 )
 from byceps.services.netsession_tourney.match_chat_service import (
-    can_user_access_match_chat,
-    get_match_chat_messages,
     post_match_chat_message,
 )
 from byceps.services.netsession_tourney.match_queries import (
     find_match_for_tournament,
-    get_match_slots,
-    get_match_slots_for_match,
-    get_match_timeline_entries,
-    get_matches_for_tournament,
-)
-from byceps.services.netsession_tourney.models import (
-    MatchState,
-    ParticipantType,
-)
-from byceps.services.netsession_tourney.registration_validation import (
-    get_team_members_for_participants,
-)
-from byceps.services.netsession_tourney.result_report_mode import (
-    is_stage_result_reporting_admin_only,
 )
 from byceps.services.netsession_tourney.result_service import report_result
 from byceps.services.netsession_tourney.tournament_queries import (
     get_stages_for_tournament,
 )
-from byceps.services.user import user_service
 from byceps.util.framework.flash import flash_error, flash_success
 from byceps.util.framework.templating import templated
 from byceps.util.views import login_required, redirect_to
 
 from .blueprint import blueprint
-from .builder_helpers import get_materialized_builder_container_stages
 from .common import (
     _get_tournament_or_404,
     build_slot_score_payload,
     format_timeline_action,
     get_main_nav_current_page_id,
-    get_participants_for_tournament_indexed_by_id,
 )
 from .match_helpers import (
     _parse_slot_scores,
@@ -74,6 +49,21 @@ from .match_helpers import (
 from .presentation_helpers import (
     get_stage_duration_minutes,
 )
+from .public_match_page_data import index_stages_by_id
+from .routes_match_view_data import (
+    build_activity_items,
+    compute_match_end_at,
+    determine_match_user_permissions,
+    find_bye_slot_ids,
+    find_current_host_name,
+    get_flatout2_round_details,
+    get_sorted_match_slots,
+    is_ffa_detail_match,
+    load_match_activity,
+    load_slot_participants,
+    load_tournament_matches_with_slots_and_results,
+    shows_preliminaries_tab,
+)
 from .stage_filters import (
     _is_ffa_scoring_stage,
     _is_flatout2_stage,
@@ -83,9 +73,6 @@ from .stage_filters import (
 from .stage_render_helpers import (
     build_ffa_match_detail_rows,
 )
-from .user_state_helpers import (
-    can_user_report_match_result,
-)
 
 
 @blueprint.get('/<slug>/matches/<uuid:match_id>')
@@ -93,14 +80,14 @@ from .user_state_helpers import (
 def view_match(slug, match_id):
     tournament = _get_tournament_or_404(slug)
     stages = get_stages_for_tournament(g.party.id, tournament.id)
-    stages_by_id = {stage.id: stage for stage in stages}
+    stages_by_id = index_stages_by_id(stages)
     match = find_match_for_tournament(g.party.id, tournament.id, match_id)
     if match is None:
         abort(404)
 
-    matches = get_matches_for_tournament(g.party.id, tournament.id)
-    slots_by_match_id = get_match_slots({item.id for item in matches})
-    results_by_match_id = get_match_results({item.id for item in matches})
+    matches, slots_by_match_id, results_by_match_id = (
+        load_tournament_matches_with_slots_and_results(tournament)
+    )
     match_labels_by_id = build_match_labels(
         matches,
         slots_by_match_id,
@@ -114,98 +101,25 @@ def view_match(slug, match_id):
             stages_by_id,
         )
     )
-    slots = sorted(
-        get_match_slots_for_match(match.id), key=lambda slot: slot.slot_no
-    )
+    slots = get_sorted_match_slots(match.id)
 
-    bye_slot_ids = set()
-    for slot in slots:
-        is_explicit_bye = (
-            slot.participant_id is None
-            and slot.source_match_slot_id is None
-            and match.state == MatchState.completed
-        )
-        if is_explicit_bye:
-            bye_slot_ids.add(slot.id)
+    bye_slot_ids = find_bye_slot_ids(match, slots)
 
     has_bye_slot = bool(bye_slot_ids)
-    participants_by_id = get_participants_for_tournament_indexed_by_id(
-        g.party.id,
-        {slot.participant_id for slot in slots if slot.participant_id},
-    )
+    participants_by_id = load_slot_participants(slots)
     result = results_by_match_id.get(match.id)
     slot_scores = _parse_slot_scores(slots, result)
-    timeline_entries = get_match_timeline_entries(
-        g.party.id, tournament.id, match.id
+    (
+        timeline_entries,
+        chat_messages,
+        chat_team_by_actor_user_id,
+        users_by_id,
+    ) = load_match_activity(tournament, match, participants_by_id)
+    activity_items = build_activity_items(timeline_entries, chat_messages)
+
+    can_report, can_chat = determine_match_user_permissions(
+        tournament, match, slots, participants_by_id, stages_by_id
     )
-    timeline_actor_ids = {
-        entry['actor_user_id']
-        for entry in timeline_entries
-        if entry['actor_user_id']
-    }
-    chat_messages = get_match_chat_messages(g.party.id, tournament.id, match.id)
-    chat_actor_ids = {message.actor_user_id for message in chat_messages}
-    members_by_participant_id = get_team_members_for_participants(
-        set(participants_by_id.keys())
-    )
-    chat_team_by_actor_user_id = {}
-    for participant in participants_by_id.values():
-        if participant.type is not ParticipantType.team:
-            continue
-
-        if participant.manager_user_id is not None:
-            chat_team_by_actor_user_id.setdefault(
-                participant.manager_user_id, participant
-            )
-
-        for member in members_by_participant_id.get(participant.id, []):
-            chat_team_by_actor_user_id.setdefault(member.user_id, participant)
-
-    users_by_id = user_service.get_users_indexed_by_id(
-        timeline_actor_ids | chat_actor_ids, include_avatars=True
-    )
-    activity_items = [
-        {
-            'kind': 'event',
-            'created_at': entry['created_at'],
-            'entry': entry,
-        }
-        for entry in timeline_entries
-    ] + [
-        {
-            'kind': 'chat',
-            'created_at': message.created_at,
-            'message': message,
-        }
-        for message in chat_messages
-    ]
-    activity_items.sort(key=lambda item: item['created_at'])
-
-    can_report = False
-    can_chat = False
-    user = getattr(g, 'user', None)
-    if user is not None and user.authenticated:
-        is_admin_or_referee = user.has_permission(
-            'netsession_tourney.manage'
-        ) or user.has_permission('netsession_tourney.admin')
-        can_report = can_user_report_match_result(
-            user.id,
-            tournament,
-            match,
-            slots,
-            participants_by_id,
-            is_admin_or_referee=False,
-            admin_only=is_stage_result_reporting_admin_only(
-                stages_by_id.get(match.stage_id)
-            ),
-        )
-        can_chat = can_user_access_match_chat(
-            g.party.id,
-            tournament.id,
-            match.id,
-            user.id,
-            is_admin_or_referee=is_admin_or_referee,
-        )
 
     is_skipped_double_grand_final = (
         match.id in skipped_double_grand_final_match_ids
@@ -218,9 +132,7 @@ def view_match(slug, match_id):
     is_flatout2_match = _is_flatout2_stage(stage)
     is_flatout2_tournament = uses_only_flatout2_stages(stages, matches)
     ffa_match_rows = []
-    current_host_participant_id = ''
-    flatout2_round_races = []
-    if is_ffa_scoring_match or is_flatout2_match:
+    if is_ffa_detail_match(is_ffa_scoring_match, is_flatout2_match):
         can_report = False
         ffa_match_rows = build_ffa_match_detail_rows(
             slots,
@@ -230,38 +142,14 @@ def view_match(slug, match_id):
             slot_scores,
             is_flatout2_match=is_flatout2_match,
         )
-    if is_flatout2_match and stage is not None:
-        current_host_participant_id = str(
-            (match.settings or {}).get('host_participant_id') or ''
-        ).strip()
-        raw_flatout2_round_races = (match.settings or {}).get(
-            'flatout2_races'
-        ) or []
-        flatout2_round_races = [
-            {
-                **race,
-                'mode_label': get_flatout2_mode_label(
-                    str(race.get('mode') or '').strip() or 'single_race'
-                ),
-            }
-            for race in raw_flatout2_round_races
-            if isinstance(race, dict)
-        ]
-    current_host_name = next(
-        (
-            row['name']
-            for row in ffa_match_rows
-            if row.get('participant') is not None
-            and str(row['participant'].id) == current_host_participant_id
-        ),
-        None,
+    current_host_participant_id, flatout2_round_races = (
+        get_flatout2_round_details(match, stage, is_flatout2_match)
+    )
+    current_host_name = find_current_host_name(
+        ffa_match_rows, current_host_participant_id
     )
     stage_duration_minutes = get_stage_duration_minutes(stage)
-    match_end_at = (
-        match.scheduled_at + timedelta(minutes=stage_duration_minutes)
-        if match.scheduled_at is not None and stage_duration_minutes is not None
-        else None
-    )
+    match_end_at = compute_match_end_at(match, stage_duration_minutes)
 
     current_page_id = get_main_nav_current_page_id()
 
@@ -297,12 +185,9 @@ def view_match(slug, match_id):
         'can_chat': can_chat,
         'is_skipped_double_grand_final': is_skipped_double_grand_final,
         'hide_bracket_tab': uses_only_ffa_simple_stages(stages, matches),
-        'show_preliminaries_tab': bool(
-            get_materialized_builder_container_stages(
-                stages, role='preliminary'
-            )
-        )
-        and not is_flatout2_tournament,
+        'show_preliminaries_tab': shows_preliminaries_tab(
+            stages, is_flatout2_tournament
+        ),
         'current_page': current_page_id,
         'current_tournament_page': 'matches',
     }
@@ -317,53 +202,18 @@ def report_match_result(slug, match_id):
         flash_error(gettext('Ungültige Ergebnisdaten.'))
         return redirect_to('.view_match', slug=slug, match_id=match_id)
 
-    slots = sorted(
-        get_match_slots_for_match(match_id), key=lambda slot: slot.slot_no
-    )
+    slots = get_sorted_match_slots(match_id)
     match = find_match_for_tournament(g.party.id, tournament.id, match_id)
-    if match is None:
-        flash_error(gettext('Unbekanntes Match.'))
-        return redirect_to('.view_match', slug=slug, match_id=match_id)
-    stages_by_id = {
-        stage.id: stage
-        for stage in get_stages_for_tournament(g.party.id, tournament.id)
-    }
-    stage = stages_by_id.get(match.stage_id)
-    if _is_ffa_scoring_stage(stage):
-        flash_error(
-            gettext('FFA-Ergebnisse werden nur im Admin-Bereich eingetragen.')
-        )
-        return redirect_to('.view_match', slug=slug, match_id=match_id)
-
-    if len(slots) != 2:
-        flash_error(
-            gettext(
-                'Ergebnisübermittlung mit Punkten wird aktuell nur für Duell-Matches unterstützt.'
-            )
-        )
-        return redirect_to('.view_match', slug=slug, match_id=match_id)
-
-    if any(slot.participant_id is None for slot in slots):
-        flash_error(
-            gettext(
-                'Beide Teilnehmer müssen gesetzt sein, bevor ein Ergebnis gemeldet werden kann.'
-            )
-        )
+    rejection_message = _get_report_rejection_message(
+        tournament, match, slots, form
+    )
+    if rejection_message is not None:
+        flash_error(rejection_message)
         return redirect_to('.view_match', slug=slug, match_id=match_id)
 
     slot_1_points = form.slot_1_points.data
     slot_2_points = form.slot_2_points.data
-    if slot_1_points == slot_2_points:
-        flash_error(
-            gettext(
-                'Ein Unentschieden ist nicht erlaubt. Bitte einen eindeutigen Sieger melden.'
-            )
-        )
-        return redirect_to('.view_match', slug=slug, match_id=match_id)
-
-    winner_slot = (
-        slots[0].slot_no if slot_1_points > slot_2_points else slots[1].slot_no
-    )
+    winner_slot = _determine_winner_slot(slots, slot_1_points, slot_2_points)
     score = build_slot_score_payload(
         slots,
         {
@@ -373,7 +223,7 @@ def report_match_result(slug, match_id):
     )
     ranking = {}
     idempotency_key = get_or_create_idempotency_key(form.idempotency_key.data)
-    comment = form.comment.data.strip() if form.comment.data else None
+    comment = _get_report_comment(form)
 
     result = report_result(
         g.party.id,
@@ -388,20 +238,72 @@ def report_match_result(slug, match_id):
         admin_comment=comment,
     )
 
+    _flash_report_result(result)
+
+    next_target = request.form.get('next')
+    if _is_local_redirect_target(next_target):
+        return redirect(next_target)
+
+    return redirect_to('.view_match', slug=slug, match_id=match_id)
+
+
+def _get_report_rejection_message(tournament, match, slots, form) -> str | None:
+    if match is None:
+        return gettext('Unbekanntes Match.')
+    stages_by_id = index_stages_by_id(
+        get_stages_for_tournament(g.party.id, tournament.id)
+    )
+    stage = stages_by_id.get(match.stage_id)
+    if _is_ffa_scoring_stage(stage):
+        return gettext(
+            'FFA-Ergebnisse werden nur im Admin-Bereich eingetragen.'
+        )
+
+    return _get_duel_report_rejection_message(slots, form)
+
+
+def _get_duel_report_rejection_message(slots, form) -> str | None:
+    if len(slots) != 2:
+        return gettext(
+            'Ergebnisübermittlung mit Punkten wird aktuell nur für Duell-Matches unterstützt.'
+        )
+
+    if any(slot.participant_id is None for slot in slots):
+        return gettext(
+            'Beide Teilnehmer müssen gesetzt sein, bevor ein Ergebnis gemeldet werden kann.'
+        )
+
+    if form.slot_1_points.data == form.slot_2_points.data:
+        return gettext(
+            'Ein Unentschieden ist nicht erlaubt. Bitte einen eindeutigen Sieger melden.'
+        )
+
+    return None
+
+
+def _determine_winner_slot(slots, slot_1_points, slot_2_points):
+    return (
+        slots[0].slot_no if slot_1_points > slot_2_points else slots[1].slot_no
+    )
+
+
+def _get_report_comment(form):
+    return form.comment.data.strip() if form.comment.data else None
+
+
+def _flash_report_result(result) -> None:
     if result.is_ok():
         flash_success(gettext('Ergebnis wurde übermittelt.'))
     else:
         flash_error(result.unwrap_err())
 
-    next_target = request.form.get('next')
-    if (
+
+def _is_local_redirect_target(next_target):
+    return (
         next_target
         and next_target.startswith('/')
         and not next_target.startswith('//')
-    ):
-        return redirect(next_target)
-
-    return redirect_to('.view_match', slug=slug, match_id=match_id)
+    )
 
 
 @blueprint.post('/<slug>/matches/<uuid:match_id>/chat')
