@@ -79,7 +79,7 @@ def build_match_overview_slot_data(
 
     participant = slot.get('participant')
     is_bye = bool(slot.get('is_bye'))
-    image_url, image_alt = _get_participant_image(participant, users_by_id)
+    image_url, image_alt = get_participant_image(participant, users_by_id)
     name = _get_slot_name(participant, is_bye)
 
     return {
@@ -103,7 +103,7 @@ def _build_open_slot_data() -> dict:
     }
 
 
-def _get_participant_image(
+def get_participant_image(
     participant, users_by_id
 ) -> tuple[str | None, str | None]:
     if _has_team_logo(participant):

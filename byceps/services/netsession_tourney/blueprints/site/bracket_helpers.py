@@ -20,7 +20,7 @@ from .double_elimination_rendering import (
 
 def build_bracket_data(matches, slots_by_match_id, participants_by_id):
     matches_by_id = {match.id: match for match in matches}
-    source_match_id_by_source_slot_id = _map_source_match_ids_by_slot_id(
+    source_match_id_by_source_slot_id = map_source_match_ids_by_slot_id(
         slots_by_match_id
     )
 
@@ -46,7 +46,7 @@ def build_bracket_data(matches, slots_by_match_id, participants_by_id):
     ]
 
 
-def _map_source_match_ids_by_slot_id(slots_by_match_id) -> dict:
+def map_source_match_ids_by_slot_id(slots_by_match_id) -> dict:
     source_match_id_by_source_slot_id = {}
     for slots in slots_by_match_id.values():
         for slot in slots:
