@@ -20,7 +20,7 @@ from byceps.services.party.models import PartyID
 from byceps.services.user.models import UserID
 from byceps.util.result import Err, Ok, Result
 
-from .browser_push_outbox import (
+from .browser_push_outbox_message import (
     build_browser_push_match_label,
     build_browser_push_message_payload,
 )
