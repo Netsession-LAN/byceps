@@ -25,16 +25,12 @@ from .dbmodels import (
     DbNetsessionTourneyParticipant,
     DbNetsessionTourneyTeamMember,
 )
-from .eligibility import (
-    validate_user_uses_ticket_for_party as _validate_user_uses_ticket_for_party,
-)
 from .models import (
     CoinChargeMode,
     Participant,
     ParticipantID,
     ParticipantStatus,
     ParticipantType,
-    RegistrationMode,
     RegistrationState,
     TeamMemberID,
     TeamMemberRole,
@@ -42,25 +38,20 @@ from .models import (
     TournamentID,
     TournamentStatus,
 )
-from .participant_state import (
-    count_active_participants_for_tournament,
-    is_user_already_active_participant,
-)
 from .registration_service import (
     ensure_registration_is_registered,
     generate_unique_invite_code_for_tournament,
     set_registration_state_for_user,
-)
-from .registration_validation import (
-    get_max_team_member_count,
 )
 from .service_helpers import (
     append_audit_log,
     db_participant_to_model,
     db_tournament_to_model,
 )
-from .team_captain_service import (
-    count_team_members,
+from .team_admin_checks import (
+    _check_team_admin_tournament_state,
+    _check_team_member_addable_by_admin,
+    _check_team_registration_by_admin,
 )
 from .team_coins_and_readiness import (
     reset_ready_if_incomplete,
@@ -310,14 +301,6 @@ def assign_team_captain_by_admin(
     return Ok(None)
 
 
-def _check_team_admin_tournament_state(tournament: Tournament) -> str | None:
-    if tournament.status != TournamentStatus.draft:
-        return 'Teilnehmer lassen sich nur im Entwurf verwalten.'
-    if tournament.registration_mode == RegistrationMode.solo:
-        return 'Bei Einzelanmeldung gibt es keine Teamverwaltung.'
-    return None
-
-
 def _find_active_db_team(
     participant_id: ParticipantID, tournament_id: TournamentID
 ) -> DbNetsessionTourneyParticipant | None:
@@ -334,62 +317,6 @@ def _find_active_db_team(
             )
         )
     )
-
-
-def _check_user_registrable_by_admin(
-    party_id: PartyID, tournament_id: TournamentID, user_id: UserID
-) -> Result[None, str]:
-    if (
-        ticket_check := _validate_user_uses_ticket_for_party(user_id, party_id)
-    ).is_err():
-        return ticket_check
-    if is_user_already_active_participant(tournament_id, user_id):
-        return Err('Du bist in diesem Turnier bereits aktiv angemeldet.')
-    return Ok(None)
-
-
-def _check_team_registration_by_admin(
-    party_id: PartyID,
-    tournament_id: TournamentID,
-    tournament: Tournament,
-    captain_user_id: UserID,
-) -> Result[None, str]:
-    user_check = _check_user_registrable_by_admin(
-        party_id, tournament_id, captain_user_id
-    )
-    if user_check.is_err():
-        return user_check
-
-    if tournament.participant_limit is not None:
-        active_count = count_active_participants_for_tournament(
-            party_id, tournament_id
-        )
-        if active_count >= tournament.participant_limit:
-            return Err('Das Turnier ist voll.')
-
-    return Ok(None)
-
-
-def _check_team_member_addable_by_admin(
-    party_id: PartyID,
-    tournament_id: TournamentID,
-    tournament: Tournament,
-    participant_id: ParticipantID,
-    member_user_id: UserID,
-) -> Result[None, str]:
-    user_check = _check_user_registrable_by_admin(
-        party_id, tournament_id, member_user_id
-    )
-    if user_check.is_err():
-        return user_check
-
-    max_team_member_count = get_max_team_member_count(tournament)
-    if max_team_member_count is not None:
-        member_count = count_team_members(participant_id)
-        if int(member_count or 0) >= max_team_member_count:
-            return Err('Dieses Team ist bereits voll.')
-
-    return Ok(None)
 
 
 def _charge_team_member_coins_if_required(
