@@ -8,6 +8,7 @@ Matches, their slots and timeline (read-only).
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import replace
 from typing import Any
 
@@ -72,11 +73,7 @@ def get_matches_for_tournament(
             DbNetsessionTourneyMatchSlot.slot_no.asc(),
         )
     ).all()
-    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
-        defaultdict(list)
-    )
-    for db_slot in db_slots:
-        slots_by_match_id[db_slot.match_id].append(db_slot)
+    slots_by_match_id = _group_tournament_slots_by_match_id(db_slots)
 
     participant_status_value_by_participant_id = (
         get_participant_status_value_by_participant_id_for_slots(db_slots)
@@ -92,19 +89,34 @@ def get_matches_for_tournament(
         for item in db_matches
     ]
     if only_open:
-        matches = [
-            match
-            for match in matches
-            if match.state
-            in {
-                MatchState.ready,
-                MatchState.in_progress,
-                MatchState.pending_confirmation,
-                MatchState.needs_admin_review,
-            }
-        ]
+        matches = _select_open_tournament_matches(matches)
 
     return matches
+
+
+def _group_tournament_slots_by_match_id(
+    db_slots: Sequence[DbNetsessionTourneyMatchSlot],
+) -> dict[MatchID, list[DbNetsessionTourneyMatchSlot]]:
+    slots_by_match_id: dict[MatchID, list[DbNetsessionTourneyMatchSlot]] = (
+        defaultdict(list)
+    )
+    for db_slot in db_slots:
+        slots_by_match_id[db_slot.match_id].append(db_slot)
+    return slots_by_match_id
+
+
+def _select_open_tournament_matches(matches: list[Match]) -> list[Match]:
+    return [
+        match
+        for match in matches
+        if match.state
+        in {
+            MatchState.ready,
+            MatchState.in_progress,
+            MatchState.pending_confirmation,
+            MatchState.needs_admin_review,
+        }
+    ]
 
 
 def get_open_matches_for_party(party_id: PartyID) -> list[Match]:
