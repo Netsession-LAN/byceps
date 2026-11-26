@@ -51,11 +51,45 @@ def sync_discord_thread_for_tournament(
     *,
     update_existing: bool = True,
 ) -> None:
+    credentials = _get_discord_thread_bot_credentials(db_tournament)
+    if credentials is None:
+        return
+
+    application_id, bot_token = credentials
+
+    if (
+        db_tournament.discord_thread_id
+        and not _validate_existing_discord_thread(
+            db_tournament, application_id=application_id, bot_token=bot_token
+        )
+    ):
+        return
+
+    if db_tournament.discord_thread_id:
+        _sync_existing_discord_thread(
+            db_tournament,
+            update_existing=update_existing,
+            application_id=application_id,
+            bot_token=bot_token,
+        )
+        return
+
+    _create_discord_thread_for_tournament(
+        db_tournament, application_id=application_id, bot_token=bot_token
+    )
+
+
+def _get_discord_thread_bot_credentials(
+    db_tournament: DbNetsessionTourneyTournament,
+) -> tuple[str, str] | None:
+    """Return the bot's application ID and token, or `None` if the
+    tournament has no Discord forum or the bot is not (validly)
+    configured."""
     if (
         not db_tournament.discord_enabled
         or not db_tournament.discord_forum_channel_id
     ):
-        return
+        return None
 
     match get_configured_discord_bot_credentials():
         case Err(message):
@@ -64,38 +98,36 @@ def sync_discord_thread_for_tournament(
                 tournament_id=str(db_tournament.id),
                 error=message,
             )
-            return
+            return None
         case Ok(None):
-            return
+            return None
         case Ok((application_id, bot_token)):
-            pass
+            return application_id, bot_token
 
-    if db_tournament.discord_thread_id:
-        if not _validate_existing_discord_thread(
-            db_tournament, application_id=application_id, bot_token=bot_token
-        ):
-            return
 
-    if db_tournament.discord_thread_id:
-        if update_existing:
-            try:
-                _update_discord_forum_thread(
-                    db_tournament=db_tournament,
-                    application_id=application_id,
-                    bot_token=bot_token,
-                )
-            except httpx.HTTPError as exc:
-                log.warning(
-                    'netsession_tourney.discord_forum_thread_sync_failed',
-                    tournament_id=str(db_tournament.id),
-                    thread_id=str(db_tournament.discord_thread_id),
-                    error=type(exc).__name__,
-                )
+def _sync_existing_discord_thread(
+    db_tournament: DbNetsessionTourneyTournament,
+    *,
+    update_existing: bool,
+    application_id: str,
+    bot_token: str,
+) -> None:
+    if not update_existing:
         return
 
-    _create_discord_thread_for_tournament(
-        db_tournament, application_id=application_id, bot_token=bot_token
-    )
+    try:
+        _update_discord_forum_thread(
+            db_tournament=db_tournament,
+            application_id=application_id,
+            bot_token=bot_token,
+        )
+    except httpx.HTTPError as exc:
+        log.warning(
+            'netsession_tourney.discord_forum_thread_sync_failed',
+            tournament_id=str(db_tournament.id),
+            thread_id=str(db_tournament.discord_thread_id),
+            error=type(exc).__name__,
+        )
 
 
 def _validate_existing_discord_thread(
@@ -190,6 +222,34 @@ def _update_discord_forum_thread(
         return
 
     payload = build_discord_forum_thread_payload(db_tournament)
+
+    if not _patch_discord_thread_channel(
+        db_tournament,
+        thread_id=thread_id,
+        payload=payload,
+        application_id=application_id,
+        bot_token=bot_token,
+    ):
+        return
+
+    _patch_discord_thread_starter_message(
+        thread_id=thread_id,
+        payload=payload,
+        application_id=application_id,
+        bot_token=bot_token,
+    )
+
+
+def _patch_discord_thread_channel(
+    db_tournament: DbNetsessionTourneyTournament,
+    *,
+    thread_id: str,
+    payload: dict[str, Any],
+    application_id: str,
+    bot_token: str,
+) -> bool:
+    """Update the thread's name and tags. Return `False` if the thread was
+    gone and has been recreated instead."""
     channel_payload: dict[str, Any] = {'name': payload['name']}
     if 'applied_tags' in payload:
         channel_payload['applied_tags'] = payload['applied_tags']
@@ -214,9 +274,19 @@ def _update_discord_forum_thread(
             sync_discord_thread_for_tournament(
                 db_tournament, update_existing=False
             )
-            return
+            return False
         raise
 
+    return True
+
+
+def _patch_discord_thread_starter_message(
+    *,
+    thread_id: str,
+    payload: dict[str, Any],
+    application_id: str,
+    bot_token: str,
+) -> None:
     try:
         patch_discord_forum_starter_message(
             application_id=application_id,
