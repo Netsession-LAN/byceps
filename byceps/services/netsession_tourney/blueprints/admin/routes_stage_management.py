@@ -16,6 +16,12 @@ from uuid import UUID
 from flask import g, request
 from flask_babel import gettext, to_utc
 
+from byceps.services.netsession_tourney.blueprints.admin.routes_stage_actions import (
+    register_stage_builder_review_routes,
+    register_stage_builder_start_routes,
+    register_stage_delete_routes,
+    register_stage_participant_source_routes,
+)
 from byceps.services.netsession_tourney.forms import (
     StageBuilderMainForm,
     StageBuilderPreliminaryForm,
@@ -48,7 +54,6 @@ from byceps.services.netsession_tourney.stage_generation import (
 )
 from byceps.services.netsession_tourney.stage_service import (
     create_stage,
-    delete_stage,
     update_stage,
 )
 from byceps.services.netsession_tourney.tournament_queries import (
@@ -64,37 +69,56 @@ from .result_helpers import (
     _get_tournament_or_404,
     get_party_or_404,
     get_stage_or_404,
+)
+from .result_redirects import (
     redirect_to_related_tournament_view,
 )
-from .stage_builder_helpers import (
-    assert_tournament_has_no_stages_for_builder_or_redirect,
-    build_current_manual_seed_values_by_participant_id,
+from .stage_builder_flatout2_generation import (
     build_flatout2_generation_state,
-    build_round_robin_generation_intro,
-    build_stage_builder_generation_summary,
-    build_stage_builder_main_form,
-    build_stage_builder_meta,
-    build_stage_builder_preliminary_form,
-    build_stage_builder_review_preview,
-    build_stage_builder_timing_form,
+    is_flatout2_stage_type,
+    parse_flatout2_generation_configuration,
+)
+from .stage_builder_generation_seeds import (
     build_stage_generation_seed_rows,
-    get_ffa_placement_points_row_count,
-    get_stage_builder_default_main_stage_size,
+    parse_stage_generation_auto_seed_participant_ids,
+    parse_stage_generation_manual_seed_values_by_participant_id,
+)
+from .stage_builder_helpers import (
+    build_current_manual_seed_values_by_participant_id,
     get_stage_generation_block_reason,
+)
+from .stage_builder_participant_source import (
+    participant_source_settings_from_form,
+)
+from .stage_builder_stage_display import (
     is_builder_main_stage_with_preliminary_source,
     is_builder_round_robin_summary_stage,
+)
+from .stage_builder_stage_form_data import (
+    get_ffa_placement_points_row_count,
+    stage_to_form_data,
+)
+from .stage_builder_stage_meta import (
+    build_round_robin_generation_intro,
+    build_stage_builder_generation_summary,
+    build_stage_builder_meta,
+)
+from .stage_builder_stage_settings import (
+    stage_settings_from_form,
+)
+from .stage_builder_wizard_forms import (
+    build_stage_builder_main_form,
+    build_stage_builder_preliminary_form,
+    build_stage_builder_timing_form,
+)
+from .stage_builder_wizard_state import (
+    assert_tournament_has_no_stages_for_builder_or_redirect,
+    get_stage_builder_default_main_stage_size,
     is_ffa_stage_builder_tournament,
-    is_flatout2_stage_type,
     is_stage_builder_main_complete,
     is_stage_builder_preliminary_complete,
     is_stage_builder_timing_complete,
-    parse_flatout2_generation_configuration,
-    parse_stage_generation_auto_seed_participant_ids,
-    parse_stage_generation_manual_seed_values_by_participant_id,
-    participant_source_settings_from_form,
     stage_builder_steps,
-    stage_settings_from_form,
-    stage_to_form_data,
 )
 from .wizard_helpers import (
     clear_stage_builder_wizard_state,
@@ -105,27 +129,7 @@ from .wizard_helpers import (
 
 
 def register(blueprint):
-    @blueprint.get(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder'
-    )
-    @permission_required('netsession_tourney.manage')
-    def stage_builder_form(party_id, tournament_id):
-        return redirect_to(
-            '.stage_builder_wizard_main',
-            party_id=party_id,
-            tournament_id=tournament_id,
-        )
-
-    @blueprint.post(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder'
-    )
-    @permission_required('netsession_tourney.manage')
-    def stage_builder_create(party_id, tournament_id):
-        return redirect_to(
-            '.stage_builder_wizard_main',
-            party_id=party_id,
-            tournament_id=tournament_id,
-        )
+    register_stage_builder_start_routes(blueprint)
 
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/main'
@@ -483,54 +487,7 @@ def register(blueprint):
             tournament_id=tournament.id,
         )
 
-    @blueprint.get(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/review'
-    )
-    @permission_required('netsession_tourney.manage')
-    @templated('admin/netsession_tourney/stage_builder/review')
-    def stage_builder_wizard_review(party_id, tournament_id):
-        party = get_party_or_404(party_id)
-        tournament = _get_tournament_or_404(party.id, tournament_id)
-        redirect_response = (
-            assert_tournament_has_no_stages_for_builder_or_redirect(
-                party, tournament
-            )
-        )
-        if redirect_response is not None:
-            return redirect_response
-
-        state = get_stage_builder_wizard_state(party.id, tournament.id)
-        if not is_stage_builder_main_complete(state):
-            return redirect_to(
-                '.stage_builder_wizard_main',
-                party_id=party.id,
-                tournament_id=tournament.id,
-            )
-        if not is_stage_builder_preliminary_complete(state):
-            return redirect_to(
-                '.stage_builder_wizard_preliminary',
-                party_id=party.id,
-                tournament_id=tournament.id,
-            )
-        if not is_stage_builder_timing_complete(state):
-            return redirect_to(
-                '.stage_builder_wizard_timing',
-                party_id=party.id,
-                tournament_id=tournament.id,
-            )
-
-        return {
-            'party': party,
-            'tournament': tournament,
-            'state': state,
-            'wizard_step': 'review',
-            'wizard_steps': stage_builder_steps(),
-            'stage_builder_preview_summary': build_stage_builder_review_preview(
-                party,
-                tournament,
-                state=state,
-            ),
-        }
+    register_stage_builder_review_routes(blueprint)
 
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/review'
@@ -1495,87 +1452,5 @@ def register(blueprint):
 
         return redirect_to_related_tournament_view(party.id, tournament.id)
 
-    @blueprint.post(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/participant-source'
-    )
-    @permission_required('netsession_tourney.manage')
-    def stage_participant_source_update(party_id, tournament_id, stage_id):
-        party = get_party_or_404(party_id)
-        tournament = _get_tournament_or_404(party.id, tournament_id)
-        stage = get_stage_or_404(party.id, tournament.id, stage_id)
-        stages = get_stages_for_tournament(party.id, tournament.id)
-
-        eligible_source_stages = {
-            stage_item.id: stage_item
-            for stage_item in stages
-            if stage_item.id != stage.id
-            and stage_item.order_no < stage.order_no
-        }
-        match participant_source_settings_from_form(
-            request.form, eligible_source_stages=eligible_source_stages
-        ):
-            case Err(message):
-                flash_error(message)
-                return redirect_to(
-                    '.view',
-                    party_id=party.id,
-                    tournament_id=tournament.id,
-                    tab='stages',
-                    stage_id=stage.id,
-                )
-            case Ok(participant_source_settings):
-                pass
-
-        settings = dict(stage.settings)
-        for key in (
-            'participant_source_mode',
-            'qualifier_source_stage_ids',
-            'qualifier_top_n',
-        ):
-            settings.pop(key, None)
-        settings.update(participant_source_settings)
-
-        match update_stage(
-            party.id,
-            tournament.id,
-            stage.id,
-            stage.type,
-            stage.name,
-            settings,
-            g.user.as_user(),
-        ):
-            case Ok(_):
-                flash_success(
-                    gettext('Teilnehmerquelle der Phase wurde aktualisiert.')
-                )
-            case Err(message):
-                flash_error(message)
-
-        return redirect_to(
-            '.view',
-            party_id=party.id,
-            tournament_id=tournament.id,
-            tab='stages',
-            stage_id=stage.id,
-        )
-
-    @blueprint.post(
-        '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/<uuid:stage_id>/delete'
-    )
-    @permission_required('netsession_tourney.manage')
-    def stage_delete(party_id, tournament_id, stage_id):
-        party = get_party_or_404(party_id)
-        tournament = _get_tournament_or_404(party.id, tournament_id)
-
-        match delete_stage(
-            party.id,
-            tournament.id,
-            stage_id,
-            g.user.as_user(),
-        ):
-            case Ok(_):
-                flash_success(gettext('Phase wurde gelöscht.'))
-            case Err(message):
-                flash_error(message)
-
-        return redirect_to_related_tournament_view(party.id, tournament.id)
+    register_stage_participant_source_routes(blueprint)
+    register_stage_delete_routes(blueprint)
