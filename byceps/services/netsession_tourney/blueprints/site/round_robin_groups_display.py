@@ -27,8 +27,7 @@ def add_round_robin_groups(
     """Add a `groups` list to every section of a round robin groups stage."""
     for section in sections:
         rows = [row for round in section['rounds'] for row in round['rows']]
-        stage = stages_by_id.get(rows[0]['match'].stage_id) if rows else None
-        if stage is None or stage.type != StageType.round_robin_groups:
+        if not _is_round_robin_groups_section(rows, stages_by_id):
             continue
 
         group_index_by_participant_id = _assign_groups(rows, slots_by_match_id)
@@ -47,6 +46,11 @@ def add_round_robin_groups(
             )
             for index in range(group_count)
         ]
+
+
+def _is_round_robin_groups_section(rows, stages_by_id) -> bool:
+    stage = stages_by_id.get(rows[0]['match'].stage_id) if rows else None
+    return stage is not None and stage.type == StageType.round_robin_groups
 
 
 def _assign_groups(rows, slots_by_match_id) -> dict:
@@ -86,23 +90,13 @@ def _build_group(
     results_by_match_id,
     participants_by_id,
 ) -> dict:
-    def in_group(row) -> bool:
-        return any(
-            group_index_by_participant_id.get(participant_id) == index
-            for participant_id in _participant_ids(row, slots_by_match_id)
-        )
-
-    group_rounds = [
-        {**round, 'rows': rows}
-        for round in rounds
-        if (rows := [row for row in round['rows'] if in_group(row)])
-    ]
+    group_rounds = _select_group_rounds(
+        index, rounds, group_index_by_participant_id, slots_by_match_id
+    )
     matches = [row['match'] for round in group_rounds for row in round['rows']]
-    participants = [
-        participants_by_id[participant_id]
-        for participant_id, group_index in group_index_by_participant_id.items()
-        if group_index == index and participant_id in participants_by_id
-    ]
+    participants = _select_group_participants(
+        index, group_index_by_participant_id, participants_by_id
+    )
 
     return {
         'title': gettext('Gruppe') + ' ' + _group_letter(index),
@@ -118,6 +112,32 @@ def _build_group(
             stage_type=StageType.round_robin_groups,
         ),
     }
+
+
+def _select_group_rounds(
+    index, rounds, group_index_by_participant_id, slots_by_match_id
+) -> list[dict]:
+    def in_group(row) -> bool:
+        return any(
+            group_index_by_participant_id.get(participant_id) == index
+            for participant_id in _participant_ids(row, slots_by_match_id)
+        )
+
+    return [
+        {**round, 'rows': rows}
+        for round in rounds
+        if (rows := [row for row in round['rows'] if in_group(row)])
+    ]
+
+
+def _select_group_participants(
+    index, group_index_by_participant_id, participants_by_id
+) -> list:
+    return [
+        participants_by_id[participant_id]
+        for participant_id, group_index in group_index_by_participant_id.items()
+        if group_index == index and participant_id in participants_by_id
+    ]
 
 
 def _participant_ids(row, slots_by_match_id) -> list:
