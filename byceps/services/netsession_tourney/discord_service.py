@@ -168,8 +168,13 @@ def _deliver_discord_outbox_row(db_row, credentials, credentials_error, now) -> 
     if not db_tournament.discord_thread_id:
         try:
             sync_discord_thread_for_tournament(db_tournament)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Not fatal: without a thread, the delivery is retried below.
+            log.warning(
+                'netsession_tourney.discord_thread_sync_failed',
+                tournament_id=str(db_tournament.id),
+                error=type(exc).__name__,
+            )
 
     thread_id = db_tournament.discord_thread_id
     if not thread_id:

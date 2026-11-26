@@ -25,4 +25,6 @@ def render_formatted_body_html(
     else:
         html = body
 
-    return Markup(nh3.clean(html, link_rel='noopener noreferrer'))
+    # Safe: `nh3` has removed scripts, event handlers and `javascript:` URLs.
+    sanitized_html = nh3.clean(html, link_rel='noopener noreferrer')
+    return Markup(sanitized_html)  # noqa: S704  # nosec B704
