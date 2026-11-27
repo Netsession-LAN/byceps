@@ -27,9 +27,6 @@ from byceps.services.netsession_tourney.registration_validation import (
 from byceps.services.netsession_tourney.screen_name_suggestions import (
     get_suggested_screen_names_for_party,
 )
-from byceps.services.netsession_tourney.tournament_queries import (
-    get_stages_for_tournament,
-)
 from byceps.services.user import user_service
 from byceps.util.framework.flash import flash_error
 from byceps.util.framework.templating import templated
@@ -55,7 +52,6 @@ from .user_state_helpers import (
 
 def _build_team_view_context(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
-    stages = get_stages_for_tournament(g.party.id, tournament.id)
     team = get_tournament_participant_or_404(
         tournament, participant_id, ParticipantType.team
     )
@@ -102,7 +98,6 @@ def _build_team_view_context(slug, participant_id):
 
 def _build_player_view_context(slug, participant_id):
     tournament = _get_tournament_or_404(slug)
-    stages = get_stages_for_tournament(g.party.id, tournament.id)
     player = get_tournament_participant_or_404(
         tournament, participant_id, ParticipantType.user
     )

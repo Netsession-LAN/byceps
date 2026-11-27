@@ -140,7 +140,7 @@ def build_participant_page_tab_flags(stages, matches) -> dict:
         'is_ffa_scoring_tournament': uses_only_ffa_scoring_stages(
             stages, matches
         ),
-        'is_flatout2_tournament': uses_only_flatout2_stages(stages, matches),
+        'is_flatout2_tournament': is_flatout2_tournament,
         'hide_bracket_tab': uses_only_ffa_simple_stages(stages, []),
         'show_preliminaries_tab': bool(
             get_materialized_builder_container_stages(
