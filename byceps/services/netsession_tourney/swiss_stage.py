@@ -210,7 +210,9 @@ def seed_swiss_follow_up_rounds(
             round_count,
             newly_ready_match_ids,
         ):
-            return []
+            # Later rounds have to wait, but the rounds seeded so far
+            # must still be announced.
+            break
 
     return newly_ready_match_ids
 
