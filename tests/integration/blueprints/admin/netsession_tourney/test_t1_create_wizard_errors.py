@@ -153,6 +153,24 @@ def test_details_with_invalid_slug_shows_form_again(
             {'discord_enabled': 'y', 'forum_channel_id': '123456789012345678'},
             'Bitte mindestens ein Discord-Forum-Event auswählen.',
         ),
+        # Used to be noticed only after the tournament had been created.
+        (
+            {
+                'discord_enabled': 'y',
+                'forum_channel_id': '12345',
+                'event_mask': ['tournament_live'],
+            },
+            'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.',
+        ),
+        (
+            {
+                'discord_enabled': 'y',
+                'forum_channel_id': '123456789012345678',
+                'applied_tag_ids': '223456789012345678, kein-tag',
+                'event_mask': ['tournament_live'],
+            },
+            'Discord-Tag-IDs müssen aus 17 bis 20 Ziffern bestehen.',
+        ),
     ],
 )
 def test_details_with_incomplete_choice_is_refused(
