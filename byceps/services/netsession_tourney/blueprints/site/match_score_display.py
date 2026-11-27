@@ -12,7 +12,7 @@ from __future__ import annotations
 
 
 def _get_normalized_score_display(result) -> str:
-    if not result.score:
+    if not isinstance(result.score, dict):
         return ''
 
     raw_display = result.score.get('display')

@@ -175,7 +175,7 @@ def _parse_slot_scores(slots, result) -> dict[int, str]:
     if result is None:
         return {}
 
-    if result.score:
+    if isinstance(result.score, dict) and result.score:
         parsed_scores = _parse_explicit_slot_scores(slots, result.score)
         if parsed_scores:
             return parsed_scores

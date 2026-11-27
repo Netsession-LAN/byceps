@@ -209,6 +209,9 @@ def get_stage_total_round_count(stage) -> int:
 
 
 def get_stage_builder_display_title(stage) -> str:
+    if stage is None:
+        return ''
+
     return str(
         (stage.settings or {}).get('builder_display_title') or ''
     ).strip()

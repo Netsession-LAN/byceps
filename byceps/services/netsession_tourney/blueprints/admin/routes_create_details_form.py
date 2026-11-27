@@ -28,6 +28,10 @@ from byceps.services.netsession_tourney.blueprints.admin.routes_tournament_form_
 from byceps.services.netsession_tourney.blueprints.admin.wizard_helpers import (
     slugify_tournament_title,
 )
+from byceps.services.netsession_tourney.discord_ids import is_discord_id
+from byceps.services.netsession_tourney.discord_service_validation import (
+    validate_discord_applied_tag_ids,
+)
 from byceps.services.party.models import PartyID
 from byceps.util.framework.flash import flash_error
 
@@ -47,11 +51,20 @@ def _get_discord_error(
 ) -> str | None:
     if not discord_enabled:
         return None
-    if not (form.forum_channel_id.data or '').strip():
+    forum_channel_id = (form.forum_channel_id.data or '').strip()
+    if not forum_channel_id:
         return gettext('Bitte eine Discord-Forum-Channel-ID angeben.')
     if not discord_event_mask:
         return gettext('Bitte mindestens ein Discord-Forum-Event auswählen.')
-    return None
+    # Same checks as when Discord is configured after creation, so a
+    # mistake shows up here and not after the tournament was created.
+    if not is_discord_id(forum_channel_id):
+        return gettext(
+            'Die Discord-Forum-Channel-ID muss aus 17 bis 20 Ziffern bestehen.'
+        )
+    return validate_discord_applied_tag_ids(
+        parse_csv(form.applied_tag_ids.data)
+    )
 
 
 def _get_logo_error(

@@ -39,7 +39,7 @@ def redirect_if_wizard_incomplete(party_id: PartyID, state: dict) -> Any:
 
 def _parse_selected_admin_ids(state: dict) -> set[UserID]:
     selected_admin_ids: set[UserID] = set()
-    for raw_user_id in state.get('admin_user_ids', []):
+    for raw_user_id in state.get('admin_user_ids') or []:
         if not raw_user_id:
             continue
 

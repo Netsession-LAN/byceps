@@ -87,7 +87,6 @@ def build_stage_builder_generation_summary(
 
     settings = resolved_stage.settings or {}
     role = (stage.settings or {}).get('builder_role')
-    main_stage_size = settings.get('builder_main_stage_size')
     lines = [
         gettext(
             'Aktuelle Generierungsbasis: %(count)s bereite Teilnehmer',
@@ -102,11 +101,7 @@ def build_stage_builder_generation_summary(
             )
         )
     else:
-        lines.append(
-            get_main_generation_summary_line(
-                stage, participant_count, main_stage_size
-            )
-        )
+        lines.append(get_main_generation_summary_line(stage))
 
     return {
         'title': gettext('Turnierplaner'),

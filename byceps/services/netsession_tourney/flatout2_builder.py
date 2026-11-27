@@ -71,6 +71,11 @@ def summarize_flatout2_builder_rounds(
         ):
             break
 
+        if qualified_participant_count >= current_participant_count:
+            # The field does not shrink (at most 5 players per match, 3
+            # qualify each); another round would loop forever.
+            break
+
         current_participant_count = qualified_participant_count
         round_no += 1
 

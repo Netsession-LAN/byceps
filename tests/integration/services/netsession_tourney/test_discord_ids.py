@@ -3,10 +3,14 @@ only later when sending fails."""
 
 import pytest
 
+from byceps.database import db
 from byceps.services.netsession_tourney import (
     discord_dm_service,
     discord_service,
     tournament_service,
+)
+from byceps.services.netsession_tourney.dbmodels import (
+    DbNetsessionTourneyDiscordDmConfig,
 )
 from byceps.services.netsession_tourney.models import (
     RegistrationMode,
@@ -64,3 +68,23 @@ def test_dm_application_id_must_be_a_discord_id(
     )
 
     assert result.is_ok() == accepted
+
+
+def test_rejected_dm_config_without_bot_token_is_not_stored(
+    admin_app, make_party, brand
+):
+    """A new config without bot token used to stay in the database
+    session after being rejected, so a later commit stored it."""
+    party = make_party(brand)
+    result = discord_dm_service.configure_discord_dm(
+        party.id,
+        enabled=True,
+        application_id='123456789012345678',
+        bot_token=None,
+        default_event_mask=[],
+    )
+    assert result.is_err()
+
+    db.session.commit()
+
+    assert db.session.get(DbNetsessionTourneyDiscordDmConfig, party.id) is None

@@ -142,7 +142,7 @@ def get_stage_duration_minutes(stage) -> int | None:
     if stage is None:
         return None
 
-    raw_duration = stage.settings.get('match_duration_minutes')
+    raw_duration = (stage.settings or {}).get('match_duration_minutes')
     if isinstance(raw_duration, int) and raw_duration > 0:
         return raw_duration
     if isinstance(raw_duration, str) and raw_duration.isdigit():
