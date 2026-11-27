@@ -31,7 +31,9 @@ def _patch_post(monkeypatch, fake):
     monkeypatch.setattr(turnstile.httpx, 'post', fake)
 
 
-def test_verify_token_asks_cloudflare_and_rejects_invalid_token(app, monkeypatch):
+def test_verify_token_asks_cloudflare_and_rejects_invalid_token(
+    app, monkeypatch
+):
     calls = []
     _patch_post(monkeypatch, _fake_post({'success': False}, calls))
 
