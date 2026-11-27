@@ -39,7 +39,9 @@ def test_swiss_announces_ready_matches_of_every_follow_up_round(
     of the newly ready matches, so their players were never notified."""
     tournament, stage = _create_swiss_tournament(party, admin_user, 3)
     for _ in range(4):
-        _register_player(party.id, tournament.id, make_user, make_ticket_category)
+        _register_player(
+            party.id, tournament.id, make_user, make_ticket_category
+        )
     assert tournament_lifecycle_service.publish_tournament(
         party.id, tournament.id, admin_user
     ).is_ok()

@@ -163,8 +163,8 @@ def _is_discord_dm_bot_token_missing(
     normalized_bot_token: str | None,
     db_config: DbNetsessionTourneyDiscordDmConfig | None,
 ) -> bool:
-    has_stored_token = (
-        db_config is not None and bool(db_config.bot_token_encrypted)
+    has_stored_token = db_config is not None and bool(
+        db_config.bot_token_encrypted
     )
     return bool(enabled and not normalized_bot_token and not has_stored_token)
 

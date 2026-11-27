@@ -33,7 +33,9 @@ def _build_payload(event_name, payload_json):
 
 
 def _field_value(embed, name):
-    return next(field['value'] for field in embed['fields'] if field['name'] == name)
+    return next(
+        field['value'] for field in embed['fields'] if field['name'] == name
+    )
 
 
 def test_manual_announcement_uses_its_own_title():

@@ -50,7 +50,12 @@ def test_double_elimination_push_labels_name_the_bracket(
     fall back to the plain match number, because the stage type was
     compared with enum members instead of their values."""
     tournament = _create_live_tournament(
-        party, admin_user, make_user, make_ticket_category, stage_type, player_count
+        party,
+        admin_user,
+        make_user,
+        make_ticket_category,
+        stage_type,
+        player_count,
     )
 
     matches = match_queries.get_matches_for_tournament(party.id, tournament.id)
@@ -60,7 +65,10 @@ def test_double_elimination_push_labels_name_the_bracket(
     ]
 
     assert labels
-    assert all(label.startswith(('WB', 'LB', 'Grand Final', 'Double Grand Final')) for label in labels), labels
+    assert all(
+        label.startswith(('WB', 'LB', 'Grand Final', 'Double Grand Final'))
+        for label in labels
+    ), labels
     assert any(label.startswith('LB') for label in labels)
 
 
@@ -80,7 +88,9 @@ def _create_live_tournament(
     ).unwrap()
     for _ in range(player_count):
         player = make_user('NS_DeLabels_' + generate_token())
-        category = make_ticket_category(party.id, 'NS-Ticket-' + generate_token())
+        category = make_ticket_category(
+            party.id, 'NS-Ticket-' + generate_token()
+        )
         ticket = ticket_creation_service.create_ticket(category, player)
         assert ticket_user_management_service.appoint_user(
             ticket.id, player, player
