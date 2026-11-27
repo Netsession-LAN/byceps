@@ -28,6 +28,15 @@ from .notification_labels import (
 _GENERIC_STAGE_NAMES = {'match', 'matches'}
 
 
+# The database column holds the enum value, not the enum member.
+_DOUBLE_ELIMINATION_STAGE_TYPE_VALUES = frozenset(
+    {
+        StageType.double_elimination.value,
+        StageType.double_elimination_double_grand_final.value,
+    }
+)
+
+
 def build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
     db_match = _find_browser_push_match(payload)
     if db_match is None:
@@ -37,10 +46,7 @@ def build_browser_push_match_label(payload: dict[str, Any]) -> str | None:
     if db_stage is None:
         return f'M #{db_match.match_no}'
 
-    if db_stage.type in {
-        StageType.double_elimination,
-        StageType.double_elimination_double_grand_final,
-    }:
+    if db_stage.type in _DOUBLE_ELIMINATION_STAGE_TYPE_VALUES:
         return build_double_elimination_notification_match_label(
             db_match, db_stage.id
         )
