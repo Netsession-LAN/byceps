@@ -268,18 +268,16 @@ def stage_builder_wizard_review_submit(party_id, tournament_id):
             flash_error(message)
             return redirect_to_wizard_step(step_endpoint, party, tournament)
         case Ok(plan_kwargs):
-            pass
-
-    return handle_stage_builder_plan_result(
-        build_stage_builder_plan(
-            party.id,
-            tournament.id,
-            **plan_kwargs,
-            initiator=g.user.as_user(),
-        ),
-        party,
-        tournament,
-    )
+            return handle_stage_builder_plan_result(
+                build_stage_builder_plan(
+                    party.id,
+                    tournament.id,
+                    **plan_kwargs,
+                    initiator=g.user.as_user(),
+                ),
+                party,
+                tournament,
+            )
 
 
 _WIZARD_URL = (
