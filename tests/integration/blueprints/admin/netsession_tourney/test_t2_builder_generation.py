@@ -143,6 +143,13 @@ def test_round_robin_preliminary_then_main_stage(
 
     body = _page(manager_client, tournament, main, 'generate')
     assert 'manual_seed_' not in body
+    # Used to say the preliminary was not needed, because the qualifiers
+    # fill the main stage exactly.
+    assert (
+        'Das Hauptturnier wird aus den Qualifikanten der Vorrunde gespeist.'
+        in body
+    )
+    assert 'Die Vorrunde ist aktuell nicht nötig.' not in body
     response = generate(manager_client, tournament, main)
     assert response.status_code == 302
     main_matches = get_matches(tournament, main)

@@ -23,6 +23,9 @@ from byceps.services.netsession_tourney.blueprints.admin.stage_builder_summary_l
 from byceps.services.netsession_tourney.engines.bracket_helpers import (
     distribute_evenly,
 )
+from byceps.services.netsession_tourney.generation_participants import (
+    is_builder_preliminary_skipped,
+)
 from byceps.services.netsession_tourney.models import Stage, StageType
 
 
@@ -136,15 +139,16 @@ def _build_round_robin_generation_notes() -> list[str]:
     ]
 
 
-def get_main_generation_summary_line(
-    stage: Stage, participant_count: int, main_stage_size
-) -> str:
+def get_main_generation_summary_line(stage: Stage) -> str:
     if not (stage.settings or {}).get('builder_preliminary_stage_id'):
         return gettext(
             'Dieses Hauptturnier wird direkt aus bereiten Teilnehmern erzeugt.'
         )
 
-    if participant_count <= int(main_stage_size or 0):
+    # The same decision the generation makes. The generation basis cannot
+    # be used: after the preliminary it is the qualifiers, who exactly fill
+    # the main stage.
+    if is_builder_preliminary_skipped(stage):
         return gettext(
             'Die Vorrunde ist aktuell nicht nötig. Das Hauptturnier wird direkt aus den bereiten Teilnehmern erzeugt.'
         )
