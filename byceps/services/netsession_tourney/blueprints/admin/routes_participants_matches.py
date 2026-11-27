@@ -37,6 +37,7 @@ from byceps.services.netsession_tourney.blueprints.admin.routes_participants_tea
 )
 from byceps.services.netsession_tourney.blueprints.admin.routes_tournament_form_checks import (
     is_invalid_discord_forum_image_url,
+    stripped_or_none,
 )
 from byceps.services.netsession_tourney.discord_service import configure_discord
 from byceps.services.netsession_tourney.forms import DiscordConfigForm
@@ -75,7 +76,9 @@ def _parse_discord_update_values(form: DiscordConfigForm) -> dict[str, Any]:
         'tag_ids': parse_csv(form.applied_tag_ids.data),
         'event_mask': list(form.event_mask.data or []),
         'discord_dm_event_mask': list(form.discord_dm_event_mask.data or []),
-        'discord_forum_image_url': form.discord_forum_image_url.data or None,
+        'discord_forum_image_url': stripped_or_none(
+            form.discord_forum_image_url.data
+        ),
     }
 
 
