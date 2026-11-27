@@ -105,15 +105,17 @@ def _store_discord_dm_config(
     if error is not None:
         return Err(error)
 
-    now = datetime.utcnow()
-    if db_config is None:
-        db_config = DbNetsessionTourneyDiscordDmConfig(party_id, now)
-        db.session.add(db_config)
-
+    # Check before creating a new config object, so a rejected config
+    # does not stay in the database session.
     if _is_discord_dm_bot_token_missing(
         enabled, normalized_bot_token, db_config
     ):
         return Err('Ein Bot-Token ist erforderlich.')
+
+    now = datetime.utcnow()
+    if db_config is None:
+        db_config = DbNetsessionTourneyDiscordDmConfig(party_id, now)
+        db.session.add(db_config)
 
     db_config.enabled = enabled
     db_config.application_id = normalized_application_id
@@ -159,13 +161,12 @@ def _validate_discord_dm_application_id(
 def _is_discord_dm_bot_token_missing(
     enabled: bool,
     normalized_bot_token: str | None,
-    db_config: DbNetsessionTourneyDiscordDmConfig,
+    db_config: DbNetsessionTourneyDiscordDmConfig | None,
 ) -> bool:
-    return bool(
-        enabled
-        and not normalized_bot_token
-        and not db_config.bot_token_encrypted
+    has_stored_token = (
+        db_config is not None and bool(db_config.bot_token_encrypted)
     )
+    return bool(enabled and not normalized_bot_token and not has_stored_token)
 
 
 def _build_default_discord_dm_config(
