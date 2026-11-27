@@ -125,27 +125,6 @@ def build_ranking_rows(
     return build_points_ranking_rows(rows, duel_state)
 
 
-def _build_swiss_ranking_groups(ranking_rows) -> list[dict]:
-    groups = []
-    current_group = None
-
-    for row in ranking_rows:
-        record = (row['wins'], row['losses'])
-        if current_group is None or current_group['record'] != record:
-            current_group = {
-                'record': record,
-                'label': f'{record[0]}-{record[1]}',
-                'wins': record[0],
-                'losses': record[1],
-                'rows': [],
-            }
-            groups.append(current_group)
-
-        current_group['rows'].append(row)
-
-    return groups
-
-
 def has_rankable_results(
     matches,
     slots_by_match_id,

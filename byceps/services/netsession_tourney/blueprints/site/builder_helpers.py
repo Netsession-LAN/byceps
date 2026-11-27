@@ -32,12 +32,6 @@ def is_materialized_builder_container_stage(stage) -> bool:
     )
 
 
-def has_materialized_builder_container_stage(stages) -> bool:
-    return any(
-        is_materialized_builder_container_stage(stage) for stage in stages
-    )
-
-
 def get_materialized_builder_container_stages(
     stages,
     *,

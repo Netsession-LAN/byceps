@@ -114,10 +114,6 @@ def _generate_stage(
     is_locked_auto_seeding = is_builder_main_stage_with_preliminary_source(
         stage
     )
-    existing_stage_match_count = count_existing_stage_matches(
-        party, tournament, stage
-    )
-    is_incremental_swiss_generation = False
 
     generation = StageGenerationRequest(
         party=party,

@@ -43,12 +43,6 @@ from .service_helpers import (
 log = structlog.get_logger()
 
 
-def _ensure_discord_thread_for_tournament(
-    db_tournament: DbNetsessionTourneyTournament,
-) -> None:
-    sync_discord_thread_for_tournament(db_tournament, update_existing=False)
-
-
 def sync_discord_thread_for_tournament(
     db_tournament: DbNetsessionTourneyTournament,
     *,

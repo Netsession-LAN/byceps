@@ -30,7 +30,6 @@ from .dbmodels import (
     DbNetsessionTourneyMatchResult,
     DbNetsessionTourneyMatchSlot,
     DbNetsessionTourneyParticipant,
-    DbNetsessionTourneyRegistration,
     DbNetsessionTourneySponsorLogoAsset,
     DbNetsessionTourneyStage,
     DbNetsessionTourneyTeamMember,
@@ -58,9 +57,7 @@ from .models import (
     Participant,
     ParticipantStatus,
     ParticipantType,
-    Registration,
     RegistrationMode,
-    RegistrationState,
     RuleTemplateBodyFormat,
     SourceOutcome,
     Stage,
@@ -398,16 +395,4 @@ def db_match_chat_message_to_model(
         actor_user_id=db_message.actor_user_id,
         body=db_message.body,
         created_at=db_message.created_at,
-    )
-
-
-def _db_registration_to_model(
-    db_registration: DbNetsessionTourneyRegistration,
-) -> Registration:
-    return Registration(
-        id=db_registration.id,
-        tournament_id=db_registration.tournament_id,
-        user_id=db_registration.user_id,
-        state=RegistrationState(db_registration.state),
-        created_at=db_registration.created_at,
     )

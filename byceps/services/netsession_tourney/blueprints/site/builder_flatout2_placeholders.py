@@ -14,8 +14,6 @@ from __future__ import annotations
 from flask_babel import gettext
 
 from .flatout2_round_helpers import (
-    build_flatout2_placeholder_bracket_round,
-    build_flatout2_placeholder_match_round,
     get_flatout2_expected_round_summaries as _get_flatout2_builder_expected_round_summaries,
 )
 
@@ -124,55 +122,3 @@ def _build_flatout2_placeholder_bracket_sections(stage) -> list[dict]:
             'rounds': rounds,
         }
     ]
-
-
-def _merge_flatout2_missing_match_rounds(
-    stage, rounds: list[dict]
-) -> list[dict]:
-    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(
-        stage
-    )
-    if not expected_round_summaries:
-        return rounds
-
-    rounds_by_round_no = {
-        int(round_data['round_no']): round_data for round_data in rounds
-    }
-
-    merged_rounds = []
-    for round_summary in expected_round_summaries:
-        round_no = int(round_summary['round_no'])
-        merged_rounds.append(
-            rounds_by_round_no.get(
-                round_no,
-                build_flatout2_placeholder_match_round(stage, round_summary),
-            )
-        )
-
-    return merged_rounds
-
-
-def _merge_flatout2_missing_bracket_rounds(
-    stage, rounds: list[dict]
-) -> list[dict]:
-    expected_round_summaries = _get_flatout2_builder_expected_round_summaries(
-        stage
-    )
-    if not expected_round_summaries:
-        return rounds
-
-    rounds_by_round_no = {
-        int(round_data['round_no']): round_data for round_data in rounds
-    }
-
-    merged_rounds = []
-    for round_summary in expected_round_summaries:
-        round_no = int(round_summary['round_no'])
-        merged_rounds.append(
-            rounds_by_round_no.get(
-                round_no,
-                build_flatout2_placeholder_bracket_round(stage, round_summary),
-            )
-        )
-
-    return merged_rounds

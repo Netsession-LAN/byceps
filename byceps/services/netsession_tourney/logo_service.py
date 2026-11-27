@@ -12,7 +12,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO
 
-from sqlalchemy import select
 
 from byceps.byceps_app import get_current_byceps_app
 from byceps.database import db
@@ -27,10 +26,7 @@ from .dbmodels import (
 )
 from .logo_common import (
     _determine_logo_label,
-    _label_from_filename,
-    _normalize_label,
     ALLOWED_IMAGE_TYPES as ALLOWED_IMAGE_TYPES,
-    ALLOWED_SUFFIXES,
     MAXIMUM_DIMENSIONS,
 )
 from .logo_discord_forum_images import (
@@ -103,101 +99,6 @@ def upload_logo_image(
     db.session.commit()
 
     return Ok(_to_logo_url_path(party_id, filename))
-
-
-def get_existing_logo_choices(party_id: PartyID) -> list[tuple[str, str]]:
-    choices_by_url: dict[str, str] = {}
-
-    db_assets = db.session.scalars(
-        select(DbNetsessionTourneyLogoAsset).filter_by(party_id=party_id)
-    ).all()
-    for db_asset in db_assets:
-        url_path = _to_logo_url_path(party_id, db_asset.filename)
-        choices_by_url[url_path] = db_asset.label
-
-    for path in _iter_logo_files(party_id):
-        url_path = _to_logo_url_path(party_id, path.name)
-        choices_by_url.setdefault(url_path, _label_from_filename(path.stem))
-
-    return sorted(choices_by_url.items(), key=lambda item: item[1].lower())
-
-
-def get_existing_logo_url_paths(party_id: PartyID) -> list[str]:
-    return [url_path for url_path, _ in get_existing_logo_choices(party_id)]
-
-
-def set_logo_label_for_url(
-    party_id: PartyID,
-    actor: User,
-    logo_url_path: str,
-    label: str,
-) -> Result[None, str]:
-    normalized_label = _normalize_label(label)
-    if normalized_label is None:
-        return Err('Der Logo-Name darf nicht leer sein.')
-
-    filename = _get_filename_from_logo_url_path(party_id, logo_url_path)
-    if filename is None:
-        return Err('Ungültige Logo-Adresse.')
-
-    db_logo_asset = db.session.scalars(
-        select(DbNetsessionTourneyLogoAsset).filter_by(
-            party_id=party_id, filename=filename
-        )
-    ).one_or_none()
-
-    if db_logo_asset is None:
-        file_path = _get_logo_directory_path(party_id) / filename
-        if not file_path.exists() or not file_path.is_file():
-            return Err('Unbekannte Logo-Datei.')
-
-        db_logo_asset = DbNetsessionTourneyLogoAsset(
-            LogoAssetID(generate_uuid7()),
-            party_id,
-            filename,
-            normalized_label,
-            actor.id,
-            datetime.utcnow(),
-        )
-        db.session.add(db_logo_asset)
-    else:
-        db_logo_asset.label = normalized_label
-
-    db.session.commit()
-    return Ok(None)
-
-
-def _iter_logo_files(party_id: PartyID) -> list[Path]:
-    directory = _get_logo_directory_path(party_id)
-    if not directory.exists() or not directory.is_dir():
-        return []
-
-    paths: list[Path] = []
-    for path in sorted(directory.iterdir(), key=lambda item: item.name.lower()):
-        if not path.is_file():
-            continue
-        if path.suffix.lower() not in ALLOWED_SUFFIXES:
-            continue
-        paths.append(path)
-
-    return paths
-
-
-def _get_filename_from_logo_url_path(
-    party_id: PartyID, logo_url_path: str
-) -> str | None:
-    expected_prefix = f'/data/parties/{party_id}/netsession_tourney/logos/'
-    if not logo_url_path.startswith(expected_prefix):
-        return None
-
-    filename = logo_url_path.removeprefix(expected_prefix).strip()
-    if not filename or '/' in filename or '\\' in filename:
-        return None
-
-    if Path(filename).suffix.lower() not in ALLOWED_SUFFIXES:
-        return None
-
-    return filename
 
 
 def _get_logo_directory_path(party_id: PartyID) -> Path:

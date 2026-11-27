@@ -19,7 +19,6 @@ from .builder_helpers import (
     get_materialized_builder_container_stages,
     is_materialized_builder_container_stage,
 )
-from .stage_filters import _is_flatout2_stage
 
 
 def _get_builder_main_stages(stages):
@@ -67,22 +66,3 @@ def select_matches_for_public_bracket(stages, matches):
 
     main_stage_ids = {stage.id for stage in main_display_stages}
     return [match for match in matches if match.stage_id in main_stage_ids]
-
-
-def get_flatout2_builder_bracket_display_stages(stages):
-    display_stages = []
-
-    for container_stage in get_materialized_builder_container_stages(
-        stages, role='preliminary'
-    ):
-        for child_stage in get_builder_container_child_stages(
-            stages, container_stage
-        ):
-            if _is_flatout2_stage(child_stage):
-                display_stages.append(child_stage)
-
-    for stage in get_builder_main_display_stages(stages):
-        if _is_flatout2_stage(stage):
-            display_stages.append(stage)
-
-    return display_stages

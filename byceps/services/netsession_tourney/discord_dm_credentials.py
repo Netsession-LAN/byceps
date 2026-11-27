@@ -71,41 +71,6 @@ def get_configured_discord_bot_credentials() -> Result[
     return Ok(next(iter(credentials)))
 
 
-def get_enabled_discord_dm_bot_credentials() -> Result[
-    tuple[str, str] | None, str
-]:
-    match get_configured_discord_bot_credentials():
-        case Err(message):
-            return Err(message)
-        case Ok(None):
-            return Ok(None)
-        case Ok(credentials):
-            pass
-
-    return _confirm_enabled_discord_bot_credentials(credentials)
-
-
-def _confirm_enabled_discord_bot_credentials(
-    credentials: tuple[str, str],
-) -> Result[tuple[str, str] | None, str]:
-    try:
-        db_configs = db.session.scalars(
-            select(DbNetsessionTourneyDiscordDmConfig).filter_by(enabled=True)
-        ).all()
-    except DBAPIError as exc:
-        if is_missing_discord_dm_table_error(exc):
-            db.session.rollback()
-            return Ok(None)
-        raise
-
-    enabled_credentials = _collect_discord_bot_credentials(db_configs)
-
-    if not enabled_credentials:
-        return Ok(None)
-
-    return Ok(credentials)
-
-
 def _collect_discord_bot_credentials(
     db_configs: Sequence[DbNetsessionTourneyDiscordDmConfig],
 ) -> set[tuple[str, str]]:

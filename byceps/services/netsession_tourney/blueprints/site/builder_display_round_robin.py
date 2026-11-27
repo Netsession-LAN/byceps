@@ -17,13 +17,6 @@ from .builder_display_summary_lines import (
 )
 
 
-def _has_materialized_builder_round_robin_summary_stage(stages) -> bool:
-    return any(
-        _is_materialized_builder_round_robin_summary_stage(stage)
-        for stage in stages
-    )
-
-
 def _get_materialized_builder_round_robin_summary_stage(stages):
     return next(
         (
