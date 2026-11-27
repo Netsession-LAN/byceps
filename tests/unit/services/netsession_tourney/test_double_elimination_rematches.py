@@ -18,11 +18,7 @@ from byceps.services.netsession_tourney.engines.bracket_helpers import (
 )
 
 
-def _has_early_loser_bracket_rematch(specs, rng) -> bool:
-    by_no = {spec.match_no: spec for spec in specs}
-    grand_final_no = max(by_no)
-    lb_final_no = by_no[grand_final_no].slots[1].source_match_no
-
+def _winner_bracket_match_nos(specs) -> set[int]:
     wb_nos = set()
     for spec in specs:
         if all(
@@ -34,27 +30,36 @@ def _has_early_loser_bracket_rematch(specs, rng) -> bool:
             for slot in spec.slots
         ):
             wb_nos.add(spec.match_no)
+    return wb_nos
+
+
+def _slot_players(spec, outcome) -> list:
+    players = []
+    for slot in spec.slots:
+        if slot.source_match_no is None:
+            players.append(slot.participant_id)
+        else:
+            winner, loser = outcome[slot.source_match_no]
+            players.append(winner if slot.source_outcome == 'winner' else loser)
+    return players
+
+
+def _has_early_loser_bracket_rematch(specs, rng) -> bool:
+    by_no = {spec.match_no: spec for spec in specs}
+    grand_final_no = max(by_no)
+    lb_final_no = by_no[grand_final_no].slots[1].source_match_no
+    exempt_nos = _winner_bracket_match_nos(specs) | {
+        lb_final_no,
+        grand_final_no,
+    }
 
     outcome = {}
     met = set()
     early_rematch = False
     for no in sorted(by_no):
-        players = []
-        for slot in by_no[no].slots:
-            if slot.source_match_no is None:
-                players.append(slot.participant_id)
-            else:
-                winner, loser = outcome[slot.source_match_no]
-                players.append(
-                    winner if slot.source_outcome == 'winner' else loser
-                )
-        a, b = players
+        a, b = _slot_players(by_no[no], outcome)
         pair = frozenset((a, b))
-        if (
-            pair in met
-            and no not in wb_nos
-            and no not in (lb_final_no, grand_final_no)
-        ):
+        if pair in met and no not in exempt_nos:
             early_rematch = True
         met.add(pair)
         winner = a if rng.random() < 0.5 else b

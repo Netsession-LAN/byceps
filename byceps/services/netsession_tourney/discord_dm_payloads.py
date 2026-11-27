@@ -31,6 +31,9 @@ from .notification_urls import (
 )
 
 
+DM_EMBED_SENDER_NAME = 'Netsession Turniere'
+
+
 def _build_discord_dm_message_payload(
     db_tournament: DbNetsessionTourneyTournament,
     db_notification: DbNetsessionTourneyNotification,
@@ -63,12 +66,12 @@ def _build_discord_dm_message_payload(
     )
 
     embed: dict[str, Any] = {
-        'author': {'name': 'Netsession Turniere'},
+        'author': {'name': DM_EMBED_SENDER_NAME},
         'title': f'{event_meta["emoji"]} {event_meta["headline"]}'[:256],
         'description': '\n'.join(description_lines)[:4096],
         'color': 0xFF2B00,
         'fields': fields,
-        'footer': {'text': 'Netsession Turniere'},
+        'footer': {'text': DM_EMBED_SENDER_NAME},
         'timestamp': db_notification.created_at.replace(
             microsecond=0
         ).isoformat()
@@ -122,7 +125,7 @@ def _build_test_discord_dm_message_payload(
     ]
 
     embed: dict[str, Any] = {
-        'author': {'name': 'Netsession Turniere'},
+        'author': {'name': DM_EMBED_SENDER_NAME},
         'title': '🧪 Discord-Testnachricht',
         'description': '\n'.join(description_lines)[:4096],
         'color': 0xFF2B00,
@@ -148,7 +151,7 @@ def _build_test_discord_dm_message_payload(
                 'inline': True,
             },
         ],
-        'footer': {'text': 'Netsession Turniere'},
+        'footer': {'text': DM_EMBED_SENDER_NAME},
         'timestamp': datetime.utcnow().replace(microsecond=0).isoformat() + 'Z',
     }
 

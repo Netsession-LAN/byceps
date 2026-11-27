@@ -26,6 +26,7 @@ from .dbmodels import (
     DbNetsessionTourneyNotification,
     DbNetsessionTourneyTournament,
 )
+from .discord_forum_api import DISCORD_API_BASE_URL
 from .discord_dm_payloads import (
     _build_discord_dm_message_payload,
     _build_test_discord_dm_message_payload,
@@ -279,7 +280,7 @@ def _send_discord_dm(
     }
 
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_DM_TIMEOUT_SECONDS,
         headers=headers,
     ) as client:
