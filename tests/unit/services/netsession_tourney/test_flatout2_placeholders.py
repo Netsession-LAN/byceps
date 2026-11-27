@@ -19,8 +19,10 @@ def _flatout2_stage_without_plan():
 
 
 def test_bracket_of_empty_flatout2_stage_does_not_fail():
-    sections = stage_render_bracket_sections._build_stage_public_bracket_sections(
-        _flatout2_stage_without_plan(), [], {}, {}, {}, {}, {}
+    sections = (
+        stage_render_bracket_sections._build_stage_public_bracket_sections(
+            _flatout2_stage_without_plan(), [], {}, {}, {}, {}, {}
+        )
     )
 
     assert sections == []
