@@ -8,7 +8,6 @@ byceps.services.netsession_tourney.engines.base
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
 from byceps.services.netsession_tourney.models import (
     MatchID,

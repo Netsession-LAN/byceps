@@ -39,14 +39,6 @@ def _is_builder_container_stage(stage: Stage) -> bool:
     )
 
 
-def _is_builder_preliminary_group_stage(stage: Stage) -> bool:
-    settings = stage.settings or {}
-    return (
-        _is_stage_builder_v1_stage(stage)
-        and settings.get('builder_role') == 'preliminary_group'
-    )
-
-
 def is_builder_main_stage_with_preliminary_source(stage: Stage) -> bool:
     settings = stage.settings or {}
     return (

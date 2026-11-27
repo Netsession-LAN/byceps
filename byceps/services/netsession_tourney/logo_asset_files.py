@@ -163,22 +163,3 @@ def _unlink_file_if_exists(path: Path) -> None:
         path.unlink()
     except FileNotFoundError:
         pass
-
-
-def _get_tournament_asset_filename_from_logo_url_path(
-    party_id: PartyID, logo_url_path: str
-) -> str | None:
-    expected_prefix = (
-        f'/data/parties/{party_id}/netsession_tourney/tournament_logos/'
-    )
-    if not logo_url_path.startswith(expected_prefix):
-        return None
-
-    filename = logo_url_path.removeprefix(expected_prefix).strip()
-    if not filename or '/' in filename or '\\' in filename:
-        return None
-
-    if Path(filename).suffix.lower() not in ALLOWED_SUFFIXES:
-        return None
-
-    return filename

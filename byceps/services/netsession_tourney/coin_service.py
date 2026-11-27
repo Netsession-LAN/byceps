@@ -74,15 +74,6 @@ def get_user_coin_balance(
     )
 
 
-def get_user_coin_balances(
-    party_id: PartyID, user_ids: set[UserID]
-) -> dict[UserID, UserCoinBalance]:
-    return {
-        user_id: get_user_coin_balance(party_id, user_id)
-        for user_id in user_ids
-    }
-
-
 def get_recent_coin_ledger_entries_for_user(
     party_id: PartyID, user_id: UserID, *, limit: int = 10
 ) -> list[CoinLedgerEntry]:

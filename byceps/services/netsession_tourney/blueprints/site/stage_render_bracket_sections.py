@@ -14,7 +14,6 @@ from . import builder_flatout2_placeholders
 from .bracket_helpers import build_bracket_data, build_bracket_sections
 from .builder_display_helpers import (
     get_builder_main_display_stages,
-    get_flatout2_builder_bracket_display_stages,
 )
 from .builder_helpers import (
     build_pending_builder_round_summary_lines,
@@ -206,56 +205,3 @@ def _select_stage_participants_by_id(
         for participant_id in stage_participant_ids
         if participant_id in participants_by_id
     }
-
-
-def _build_flatout2_builder_full_bracket_sections(
-    stages,
-    matches,
-    slots_by_match_id,
-    results_by_match_id,
-    participants_by_id,
-):
-    display_stages = get_flatout2_builder_bracket_display_stages(stages)
-    if not display_stages:
-        return []
-
-    stages_by_id = index_stages_by_id(stages)
-    matches_by_stage_id = group_matches_by_stage_id(matches)
-
-    merged_rounds = []
-    for stage in display_stages:
-        stage_matches = matches_by_stage_id.get(stage.id, [])
-        (
-            stage_slots_by_match_id,
-            stage_participants_by_id,
-            stage_match_labels_by_id,
-        ) = _scope_to_stage(
-            stage_matches, slots_by_match_id, participants_by_id, stages_by_id
-        )
-        stage_sections = _build_stage_public_bracket_sections(
-            stage,
-            stage_matches,
-            stage_slots_by_match_id,
-            results_by_match_id,
-            stage_participants_by_id,
-            stage_match_labels_by_id,
-            stages_by_id,
-        )
-        if not stage_sections:
-            continue
-
-        for subsection in stage_sections:
-            merged_rounds.extend(subsection['rounds'])
-
-    if not merged_rounds:
-        return []
-
-    return [
-        {
-            'kind': 'bracket',
-            'key': 'flatout2-builder-full',
-            'title': None,
-            'presentation': 'ffa',
-            'rounds': merged_rounds,
-        }
-    ]

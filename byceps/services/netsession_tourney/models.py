@@ -267,30 +267,6 @@ class DiscordDmConfig:
 
 
 @dataclass(frozen=True, kw_only=True)
-class BrowserPushSubscription:
-    id: BrowserPushSubscriptionID
-    party_id: PartyID
-    user_id: UserID
-    endpoint: str
-    user_agent: str | None
-    enabled: bool
-    last_seen_at: datetime
-    created_at: datetime
-    updated_at: datetime
-
-
-@dataclass(frozen=True, kw_only=True)
-class DiscordDmSubscription:
-    id: DiscordDmSubscriptionID
-    party_id: PartyID
-    user_id: UserID
-    enabled: bool
-    last_seen_at: datetime
-    created_at: datetime
-    updated_at: datetime
-
-
-@dataclass(frozen=True, kw_only=True)
 class CoinSettings:
     party_id: PartyID
     enabled: bool
@@ -429,15 +405,6 @@ class MatchChatMessage:
 
 
 @dataclass(frozen=True, kw_only=True)
-class Registration:
-    id: RegistrationID
-    tournament_id: TournamentID
-    user_id: UserID
-    state: RegistrationState
-    created_at: datetime
-
-
-@dataclass(frozen=True, kw_only=True)
 class CoinLedgerEntry:
     id: CoinLedgerEntryID
     party_id: PartyID
@@ -468,13 +435,3 @@ class StageTypeSpec:
     enabled: bool
     beta: bool
     publishable: bool
-
-
-@dataclass(frozen=True, kw_only=True)
-class LogoAsset:
-    id: LogoAssetID
-    party_id: PartyID
-    filename: str
-    label: str
-    uploaded_by_user_id: UserID
-    created_at: datetime

@@ -48,16 +48,6 @@ def is_loser_source_outcome(outcome: SourceOutcome | str | None) -> bool:
     return value == 'loser'
 
 
-def get_match_result_for_match(match_id: MatchID) -> MatchResult | None:
-    db_result = db.session.scalar(
-        select(DbNetsessionTourneyMatchResult).filter_by(match_id=match_id)
-    )
-    if db_result is None:
-        return None
-
-    return db_match_result_to_model(db_result)
-
-
 def get_match_results(match_ids: set[MatchID]) -> dict[MatchID, MatchResult]:
     if not match_ids:
         return {}
