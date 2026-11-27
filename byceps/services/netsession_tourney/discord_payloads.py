@@ -88,6 +88,8 @@ class _DiscordEventPresentation:
     description: str
     url: str | None
     color: int
+    # Value of the "Ereignis" field, if it differs from the embed title.
+    event_label: str | None = None
 
 
 def build_discord_message_payload(
@@ -111,7 +113,11 @@ def build_discord_message_payload(
     url = presentation.url
 
     fields = _build_discord_message_fields(
-        db_tournament, event_name, payload_data, embed_title, url
+        db_tournament,
+        event_name,
+        payload_data,
+        presentation.event_label or embed_title,
+        url,
     )
 
     embed: dict[str, Any] = {
@@ -160,11 +166,13 @@ def _build_discord_manual_announcement_presentation(
         str(payload_data.get('body') or '').strip()
         or _DISCORD_DEFAULT_DESCRIPTION
     )
+    title = str(payload_data.get('title') or '').strip()
     return _DiscordEventPresentation(
-        embed_title='Turnier-Update',
+        embed_title=title or 'Turnier-Update',
         description=description,
         url=_get_discord_custom_url(db_tournament, payload_data, url),
         color=_DISCORD_DEFAULT_COLOR,
+        event_label='Turnier-Update',
     )
 
 
