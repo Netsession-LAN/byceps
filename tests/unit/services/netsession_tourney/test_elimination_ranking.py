@@ -154,3 +154,22 @@ def test_apply_placements_orders_rows_and_appends_unplaced():
         ('p2', 2),
         ('x', 3),
     ]
+
+
+def test_apply_placements_ranks_unplaced_rows_without_a_rank():
+    """Unplaced rows without a rank used to raise an UnboundLocalError."""
+    rows = [
+        {'participant': NS(id='p1'), 'rank': 1},
+        {'participant': NS(id='x'), 'rank': None},
+        {'participant': NS(id='y'), 'rank': None},
+        {'participant': NS(id='z'), 'rank': 4},
+    ]
+
+    result = apply_placements(rows, {'p1': 1})
+
+    assert [(r['participant'].id, r['rank']) for r in result] == [
+        ('p1', 1),
+        ('x', 2),
+        ('y', 2),
+        ('z', 4),
+    ]

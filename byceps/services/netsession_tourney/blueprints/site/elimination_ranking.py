@@ -100,9 +100,14 @@ def apply_placements(ranking_rows: list[dict], places) -> list[dict]:
     return rows
 
 
+_NO_RANK_YET = object()
+
+
 def _append_unplaced_rows(rows: list[dict], rest: list[dict]) -> None:
     next_rank = len(rows) + 1
-    previous_rank = None
+    # A sentinel, because the first row may itself have no rank (`None`).
+    previous_rank = _NO_RANK_YET
+    current = next_rank
     for index, row in enumerate(rest):
         if row.get('rank') != previous_rank:
             current = next_rank + index
