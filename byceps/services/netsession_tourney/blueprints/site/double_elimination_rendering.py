@@ -19,6 +19,9 @@ from .double_elimination_sections import (
 )
 
 
+GRAND_FINAL_LABEL = 'Grand Final'
+
+
 def build_double_elimination_match_labels(
     stage_matches,
     incoming_by_match_id,
@@ -80,10 +83,10 @@ def _select_bracket_matches(sorted_matches, bracket_by_match_id, bracket):
 
 def _label_grand_final_matches(gf_matches) -> dict:
     if len(gf_matches) == 1:
-        return {gf_matches[0].id: 'Grand Final'}
+        return {gf_matches[0].id: GRAND_FINAL_LABEL}
     if len(gf_matches) == 2:
         return {
-            gf_matches[0].id: 'Grand Final',
+            gf_matches[0].id: GRAND_FINAL_LABEL,
             gf_matches[1].id: 'Double Grand Final',
         }
     return {
@@ -112,7 +115,7 @@ def _iter_bracket_labels(bracket, match_labels_by_id):
 def _is_winner_side_label(label: str) -> bool:
     return (
         label.startswith('WB ')
-        or label.startswith('Grand Final')
+        or label.startswith(GRAND_FINAL_LABEL)
         or label.startswith('Double Grand Final')
     )
 

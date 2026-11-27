@@ -71,7 +71,19 @@ from byceps.util.views import permission_required
 
 def register(blueprint):
     register_stage_builder_start_routes(blueprint)
+    _register_main_step(blueprint)
+    _register_preliminary_step(blueprint)
+    _register_timing_step(blueprint)
+    register_stage_builder_review_routes(blueprint)
+    _register_review_step(blueprint)
+    register_stage_create_routes(blueprint)
+    register_stage_generation_routes(blueprint)
+    register_stage_update_routes(blueprint)
+    register_stage_participant_source_routes(blueprint)
+    register_stage_delete_routes(blueprint)
 
+
+def _register_main_step(blueprint):
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/main'
     )
@@ -134,6 +146,8 @@ def register(blueprint):
             '.stage_builder_wizard_preliminary', party, tournament
         )
 
+
+def _register_preliminary_step(blueprint):
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/preliminary'
     )
@@ -200,6 +214,8 @@ def register(blueprint):
             '.stage_builder_wizard_timing', party, tournament
         )
 
+
+def _register_timing_step(blueprint):
     @blueprint.get(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/timing'
     )
@@ -255,8 +271,8 @@ def register(blueprint):
             '.stage_builder_wizard_review', party, tournament
         )
 
-    register_stage_builder_review_routes(blueprint)
 
+def _register_review_step(blueprint):
     @blueprint.post(
         '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder/review'
     )
@@ -287,9 +303,3 @@ def register(blueprint):
             party,
             tournament,
         )
-
-    register_stage_create_routes(blueprint)
-    register_stage_generation_routes(blueprint)
-    register_stage_update_routes(blueprint)
-    register_stage_participant_source_routes(blueprint)
-    register_stage_delete_routes(blueprint)

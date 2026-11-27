@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 
+DISCORD_API_BASE_URL = 'https://discord.com/api/v10'
 DISCORD_FORUM_TIMEOUT_SECONDS = 10
 
 
@@ -37,7 +38,7 @@ def create_discord_forum_thread(
     payload: dict[str, Any],
 ) -> str:
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_FORUM_TIMEOUT_SECONDS,
         headers=_build_discord_bot_headers(
             application_id=application_id, bot_token=bot_token
@@ -64,7 +65,7 @@ def get_discord_channel(
     channel_id: str,
 ) -> dict[str, Any]:
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_FORUM_TIMEOUT_SECONDS,
         headers=_build_discord_bot_headers(
             application_id=application_id, bot_token=bot_token
@@ -83,7 +84,7 @@ def patch_discord_channel(
     payload: dict[str, Any],
 ) -> None:
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_FORUM_TIMEOUT_SECONDS,
         headers=_build_discord_bot_headers(
             application_id=application_id, bot_token=bot_token
@@ -101,7 +102,7 @@ def patch_discord_forum_starter_message(
     payload: dict[str, Any],
 ) -> None:
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_FORUM_TIMEOUT_SECONDS,
         headers=_build_discord_bot_headers(
             application_id=application_id, bot_token=bot_token
@@ -122,7 +123,7 @@ def post_discord_forum_message(
     payload: dict[str, Any],
 ) -> None:
     with httpx.Client(
-        base_url='https://discord.com/api/v10',
+        base_url=DISCORD_API_BASE_URL,
         timeout=DISCORD_FORUM_TIMEOUT_SECONDS,
         headers=_build_discord_bot_headers(
             application_id=application_id, bot_token=bot_token
