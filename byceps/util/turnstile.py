@@ -6,12 +6,10 @@ Strict Cloudflare Turnstile integration (no legacy fallbacks).
 """
 
 from __future__ import annotations
-import json, math
 from typing import Any, Dict, Optional
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 from flask import current_app, request as flask_request
+import httpx
 import structlog
 
 VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
@@ -61,13 +59,10 @@ def _siteverify(
     if remoteip:
         data["remoteip"] = remoteip
 
-    body = urlencode(data).encode("utf-8")
-    req = Request(VERIFY_URL, data=body, method="POST")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-
     try:
-        with urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        response = httpx.post(VERIFY_URL, data=data, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
     except Exception as exc:
         log.warning(
             "turnstile_cloudflare_unreachable_letting_through",
