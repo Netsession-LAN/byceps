@@ -138,7 +138,7 @@ def _pending(session: Session) -> set:
     return session.info.setdefault(_PENDING_KEY, set())
 
 
-def _remember_membership(mapper, connection, target: DbMembership) -> None:
+def _remember_membership(_mapper, _connection, target: DbMembership) -> None:
     session = Session.object_session(target)
     if session is not None:
         _pending(session).add(target.user_id)
