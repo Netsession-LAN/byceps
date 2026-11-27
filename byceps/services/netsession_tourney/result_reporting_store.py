@@ -163,6 +163,12 @@ def _check_winner_change_allowed(
     db_blocking_match = db.session.get(
         DbNetsessionTourneyMatch, blocking_match_id
     )
+    if db_blocking_match is None:
+        return (
+            'Der Sieger lässt sich nicht mehr ändern, weil ein Folge-Match '
+            'schon ein Ergebnis hat. Lösche zuerst dieses Ergebnis.'
+        )
+
     return (
         'Der Sieger lässt sich nicht mehr ändern, weil ein Folge-Match '
         f'(Runde {db_blocking_match.round_no}, Match {db_blocking_match.match_no}) '
