@@ -70,9 +70,12 @@ def test_dm_application_id_must_be_a_discord_id(
     assert result.is_ok() == accepted
 
 
-def test_rejected_dm_config_without_bot_token_is_not_stored(admin_app, party):
+def test_rejected_dm_config_without_bot_token_is_not_stored(
+    admin_app, make_party, brand
+):
     """A new config without bot token used to stay in the database
     session after being rejected, so a later commit stored it."""
+    party = make_party(brand)
     result = discord_dm_service.configure_discord_dm(
         party.id,
         enabled=True,
