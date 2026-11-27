@@ -68,6 +68,7 @@ from byceps.util.framework.templating import templated
 from byceps.util.result import Err, Ok
 from byceps.util.views import permission_required
 
+
 def register(blueprint):
     register_stage_builder_start_routes(blueprint)
     for rule, view_func, method in _WIZARD_ROUTES:
@@ -111,6 +112,7 @@ def stage_builder_wizard_main(party_id, tournament_id, erroneous_form=None):
         'wizard_steps': stage_builder_steps(),
         'is_ffa_builder': is_ffa_stage_builder_tournament(tournament),
     }
+
 
 @permission_required('netsession_tourney.manage')
 def stage_builder_wizard_main_submit(party_id, tournament_id):
@@ -170,6 +172,7 @@ def stage_builder_wizard_preliminary(
         'supports_preliminary_builder': supports_preliminary_builder,
     }
 
+
 @permission_required('netsession_tourney.manage')
 def stage_builder_wizard_preliminary_submit(party_id, tournament_id):
     party = get_party_or_404(party_id)
@@ -186,9 +189,7 @@ def stage_builder_wizard_preliminary_submit(party_id, tournament_id):
         erroneous_form=StageBuilderPreliminaryForm(
             request.form,
             tournament_mode=tournament.mode,
-            main_stage_type=stage_type_or_none(
-                state.get('main_stage_type')
-            ),
+            main_stage_type=stage_type_or_none(state.get('main_stage_type')),
         ),
     )
     if not form.validate():
@@ -205,9 +206,7 @@ def stage_builder_wizard_preliminary_submit(party_id, tournament_id):
 
 @permission_required('netsession_tourney.manage')
 @templated('admin/netsession_tourney/stage_builder/timing')
-def stage_builder_wizard_timing(
-    party_id, tournament_id, erroneous_form=None
-):
+def stage_builder_wizard_timing(party_id, tournament_id, erroneous_form=None):
     party = get_party_or_404(party_id)
     tournament = _get_tournament_or_404(party.id, tournament_id)
     state, redirect_response = load_stage_builder_wizard_state(
@@ -226,6 +225,7 @@ def stage_builder_wizard_timing(
         'wizard_step': 'timing',
         'wizard_steps': stage_builder_steps(),
     }
+
 
 @permission_required('netsession_tourney.manage')
 def stage_builder_wizard_timing_submit(party_id, tournament_id):
@@ -282,7 +282,9 @@ def stage_builder_wizard_review_submit(party_id, tournament_id):
     )
 
 
-_WIZARD_URL = '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder'
+_WIZARD_URL = (
+    '/for_party/<party_id>/tournaments/<uuid:tournament_id>/stages/builder'
+)
 
 # (URL, view, HTTP method); the endpoint is the view's name, as before.
 _WIZARD_ROUTES = [
